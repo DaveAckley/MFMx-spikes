@@ -108,7 +108,7 @@ namespace MFM {
     u32 hbaddr = mDeployedCodeSize-sizeof(HostBlock);
     //printf("INIT %d @ 0x%x\n",tlb_read_u32(hbaddr),hbaddr);
 
-    volatile HostBlock* hb = (volatile HostBlock*)set_tlb_addr(hbaddr);
+    HostBlock* hb = (HostBlock*)set_tlb_addr(hbaddr);
 
     printf(" HOSTBLOCK (%d-%ld) AT %p / 0x%x %d\n",
            mDeployedCodeSize,sizeof(HostBlock),hb,hbaddr,hbaddr);

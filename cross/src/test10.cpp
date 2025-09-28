@@ -76,7 +76,7 @@ namespace MFM {
 #define X1 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0
 #define X2 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1
 #define X3 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2
-    X3 X3 X3 X3 X3 X3 X3 X3
+    X3 X3 
 #undef X
 #undef X1
 #undef X2

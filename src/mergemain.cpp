@@ -7,15 +7,23 @@
 //AHAX #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-//#include "umd/device/pci_device.hpp"
+#include "umd/device/pci_device.hpp"
 #include "umd/device/pci_device.hpp"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 
+#include "RandMT.h"
+#include <unistd.h> // for sleep
+
 using namespace tt::umd;
 
-int main(int argc, char* argv[]) {
+namespace MFM {
+  int mergemain() {
+    MFM::RandMT rmt;
+    sleep(1);
+    rmt.seedMT_MFM(time(0));
+
     std::vector<int> pci_devices = PCIDevice::enumerate_devices();
     if (pci_devices.empty()) {
         std::cerr << "No devices found" << std::endl;
@@ -92,4 +100,5 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\nDemo complete" << std::endl;
     return 0;
+}
 }
