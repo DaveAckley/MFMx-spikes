@@ -7,10 +7,13 @@ OBS:=$(patsubst src/%.c,$(BUILDDIR)/%.o,$(patsubst src/%.cpp,$(BUILDDIR)/%.o,$(S
 INC:=$(wildcard include/*.h)
 ALLDEPS:=Makefile
 
-all:	$(PROG)
+all:	$(PROG) cross
 
 $(PROG):	 $(OBS) $(INC) $(ALLDEPS) | $(PROGDIR)
 	g++ $(OBS) -o $@
+
+cross:	FORCE
+	make -C cross
 
 $(BUILDDIR):
 	mkdir -p $@
@@ -25,15 +28,17 @@ $(PROGDIR):
 	mkdir -p $@
 
 realclean:	clean
+	make -C cross realclean
 	rm -rf $(BUILDDIR)
 	rm -f $(PROGDIR)/*
 
 
 clean:	FORCE
+	make -C cross clean
 	rm -f $(BUILDDIR)/*
 
 #./ethdump --out=tt.pcap --generate-traffic --loopback-mode=2
-run:	$(PROG)
+run:	$(PROG) cross
 	$(PROG)
 
 
