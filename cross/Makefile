@@ -8,7 +8,7 @@ export ALLDEP=Makefile $(wildcard config/*.mk)
 PROG:=test10
 
 all:	bin/$(PROG).bin
-	echo hi $(COMPILER_BASE_DIR)
+	@echo didit done
 
 include config/Makebin.mk
 

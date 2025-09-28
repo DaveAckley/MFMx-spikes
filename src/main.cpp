@@ -3,15 +3,20 @@
 
 namespace MFM {
   s32 TestDevice(u32 device) {
-    printf("BKAKDOGNA\n");
-    MFM::BHUMD umd(device);           // talk to 0
+    printf("\nBUD13MAN %d\n",device);
+    MFM::BHUMD umd;
+    umd.setDeviceNumber(device); 
     s32 ret;
     ret = umd.open();
     if (ret) return ret;
 
-    umd.deployRISCVCode();
-    umd.doTests();
+    printf("DEPLOYING CODE\n");
+    umd.deployRISCVCodeFromFile("./cross/bin/test10.bin");
 
+    printf("RELEASING THE HOUNDS\n");
+    umd.releaseTheHounds();
+
+    printf("CLOSING UP\n");
     ret = umd.close();
     return ret;
   }

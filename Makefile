@@ -1,3 +1,4 @@
+DEBUGFLAG:=-g
 PROGNAME:=$(notdir $(CURDIR))
 PROGDIR:=./bin
 PROG:=$(PROGDIR)/$(PROGNAME)
@@ -10,7 +11,7 @@ ALLDEPS:=Makefile
 all:	$(PROG) cross
 
 $(PROG):	 $(OBS) $(INC) $(ALLDEPS) | $(PROGDIR)
-	g++ $(OBS) -o $@
+	g++ $(DEBUGFLAG) -O2 $(OBS) -o $@
 
 cross:	FORCE
 	make -C cross
@@ -19,10 +20,10 @@ $(BUILDDIR):
 	mkdir -p $@
 
 $(BUILDDIR)/%.o:	src/%.c $(INC) | $(BUILDDIR)
-	gcc -c -O2 $< -Iinclude -o $@
+	gcc $(DEBUGFLAG) -c -O2 $< -Iinclude -o $@
 
 $(BUILDDIR)/%.o:	src/%.cpp $(INC) | $(BUILDDIR)
-	g++ -c -O2 $< -Iinclude -o $@
+	g++ $(DEBUGFLAG) -c -O2 $< -Iinclude -o $@
 
 $(PROGDIR):
 	mkdir -p $@
@@ -39,6 +40,7 @@ clean:	FORCE
 
 #./ethdump --out=tt.pcap --generate-traffic --loopback-mode=2
 run:	$(PROG) cross
+	tt-smi -r >/dev/null 2>&1
 	$(PROG)
 
 

@@ -1,21 +1,48 @@
 #include "BHUMD.h"
+#include <fstream>
+#include <vector>
+#include <iostream>
+#include <string>
+#include <memory>
 
 namespace MFM {
 
-  BHUMD::BHUMD(u32 deviceNumber)
-    : mDevNum(deviceNumber)
+  BHUMD::BHUMD()
+    : mDevNum(-1)
+    , mHasDevNum(false)
     , mDevOpen(false)
+    , mCodeDeployed(false)
+    , mDeployedCodeSize(0u)
   {
-    /* empty */
+    static_assert(BHUMD_HOSTBLOCK_SIZE == sizeof(HostBlock));
+  }
+  
+  void BHUMD::setDeviceNumber(u32 deviceNumber)
+  {
+    if (mHasDevNum)
+      FATAL("ALREADY HAVE DEVICE NUMBER");
+    mDevNum = deviceNumber;
+    mHasDevNum = true;
+  }
+
+  bool BHUMD::unsetDeviceNumberIfSet() {
+    if (!mHasDevNum) return false;
+    mDevNum = -1;
+    mHasDevNum = false;
+    return true;
   }
 
   BHUMD::~BHUMD()
   {
-    if (mDevOpen)
+    if (mDevOpen) 
       close();
+    unsetDeviceNumberIfSet();
   }
   
   s32 BHUMD::open() {
+    if (!mHasDevNum)
+      FATAL("NO DEVNUM");
+
     if (mDevOpen)
       FATAL("ALREADY OPEN");
 
@@ -25,9 +52,6 @@ namespace MFM {
     mDevOpen = true;
 
     if (configure_tlb())
-      FATAL("FAILED");
-
-    if (deployRISCVCode())
       FATAL("FAILED");
 
     return 0;
@@ -41,6 +65,7 @@ namespace MFM {
     return *(volatile u32*)set_tlb_addr(addr);
   }
 
+#if 0
   static const uint32_t rv_code[] = {
     // b_setup: # B must be first, as RISCV B has fixed reset address of zero
     0x00000413,             // li s0, 0
@@ -101,13 +126,64 @@ namespace MFM {
 #define label_fini 0x80
 #define label_done 0x90
 #define label_fn_arguments 0x94
+#endif
 
-  typedef struct rv_code_arguments_t {
-    uint32_t fptr;
-    uint32_t loop_count;
-    uint32_t per_rv[5];
-  } rv_code_arguments_t;
+  s32 BHUMD::releaseTheHounds() {
+    if (!mCodeDeployed)
+      FATAL("NO CODE DEPLOYED");
 
+    // Prepare host block. (It goes at the very back of the code)
+    u32 hbaddr = mDeployedCodeSize-sizeof(HostBlock);
+    printf("INIT %d @ 0x%x\n",tlb_read_u32(hbaddr),hbaddr);
+
+    volatile HostBlock* hb = (volatile HostBlock*)set_tlb_addr(hbaddr);
+
+    printf("HOSTBLOCK (%d-%ld) AT %p / 0x%x %d\n",mDeployedCodeSize,sizeof(HostBlock),hb,hbaddr,hbaddr);
+
+    for (int i = 0; i < 3; ++i) hb->mCommonArgs[i] = 0u;
+    for (int i = 0; i < 5; ++i) hb->mPerRiscArg[i] = 0u;
+
+#if 0
+    printf("WAIT..");
+    fflush(stdout);
+    for (int j = 0; j < 1000000; ++j) 
+      if (hb->mPerRiscArg[0] == 0u)
+        break;
+    printf("DONE\n");
+#endif    
+
+    for (int i = 0; i < 5; ++i) 
+      if (hb->mPerRiscArg[i] != 0u) 
+        FATAL("WTHMAN [%d] %d %p",i,hb->mPerRiscArg[i],hb);
+
+    // Start the RISCVs.
+    tlb_write_u32(RISCV_DEBUG_REG_SOFT_RESET_0, 0);
+
+    // Wait for all the RISCVs to finish. (They will set their mPerRiscArg non-zero)
+    // (get back to hb? tlb_write changed config?)
+    hb = (volatile HostBlock*)set_tlb_addr(mDeployedCodeSize-sizeof(HostBlock));
+    u32 doneCount = 0u;
+    u32 lastCount = U32_MAX;
+    while (doneCount < 5u) {
+      doneCount = 0u;
+      for (unsigned rv = 0; rv < 5; ++rv) 
+        if (hb->mPerRiscArg[rv] == rv+1) ++doneCount;
+      if (doneCount != lastCount) {
+        printf("%d reporting done\n",doneCount);
+        lastCount = doneCount;
+      }
+    }
+
+    //    FATAL("GOTS %d\n",tlb_read_u32(hbaddr));
+
+    printf("ALL BABIES REPORT DONE\n");
+
+    // We're done; put the RISCVs back into reset.
+    tlb_write_u32(RISCV_DEBUG_REG_SOFT_RESET_0, SOFT_RESET_ALL_RISCV);
+    return 0;
+  }
+
+#if 0
   s32 BHUMD::doTests() {
     // The actually interesting loops.
     uint32_t mem_ptr_base = (sizeof(rv_code) + sizeof(rv_code_arguments_t) + 1023) &~ 1023u;
@@ -137,6 +213,9 @@ namespace MFM {
         tlb_write_u32(RISCV_DEBUG_REG_SOFT_RESET_0, 0);
         // Wait for all the RISCVs to finish.
         for (unsigned rv = 0; rv < 5; ++rv) {
+          // 0xFFB13138 -> snapshot of RISCV B program counter, that+4 -> NC pc, ...
+          // see https://github.com/tenstorrent/tt-isa-documentation/tree/main/BlackholeA0/TensixTile/BabyRISCV#riscv-pc-snapshot
+          //          do {} while (tlb_read_u32(0xFFB13138 + rv * 4) < 0xc4); //label_done);
           do {} while (tlb_read_u32(0xFFB13138 + rv * 4) < label_done);
         }
         // We're done; put the RISCVs back into reset.
@@ -163,22 +242,75 @@ namespace MFM {
     }
     return 0;
   }
+#endif
+  
+ s32 BHUMD::close() {
+    if (!mHasDevNum) 
+      FATAL("NO DEVNUM");
 
-  s32 BHUMD::close() {
     if (!mDevOpen)
       FATAL("NOT OPEN");
+
     close_bh_pcie_device();
     mDevOpen = false;
     return 0;
   }
 
+  s32 BHUMD::deployRISCVCodeFromFile(const char * path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate); // Open in binary mode and at end
+
+    if (!file.is_open()) 
+      FATAL("Failed to open file: %s", path);
+
+    std::streamsize rvCodeSize = file.tellg(); 
+    file.seekg(0, std::ios::beg); // Seek back to beginning
+
+    auto rvcode = std::make_unique<char[]>(rvCodeSize);
+
+    if (!file.read(rvcode.get(), rvCodeSize))
+      FATAL("Failed to read file: %s", path);
+
+    printf("READ RVCODE %s\n", path);
+
+    file.close();
+
+    return deployThisRISCVCode(rvcode.get(),rvCodeSize);
+  }
+
+  s32 BHUMD::deployThisRISCVCode(const char * rvcode, u32 rvsize) {
+    printf("DEPLOYING LEN=%d (0x%08x, 0x%08x, 0x%08x, ..., 0x%08x, 0x%08x, 0x%08x)\n",
+           rvsize,
+           ((u32*) rvcode)[0],
+           ((u32*) rvcode)[1],
+           ((u32*) rvcode)[2],
+           ((u32*) rvcode)[rvsize/4-3],
+           ((u32*) rvcode)[rvsize/4-2],
+           ((u32*) rvcode)[rvsize/4-1]
+           );
+
+    bh_pcie_device_t* device = &mBHDev;
+    // Deploy this RISCV machine code to the Tensix tile.
+    memcpy(set_tlb_addr(0), rvcode, rvsize);
+    sleep(2);
+    s32 c = memcmp(set_tlb_addr(0), rvcode, rvsize);
+    if (0 != c)
+      FATAL("CODE DEPLOY CHECK MISMATCH (%c)",c);
+    else
+      printf("Code verified, %d bytes\n", rvsize);
+    mCodeDeployed = true;
+    mDeployedCodeSize = rvsize;
+    return 0;
+  }
+
+
+#if 0
   s32 BHUMD::deployRISCVCode() {
     bh_pcie_device_t* device = &mBHDev;
     // Deploy our RISCV machine code to the Tensix tile.
     memcpy(set_tlb_addr(0), rv_code, sizeof(rv_code));
     return 0;
   }
-
+#endif
 
   s32 BHUMD::set_tlb_xy(unsigned x, unsigned y) {
     bh_pcie_device_t* device = &mBHDev;
@@ -215,15 +347,30 @@ namespace MFM {
     return result;
   }
 
+  /*
+  extern "C" { char t0_setup, t1_setup, t2_setup, nc_setup; }
+#define GETCON(addr) ((u32)(((u64) &(addr))&0xffffffff))
+  */
+
   s32 BHUMD::configure_tlb() {
     if (set_tlb_xy(1, 2)) // Some Tensix tile; we don't really care which.
       FATAL("FAILED");
     // Put all RISCVs into reset, and configure their pc for coming out of reset.
+    // THIS CODE DEPENDS ON ../cross/src/_BUD.S and _BUD.ld.in AT LEAST!
     tlb_write_u32(RISCV_DEBUG_REG_SOFT_RESET_0, SOFT_RESET_ALL_RISCV);
-    tlb_write_u32(RISCV_DEBUG_REG_TRISC0_RESET_PC, label_t0_setup);
-    tlb_write_u32(RISCV_DEBUG_REG_TRISC1_RESET_PC, label_t1_setup);
-    tlb_write_u32(RISCV_DEBUG_REG_TRISC2_RESET_PC, label_t2_setup);
-    tlb_write_u32(RISCV_DEBUG_REG_NCRISC_RESET_PC, label_nc_setup);
+    //    tlb_write_u32(RISCV_DEBUG_REG_TRISC0_RESET_PC, label_t0_setup); // etc
+    //    tlb_write_u32(RISCV_DEBUG_REG_TRISC0_RESET_PC, (uintptr_t) &t0_setup);
+    tlb_write_u32(RISCV_DEBUG_REG_TRISC0_RESET_PC, 8);
+    tlb_write_u32(RISCV_DEBUG_REG_TRISC1_RESET_PC, 16);
+    tlb_write_u32(RISCV_DEBUG_REG_TRISC2_RESET_PC, 24);
+    tlb_write_u32(RISCV_DEBUG_REG_NCRISC_RESET_PC, 32);
+    /*
+    FATAL("GOTS %lx, %lx, %lx, %lx",
+          (uintptr_t) &t0_setup,
+          (uintptr_t) &t1_setup,
+          (uintptr_t) &t2_setup,
+          (uintptr_t) &nc_setup);
+    */
     tlb_write_u32(RISCV_DEBUG_REG_TRISC_RESET_PC_OVERRIDE, ~0u);
     tlb_write_u32(RISCV_DEBUG_REG_NCRISC_RESET_PC_OVERRIDE, ~0u);
     return 0;

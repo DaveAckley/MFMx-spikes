@@ -3,6 +3,7 @@
  */
 
 #include <dev_mem_map.h>
+#include "BHUMD_Constants.h"
 
 /* Define the entry point of your program.
  * This tells the linker which symbol should be the first instruction executed. */
@@ -23,9 +24,7 @@ MEMORY
 SECTIONS
 {
     /* stick fastram at the front of the private data! */
-    .fastram : {
-      . = ORIGIN(PER_HART_GLOBALS);
-      . = ALIGN(4);
+    .fastram (NOLOAD) : AT(ORIGIN(PER_HART_GLOBALS)) {
       *(.fastram)
     } > PER_HART_GLOBALS
     
@@ -86,13 +85,14 @@ SECTIONS
       PROVIDE(__bss_end = .);
     } > L1
 
-    /* Align the current location counter to a 4-byte boundary.
-     * This is good practice for subsequent memory allocations or symbols. */
-
-    . = ALIGN(4);
-
-    /* Define a symbol '_end' at the current location counter.
-     * This symbol will represent the end of your program's allocated memory. */
-    _end = .;
+    .hostblock :
+    {
+      . = ALIGN(16);
+      PROVIDE(__host_block_start = .);
+      *(.hostblock)
+      PROVIDE(__host_block_end = .);
+      __host_block_size = __host_block_end - __host_block_start;
+      PROVIDE(_end = .);
+    } > L1
  }
  
