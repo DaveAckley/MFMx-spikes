@@ -142,12 +142,19 @@ namespace MFM {
     // (get back to hb? tlb_write changed config?)
     u32 doneCount = 0u;
     u32 lastCount = U32_MAX;
+    char buf[6];
     while (doneCount < 5u) {
       doneCount = 0u;
-      for (unsigned rv = 0; rv < 5; ++rv) 
-        if (hb->mPerRiscArg[rv] == rv+1) ++doneCount;
+      for (unsigned rv = 0; rv < 5; ++rv) {
+        buf[rv] = '.';
+        if (hb->mPerRiscArg[rv] == rv+1) {
+          ++doneCount;
+          buf[rv] = '0'+rv;
+        }
+      }
+      buf[5] = 0;
       if (doneCount != lastCount) {
-        printf(" harts reporting done: %d\n",doneCount);
+        printf(" harts reporting done: %d (%s)\n",doneCount,buf);
         lastCount = doneCount;
       }
     }
