@@ -4,6 +4,7 @@ CC:=$(COMPILER_BASE_DIR)/bin/riscv32-tt-elf-gcc
 CFLAGS:=-Os
 CXX:=$(COMPILER_BASE_DIR)/bin/riscv32-tt-elf-g++
 #CXX:=$(COMPILER_BASE_DIR)/bin/riscv32-tt-elf-sfpi
+#CXXFLAGS:=-O99
 CXXFLAGS:=-Os
 LD:=$(COMPILER_BASE_DIR)/bin/riscv32-tt-elf-ld
 AR:=$(COMPILER_BASE_DIR)/bin/riscv32-tt-elf-ar

@@ -3,11 +3,15 @@
  */
 
 #include <dev_mem_map.h>
-#include "BHUMD_Constants.h"
 
 /* Define the entry point of your program.
  * This tells the linker which symbol should be the first instruction executed. */
 ENTRY(_start)
+PHDRS {
+  attributes 0x70000003;
+  text PT_LOAD;
+  data PT_LOAD;
+}
 
 MEMORY
 {
@@ -18,25 +22,52 @@ MEMORY
        available and because that's all that imm12 can reach anyway.
        note for T0-T2 the stack will overlap the top of gp space */
     PER_HART_GLOBALS : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+
+    FAST_RAM_B : ORIGIN = MEM_LOCAL_BASE, LENGTH = 8K
+    FAST_RAM_T0 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_T1 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_T2 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_NC : ORIGIN = MEM_LOCAL_BASE, LENGTH = 8K
 }
 
 /* Define how input sections are mapped to output sections and placed in memory. */
 SECTIONS
 {
+    PROVIDE(__fast_start = ORIGIN(PER_HART_GLOBALS));
+
+    /* (try to) use gp to help access fastram (not seeing any
+       successful relaxations tho) */
+    PROVIDE(__global_pointer$ = ORIGIN(PER_HART_GLOBALS) + 2K);
+
+    /* stack in fastram (4 or 8K depending on hart) */
+    PROVIDE(__stack_top4K = ORIGIN(PER_HART_GLOBALS) + 4K);
+    PROVIDE(__stack_top8K = ORIGIN(PER_HART_GLOBALS) + 8K);
+
     /* stick fastram at the front of the private data! */
-    .fastram (NOLOAD) : AT(ORIGIN(PER_HART_GLOBALS)) {
-      *(.fastram)
-    } > PER_HART_GLOBALS
+    .fastram_b (NOLOAD) : AT(ORIGIN(FAST_RAM_B)) { *(.fastram_b) } > FAST_RAM_B
+    .fastram_t0 (NOLOAD) : AT(ORIGIN(FAST_RAM_T0)) { *(.fastram_t0) } > FAST_RAM_T0
+    .fastram_t1 (NOLOAD) : AT(ORIGIN(FAST_RAM_T1)) { *(.fastram_t1) } > FAST_RAM_T1
+    .fastram_t2 (NOLOAD) : AT(ORIGIN(FAST_RAM_T2)) { *(.fastram_t2) } > FAST_RAM_T2
+    .fastram_nc (NOLOAD) : AT(ORIGIN(FAST_RAM_NC)) { *(.fastram_nc) } > FAST_RAM_NC
     
+  /* BEGIN STUFF CARGO-CULTED FROM MAIN.LD */
+  .empty.init.fini :
+  {
+    /* Our elf loader checks that .empty* sections are empty, and
+       can give a helpful error, rather than an ASSERT here.  */
+    KEEP (*(.init .fini))
+  } :text
+  /* END STUFF CARGO-CULTED FROM MAIN.LD */
+
+    /* toss stuff we don't want */
+    /DISCARD/ : {
+      *(.eh_frame)
+    }
+
     /* Set the current location counter to the start of the RAM region.
      * All subsequent sections will be placed starting from this address. */
     . = ORIGIN(L1);
     . = ALIGN(4);
-
-    PROVIDE(__stack_top4K = ORIGIN(PER_HART_GLOBALS) + 4K);
-    PROVIDE(__stack_top8K = ORIGIN(PER_HART_GLOBALS) + 8K);
-
-    PROVIDE(__global_pointer$ = ORIGIN(PER_HART_GLOBALS) + LENGTH(PER_HART_GLOBALS)/2);
 
     /* .start section: Must land at 0 */
     .start :
@@ -55,12 +86,13 @@ SECTIONS
 
     /* .rodata section: Contains read-only data (e.g., string literals, const variables).
      * Placed immediately after the .text section. */
+/*
     .rodata :
     {
        *(.rodata)             # Read-only data
        *(.rodata.*)
     } > L1
-
+*/
     /* .data section: Contains initialized global and static variables.
      * Placed immediately after the .rodata section. */
     .data :
@@ -68,7 +100,40 @@ SECTIONS
       *(.sdata)              # 'normal' initialized data
       *(.data)               # Initialized data
       *(.data.*)
+
+  /* MORE STUFF CARGO-CULTED FROM MAIN.LD */
+
+     *(.rodata .rodata.* .gnu.linkonce.r.*)
+     *(.rodata1)
+
+    *(.dynamic)
+    *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*)
+    *(.srodata.cst16) *(.srodata.cst8) *(.srodata.cst4) *(.srodata.cst2) *(.srodata .srodata.*)
+    *(.sdata .sdata.* .gnu.linkonce.s.*)
+    *(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
+
+    *(.data .data.* .gnu.linkonce.d.*)
+    *(.data1)
+
+    *(.got.plt) *(.igot.plt) *(.got) *(.igot)
+  /* END STUFF CARGO-CULTED FROM MAIN.LD */
+
     } > L1
+
+  .empty.ctors.dtors :
+  {
+    /* We don't use .ctors/.dtors either (this still isn't the '90s), make sure there aren't any.  */
+    KEEP (*(.ctors .ctors.* .dtors .dtors.*))
+  } :data
+  .empty.init_array.fini_array :
+  {
+    /* We don't support global static constructors or destructors. make sure there aren't any.  */
+    KEEP (*(.preinit_array))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+    KEEP (*(.init_array))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
+    KEEP (*(.fini_array))
+  } :data
 
     /* .bss section: Contains uninitialized global and static variables.
      * These variables are typically zero-initialized by startup code.

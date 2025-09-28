@@ -4,6 +4,7 @@ MARCH:=rv32ima_zicsr_zba_zbb
 CXXFLAGS+=-Iinclude -I../include
 CXXFLAGS+=-march=$(MARCH) -ffreestanding -nostdlib -fno-exceptions -fno-rtti
 CXXFILES:=$(wildcard src/*.cpp)
+OFILES:=$(patsubst src/%.cpp,build/%.o,$(CXXFILES))
 HFILES:=$(wildcard include/*.h)
 LDPATH:=build/gen.ld
 
@@ -15,10 +16,10 @@ $(LDPATH):	$(LINKERSCRIPT) $(HFILES) $(ALLDEP) | build
 # 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 build/%.o:	src/%.cpp $(HFILES) $(ALLDEP) | build
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@ -save-temps
 
-build/$(PROG).elf:	build/$(PROG).o $(STARTFILE) $(LDPATH) $(ALLDEP) | build
-	$(CXX) -o $@ $< $(STARTFILE) $(CXXFLAGS) -T$(LDPATH)
+build/$(PROG).elf:	$(OFILES) $(STARTFILE) $(LDPATH) $(ALLDEP) | build
+	$(CXX) -o $@ $(OFILES) $(STARTFILE) $(CXXFLAGS) -T$(LDPATH) -save-temps
 
 bin/$(PROG).bin:	build/$(PROG).elf | bin
 	$(OBJCOPY) -O binary $< $@
@@ -33,7 +34,7 @@ reportSize:	build/$(PROG).elf
 	$(SIZE) $^
 
 dumpElf:	build/$(PROG).elf
-	$(OBJDUMP) -C -D $^
+	$(OBJDUMP) -C -d -r -h $^
 
 dumpBin:	bin/$(PROG).bin
 	$(OBJDUMP) -C -D -b binary -m riscv $^

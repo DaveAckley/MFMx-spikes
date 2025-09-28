@@ -3,7 +3,7 @@ export BASEDIR=$(abspath $(CROSSDIR)/..)
 
 include config/Makevars.mk
 
-export ALLDEP=Makefile $(wildcard config/*.mk)
+export ALLDEP=Makefile $(wildcard config/*.mk) $(wildcard ../include/*.h)
 
 PROG:=test10
 

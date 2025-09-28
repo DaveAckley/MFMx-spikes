@@ -4,6 +4,8 @@
 #include "Util.h"
 #include "Constants.h"
 #include "BHUMD_Constants.h"
+#include "HostBlock.h"
+#include "RandMT.h"
 
 namespace MFM {
 
@@ -72,8 +74,13 @@ namespace MFM {
     BHUMD() ;
     ~BHUMD() ;
 
+    const char * getDeviceName() const ;
+
     void setDeviceNumber(u32 deviceNumber) ;
     bool unsetDeviceNumberIfSet() ;
+
+    void setTilePosition(u32 xpos, u32 ypos) ;
+    void setRandomTilePosition(RandMT & rmt) ;
 
     s32 open() ;
     s32 close() ;
@@ -82,18 +89,14 @@ namespace MFM {
     s32 deployThisRISCVCode(const char * rvcode, u32 rvsize) ;
 
     s32 releaseTheHounds() ;
-
-#if 0
-    s32 deployRISCVCode() ;
-    s32 doTests() ;
-#endif
+    s32 waitTilDone() ;
 
   private:
     s32 open_bh_pcie_device() ;
     s32 close_bh_pcie_device() ;
 
     s32 configure_tlb() ;
-    s32 set_tlb_xy(unsigned x, unsigned y) ; // HERE'S WHERE (SINGLE) TENSIX CORE IS SELECTED
+    s32 set_tlb_xy() ; // HERE'S WHERE (CURRENTLY SINGLE) TENSIX CORE IS SELECTED
     char* set_tlb_addr(u64 addr) ;
 
     void tlb_write_u32(u64 addr, u32 value) ;
@@ -103,17 +106,21 @@ namespace MFM {
     bool mHasDevNum;
     bool mDevOpen;
 
+    u32 mTileXPosition;
+    u32 mTileYPosition;
+
     bool mCodeDeployed;
     u32 mDeployedCodeSize;
 
     bh_pcie_device_t mBHDev;
   };
 
+  /*
   struct HostBlock {
     uint32_t mPerRiscArg[5];
     uint32_t mCommonArgs[3];
   };
-
+  */
 } // namespace MFM
 
 #endif /* BHUMD_H */

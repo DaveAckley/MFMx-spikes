@@ -8,13 +8,16 @@ OBS:=$(patsubst src/%.c,$(BUILDDIR)/%.o,$(patsubst src/%.cpp,$(BUILDDIR)/%.o,$(S
 INC:=$(wildcard include/*.h)
 ALLDEPS:=Makefile
 
-all:	$(PROG) cross
+all:	$(PROG) x xreportSize
 
 $(PROG):	 $(OBS) $(INC) $(ALLDEPS) | $(PROGDIR)
 	g++ $(DEBUGFLAG) -O2 $(OBS) -o $@
 
-cross:	FORCE
+x:	FORCE
 	make -C cross
+
+x%:	FORCE
+	make -C cross $*
 
 $(BUILDDIR):
 	mkdir -p $@
@@ -39,7 +42,7 @@ clean:	FORCE
 	rm -f $(BUILDDIR)/*
 
 #./ethdump --out=tt.pcap --generate-traffic --loopback-mode=2
-run:	$(PROG) cross
+run:	x $(PROG) 
 	tt-smi -r >/dev/null 2>&1
 	$(PROG)
 
