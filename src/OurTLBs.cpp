@@ -1,4 +1,4 @@
-#include "TLBMap.h"
+#include "OurTLBs.h"
 #include <iostream>
 
 namespace MFM {
@@ -57,38 +57,9 @@ namespace MFM {
     return ret;
   }
 
-  void TLBMap::initMap(tt::umd::TTDevice * device) {
-    if (!device) FATAL("NULL PTR");
-    if (mMapInitted) FATAL("ALREADY INITTED");
+  void OurTLBs::initTLBs() {
 
-    auto tlb_4g_base_and_count = device->get_architecture_implementation()->get_tlb_4g_base_and_count();
-    std::cout << "tlb_4g_base_and_count " <<
-      tlb_4g_base_and_count.first << "," <<
-      tlb_4g_base_and_count.second << 
-      std::endl;
-
-    auto tlb_1m_base_and_count = device->get_architecture_implementation()->get_tlb_1m_base_and_count();
-    std::cout << "tlb_1m_base_and_count " <<
-      tlb_1m_base_and_count.first << "," <<
-      tlb_1m_base_and_count.second << 
-      std::endl;
-    auto tlb_2m_base_and_count = device->get_architecture_implementation()->get_tlb_2m_base_and_count();
-    std::cout << "tlb_2m_base_and_count " <<
-      tlb_2m_base_and_count.first << "," <<
-      tlb_2m_base_and_count.second << 
-      std::endl;
-    std::unique_ptr<tt::umd::TLBManager> tlb_manager = std::make_unique<tt::umd::TLBManager>(device);
-    
-    for (u32 y = 0u; y <= MAX_Y_COORD; ++y) {
-      if (y < 2u) continue;
-      for (u32 x = 0u; x <= MAX_X_COORD; ++x) {
-        if (x == 8u) continue;
-        tt_xy_pair targ(x,y);
-        s32 tlbidx = getTensixTLBIndex(targ);
-        if (tlbidx<0) continue;
-        if (tlbidx==0) FATAL("WAA");
-
-        tlb_manager->configure_tlb(targ, tlbidx, 0u, tt::umd::tlb_data::Relaxed);
+    mTLBManager->configure_tlb(targ, tlbidx, 0u, tt::umd::tlb_data::Relaxed);
         if (mMap[x][y] != 0u) FATAL("WAA?");
         mMap[x][y] = tlbidx;
       }

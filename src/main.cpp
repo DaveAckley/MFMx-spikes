@@ -11,6 +11,7 @@ int main(int argc, const char** argv) {
   sleep(1);
   rmt.seedMT_MFM(time(0));
 
+#if 0
   MFM::BHUMD devices[4];
   const MFM::u32 dcount = 4u;
   int ret;
@@ -52,6 +53,7 @@ int main(int argc, const char** argv) {
     printf("%s CLOSING\n",umd.getDeviceName());
     ret = umd.close();
   }
+#endif
   ///
   return MFM::ttmain(readFile(RVCODE_PATH));
 }
