@@ -21,14 +21,14 @@ build/%.o:	src/%.cpp $(HFILES) $(ALLDEP) | build
 build/$(PROG).elf:	$(OFILES) $(STARTFILE) $(LDPATH) $(ALLDEP) | build
 	$(CXX) -o $@ $(OFILES) $(STARTFILE) $(CXXFLAGS) -T$(LDPATH) -save-temps
 
-bin/$(PROG).bin:	build/$(PROG).elf | bin
+bin/$(PROG).bin:	build/$(PROG).elf | bin reportSize
 	$(OBJCOPY) -O binary $< $@
 
 build:	FORCE
-	mkdir -p build
+	@mkdir -p build
 
 bin:	FORCE
-	mkdir -p bin
+	@mkdir -p bin
 
 reportSize:	build/$(PROG).elf
 	$(SIZE) $^

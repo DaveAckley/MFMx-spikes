@@ -77,8 +77,8 @@ runmain:
 	call hartmain
 
 	/* if/when they return, mark us as done */
-	la s2, __host_block_start  # get host block
-	sh2add t1, s0, s2          # t1: addr of mPerRiscArg[s0]
+	la s2, __host_block_start+4  # get host block, skipping HBMAGIC
+	sh2add t1, s0, s2            # t1: addr of mPerRiscArg[s0] 
 	addi t0,s0,1            # get s0 + 1
         sw t0,0(t1)             # stick it in finish loc
         fence

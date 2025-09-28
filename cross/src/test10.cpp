@@ -2,6 +2,9 @@
 #include "RandMT.h"
 #include "HostBlock.h"
 #include "AtomicLock.h"
+#include "ExtraConstants.h" // for NOC_NODE_ID0
+#include "P2PElevator.h"
+#include "T6ElevatorTransport.h"
 
 #define STR1(A) #A
 #define STR(A) STR1(A)
@@ -14,7 +17,10 @@
   __attribute__ ((section(STR(CONC(.fastram_,hart)))))  \
 
 namespace MFM {
-  HostBlock hb __attribute__ ((section(".hostblock")));
+  HostBlock theHostBlock __attribute__ ((section(".hostblock"))) = {
+    .mHBMagic = HostBlock::HBMAGIC,
+    .mHBCigam = HostBlock::HBCIGAM
+  };
 
   struct GB { u32 clams; };
   struct G0 { bool bong; };
@@ -41,7 +47,23 @@ namespace MFM {
   u32 wastoid;
   AtomicLock mylock;  // static -> can't hold shared locks in private RAM
 
+  struct DemoCar {
+    u8 mBytes[256];
+  };
+  typedef P2PElevatorPlatform<DemoCar,2> MyPlatform;
+  MyPlatform myPlatform(true);
+
   int hartMainB(HostBlock & hb, GB & gb) {
+    T6ElevatorTransport t6et(hb);
+    u32 node_id = *NOC_NODE_ID0;
+    u32 node_endpoint_id = *NOC_ENDPOINT_ID0;
+    hb.mCommonArgs[0] = node_id;
+    hb.mCommonArgs[1] = (u32) hb.mHostBaseAddrLo; //ET_NIU_BASE;
+    hb.mCommonArgs[2] = (u32) hb.mHostBaseAddrHi; //ET_NIU_NODE_ID;
+    //hb.mCommonArgs[1] = node_endpoint_id;
+    hb.mXPos = ((node_id >> 0) & 0x3f);
+    hb.mYPos = ((node_id >> 6) & 0x3f);
+
     //hb.addString("hart B: lock test\n");
     mylock.acquireLock();
     hb.addString("hart B: i hold the test lock\n");
@@ -76,7 +98,7 @@ namespace MFM {
 #define X1 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0 X0
 #define X2 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1 X1
 #define X3 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2 X2
-    X3 X3 
+    X2
 #undef X
 #undef X1
 #undef X2

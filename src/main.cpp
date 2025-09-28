@@ -6,56 +6,73 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
-// use the source AHAX ?
-#include "ioctl.h" // from code/D/tt-metal/tt_metal/third_party/umd/device?
+#include "OurTLBs.h"
+#include "CodeManager.h"
+#include "Constants.h"
 
-#define FATAL(fmt, ...) do {fprintf(stderr, fmt " (%s:%d)\n",##__VA_ARGS__,__FILE__,__LINE__); exit(1);} while(0)
-#define ASSERT(cond) ASSERT_DBG(cond)
-#define ASSERT_DBG(cond) if (cond) {} else FATAL("Assertion failed: %s", #cond)
-#define ASSERT_NONDBG(cond) (cond)
+#include "P2PElevator.h"
 
+namespace MFM {
+  struct DemoCar {
+    u8 mBytes[256];
+  };
+  typedef P2PElevatorPlatform<DemoCar,2> MyPlatform;
+  static MyPlatform myPlatform(true);
+}
 int main() {
+  printf("sizeof(myPlatform) = %lu\n",sizeof(MFM::myPlatform));
+  printf("sizeof(payload) = %lu\n",sizeof(MFM::MyPlatform::Payload));
   int fd = open("/dev/tenstorrent/0", O_RDWR | O_CLOEXEC);
   ASSERT(fd >= 0);
+  
+  MFM::OurTLBs ourTLBs(fd);
+  ourTLBs.allocateTLBs();
+  ourTLBs.configureTLBs();
+  printf("------------Allocate host buffer space\n");
+  ourTLBs.allocateHostRAM((1<<13)*(MFM::OurTLBs::AHAX_TLBI_L1_LAST_UNI+1u));
+  //ourTLBs.allocateHostRAM(4096u);
+  //ourTLBs.allocateHostRAM(1<<21u);
+  printf("  allocated %lu at %p for noc 0x%lx\n",
+         ourTLBs.hostRAMSize(),
+         ourTLBs.hostRAMPtr(),
+         ourTLBs.hostRAMNocAddr());
 
-  unsigned char resource_to_mapping[10] = {0};
-  memset(resource_to_mapping,0,sizeof(resource_to_mapping));
-  struct tenstorrent_mapping mappings[sizeof(resource_to_mapping) + 1];
-  mappings[0].mapping_size = sizeof(resource_to_mapping);
-  ASSERT(ioctl(fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings[0].mapping_size) >= 0);
+  printf("------------Put all cores in soft reset\n");
+  ourTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
+                  RISCV_DEBUG_REG_SOFT_RESET_0,
+                  SOFT_RESET_ALL_RISCV);
 
-  mappings[0].mapping_size = 0;
-  for (unsigned i = 1; i <= sizeof(resource_to_mapping); ++i) {
-    uint32_t resource = mappings[i].mapping_id;
-    if (resource < sizeof(resource_to_mapping)) {
-      resource_to_mapping[resource] = i;
-    }
+  printf("------------Set starting addresses\n");
+  const MFM::u32 data[][2] = {
+    {RISCV_DEBUG_REG_TRISC0_RESET_PC, 4u},
+    {RISCV_DEBUG_REG_TRISC1_RESET_PC, 8u},
+    {RISCV_DEBUG_REG_TRISC2_RESET_PC, 12u},
+    {RISCV_DEBUG_REG_NCRISC_RESET_PC, 16u},
+    {RISCV_DEBUG_REG_TRISC_RESET_PC_OVERRIDE, 0x1|0x2|0x4}, // use custom start addrs for T0,T1,T2
+    {RISCV_DEBUG_REG_NCRISC_RESET_PC_OVERRIDE, 0x1},        // use custom start addr for NCRISC
+  };
+  printf("DATA %lu SIZ %lu\n",sizeof(data),sizeof(data[0]));
+
+  for (MFM::u32 i = 0u; i < sizeof(data)/sizeof(data[0]); ++i) {
+    printf("%u 0x%08x = 0x%08x\n",i,data[i][0],data[i][1]);
+    ourTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI, data[i][0], data[i][1]);
   }
 
-  for (unsigned i = 0; i < sizeof(resource_to_mapping); ++i) {
-    printf("[%d/%d/%d: 0x%llx+%lld/0x%llx] ",i,
-           mappings[i].mapping_id,
-           resource_to_mapping[i],
-           mappings[i].mapping_base,
-           mappings[i].mapping_size,
-           mappings[i].mapping_size);
-  }
-  printf("\n");
+  printf("------------Deploy the code\n");
+  MFM::CodeManager cmgr(ourTLBs);
+  cmgr.deployRISCVCodeFromFile("./cross/bin/test10.bin");
 
-  struct tenstorrent_mapping* bar0uc = mappings + resource_to_mapping[TENSTORRENT_MAPPING_RESOURCE0_UC];
-  struct tenstorrent_mapping* bar0wc = mappings + resource_to_mapping[TENSTORRENT_MAPPING_RESOURCE0_WC];
-  struct tenstorrent_mapping* bar4uc = mappings + resource_to_mapping[TENSTORRENT_MAPPING_RESOURCE2_UC];
+  printf("------------Release the hound( leader)s\n");
+  ourTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
+                  RISCV_DEBUG_REG_SOFT_RESET_0,
+                  SOFT_RESET_ALL_RISCV_EXCEPT_B);
 
-#define BAR0_WC_SIZE (464 << 20)
-#define BAR0_SIZE    (496 << 20)
-#define MMAP_SIZE    (512 << 20)
+  printf("------------Await results\n");
+  cmgr.awaitResults();
+
+  // 2: release the hounds
+  // 3: wait for certain addresses to be in 'postrun' state
+  // 4: be haphaphappy
   
-#define BAR4_SOC_TARGET_ADDRESS 0x1E000000
-
-  ASSERT(bar0uc->mapping_size >= BAR0_SIZE);
-  ASSERT(bar4uc->mapping_size >= MMAP_SIZE - BAR4_SOC_TARGET_ADDRESS);
-
-  
-  tenstorrent_mapping foo;
-  return 1;
+  return 0;
 }
