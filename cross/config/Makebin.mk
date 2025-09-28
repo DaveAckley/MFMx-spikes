@@ -1,15 +1,14 @@
 STARTFILE:=src/_BUD.S
 LINKERSCRIPT:=src/_BUD.ld.in
 MARCH:=rv32ima_zicsr_zba_zbb
-CXXFLAGS+=-Iinclude -I../shared/include
+CXXFLAGS+=-Iinclude -I../include
 CXXFLAGS+=-march=$(MARCH) -ffreestanding -nostdlib -fno-exceptions -fno-rtti
-CXXFILES:=$(wildcard src/*.cpp ../shared/src/*.cpp)
+CXXFILES:=$(wildcard src/*.cpp)
 OFILES:=$(patsubst src/%.cpp,build/%.o,$(CXXFILES))
 HFILES:=$(wildcard include/*.h)
 LDPATH:=build/gen.ld
 
 $(LDPATH):	$(LINKERSCRIPT) $(HFILES) $(ALLDEP) | build
-	echo HARO
 	$(CXX) $(CXXFLAGS) -E -P -x c++ $< -o $@
 
 # $(PROG).o:	$(PROG).cpp $(HFILES) FORCE
@@ -22,14 +21,14 @@ build/%.o:	src/%.cpp $(HFILES) $(ALLDEP) | build
 build/$(PROG).elf:	$(OFILES) $(STARTFILE) $(LDPATH) $(ALLDEP) | build
 	$(CXX) -o $@ $(OFILES) $(STARTFILE) $(CXXFLAGS) -T$(LDPATH) -save-temps
 
-bin/$(PROG).bin:	build/$(PROG).elf | bin reportSize
+bin/$(PROG).bin:	build/$(PROG).elf | bin
 	$(OBJCOPY) -O binary $< $@
 
 build:	FORCE
-	@mkdir -p build
+	mkdir -p build
 
 bin:	FORCE
-	@mkdir -p bin
+	mkdir -p bin
 
 reportSize:	build/$(PROG).elf
 	$(SIZE) $^
