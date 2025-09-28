@@ -8,15 +8,26 @@
 #include <vector>
 
 #include "umd/device/pci_device.hpp"
-#include "umd/device/pci_device.hpp"
 #include "umd/device/tt_core_coordinates.h"
 #include "umd/device/tt_device/tt_device.h"
 #include "umd/device/tt_soc_descriptor.h"
 
+#include "umd/device/blackhole_implementation.h"
+
+#include "blackhole/eth_l1_address_map.h"
+#include "blackhole/host_mem_address_map.h"
+#include "blackhole/l1_address_map.h"
+
+#include "Constants.h"
+#include "itype.h"
+#include "TLBMap.h"
+
 using namespace tt::umd;
 
 namespace MFM {
-int ttmain() {
+
+int ttmain(std::string rvcode) {
+  printf("GPTAO %lu %s\n",rvcode.length(), rvcode.c_str());
     std::vector<int> pci_devices = PCIDevice::enumerate_devices();
     if (pci_devices.empty()) {
         std::cerr << "No devices found" << std::endl;
@@ -26,10 +37,14 @@ int ttmain() {
     std::cout << "Found " << pci_devices.size() << " device(s)" << std::endl;
 
     for (int device_id : pci_devices) {
-        std::cout << "\n=== Device " << device_id << " (Before Initialization) ===" << std::endl;
+      std::cout << "\n=== Device " << device_id << " (Before Initialization) ===" << std::endl;
 
-        std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
+      std::unique_ptr<TTDevice> device = TTDevice::create(device_id);
 
+      /*
+      TLBMap map;
+      map.initMap(device.get());
+      */
         std::cout << "Architecture: "
                   << (device->get_arch() == tt::ARCH::WORMHOLE_B0 ? "Wormhole B0"
                       : device->get_arch() == tt::ARCH::BLACKHOLE ? "Blackhole"
@@ -37,24 +52,33 @@ int ttmain() {
                   << std::endl;
 
         std::cout << "PCI Device: " << device->get_pci_device()->get_device_num() << std::endl;
+        std::cout << "BAR0 OFFSET??: " << std::hex << device->get_pci_device()->bar0_uc_offset << std::dec << std::endl;
 
         std::cout << "Testing BAR read/write (without init)..." << std::endl;
+
+        //        uint32_t * test_PTRR =device->get_pci_device()-get_register_address<uint32_t>(RISCV_DEBUG_REG_SOFT_RESET_0);
         uint32_t test_addr = device->get_architecture_implementation()->get_arc_reset_scratch_offset();
+        uint32_t test_addrAHAX = device->get_architecture_implementation()->get_tensix_soft_reset_addr();
+        uint32_t test_addrHC = RISCV_DEBUG_REG_SOFT_RESET_0;
         uint32_t original_value = device->bar_read32(test_addr);
-        std::cout << "Original value at 0x" << std::hex << test_addr << ": 0x" << original_value << std::dec
+        std::cout << "SOFT RESET Original value at 0x" << std::hex << test_addr << ": 0x" << original_value << std::dec
                   << std::endl;
 
         std::cout << "Testing device memory operations (without init)..." << std::endl;
-        uint32_t test_data = 0x12345678;
+        //        uint32_t test_data = 0x12345678;
+        uint32_t test_data = SOFT_RESET_ALL_RISCV;
         uint32_t read_data = 0;
-        auto test_core = tt_xy_pair(1, 1);
+        auto test_core = tt_xy_pair(13, 8);
+        //        printf("(%lu,%lu) TLB idx = %d\n", test_core.x, test_core.y, map.getTLBIdxIfAny(test_core.x,test_core.y));
+
         uint64_t mem_addr = 0x0;
 
-        device->write_to_device(&test_data, test_core, mem_addr, sizeof(test_data));
-        device->read_from_device(&read_data, test_core, mem_addr, sizeof(read_data));
+        device->write_to_device(rvcode.c_str(), test_core, mem_addr, rvcode.length());
+        u8 buf[150000];
+        device->read_from_device(buf, test_core, mem_addr, rvcode.length());
 
-        std::cout << "Device memory operation: wrote 0x" << std::hex << test_data << ", read 0x" << read_data
-                  << std::dec << std::endl;
+        std::cout << "SOFT RESET Device memory operation: wrote " << rvcode.length() << ", read " << rvcode.length() << " MATCH STATUS = " << memcmp(rvcode.c_str(),buf,rvcode.length()) <<std::endl;
+        
 
         std::cout << "\n=== Now calling init_tt_device() ===" << std::endl;
         device->init_tt_device();
@@ -69,12 +93,15 @@ int ttmain() {
 
         ChipInfo chip_info = device->get_chip_info();
         tt_SocDescriptor soc_desc(
-            device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
+                                  device->get_arch(), chip_info.noc_translation_enabled, chip_info.harvesting_masks, chip_info.board_type);
 
         const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
         if (tensix_cores.empty()) {
             std::cout << "No Tensix cores available" << std::endl;
             continue;
+        }
+        for (u32 i = 0; i < tensix_cores.size(); ++i) {
+          std::cout << "TENSIX CORE " << tensix_cores[i].str() << std::endl;
         }
 
         CoreCoord tensix_core = tensix_cores[0];
@@ -82,7 +109,9 @@ int ttmain() {
 
         uint32_t init_test_data = 0x87654321;
         uint32_t init_read_data = 0;
-        uint64_t init_mem_addr = 0x0;
+
+  //        uint64_t init_mem_addr = 0x0;
+        uint64_t init_mem_addr = RISCV_DEBUG_REG_SOFT_RESET_0;
 
         device->write_to_device(&init_test_data, tensix_core, init_mem_addr, sizeof(init_test_data));
         device->read_from_device(&init_read_data, tensix_core, init_mem_addr, sizeof(init_read_data));

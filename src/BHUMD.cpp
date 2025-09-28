@@ -3,7 +3,6 @@
 #include <vector>
 #include <iostream>
 #include <string>
-#include <memory>
 
 namespace MFM {
 
@@ -142,19 +141,12 @@ namespace MFM {
     // (get back to hb? tlb_write changed config?)
     u32 doneCount = 0u;
     u32 lastCount = U32_MAX;
-    char buf[6];
     while (doneCount < 5u) {
       doneCount = 0u;
-      for (unsigned rv = 0; rv < 5; ++rv) {
-        buf[rv] = '.';
-        if (hb->mPerRiscArg[rv] == rv+1) {
-          ++doneCount;
-          buf[rv] = '0'+rv;
-        }
-      }
-      buf[5] = 0;
+      for (unsigned rv = 0; rv < 5; ++rv) 
+        if (hb->mPerRiscArg[rv] == rv+1) ++doneCount;
       if (doneCount != lastCount) {
-        printf(" harts reporting done: %d (%s)\n",doneCount,buf);
+        printf(" harts reporting done: %d\n",doneCount);
         lastCount = doneCount;
       }
     }
@@ -190,24 +182,8 @@ namespace MFM {
   }
 
   s32 BHUMD::deployRISCVCodeFromFile(const char * path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate); // Open in binary mode and at end
-
-    if (!file.is_open()) 
-      FATAL("Failed to open file: %s", path);
-
-    std::streamsize rvCodeSize = file.tellg(); 
-    file.seekg(0, std::ios::beg); // Seek back to beginning
-
-    auto rvcode = std::make_unique<char[]>(rvCodeSize);
-
-    if (!file.read(rvcode.get(), rvCodeSize))
-      FATAL("Failed to read file: %s", path);
-
-    printf(" RVCODE %s: ", path);
-
-    file.close();
-
-    return deployThisRISCVCode(rvcode.get(),rvCodeSize);
+    std::string rvcode = readFile(path);
+    return deployThisRISCVCode(rvcode.c_str(),rvcode.length());
   }
 
   s32 BHUMD::deployThisRISCVCode(const char * rvcode, u32 rvsize) {
@@ -354,7 +330,7 @@ namespace MFM {
 
     // Some TLB configuration we set once and never change; set that now.
     volatile uint32_t* tlb_reconfigure = (volatile uint32_t*)((char*)memory + header_size + (TLB_CONFIG_ADDR - bar0_start));
-    //printf("CONFIGTLB id %d\n",alloc_tlb.out.id);
+    printf("CONFIGTLB id %d\n",alloc_tlb.out.id);
     if (alloc_tlb.out.id < 32) {
       tlb_reconfigure[(TLB_CONFIG_ADDR_STRIDES - TLB_CONFIG_ADDR) / sizeof(uint32_t) + alloc_tlb.out.id] = 0;
     }
