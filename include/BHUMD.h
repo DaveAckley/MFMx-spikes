@@ -29,7 +29,7 @@ namespace MFM {
     struct tenstorrent_get_device_info_out out;
   };
 
-#define TENSTORRENT_MAPPING_RESOURCE0_UC 1
+  //#define TENSTORRENT_MAPPING_RESOURCE0_UC 1
 
   struct tenstorrent_mapping {
     uint32_t mapping_id;

@@ -11,25 +11,25 @@ namespace MFM {
     u32 mFirstUsedIdx;
     u32 mFirstFreeIdx;
 
-    void reset() volatile {
+    void reset() {
       mFirstFreeIdx = 0u;
       mFirstUsedIdx = 0u;
     }
 
-    bool isEmpty() const volatile { return mFirstUsedIdx == mFirstFreeIdx; }
-    bool isFull() const volatile {
+    bool isEmpty() const { return mFirstUsedIdx == mFirstFreeIdx; }
+    bool isFull() const {
       return
         ((mFirstFreeIdx + 1u) & RING_BUFFER_MASK) ==
         (mFirstUsedIdx & RING_BUFFER_MASK);
     }
 
-    bool add(T item) volatile {
+    bool add(T item) {
       if (isFull()) return false;
       mRingBuffer[mFirstFreeIdx++ & RING_BUFFER_MASK] = item;
       return true;
     }
 
-    bool remove(T& dest) volatile {
+    bool remove(T& dest) {
       if (isEmpty()) return false;
       dest = mRingBuffer[mFirstUsedIdx++ & RING_BUFFER_MASK];
       return true;

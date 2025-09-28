@@ -11,17 +11,17 @@ namespace MFM {
     typedef RingBuffer<u8,9u> LogBuffer;
     LogBuffer mLogBuffer;
 
-    void resetLog() volatile { mLogBuffer.reset(); }
+    void resetLog() { mLogBuffer.reset(); }
 
-    bool addByte(u8 byte) volatile { return mLogBuffer.add(byte); }
+    bool addByte(u8 byte) { return mLogBuffer.add(byte); }
 
-    bool addString(const char * st) volatile {
+    bool addString(const char * st) {
       u8 byte;
       do { } while ((byte = *st++) && mLogBuffer.add(byte));
       return byte!=0u;
     }
 
-    s32 removeByte() volatile {
+    s32 removeByte() {
       u8 ch;
       if (mLogBuffer.remove(ch)) return (s32) ch;
       return -1;
