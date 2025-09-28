@@ -5,6 +5,7 @@
 #include "ExtraConstants.h" // for NOC_NODE_ID0
 #include "P2PElevator.h"
 #include "T6ElevatorTransport.h"
+#include "TransportBlock.h"
 
 #define STR1(A) #A
 #define STR(A) STR1(A)
@@ -21,6 +22,13 @@ namespace MFM {
     .mHBMagic = HostBlock::HBMAGIC,
     .mHBCigam = HostBlock::HBCIGAM
   };
+
+  /*
+  char theTransportBlock[0x200] __attribute__ ((section(".transportblock"))) =
+    "hi there I'm The Transport Block! I'm very important!"
+  ;
+  */
+  TransportBlock theTransportBlock __attribute__ ((section(".transportblock")));
 
   struct GB { u32 clams; };
   struct G0 { bool bong; };
@@ -47,23 +55,19 @@ namespace MFM {
   u32 wastoid;
   AtomicLock mylock;  // static -> can't hold shared locks in private RAM
 
+  /*
   struct DemoCar {
     u8 mBytes[256];
   };
   typedef P2PElevatorPlatform<DemoCar,2> MyPlatform;
-  MyPlatform myPlatform(true);
+  MyPlatform myPlatform;
+  */
 
   int hartMainB(HostBlock & hb, GB & gb) {
-    T6ElevatorTransport t6et(hb);
-    u32 node_id = *NOC_NODE_ID0;
-    u32 node_endpoint_id = *NOC_ENDPOINT_ID0;
-    hb.mCommonArgs[0] = node_id;
+    //    hb.mCommonArgs[0] = node_id;
     hb.mCommonArgs[1] = (u32) hb.mHostBaseAddrLo; //ET_NIU_BASE;
     hb.mCommonArgs[2] = (u32) hb.mHostBaseAddrHi; //ET_NIU_NODE_ID;
     //hb.mCommonArgs[1] = node_endpoint_id;
-    hb.mXPos = ((node_id >> 0) & 0x3f);
-    hb.mYPos = ((node_id >> 6) & 0x3f);
-
     //hb.addString("hart B: lock test\n");
     mylock.acquireLock();
     hb.addString("hart B: i hold the test lock\n");
@@ -87,6 +91,22 @@ namespace MFM {
     return g2.mRandom.randomMT() & 0xffffff;
   }
   int hartMainNC(HostBlock & hb, GN & gn) {
+    theTransportBlock.mPlatform.initCars(true);
+    T6ElevatorTransport t6et(hb);
+    Block1K * b1 = theTransportBlock.mPlatform.getCurrentCarIfAny();
+    if (b1 != 0) {
+      u32 * udata = (u32*) b1->mData;
+      u32 usize = sizeof(b1->mData)>>2;
+      for (u32 i = 0u; i < usize; ++i)
+        udata[i] = 0xf00baa9;
+      u64 destbase = (((u64) hb.mHostBaseAddrHi)<<32) + hb.mHostBaseAddrLo;
+      u64 destaddr = destbase + hb.mTLBI * sizeof(TransportBlock);
+      u64 pcietlbaddr = destaddr;  //  | 0x1000'0000'0000'0000; // to outbound iatu then host iommu?
+      if ((pcietlbaddr%16) != 0)   // nice round addrs right?
+        hb.mHBCigam= -1; // blow the sig as a signal?
+      t6et.initiateWriteToHost(udata,usize,pcietlbaddr);
+    } else
+      hb.mHBCigam= -1; // blow the sig as a signal?
     return ++wastoid;
   }
 
@@ -105,6 +125,13 @@ namespace MFM {
 #undef X3
 #endif
   }
+  int t6setup(HostBlock &hb) {
+    u32 node_id = *NOC_NODE_ID0;
+    hb.mXPos = ((node_id >> 0) & 0x3f);
+    hb.mYPos = ((node_id >> 6) & 0x3f);
+    hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mXPos,hb.mYPos});
+    return 0;
+  }
   int hartmain(uint32_t hartnum, HostBlock& hb) {
     blowupCodeSpace();
     switch (hartnum) {
@@ -119,7 +146,6 @@ namespace MFM {
 }
 
 extern "C" {
-  int hartmain(uint32_t hartnum, MFM::HostBlock* hb) {
-    return MFM::hartmain(hartnum, *hb);
-  }
+  int hartmain(uint32_t hartnum, MFM::HostBlock* hb) { return MFM::hartmain(hartnum, *hb); }
+  int t6setup(MFM::HostBlock *hb) { return MFM::t6setup(*hb); }
 }

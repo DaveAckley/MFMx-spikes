@@ -22,12 +22,15 @@ namespace MFM {
   template <class CAR, u32 BANKS>
   class P2PElevatorPlatform {
   public:
-    P2PElevatorPlatform(bool cars) ;
+    P2PElevatorPlatform() ;
+    void initCars(bool cars) ;
     bool update(ElevatorTransport & et) ;
+    CAR * getCurrentCarIfAny() ;
     enum PayloadState : u8 {
-      PS_ARRIVED,
-      PS_LOADING,
-      PS_DEPARTED,
+      PS_UNUSED,                // under construction
+      PS_ARRIVED,               // just xferred from elevatortransport
+      PS_LOADING,               // currently in use locally
+      PS_DEPARTED,              // just xferred to elevatortransport
     };
     struct Payload {
       u64 mSenderAddress;

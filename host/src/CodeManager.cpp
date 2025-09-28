@@ -45,13 +45,18 @@ namespace MFM {
     if (rvsize%4 != 0u) FATAL("Bad code size %u",rvsize);
     ///// FIND/UPDATE HOSTBLOCK AT END OF CODE
     HostBlock *hb = (HostBlock*) (rvcode+rvsize-sizeof(HostBlock));
-    printf(" HB0 %u/0x%x %lu %p %p 0x%x 0x%x\n",
+    printf(" HB0 %u/0x%x %lu hb %p hr %p hn 0x%lx MC 0x%x CM 0x%x\n",
            rvsize, rvsize, sizeof(HostBlock),
-           hb,mOurTLBs.hostRAMPtr(), hb->mHBMagic, hb->mHBCigam);
-    u64 hostBufferBase = (u64) (uintptr_t) mOurTLBs.hostRAMPtr();
+           hb, mOurTLBs.hostRAMPtr(),
+           mOurTLBs.hostRAMNocAddr(),
+           hb->mHBMagic, hb->mHBCigam);
+    //Sat Sep 27 15:19:02 2025     u64 hostBufferBase = (u64) (uintptr_t) mOurTLBs.hostRAMPtr();
+    u64 hostBufferBase = mOurTLBs.hostRAMNocAddr();
     hb->mHostBaseAddrLo = (u32) (hostBufferBase & 0xffffffff);
     hb->mHostBaseAddrHi = (u32) ((hostBufferBase>>32) & 0xffffffff);
-
+    printf(" HB1 0x%08x 0x%08x\n",
+           hb->mHostBaseAddrHi,
+           hb->mHostBaseAddrLo);
     mRVCodeSize = rvsize;
 
     // "Multicast all the code to the entire fleet"
@@ -73,19 +78,30 @@ namespace MFM {
           ++hits;
           //printf("%3d. Hit %d on 0x%08x : 0x%08x\n",tlbi, hits, word, data);
         }
+        
+        // confirm certain addresses are in 'prerun' state
+        u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+        {
+          HostBlock rbhb;
+          mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
+          u32 hbmagicpre = rbhb.mHBMagic;
+          //printf("HostBlock magic %x\n", hbmagicpre);
+          if (hbmagicpre != HostBlock::HBMAGIC || rbhb.mHBCigam != HostBlock::HBCIGAM)
+            FATAL("Bad HBMAGIC 0x%0x\n",hbmagicpre);
+          //printf("HostBlock HBA 0x%08x:%08x\n", rbhb.mHostBaseAddrHi, rbhb.mHostBaseAddrLo);
+          if (rbhb.mHostBaseAddrHi != hb->mHostBaseAddrHi ||
+              rbhb.mHostBaseAddrLo != hb->mHostBaseAddrLo)
+            FATAL("Corrupt HBA Hi 0x%08x:0x%08x wanted 0x%08x:0x%08x\n",
+                  rbhb.mHostBaseAddrHi,rbhb.mHostBaseAddrLo,
+                  hb->mHostBaseAddrHi,hb->mHostBaseAddrLo);
+          else
+            ++hits;
+        }
       }
     }
     printf("SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
            
-    // confirm certain addresses are in 'prerun' state
-    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
-    {
-      u32 hbmagicpre = mOurTLBs.read32(87, hostblockaddr);
-      printf("HostBlock magic %x\n", hbmagicpre);
-      if (hbmagicpre != HostBlock::HBMAGIC)
-        FATAL("Bad HBMAGIC 0x%0x\n",hbmagicpre);
-    }
-    
+ 
     return 0;
   }
 
@@ -105,8 +121,8 @@ namespace MFM {
         if (hb.mHBCigam != HostBlock::HBCIGAM)
           FATAL("Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
 
-        printf("0: 0x%08x   1: 0x%08x   2: 0x%08x\n",
-               hb.mCommonArgs[0],hb.mCommonArgs[1],hb.mCommonArgs[2]);
+        // printf("0: 0x%08x   1: 0x%08x   2: 0x%08x\n",
+        //        hb.mCommonArgs[0],hb.mCommonArgs[1],hb.mCommonArgs[2]);
         U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
         if (hb.mXPos != nocc.x || hb.mYPos != nocc.y)
           printf("CROOD MIMSATCH %u (%u,%u) vs (%u,%u)\n",

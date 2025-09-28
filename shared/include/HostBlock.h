@@ -16,7 +16,7 @@ namespace MFM {
     uint32_t mHostBaseAddrLo;
     uint32_t mHostBaseAddrHi;
 
-    uint8_t mXPos, mYPos, mRsrv1, mRsrv2;
+    uint8_t mXPos, mYPos, mTLBI, mRsrv1;
 
     typedef RingBuffer<u8,9u> LogBuffer;
     LogBuffer mLogBuffer;

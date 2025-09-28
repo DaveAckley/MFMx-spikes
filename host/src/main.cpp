@@ -11,15 +11,23 @@
 #include "Constants.h"
 
 #include "P2PElevator.h"
+#include "TransportBlock.h"
+
+#include "test10-exports.h"
 
 namespace MFM {
   struct DemoCar {
     u8 mBytes[256];
   };
   typedef P2PElevatorPlatform<DemoCar,2> MyPlatform;
-  static MyPlatform myPlatform(true);
+  static MyPlatform myPlatform;
 }
 int main() {
+  printf("T6-TRANSPO-INFO at 0x%08x, len %u/0x%x\n",
+         MFM::T6::transportblock_start,
+         MFM::T6::transportblock_size,
+         MFM::T6::transportblock_size);
+
   printf("sizeof(myPlatform) = %lu\n",sizeof(MFM::myPlatform));
   printf("sizeof(payload) = %lu\n",sizeof(MFM::MyPlatform::Payload));
   int fd = open("/dev/tenstorrent/0", O_RDWR | O_CLOEXEC);
@@ -60,7 +68,7 @@ int main() {
 
   printf("------------Deploy the code\n");
   MFM::CodeManager cmgr(ourTLBs);
-  cmgr.deployRISCVCodeFromFile("./cross/bin/test10.bin");
+  cmgr.deployRISCVCodeFromFile("../cross/bin/test10.bin");
 
   printf("------------Release the hound( leader)s\n");
   ourTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
@@ -69,6 +77,19 @@ int main() {
 
   printf("------------Await results\n");
   cmgr.awaitResults();
+
+  // search for magic delivered data
+  sleep(2);
+  MFM::u32 hits = 0u;
+  MFM::u32 * base = (MFM::u32 *) ourTLBs.hostRAMPtr();
+  for (MFM::u32 tlbi = MFM::OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
+       tlbi <= MFM::OurTLBs::AHAX_TLBI_L1_LAST_UNI;
+       ++tlbi) {
+    MFM::u32 * p = base + ((tlbi * sizeof(MFM::TransportBlock))>>2u);
+    if (p[0] == 0xf00baa9) ++hits;
+    else if (true) printf("NOTMAGIC %u %p == 0x%08x\n",tlbi,p,p[0]);
+  }
+  printf("MAGIC SEARCH HITS %d\n",hits);
 
   // 2: release the hounds
   // 3: wait for certain addresses to be in 'postrun' state

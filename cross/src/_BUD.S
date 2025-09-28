@@ -32,7 +32,9 @@ b_init:
         addi t1, t1, 4
         j 1b
 2:      ## OTHER FIVE-BABIES-LEVEL SETUP?
-        # ..not yet..
+	
+        la a0, __host_block_start  # arg is struct HOSTBLOCK *
+	call t6setup            # Do other t6 level setup
 	
         ## READY TO ROCK
         la t1, 0xFFB121B0   # RISCV_DEBUG_REG_SOFT_RESET_0

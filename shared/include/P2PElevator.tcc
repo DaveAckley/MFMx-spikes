@@ -1,15 +1,29 @@
 /* -*- C++ -*- */
-#include "Util.h"
+#include "Death.h"
 
 namespace MFM {
   template <class CAR, u32 BANKS>
-  P2PElevatorPlatform<CAR,BANKS>::P2PElevatorPlatform(bool hasCars)
+  P2PElevatorPlatform<CAR,BANKS>::P2PElevatorPlatform()
     : mCurrentBank(0u)
   {
     for (u32 i = 0u; i < BANKS; ++i) 
-      mBank[i].mPayloadState = hasCars ? PS_ARRIVED : PS_DEPARTED;
+      mBank[i].mPayloadState = PS_UNUSED;
   }
 
+  template <class CAR, u32 BANKS>
+  CAR * P2PElevatorPlatform<CAR,BANKS>::getCurrentCarIfAny() {
+    if (mCurrentBank >= BANKS) return 0;
+    Payload & pay = mBank[mCurrentBank];
+    if (pay.mPayloadState != PS_LOADING) return 0;
+    return &pay.mCar;
+  }
+
+  template <class CAR, u32 BANKS>
+  void P2PElevatorPlatform<CAR,BANKS>::initCars(bool hasCars) {
+    for (u32 i = 0u; i < BANKS; ++i) 
+      mBank[i].mPayloadState = hasCars ? PS_LOADING : PS_DEPARTED;
+  }
+  
   template <class CAR, u32 BANKS>
   bool P2PElevatorPlatform<CAR,BANKS>::update(ElevatorTransport & et) {
     bool ret = false;

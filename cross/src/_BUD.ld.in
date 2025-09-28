@@ -1,4 +1,5 @@
 /* _BUD.ld:
+  Fri Sep 26 15:57:42 2025 Try to add a 'transportblock' section
   Wed Aug 27 16:11:19 2025 Spike loader script on the road to non-trivial C++ on BH
  */
 
@@ -148,6 +149,17 @@ SECTIONS
       *(COMMON)              # Common symbols (uninitialized data)
       . = ALIGN(4);
       PROVIDE(__bss_end = .);
+    } > L1
+
+    .transportblock :
+    {
+      . = ALIGN(16);
+      PROVIDE(__transportblock_start = .);
+      *(.transportblock)
+      *(.transportblock.*)
+      . = ALIGN(16);
+      PROVIDE(__transportblock_end = .);
+      __transportblock_size = ABSOLUTE(__transportblock_end - __transportblock_start);
     } > L1
 
     .hostblock :
