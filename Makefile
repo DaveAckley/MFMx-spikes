@@ -34,7 +34,7 @@ clean:	FORCE
 
 #./ethdump --out=tt.pcap --generate-traffic --loopback-mode=2
 run:	$(PROG)
-	$(PROG) --hwinfo
+	$(PROG)
 
 
 .PHONY:	FORCE

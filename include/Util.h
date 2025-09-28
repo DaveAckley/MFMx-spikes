@@ -19,6 +19,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define FATAL(fmt, ...) do {fprintf(stderr, "FATAL ERROR: " fmt " (raised at %s:%d)\n",##__VA_ARGS__,__FILE__,__LINE__); exit(1);} while(0)
+#include "itype.h"
+
+#define FATAL(fmt, ...) do {fprintf(stderr, "%s:%d: FATAL ERROR: " fmt "\n",__FILE__,__LINE__,##__VA_ARGS__); exit(1);} while(0)
 
 #endif /* UTIL_H */
