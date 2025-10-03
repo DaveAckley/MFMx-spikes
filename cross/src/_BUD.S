@@ -32,7 +32,9 @@ b_init:
         addi t1, t1, 4
         j 1b
 2:      ## OTHER FIVE-BABIES-LEVEL SETUP?
-        # ..not yet..
+	
+        la a0, __host_block_start  # arg is struct HOSTBLOCK *
+	call t6setup            # Do other t6 level setup
 	
         ## READY TO ROCK
         la t1, 0xFFB121B0   # RISCV_DEBUG_REG_SOFT_RESET_0
@@ -77,8 +79,8 @@ runmain:
 	call hartmain
 
 	/* if/when they return, mark us as done */
-	la s2, __host_block_start  # get host block
-	sh2add t1, s0, s2          # t1: addr of mPerRiscArg[s0]
+	la s2, __host_block_start+4  # get host block, skipping HBMAGIC
+	sh2add t1, s0, s2            # t1: addr of mPerRiscArg[s0] 
 	addi t0,s0,1            # get s0 + 1
         sw t0,0(t1)             # stick it in finish loc
         fence

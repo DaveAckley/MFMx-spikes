@@ -5,11 +5,23 @@
 
 namespace MFM {
   struct HostBlock {
-    uint32_t mPerRiscArg[5];
+    static const uint32_t HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
+    static const uint32_t HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..
+
+    uint32_t mHBMagic;          // MUST BE FIRST u32
+
+    uint32_t mPerRiscArg[5];    // MUST BE 2ND u32(x5)
     uint32_t mCommonArgs[3];
+
+    uint32_t mHostBaseAddrLo;
+    uint32_t mHostBaseAddrHi;
+
+    uint8_t mXPos, mYPos, mTLBI, mRsrv1;
 
     typedef RingBuffer<u8,9u> LogBuffer;
     LogBuffer mLogBuffer;
+
+    uint32_t mHBCigam;         // MUST BE LAST u32
 
     void resetLog() { mLogBuffer.reset(); }
 
