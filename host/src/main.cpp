@@ -12,15 +12,18 @@
 
 #include "P2PElevator.h"
 #include "TransportBlock.h"
+#include "HostBlock.h"
 
 #include "test10-exports.h"
 
 namespace MFM {
+#if 0
   struct DemoCar {
     u8 mBytes[256];
   };
   typedef P2PElevatorPlatform<DemoCar,2> MyPlatform;
   static MyPlatform myPlatform;
+#endif
 }
 int main() {
   printf("T6-TRANSPO-INFO at 0x%08x, len %u/0x%x\n",
@@ -28,8 +31,9 @@ int main() {
          MFM::T6::transportblock_size,
          MFM::T6::transportblock_size);
 
-  printf("sizeof(myPlatform) = %lu\n",sizeof(MFM::myPlatform));
-  printf("sizeof(payload) = %lu\n",sizeof(MFM::MyPlatform::Payload));
+  printf("sizeof(HostBlock) = %lu\n",sizeof(MFM::HostBlock));
+  //  printf("sizeof(myPlatform) = %lu\n",sizeof(MFM::myPlatform));
+  //  printf("sizeof(payload) = %lu\n",sizeof(MFM::MyPlatform::Payload));
   int fd = open("/dev/tenstorrent/0", O_RDWR | O_CLOEXEC);
   ASSERT(fd >= 0);
   
@@ -75,6 +79,10 @@ int main() {
                   RISCV_DEBUG_REG_SOFT_RESET_0,
                   SOFT_RESET_ALL_RISCV_EXCEPT_B);
 
+  sleep(1);
+  printf("------------Check magic\n");
+  cmgr.assertGoodMagic();
+
   printf("------------Await results\n");
   cmgr.awaitResults();
 
@@ -90,9 +98,8 @@ int main() {
   }
   printf("MAGIC SEARCH HITS %d\n",hits);
 
-  // 2: release the hounds
-  // 3: wait for certain addresses to be in 'postrun' state
-  // 4: be haphaphappy
-  
+  printf("------------Recheck magic\n");
+  cmgr.assertGoodMagic();
+
   return 0;
 }

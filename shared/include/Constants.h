@@ -7,18 +7,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <fcntl.h>
+//#include <fcntl.h>
 #include <stdint.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #if defined(MAP_ANON) && !defined(MAP_ANONYMOUS)
 #define MAP_ANONYMOUS MAP_ANON
 #endif
+
+#define HARTNUM_B (0)
+#define HARTNUM_T0 (1)
+#define HARTNUM_T1 (2)
+#define HARTNUM_T2 (3)
+#define HARTNUM_NC (4)
 
 // Inlined copy of what we need from https://github.com/tenstorrent/tt-kmd/blob/main/ioctl.h:
 

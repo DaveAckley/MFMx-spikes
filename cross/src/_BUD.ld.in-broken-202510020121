@@ -1,0 +1,191 @@
+/* _BUD.ld:
+  Fri Sep 26 15:57:42 2025 Try to add a 'transportblock' section
+  Wed Aug 27 16:11:19 2025 Spike loader script on the road to non-trivial C++ on BH
+ */
+
+#include <dev_mem_map.h>
+
+/* Define the entry point of your program.
+ * This tells the linker which symbol should be the first instruction executed. */
+ENTRY(_start)
+PHDRS {
+  attributes 0x70000003;
+  text PT_LOAD;
+  data PT_LOAD;
+}
+
+MEMORY
+{
+    /* Let's take half of L1 for our stuff, for now.. */
+    L1 (rwx) : ORIGIN = MEM_L1_BASE, LENGTH = MEM_L1_SIZE/2
+
+    /* we say 4K for per-hart-globals length since that's the minimum
+       available and because that's all that imm12 can reach anyway.
+       note for T0-T2 the stack will overlap the top of gp space */
+    FAST_RAM_COMMON (rw) : ORIGIN = MEM_LOCAL_BASE, LENGTH = 8
+    FAST_RAM_OVERLAY (rw) : ORIGIN = MEM_LOCAL_BASE+8, LENGTH = 4K-8
+    /*
+    FAST_RAM_B : ORIGIN = MEM_LOCAL_BASE, LENGTH = 8K
+    FAST_RAM_T0 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_T1 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_T2 : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    FAST_RAM_NC : ORIGIN = MEM_LOCAL_BASE, LENGTH = 8K
+*/
+}
+
+/* Define how input sections are mapped to output sections and placed in memory. */
+SECTIONS
+{
+    .fastcommon ORIGIN(FAST_RAM_COMMON) (NOLOAD) : { *(.fastram_all) }
+    PROVIDE(__fast_start = ORIGIN(FAST_RAM_COMMON));
+
+    /* 'overlays' in the spirit of
+    OVERLAY (NOLOAD) : NOCROSSREFS
+    {
+        .overlayB { *(.bss.fastram_b) }
+        .overlayT0 { *(.bss.fastram_t0) }
+        .overlayT1 { *(.bss.fastram_t1) }
+        .overlayT2 { *(.bss.fastram_t2) }
+        .overlayNC { *(.bss.fastram_nc) }
+    } > FAST_RAM_OVERLAY
+    */
+    .overlayB ORIGIN(FAST_RAM_OVERLAY) (NOLOAD) : { *(.fastram_b) }
+    .overlayT0 ORIGIN(FAST_RAM_OVERLAY) (NOLOAD) : { *(.fastram_t0) }
+    .overlayT1 ORIGIN(FAST_RAM_OVERLAY) (NOLOAD) : { *(.fastram_t1) }
+    .overlayT2 ORIGIN(FAST_RAM_OVERLAY) (NOLOAD) : { *(.fastram_t2) }
+    .overlayNC ORIGIN(FAST_RAM_OVERLAY) (NOLOAD) : { *(.fastram_nc) }
+
+    /* (try to) use gp to help access fastram (not seeing any
+       successful relaxations tho (by deleting PROVIDE now I see some!)) */
+    __global_pointer$ = ORIGIN(FAST_RAM_OVERLAY) + 2K - 16; /* superstitious -16 */
+
+    /* stack in fastram (4 or 8K depending on hart) */
+    PROVIDE(__stack_top4K = ORIGIN(FAST_RAM_OVERLAY) + 4K);
+    PROVIDE(__stack_top8K = ORIGIN(FAST_RAM_OVERLAY) + 8K);
+
+    /* Set the current location counter to the start of the RAM region.
+     * All subsequent sections will be placed starting from this address. */
+    . = ORIGIN(L1);
+    . = ALIGN(4);
+
+  /* BEGIN STUFF CARGO-CULTED FROM MAIN.LD */
+  .empty.init.fini :
+  {
+    /* Our elf loader checks that .empty* sections are empty, and
+       can give a helpful error, rather than an ASSERT here.  */
+    KEEP (*(.init .fini))
+  } :text
+  /* END STUFF CARGO-CULTED FROM MAIN.LD */
+
+    /* toss stuff we don't want */
+    /DISCARD/ : {
+      *(.eh_frame)
+    }
+
+    /* .start section: Must land at 0 */
+    .start :
+    {
+      *(.start)
+    } > L1
+    
+    /* .text section: Contains executable code.
+     * This section will be placed after the start up code in L1. */
+    .text :
+    {
+        . = ALIGN(4);
+       KEEP(*(.text.startup)) # Keep specific startup code if any
+       *(.text)               # All executable code from input files
+       *(.text.*)             # All executable code from input files (e.g., from templates)
+     } > L1
+
+    /* .rodata section: Contains read-only data (e.g., string literals, const variables).
+     * Placed immediately after the .text section. */
+
+    .rodata :
+    {
+       *(.rodata)             # Read-only data
+       *(.rodata.*)
+    } > L1
+
+    /* .data section: Contains initialized global and static variables.
+     * Placed immediately after the .rodata section. */
+    .data :
+    {
+      *(.sdata)              # 'normal' initialized data
+      *(.data)               # Initialized data
+      *(.data.*)
+
+#if 1
+  /* MORE STUFF CARGO-CULTED FROM MAIN.LD */
+
+     *(.rodata .rodata.* .gnu.linkonce.r.*)
+     *(.rodata1)
+
+    *(.dynamic)
+    *(.data.rel.ro.local* .gnu.linkonce.d.rel.ro.local.*) *(.data.rel.ro .data.rel.ro.* .gnu.linkonce.d.rel.ro.*)
+    *(.srodata.cst16) *(.srodata.cst8) *(.srodata.cst4) *(.srodata.cst2) *(.srodata .srodata.*)
+    *(.sdata .sdata.* .gnu.linkonce.s.*)
+    *(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
+
+    *(.data .data.* .gnu.linkonce.d.*)
+    *(.data1)
+
+    *(.got.plt) *(.igot.plt) *(.got) *(.igot)
+  /* END STUFF CARGO-CULTED FROM MAIN.LD */
+#endif
+    } > L1
+
+  .empty.ctors.dtors :
+  {
+    /* We don't use .ctors/.dtors either (this still isn't the '90s), make sure there aren't any.  */
+    KEEP (*(.ctors .ctors.* .dtors .dtors.*))
+  } :data
+#if 0
+  .empty.init_array.fini_array :
+  {
+    /* We don't support global static constructors or destructors. make sure there aren't any.  */
+    KEEP (*(.preinit_array))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+    KEEP (*(.init_array))
+    KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
+    KEEP (*(.fini_array))
+  } :data
+#endif
+    /* .bss section: Contains uninitialized global and static variables.
+     * These variables are typically zero-initialized by startup code.
+     * Placed immediately after the .data section. */
+    .bss :
+    {
+      . = ALIGN(4);
+      PROVIDE(__bss_start = .);
+      *(.sbss)               # 'normal' uninitialized data? wth?
+      *(.bss)                # Uninitialized data
+      *(.bss.*)
+      *(COMMON)              # Common symbols (uninitialized data)
+      . = ALIGN(4);
+      PROVIDE(__bss_end = .);
+    } > L1
+
+    .transportblock :
+    {
+      . = ALIGN(32);
+      PROVIDE(__transportblock_start = .);
+      *(.transportblock)
+      *(.transportblock.*)
+      . = ALIGN(16);
+      PROVIDE(__transportblock_end = .);
+      __transportblock_size = ABSOLUTE(__transportblock_end - __transportblock_start);
+    } > L1
+
+    .hostblock :
+    {
+      . = ALIGN(32);
+      PROVIDE(__host_block_start = .);
+      *(.hostblock)
+      *(.hostblock.*)
+      PROVIDE(__host_block_end = .);
+      __host_block_size = ABSOLUTE(__host_block_end - __host_block_start);
+      PROVIDE(_end = .);
+    } > L1
+ }
+ 

@@ -4,6 +4,7 @@
 // use the source AHAX ?
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <errno.h>
 #include "Constants.h"
 
 namespace MFM {
@@ -18,7 +19,7 @@ namespace MFM {
   void OurTLBs::allocateHostRAM(size_t bufferSize) {
     pinned_host_buffer_t* buf = &mPinnedHostBuf;
 
-    if (bufferSize == 0u || buf->size != 0u) FATAL("WHY ARE WE HERE");
+    if (bufferSize == 0u || buf->size != 0u) HOST_FATAL(ILLEGAL_ARGUMENT,"WHY ARE WE HERE");
 
     const u32 PAGE_SIZE = 4096;
     buf->size = ((bufferSize+PAGE_SIZE-1)/PAGE_SIZE) * PAGE_SIZE;
@@ -90,7 +91,7 @@ namespace MFM {
         printf("(DMA) IOCTL failed: %s\n",strerror(errno));
     }
 
-    FATAL("PIN FAILED");
+    HOST_FATAL(UNSUPPORTED_OPERATION,"PIN FAILED");
   }
   
   void OurTLBs::allocateTLBs() {
@@ -101,13 +102,13 @@ namespace MFM {
       struct tenstorrent_allocate_tlb tlbio;
       tlbio.in.size = AHAX_CONSTANT2M;
       ASSERT(ioctl(mDevFD, TENSTORRENT_IOCTL_ALLOCATE_TLB, &tlbio) >= 0);
-      tlbInfos[i] = tlbio.out;
+      tlbInfos[i].mAllocOut = tlbio.out;
 
       if (i < 2u || i >= AHAX_TLB2M_COUNT-2u)
         printf("TLBALLOC id=%u uc=0x%lx wc=0x%lx\n",
-               tlbInfos[i].id,
-               tlbInfos[i].mmap_offset_uc,
-               tlbInfos[i].mmap_offset_wc);
+               tlbInfos[i].mAllocOut.id,
+               tlbInfos[i].mAllocOut.mmap_offset_uc,
+               tlbInfos[i].mAllocOut.mmap_offset_wc);
     }
   }
 
@@ -144,13 +145,17 @@ namespace MFM {
     u32 * tlbBase = (u32*) ((char*) mMapAll + tlbi*AHAX_CONSTANT2M);
     u32 * destTop = (u32*) (((u64) destAddr)&~((u64) AHAX_CONSTANT2M_MASK));
     u32 destOffsetWords = (destAddr&AHAX_CONSTANT2M_MASK)>>2u;
-    if (destTop != 0u)
-      printf("IGNORING TOP BITS FOR TLBI %d base %p top %p (from 0x%x, using 0x%x)\n",
-             tlbi,tlbBase,destTop,destAddr,destOffsetWords<<2u);
+    if (destTop != (u32*) (((u64) tlbInfos[tlbi].mRemoteBaseAddress)&~((u64) AHAX_CONSTANT2M_MASK)))
+      HOST_FATAL(BAD_ALIGNMENT,
+                 "TOP BIT MISMATCH FOR TLBI %d base %p top %p (from 0x%x, wanted 0x%x)\n",
+                 tlbi,tlbBase,destTop,destAddr,destOffsetWords<<2u);
     for (u32 i = 0u; i < wordCount; ++i) {
-      if (i < 2u || i >= wordCount - 2u)
-        printf("WT %d/%d %p = 0x%08x\n",
-               tlbi,i,(volatile uint32_t*)(tlbBase + destOffsetWords + i),words[i]);
+      if (i < 10u || i >= wordCount - 10u)
+        printf("WT %d/%d %p/0x%08x = 0x%08x\n",
+               tlbi,i,
+               (volatile uint32_t*)(tlbBase + destOffsetWords + i),
+               destAddr+4u*i,
+               words[i]);
       *(volatile uint32_t*)(tlbBase + destOffsetWords + i) = words[i];
     }
   }
@@ -188,7 +193,8 @@ namespace MFM {
     struct tenstorrent_configure_tlb_in & cfin = confio.in;
     struct tenstorrent_configure_tlb_out & cfout = confio.out;
 
-    cfin.id = tlbInfos[tlbi].id;
+    cfin.id = tlbInfos[tlbi].mAllocOut.id;
+    tlbInfos[tlbi].mRemoteBaseAddress = address;
     struct tenstorrent_noc_tlb_config & cfnoc = cfin.config;
     cfnoc.addr = address&~AHAX_CONSTANT2M_MASK; // window starting address in (x,y) space?
     cfnoc.x_end = range.end.x;
@@ -204,12 +210,14 @@ namespace MFM {
     ASSERT(ioctl(mDevFD, TENSTORRENT_IOCTL_CONFIGURE_TLB, &confio) >= 0);
 
     // map window into our space
-    u64 offset = wc ? tlbInfos[tlbi].mmap_offset_wc : tlbInfos[tlbi].mmap_offset_uc;
+    u64 offset = wc ?
+      tlbInfos[tlbi].mAllocOut.mmap_offset_wc :
+      tlbInfos[tlbi].mAllocOut.mmap_offset_uc;
     void * ptr;
     if ((ptr = mmap((void*)(((char*) mMapAll) + tlbi*AHAX_CONSTANT2M), AHAX_CONSTANT2M,
                     PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
                     mDevFD, offset)) == MAP_FAILED)
-      FATAL("MMAP FAIL");
+      HOST_FATAL(OPERATION_FAILED,"MMAP FAIL");
 
     return ptr;
   }

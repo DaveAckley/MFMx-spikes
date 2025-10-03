@@ -1,7 +1,6 @@
-#ifndef BHUMD_H          /* -*- mode: C++ -*- */
-#define BHUMD_H
+#pragma once          /* -*- mode: C++ -*- */
 
-#include "Util.h"
+#include "utils.h"
 #include "TTKMDStuff.h"
 #include "Constants.h"
 #include "BHUMD_Constants.h"
@@ -66,4 +65,3 @@ namespace MFM {
   */
 } // namespace MFM
 
-#endif /* BHUMD_H */

@@ -1,4 +1,5 @@
 #include "T6ElevatorTransport.h"
+#include "Fail.h"
 
 namespace MFM {
   //// ALL DEFS HERE ARE REQUEST INITIATOR #0 ON NOC 0!
@@ -31,7 +32,7 @@ namespace MFM {
     // TARG (lo+mid) is the source in our L1. TARG hi is our raw NoC coord
     u32 targlo = (u32) data;
     u32 targmid = 0u;
-    u32 targhi = ((mHostBlock.mYPos&0x3f)<<6)|(mHostBlock.mXPos&0x3f);
+    u32 targhi = ((mHostBlockPtr->mYPos&0x3f)<<6)|(mHostBlockPtr->mXPos&0x3f);
 
     // In general:
     //   RET (lo+mid) is the dest addr, RET hi is the raw NoC coord of the dest tile
@@ -59,4 +60,9 @@ namespace MFM {
     return 0;
   }
 
+  void T6ElevatorTransport::updateTransportBlock() {
+    u32 var;
+    memset(&var,0,sizeof(var)); // generate a non-template use of memset grrr.
+    //    FAIL(INCOMPLETE_CODE);
+  }
 }

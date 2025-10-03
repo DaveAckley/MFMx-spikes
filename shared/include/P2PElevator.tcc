@@ -1,5 +1,5 @@
 /* -*- C++ -*- */
-#include "Death.h"
+#include "Fail.h"
 
 namespace MFM {
   template <class CAR, u32 BANKS>
@@ -33,7 +33,7 @@ namespace MFM {
       case PS_DEPARTED:
         continue;
       case PS_ARRIVED: 
-        FATAL("WRITE ME");
+        FAIL(INCOMPLETE_CODE);
       case PS_LOADING:
         {
           if (payload.mCar.readyToDepart()) {

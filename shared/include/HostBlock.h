@@ -1,28 +1,30 @@
 #ifndef HOSTBLOCK_H  /* -*- C++ -*- */
 #define HOSTBLOCK_H
 
+#include "itype.h"
 #include "RingBuffer.h"
 
 namespace MFM {
   struct HostBlock {
-    static const uint32_t HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
-    static const uint32_t HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..
+    static const u32 HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
+    static const u32 HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..
 
-    uint32_t mHBMagic;          // MUST BE FIRST u32
+    //// DATA MEMBERS
+    u32 mHBMagic;               // MUST BE FIRST u32 BYTES 0..3
 
-    uint32_t mPerRiscArg[5];    // MUST BE 2ND u32(x5)
-    uint32_t mCommonArgs[3];
+    s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
+    u8 mXPos, mYPos, mTLBI, mRsrv1; // MUST BE BYTES 24..27
+    u32 mCommonArgs[3];
 
-    uint32_t mHostBaseAddrLo;
-    uint32_t mHostBaseAddrHi;
+    u32 mHostBaseAddrLo;
+    u32 mHostBaseAddrHi;
 
-    uint8_t mXPos, mYPos, mTLBI, mRsrv1;
-
-    typedef RingBuffer<u8,9u> LogBuffer;
+    typedef RingBuffer<u8,5u> LogBuffer;
     LogBuffer mLogBuffer;
 
-    uint32_t mHBCigam;         // MUST BE LAST u32
+    u32 mHBCigam;         // MUST BE LAST u32
 
+    //// METHODS
     void resetLog() { mLogBuffer.reset(); }
 
     bool addByte(u8 byte) { return mLogBuffer.add(byte); }

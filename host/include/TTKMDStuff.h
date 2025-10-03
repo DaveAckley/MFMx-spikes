@@ -1,7 +1,8 @@
 #ifndef TTKMDSTUFF_H        /* -*- C++ -*- */
 #define TTKMDSTUFF_H
 
-#include "Util.h"
+#include <cstddef>
+#include "itype.h"
 
 namespace MFM {
 

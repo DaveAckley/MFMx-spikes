@@ -1,7 +1,8 @@
-#ifndef OURTLBS_H          /* -*- mode: C++ -*- */
-#define OURTLBS_H
+#pragma once          /* -*- mode: C++ -*- */
 
-#include "Util.h"
+#include "utils.h"
+
+#include "FATAL.h"
 #include "U16C.h"
 #include "TTKMDStuff.h"
 
@@ -27,7 +28,7 @@ namespace MFM {
     void writeToBytes(u32 tlbi, u32 destByteAddr, u8 * bytes, u32 byteCount) {
       if (((((uintptr_t) bytes) & 0x3) != 0u) ||
           (byteCount & 0x3) != 0u)
-        FATAL("BAD WRITE ALIGNMENT\n");
+        HOST_FATAL(BAD_ALIGNMENT,"BAD WRITE ALIGNMENT\n");
       writeToWords(tlbi, destByteAddr, (u32 *) bytes, byteCount/4u);
     }
     void writeToWords(u32 tlbi, u32 destByteAddr, u32 * words, u32 wordCount) ;
@@ -40,7 +41,7 @@ namespace MFM {
     void readFromBytes(u32 tlbi, u32 srcByteAddr, u8 * bytes, u32 byteCount) {
       if (((((uintptr_t) bytes) & 0x3) != 0u) ||
           (byteCount & 0x3) != 0u)
-        FATAL("BAD READ ALIGNMENT\n");
+        HOST_FATAL(BAD_ALIGNMENT,"BAD READ ALIGNMENT\n");
       readFromWords(tlbi, srcByteAddr, (u32 *) bytes, byteCount/4u);
     }
 
@@ -60,11 +61,13 @@ namespace MFM {
     void * configureWindow(unsigned tlbi, U16CRange range, u32 address, bool wc) ;
 
     // data
-    struct tenstorrent_allocate_tlb_out tlbInfos[AHAX_TLB2M_COUNT];
+    struct TLBInfo {
+      struct tenstorrent_allocate_tlb_out mAllocOut;
+      u32 mRemoteBaseAddress;
+    } tlbInfos[AHAX_TLB2M_COUNT];
     pinned_host_buffer_t mPinnedHostBuf;
     s32 mDevFD;
     void * mMapAll;
   };
 } // namespace MFM
 
-#endif /* OURTLBS_H */

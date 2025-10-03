@@ -33,13 +33,14 @@ b_init:
         j 1b
 2:      ## OTHER FIVE-BABIES-LEVEL SETUP?
 	
-        la a0, __host_block_start  # arg is struct HOSTBLOCK *
-	call t6setup            # Do other t6 level setup
+        la a0, __host_block_start  # arg 1 is struct HOSTBLOCK *
+	call t6setup            # Do other t6 level setup on hartb only
 	
         ## READY TO ROCK
         la t1, 0xFFB121B0   # RISCV_DEBUG_REG_SOFT_RESET_0
 	sw x0,(t1)          # release all
         j exit_setup
+        ## END OF HARTB-ONLY CODE
 
 t0_init:
         li s0,1                 # we are hart1
@@ -61,21 +62,35 @@ nc_init:
 	la sp, __stack_top8K    # we've got 8k fastram 	
 	# FALL THROUGH: j exit_setup
         
-exit_setup:
-	# Initialize global pointer (same for all harts)
+exit_setup:  ## ALL HARTS COME THROUGH HERE
+	# Finally initialize global pointer (same for all harts)
 	lui gp,%hi(__global_pointer$)
 	addi gp,gp,%lo(__global_pointer$)
 	.option pop
 
-	# Zero fastram (same for all harts given each sp)
-        la t1, __fast_start
-3:      beq t1,sp,runmain
-        sw x0,(t1)
-        addi t1, t1, 4
-        j 3b
+	## fastram zeroes automagically? - "When the RISCV comes out
+	## of reset, the local data RAM will spend up to 2048 clock
+	## cycles resetting its contents to zero."
+
+	la t1, __fast_start     # get local ptr
+	la t2, __host_block_start # get hb ptr
+	sb s0,(t1)              # set fast[0] 0..7 to hartnum
+        lbu t3,24(t2)           # get hb.mXPos
+        sb t3,1(t1)             # stash in fALL.mXPos
+        lbu t3,25(t2)           # get hb.mYPos
+        sb t3,2(t1)             # stash in fall.mYPox
+        ## FALL THROUGH	
+# 	# Zero fastram (same for all harts given each sp)
+#         la t1, __fast_start
+# 	sw x0,(t1)              # set fast[0] to 0
+# 	sb s0,(t1)              # set fast[0] 0..7 to hartnum
+# 3:      addi t1, t1, 4
+#         beq t1,sp,runmain
+#         sw x0,(t1)              # stash 0 everywhere else
+#         j 3b
 runmain:        
-	mv a0, s0                  # first arg is hart#
-        la a1, __host_block_start  # second arg is struct HOSTBLOCK *
+	
+        la a0, __host_block_start  # arg is struct HOSTBLOCK *
 	call hartmain
 
 	/* if/when they return, mark us as done */
@@ -87,3 +102,16 @@ runmain:
 done:  
         j done
 	.cfi_endproc
+	
+	.global t6hang
+        .type   t6hang, @function
+
+	.cfi_startproc
+t6hang:
+        la t0, __fast_start     # addr of stashed hartnum
+	lb t0,0(t0)             # get hartnum
+	la t2, __host_block_start+4  # get host block, skipping HBMAGIC
+	sh2add t1, t0, t2       # t1: addr of mPerRiscArg[s0] 
+        sw a0,0(t1)             # store arg
+1:      j 1b                    # hang 
+        .cfi_endproc
