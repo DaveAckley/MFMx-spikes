@@ -1,0 +1,156 @@
+  class alignas(16) BaseCarHOLD {
+  public:
+    static constexpr u32 ADDR_BITS = 62;
+    static constexpr u64 ADDR_MASK = (((u64) 1)<<(ADDR_BITS+1u))-1u;
+    u64 getAddress() const { return mSNA & ADDR_MASK; }
+    void setAddress(u64 addr) { mSNA = (mSNA&~ADDR_MASK)|(addr&ADDR_MASK); }
+    CarState getCarState() const { return (CarState) (mSNA>>ADDR_BITS); }
+    void setCarState(CarState cs) { mSNA = (((u64) cs)<<ADDR_BITS)|(mSNA&ADDR_MASK); }
+  protected:
+    u64 mSNA; // state 'n address
+  };
+
+
+-----
+#if 0
+  template <typename TYPE, u32 COUNT>
+  struct TCarManager {
+    void init(void * blockStoragePtr) ; // COUNT*sizeof(TYPE)
+
+    AtomicLock mCarLock;
+    u32 mCurrentIndex;
+    TYPE * mTCarBasePtr;
+    inline u32 nextCarIndex() { return nextIndex(mCurrentIndex); }
+    inline u32 nextIndex(u32 curidx) {
+      u32 ret = curidx + 1u;
+      if (ret >= COUNT) ret = 0u;
+      return ret;
+    }
+    void update() ;
+  };
+#endif
+
+-------
+
+    /*
+    for (u32 i = 0u; i < 2u; ++i)
+      theTransportBlock.mLogCars[i].setCarState(CarState::CS_OPEN);
+    TransportBlock::LogCar * b1 = &theTransportBlock.mLogCars[0];
+    if (b1 != 0) {
+      DP.printf("HIO!");
+      u32 * udata = (u32*) b1;
+      u32 usize = sizeof(*b1)>>2;
+      for (u32 i = 0u; i < usize; ++i)
+        udata[i] = 0xf00baa9;
+      u64 destbase = (((u64) hb.mHostBaseAddrHi)<<32) + hb.mHostBaseAddrLo;
+      //      if (hb.mTLBI > 0) hb.mHBCigam= udata[1];
+
+      u64 destaddr = destbase + hb.mTLBI * sizeof(TransportBlock);
+      u64 pcietlbaddr = destaddr;  //  | 0x1000'0000'0000'0000; // to outbound iatu then host iommu?
+      if ((pcietlbaddr%16) != 0)   // nice round addrs right?
+        FAIL(BAD_ALIGNMENT);
+      else if (0!=fNC.mT6ElevatorTransport.initiateWriteToHost(udata,usize,pcietlbaddr))
+        FAIL(OPERATION_FAILED);
+    } else
+      hb.mHBCigam= -1; // blow the sig as a signal?
+    */
+
+#if 0
+  //#define TENSTORRENT_MAPPING_RESOURCE0_UC 1
+
+  struct tenstorrent_mapping {
+    uint32_t mapping_id;
+    uint32_t reserved;
+    uint64_t mapping_base;
+    uint64_t mapping_size;
+  };
+
+  // Very thin user-mode driver, sufficient for poking around in device memory:
+
+  struct bh_pcie_device_t {
+    int fd;
+    uint32_t tlb_cfg[2]; // Cached contents of *tlb_reconfigure, to avoid reconfiguration.
+    volatile uint32_t* tlb_reconfigure;
+    char* tlb; // 2 MiB window into device memory, configured using tlb_reconfigure.
+    size_t host_page_size;
+    size_t total_mmap_size;
+  };
+
+  /** BlackHold User Mode Driver, thin corsix style
+   */
+  class OURTLBS {
+  public:
+    OURTLBS() ;
+    ~OURTLBS() ;
+
+    const char * getDeviceName() const ;
+
+    void setDeviceNumber(u32 deviceNumber) ;
+    bool unsetDeviceNumberIfSet() ;
+
+    void setTilePosition(u32 xpos, u32 ypos) ;
+    void setRandomTilePosition(RandMT & rmt) ;
+
+    s32 open() ;
+    s32 close() ;
+
+    s32 deployRISCVCodeFromFile(const char * path) ;
+    s32 deployThisRISCVCode(const char * rvcode, u32 rvsize) ;
+
+    s32 releaseTheHounds() ;
+    s32 waitTilDone() ;
+
+  private:
+    s32 open_bh_pcie_device() ;
+    s32 close_bh_pcie_device() ;
+
+    s32 configure_tlb() ;
+    s32 set_tlb_xy() ; // HERE'S WHERE (CURRENTLY SINGLE) TENSIX CORE IS SELECTED
+    char* set_tlb_addr(u64 addr) ;
+
+    void tlb_write_u32(u64 addr, u32 value) ;
+    u32 tlb_read_u32(u64 addr) ;
+
+    u32 mDevNum;
+    bool mHasDevNum;
+    bool mDevOpen;
+
+    u32 mTileXPosition;
+    u32 mTileYPosition;
+
+    bool mCodeDeployed;
+    u32 mDeployedCodeSize;
+
+    bh_pcie_device_t mBHDev;
+    pinned_host_buffer_t mPinnedHostBuf;
+  };
+
+  /*
+  struct HostBlock {
+    uint32_t mPerRiscArg[5];
+    uint32_t mCommonArgs[3];
+  };
+  */
+#endif
+
+
+----
+  struct tenstorrent_get_device_info_in {
+    uint32_t output_size_bytes;
+  };
+
+  struct tenstorrent_get_device_info_out {
+    uint32_t output_size_bytes;
+    uint16_t vendor_id;
+    uint16_t device_id;
+    uint16_t subsystem_vendor_id;
+    uint16_t subsystem_id;
+    uint16_t bus_dev_fn;            // [0:2] function, [3:7] device, [8:15] bus
+    uint16_t max_dma_buf_size_log2; // Since 1.0
+    uint16_t pci_domain;            // Since 1.23
+  };
+
+  struct tenstorrent_get_device_info {
+    struct tenstorrent_get_device_info_in in;
+    struct tenstorrent_get_device_info_out out;
+  };
