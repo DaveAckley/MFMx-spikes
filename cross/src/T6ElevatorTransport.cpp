@@ -20,6 +20,20 @@ namespace MFM {
 
   static volatile u32 * const NOC_CMD_CTRL =      NIU_ADDRESS(0x40,0,0);
 
+  void T6ElevatorTransport::init(HostBlock & hb, TransportBlock & tb) {
+    mHostBlockPtr = &hb;
+    mTransportBlockPtr = &tb;
+    u64 noc = hb.getHostNocAddr();
+    mP2PLogCarManager.initCars((LogCarStorage::LogCar*) tb.mLogCarStorageT6Ptr,
+                               LogCarStorage::CAR_COUNT,
+                               noc + (tb.mLogCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
+                               false);
+    mP2PEWCarManager.initCars((EWCarStorage::EWCar*) tb.mEWCarStorageT6Ptr,
+                              EWCarStorage::CAR_COUNT,
+                              noc + (tb.mEWCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
+                              false);
+  }
+
   bool T6ElevatorTransport::allClear() {
     u32 v = *NOC_CMD_CTRL;
     return 0u==(v&1);

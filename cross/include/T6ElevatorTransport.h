@@ -14,19 +14,7 @@ namespace MFM {
     // at (2,0) in raw NoC0 coords
     static constexpr U16C PCIeTILE_COORD = {2,0};
 
-    void init(HostBlock & hb, TransportBlock & tb) {
-      mHostBlockPtr = &hb;
-      mTransportBlockPtr = &tb;
-      u64 noc = hb.getHostNocAddr();
-      mP2PLogCarManager.initCars((LogCarStorage::LogCar*) tb.mLogCarStorageT6Ptr,
-                                 LogCarStorage::CAR_COUNT,
-                                 noc + (tb.mLogCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
-                                 false);
-      mP2PEWCarManager.initCars((EWCarStorage::EWCar*) tb.mEWCarStorageT6Ptr,
-                                EWCarStorage::CAR_COUNT,
-                                noc + (tb.mEWCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
-                                false);
-    }
+    void init(HostBlock & hb, TransportBlock & tb) ;
     bool updateTransportBlock() ;
     bool allClear() ;
     bool ship(LogCarStorage::LogCar & lc, u32 carnum) ;
@@ -39,7 +27,7 @@ namespace MFM {
       return initiateWrite(data, count, PCIeTILE_COORD, destaddr);
     }
 
-    HostBlock * mHostBlockPtr;
+    const HostBlock * mHostBlockPtr;
     TransportBlock * mTransportBlockPtr;
 
     typedef P2PElevatorPlatform<LogCarStorage::LogCar,T6ElevatorTransport> P2PLogCarManager;

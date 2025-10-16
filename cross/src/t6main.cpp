@@ -19,8 +19,10 @@ namespace MFM {
     .mHBCigam = HostBlock::HBCIGAM
   };
 
-  int t6setup(HostBlock &hb) {
+  int t6setup(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
+    //    hb.mXPos = 8;
+    //    hb.mYPos = 7;
     hb.mXPos = ((node_id >> 0) & 0x3f);
     hb.mYPos = ((node_id >> 6) & 0x3f);
     hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mXPos,hb.mYPos});

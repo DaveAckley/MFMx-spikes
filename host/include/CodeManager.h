@@ -15,6 +15,8 @@ namespace MFM {
     s32 deployRISCVCodeFromFile(const char * path) ;
     s32 deployThisRISCVCode(const char * rvcode, u32 rvsize) ;
 
+    void releaseTheHounds() ;
+
     void assertGoodMagic() ;
     s32 awaitResults() ;
 

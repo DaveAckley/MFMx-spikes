@@ -26,5 +26,6 @@ set(CMAKE_OBJDUMP ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-objdump)
 # Add any specific compiler flags for the cross-compiler
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-m4 -mthumb")
 set(MARCH rv32ima_zicsr_zba_zbb)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH} -ffreestanding -nostdlib -fno-exceptions -fno-rtti")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH} -ffreestanding -nostdlib -fno-exceptions -fno-rtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH} -ffreestanding -nostdlib -fno-exceptions -fno-rtti -save-temps")
 set(CMAKE_ASM_FLAGS "-march=${MARCH}")

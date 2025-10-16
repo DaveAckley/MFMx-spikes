@@ -2,6 +2,7 @@
 #include "itype.h"
 
 namespace MFM {
+
   inline bool tryLockASM(void* addr) {
     bool ret;
     asm volatile (
@@ -16,6 +17,7 @@ namespace MFM {
         );
     return ret;
   }
+  
   inline void acquireLockASM(void* addr) {
     asm volatile (
   "li t0, 1         # init swap value\n"
@@ -29,6 +31,7 @@ namespace MFM {
         : "t0", "t1"            // clobbered temps
         );
   }
+
   inline void releaseLockASM(void* addr) {
     asm volatile (
   "amoswap.w x0,x0,(%0)  # release lock by storing 0\n\t"                
@@ -58,5 +61,6 @@ namespace MFM {
 
   private:
     u32 mLock;
+
   };
 }

@@ -22,12 +22,12 @@ namespace MFM {
   int hartMainNC(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     theT6ElevatorTransport.init(hb,theTransportBlock);
-    //DP.printf("NC:HILO:0x%08lx%08lx\n",hb.mHostBaseAddrHi,hb.mHostBaseAddrLo);
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
-    while (true)
+    while (true) 
       theT6ElevatorTransport.updateTransportBlock();
+
     return 0; /* NOT REACHED */
   }
 }

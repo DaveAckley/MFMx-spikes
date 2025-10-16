@@ -17,8 +17,11 @@ namespace MFM {
     DP.printf("%d:Hoo[0x%04x] ",fAll.mHartNum, createBits(16));
     //    LOG.printf("BANGYORDED\n");
     //    LOG.printf("LOGAT(%p)\n",&LOG);
-    for (u32 i = 0u; i < 20u; ++i)
-      LOG.printf("HI LOOK T6/T1@(%u,%u) SENT YOU '%c'!\n",
+    u32 stop = createBits(4);
+    for (u32 i = 0u; i < stop; ++i)
+      LOG.printf("HI LOOK %u,%u T1@(%u,%u) SENT YOU '%c'!\n",
+                 offsetof(HostBlock,mXPos),
+                 offsetof(HostBlock,mYPos),
                  hb.mXPos,hb.mYPos,createBits(6)+32u);
     return 0;
   }  

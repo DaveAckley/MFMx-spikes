@@ -68,22 +68,16 @@ namespace MFM {
     }
   }
 
-  s32 morebits;
-  u32 func(s32 bits) {
-    if (bits == 0) return 7u;
-    morebits = createBits(4);
-    return func(bits-morebits);
-  }
-
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
     preloadT2Mailbox();
     
     u32 seed = hb.mCommonArgs[0] * (hb.mXPos+1) + (hb.mYPos);
     fT2.mRandom.seedMT_MFM(seed);
+
+    LOG.printf("%d:GO LIVE MAXSTAX %d\n",fAll.mHartNum,estimateStackUsage());
+
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-    u32 fungo = func(createBits(4));
-    DP.printf("%d:GO LIVE MAXSTAX %d\n",fAll.mHartNum,estimateStackUsage());
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

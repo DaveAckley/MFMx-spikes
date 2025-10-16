@@ -2,8 +2,9 @@
 #include "host_header.h"
 #include "shared_header.h"
 
+#if 0
 extern int spikeMain();
-extern int pymain();
+extern "C++" int pymain();
 
 int main() {
   std::cout << "Hello from hostmain!" << std::endl;
@@ -11,3 +12,4 @@ int main() {
   shared_function();
   return pymain();
 }
+#endif

@@ -98,7 +98,22 @@ runmain:
 	sh2add t1, s0, s2            # t1: addr of mPerRiscArg[s0] 
 	addi t0,s0,1            # get s0 + 1
         sw t0,0(t1)             # stick it in finish loc
-        fence
+
+        #### DEBUG: BLOW THE MAGIC IF NOCs 0 ON HARTB
+	j 2f                    # SKIP ALL THIS WE FIGGERED IT OUT
+        
+	bne s0, x0, 2f          # skip all this unless B
+        la s2, __host_block_start  # get host block 
+	li s3,250
+	lbu t0,24(s2)           # get xpos
+        beq t0,x0,1f            # blow magic if it's zero
+	sb s3,24(s2)            # change it to illegal but known
+        lbu t0,25(s2)           # get ypos
+        bne t2,x0,2f            # fall though if zero
+1:      lw t0,(s2)              # get magic
+        addi t0,t0,16           # BLOW THE MAGIC
+        sw t0,(s2)
+2:      fence
 done:  
         j done
 	.cfi_endproc
@@ -122,19 +137,19 @@ t6hang:
 	.cfi_startproc
 estimateStackUsage:
         la t0, __fast_start     # addr of stashed hartnum
-	li t1,4
 	lbu t0,0(t0)            # get hartnum
+	li t1,4                 # get 4
         la t2,__stack_top8K     # assume 8k stack
-	beq t0,x0,1f            # hart b has that
-        beq t0,t1,1f            # hart nc has that
+	beq t0,x0,1f            # hart b (0) has that
+        beq t0,t1,1f            # hart nc (4) has that
         la t2,__stack_top4K     # t2 now: top of stack       
-1:      addi t0,t2,-1024        # t0 now: bottom of search
-	mv a0,t2                # start at stack top 
+1:      addi t0,t2,-1024        # t0 now: bottom of search (top 1k of stack)
+	mv a0,t0                # start at stack bottom
 	li t1, STACK_CANARY     # t1 now: what we're looking for
-2:      addi a0,a0,-4           # decrement to next
+2:      addi a0,a0,4            # increment to next
         lw t3,(a0)              # t3 now: next word
-        beq t3,t1,3f            # done if match
-        bge a0,t0,2b            # or loop if more
+        bne t3,t1,3f            # done at first non canary
+        blt a0,t2,2b            # or loop if more
 	# FALL THROUGH IF NOT FOUND
 3:      sub a0,t2,a0            # convert to min bytes used
 	ret

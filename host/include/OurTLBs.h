@@ -19,14 +19,29 @@ namespace MFM {
     static const u32 AHAX_TLBI_L1_MULTI = (AHAX_TLBI_L1_LAST_UNI + 1);
     static const u32 AHAX_TLBI_DEBUG_MULTI = (AHAX_TLBI_L1_MULTI + 1);
 
-    OurTLBs(s32 devfd) ;
+    OurTLBs() ;
     LogCarStorage::LogCar * getLogCarHost(u32 tlbi, u32 carnum) ;
     bool updateLogTransports() ;
     u32 getLogCarT6(u32 tlbi, u32 carnum) ;
 
+    void setDeviceInfo(u32 cardNum, s32 devfd) {
+      mDevCardNum = cardNum;
+      mDevFD = devfd;
+    }
+
     void allocateHostRAM(size_t bufferSize) ;
+    void deallocateHostRAM() ;
+    void stopPretendingHostRAMisDeallocated() ;
+
     void allocateTLBs() ;
+    void deallocateTLBs() ;
+
     void configureTLBs() ;
+    void unconfigureTLBs() ;
+
+    void resetTheFleet() ;
+
+    //////
     void write32(u32 tlbi, u32 addr, u32 data) {
       writeToWords(tlbi, addr, &data, 1u);
     }
@@ -72,9 +87,11 @@ namespace MFM {
       u32 mRemoteBaseAddress;
     } tlbInfos[AHAX_TLB2M_COUNT];
     pinned_host_buffer_t mPinnedHostBuf;
+    u32 mDevCardNum;
     s32 mDevFD;
     void * mMapAll;
     size_t mT6BufferSize;
+    bool mDMABufferPretendDeleted;
   };
 } // namespace MFM
 

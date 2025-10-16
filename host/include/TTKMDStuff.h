@@ -106,6 +106,29 @@ namespace MFM {
     struct tenstorrent_allocate_tlb_out out;
   };
 
+  struct tenstorrent_free_tlb_in {
+    uint32_t id;
+  };
+
+  struct tenstorrent_free_tlb_out {
+  };
+
+  struct tenstorrent_free_tlb {
+    struct tenstorrent_free_tlb_in in;
+    struct tenstorrent_free_tlb_out out;
+  };
+  
+  struct tenstorrent_free_dma_buf_in {
+  };
+
+  struct tenstorrent_free_dma_buf_out {
+  };
+
+  struct tenstorrent_free_dma_buf {
+    struct tenstorrent_free_dma_buf_in in;
+    struct tenstorrent_free_dma_buf_out out;
+  };
+
   // Very thin user-mode driver, sufficient for poking around in device memory:
 
   typedef struct bh_pcie_device_t {

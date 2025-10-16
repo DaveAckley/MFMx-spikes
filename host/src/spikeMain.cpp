@@ -15,6 +15,7 @@
 #include "P2PElevator.h"
 #include "TransportBlock.h"
 #include "HostBlock.h"
+#include "HostUtils.h"
 
 #include "t6-exports.h"
 
@@ -37,7 +38,8 @@ int spikeMain() {
   int fd = open("/dev/tenstorrent/0", O_RDWR | O_CLOEXEC);
   ASSERT(fd >= 0);
   
-  MFM::OurTLBs ourTLBs(fd);
+  MFM::OurTLBs ourTLBs;
+  ourTLBs.setDeviceInfo(0u,fd);
   ourTLBs.allocateTLBs();
   ourTLBs.configureTLBs();
   printf("PHASE-------Allocate host buffer space\n");
@@ -99,7 +101,7 @@ int spikeMain() {
                   RISCV_DEBUG_REG_SOFT_RESET_0,
                   SOFT_RESET_ALL_RISCV_EXCEPT_B);
 
-  sleep(1);
+  MFM::sleepUsec(100'000);
   printf("PHASE-------Check magic\n");
   cmgr.assertGoodMagic();
 

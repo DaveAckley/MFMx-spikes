@@ -7,11 +7,12 @@
 #define ASSERT(expr)                            \
   MFM_API_ASSERT(expr,ASSERTION_FAILED)
 
-#define HOST_FATAL(code, ...)                   \
-  do {                                          \
-    fprintf(stderr, __VA_ARGS__);               \
-    fprintf(stderr, "\n");                      \
-    FATAL(code);                                \
+#define HOST_FATAL(code, ...)                           \
+  do {                                                  \
+    fprintf(stderr, "%s:%d: ",__FILE__,__LINE__);       \
+    fprintf(stderr, __VA_ARGS__);                       \
+    fprintf(stderr, "\n");                              \
+    FATAL(code);                                        \
   } while (0)
 
 #define FATAL(code) \

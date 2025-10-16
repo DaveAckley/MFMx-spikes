@@ -10,6 +10,8 @@
 #include "FATAL.h"
 #include "HostBlock.h"
 #include "FailStrings.h"
+#include "Constants.h"
+#include "HostUtils.h"
 
 namespace MFM {
   s32 CodeManager::deployRISCVCodeFromFile(const char * path) {
@@ -75,8 +77,8 @@ namespace MFM {
     u32 hits = 0u, misses = 0u;
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
-         tlbi += 37) {
-      for (u32 word = 0u; word < wordcount; word += 1) {
+         tlbi += 69) {
+      for (u32 word = 0u; word < wordcount; word += 11) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
         if (codewords[word] != data) {
@@ -90,11 +92,14 @@ namespace MFM {
         
         // confirm certain addresses are in 'prerun' state
         u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+        //printf("SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
         {
           HostBlock rbhb;
+          memset(&rbhb,0,sizeof(rbhb));
           mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
           u32 hbmagicpre = rbhb.mHBMagic;
           //printf("HostBlock magic %x\n", hbmagicpre);
+          //printf("HostBlock x %u y %u\n", rbhb.mXPos, rbhb.mYPos);
           if (hbmagicpre != HostBlock::HBMAGIC || rbhb.mHBCigam != HostBlock::HBCIGAM)
             HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%0x\n",hbmagicpre);
           //printf("HostBlock HBA 0x%08x:%08x\n", rbhb.mHostBaseAddrHi, rbhb.mHostBaseAddrLo);
@@ -112,19 +117,40 @@ namespace MFM {
     return 0;
   }
 
+  void CodeManager::releaseTheHounds() {
+    mOurTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
+                     RISCV_DEBUG_REG_SOFT_RESET_0,
+                     SOFT_RESET_ALL_RISCV_EXCEPT_B);
+    printf("PHASE-------Check magic\n");
+    sleepUsec(100'000);
+    assertGoodMagic();
+  }
+
   void CodeManager::assertGoodMagic() {
     u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+    printf("GOODMAGICKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
+    HostBlock hb;
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
-      HostBlock hb;
-      memset(&hb,0,sizeof(hb));
-      mOurTLBs.readFromBytes(tlbi, hostblockaddr, (u8*) &hb, sizeof(hb));
+      explicit_bzero(&hb,sizeof(hb));
+      // memset(&hb,0x0,sizeof(hb)); // FAILS???? WTF?? BUT E.G. memset(&hb,0x1,sizeof(hb)); WORKKKKKKS!?
+      mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
+      if (false) {
+        printf("HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
+               hb.mHBMagic,tlbi,hb.mTLBI,
+               hb.mXPos,hb.mYPos,
+               hb.mPerHartStatus[0],
+               hb.mPerHartStatus[1],
+               hb.mPerHartStatus[2],
+               hb.mPerHartStatus[3],
+               hb.mPerHartStatus[4]);
+      }
       if (hb.mHBMagic != HostBlock::HBMAGIC)
         HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%08x @ %u\n",hb.mHBMagic,tlbi);
       if (hb.mHBCigam != HostBlock::HBCIGAM)
         HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
       U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
-      if (hb.mXPos != nocc.x || hb.mYPos != nocc.y || hb.mTLBI != tlbi)
+      if (true && (hb.mXPos != nocc.x || hb.mYPos != nocc.y || hb.mTLBI != tlbi))
         HOST_FATAL(BAD_VALUE,"Bad NOC0 COORD (%u,%u) wanted (%u,%u) @ %u vs %u\n",
                    hb.mXPos,hb.mYPos,
                    nocc.x, nocc.y,
