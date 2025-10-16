@@ -1,0 +1,65 @@
+# Cross-compiled specific build
+add_executable(crossmain
+    src/cross_main.cpp
+    src/cross_utility.cpp
+    src/setup.S
+    ${SHARED_SOURCES}
+)
+
+target_include_directories(crossmain PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${SHARED_INCLUDE_DIRS}
+)
+
+# --- Define the path to the generated linker script ---
+set(GENERATED_LDSCRIPT_PATH "${CMAKE_CURRENT_BINARY_DIR}/ldscript.ld")
+# Define a short, unique name for the custom target that generates the linker script
+set(GENERATED_LDSCRIPT_TARGET_NAME "generate_ldscript") # <--- New target name
+
+# --- Create a custom target for generating the linker script ---
+add_custom_target(${GENERATED_LDSCRIPT_TARGET_NAME}
+    COMMAND ${CMAKE_CXX_COMPILER} # Use the C++ compiler for preprocessing
+            -E                     # Preprocess only
+            -P                     # Disable line markers (optional, but makes output cleaner)
+            -x c                   # Treat input as C source (important for .ld.in files)
+            -I${CMAKE_CURRENT_SOURCE_DIR}/include # Add include path for memory_map.h
+            -I${SHARED_INCLUDE_DIRS} # Add shared include paths if needed by ldscript.ld.in
+            ${CMAKE_CURRENT_SOURCE_DIR}/ldscript.ld.in # Input template file
+            -o ${GENERATED_LDSCRIPT_PATH} # Output file
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ldscript.ld.in
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/memory_map.h # Dependency on the header file
+    COMMENT "Preprocessing linker script ${GENERATED_LDSCRIPT_PATH}"
+    BYPRODUCTS ${GENERATED_LDSCRIPT_PATH} # Tell CMake this target produces this file
+)
+
+# --- Link with the GENERATED custom linker script ---
+target_link_options(crossmain PRIVATE
+    -T${GENERATED_LDSCRIPT_PATH}
+)
+
+# Ensure the executable depends on the generated linker script target
+add_dependencies(crossmain ${GENERATED_LDSCRIPT_TARGET_NAME}) # <--- Now depends on the explicit target name
+
+
+# --- Generate crossmain-exports.h after linking ---
+set(CROSSMAIN_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/crossmain-exports.h")
+
+add_custom_command(
+    TARGET crossmain POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_CURRENT_BINARY_DIR}/crossmain ${CMAKE_CURRENT_BINARY_DIR}/crossmain.bin
+    COMMAND ${CMAKE_OBJDUMP} -t ${CMAKE_CURRENT_BINARY_DIR}/crossmain |
+            awk '
+                / _start/ { printf "#define CROSS_START_ADDRESS 0x%s\n", $1 }
+                / _end/ { printf "#define CROSS_END_ADDRESS 0x%s\n", $1 }
+            ' > ${CROSSMAIN_EXPORTS_HEADER}
+    COMMENT "Generating ${CROSSMAIN_EXPORTS_HEADER} from crossmain symbols"
+)
+
+# --- Copy the generated header to a shared location ---
+set(SHARED_GENERATED_HEADERS_DIR "${CMAKE_SOURCE_DIR}/generated_headers")
+add_custom_command(
+    TARGET crossmain POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${SHARED_GENERATED_HEADERS_DIR}
+    COMMAND ${CMAKE_COMMAND} -E copy ${CROSSMAIN_EXPORTS_HEADER} ${SHARED_GENERATED_HEADERS_DIR}/crossmain-exports.h
+    COMMENT "Copying ${CROSSMAIN_EXPORTS_HEADER} to shared location"
+)

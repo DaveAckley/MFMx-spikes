@@ -8,7 +8,12 @@ set(CMAKE_SYSTEM_PROCESSOR arm) # Or whatever your target architecture is
 set(COMPILER_BASE_DIR  /opt/tenstorrent/sfpi/compiler)
 set(CMAKE_C_COMPILER   ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-gcc)
 set(CMAKE_CXX_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-g++)
-set(CMAKE_ASM_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-as)
+set(CMAKE_OBJCOPY ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-objcopy)
+set(CMAKE_OBJDUMP ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-objdump)
+
+#set(CMAKE_ASM_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-as)
+#message(STATUS "ZONGSR")
+#set(CMAKE_ASM_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-gcc) # use gcc to get .S preprocessing?
 
 # Specify the target environment root (sysroot) if needed
 # set(CMAKE_FIND_ROOT_PATH /path/to/your/cross/compiler/sysroot)
@@ -22,3 +27,4 @@ set(CMAKE_ASM_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-as)
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-m4 -mthumb")
 set(MARCH rv32ima_zicsr_zba_zbb)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH} -ffreestanding -nostdlib -fno-exceptions -fno-rtti")
+set(CMAKE_ASM_FLAGS "-march=${MARCH}")
