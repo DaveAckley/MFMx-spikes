@@ -1,19 +1,10 @@
-ALLCMDS:=all clean realclean
+SHELL:=/usr/bin/bash
+VENV_DIR:=../../venv
 
-$(ALLCMDS):	FORCE 
-	make $@-here
-	make -C shared $@
-	make -C cross $@
-	make -C host $@
+all:	py10
 
-all-here:	FORCE
-
-realclean-here:	clean-here
-
-clean-here:	FORCE
-	rm -f *~
-
-run:	all
-	make -C host run
+py10:	FORCE
+	source $(VENV_DIR)/bin/activate && \
+	c++ -O3 -Wall -shared -std=c++11 -fPIC $$(python3 -m pybind11 --includes) $@.cpp -o $@$$(python3 -m pybind11 --extension-suffix)
 
 .PHONY:	FORCE
