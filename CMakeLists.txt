@@ -1,26 +1,27 @@
-cmake_minimum_required(VERSION 3.15...4.0)
-project(c4i_mfm LANGUAGES CXX)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-find_package(pybind11 REQUIRED)
+cmake_minimum_required(VERSION 3.10)
+project(MixedBuild CXX)
 
 # Define the build directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
-# --- Host Build Configuration ---
-add_subdirectory(host)
+# --- Include shared/CMakeLists.txt to get SHARED_SOURCES and SHARED_INCLUDE_DIRS ---
+# This will process shared/CMakeLists.txt and make its PARENT_SCOPE variables available.
+add_subdirectory(shared)
 
-add_executable(c4i_mfm src/pymain.cpp)
-target_link_libraries(c4i_mfm PRIVATE pybind11::embed)
+# SHARED_SOURCES and SHARED_INCLUDE_DIRS are now available here from shared/CMakeLists.txt
 
-# --- Cross-Compilation Configuration ---
-# You'll need to define your cross-compiler toolchain file.
-# For example, create a file named 'toolchain-cross.cmake' in your project root.
-# A basic example is provided below.
-set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/toolchain-cross.cmake")
-add_subdirectory(cross)
+# --- NEW: Define the shared generated headers directory ---
+set(SHARED_GENERATED_HEADERS_DIR "${CMAKE_SOURCE_DIR}/generated_headers")
+# Ensure this directory exists before any build attempts
+file(MAKE_DIRECTORY ${SHARED_GENERATED_HEADERS_DIR})
+
+# Check if a toolchain file is being used (implies cross-compilation)
+if (CMAKE_TOOLCHAIN_FILE)
+  message(STATUS "Configuring for Cross-Compilation")
+  add_subdirectory(cross)
+else()
+  message(STATUS "Configuring for Host Build")
+  add_subdirectory(host)
+endif()
