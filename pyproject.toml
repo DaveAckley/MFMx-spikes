@@ -1,7 +1,35 @@
 [build-system]
-requires = ["scikit-build-core", "pybind11"]
-build-backend = "scikit_build_core.build"
+requires = [
+    "setuptools>=42",
+    "pybind11>=2.10.0",
+]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "example"
-version = "0.1.0"
+name = "c4i_mfm"
+dynamic = ["version"]
+dependencies = [
+  "textual",
+  "rich"
+]
+requires-python = ">= 3.10"
+
+#[project.scripts]
+#  RC4i = "
+
+[tool.cibuildwheel]
+test-command = "python {project}/tests/test.py"
+test-skip = "*universal2:arm64"
+
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = [
+  "B",   # flake8-bugbear
+  "I",   # isort
+  "PGH", # pygrep-hooks
+  "RUF", # Ruff-specific
+  "UP",  # pyupgrade
+]
