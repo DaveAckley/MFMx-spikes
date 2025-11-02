@@ -8,8 +8,9 @@
 namespace MFM {
   class CodeManager {
   public:
-    CodeManager(OurTLBs & tlbs)
-      : mOurTLBs(tlbs)
+    CodeManager(u32 cardNum, OurTLBs & tlbs)
+      : mCardNum(cardNum)
+      , mOurTLBs(tlbs)
     {
     }
     s32 deployRISCVCodeFromFile(const char * path) ;
@@ -21,6 +22,7 @@ namespace MFM {
     s32 awaitResults() ;
 
   private:
+    u32 mCardNum;
     OurTLBs & mOurTLBs;
     u32 mRVCodeSize;
   };

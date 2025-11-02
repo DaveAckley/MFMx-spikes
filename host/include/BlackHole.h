@@ -2,6 +2,8 @@
 #include "itype.h"
 #include "OurTLBs.h"
 #include "CodeManager.h"
+#include "BHTag.h"
+#include "BHLog.h"
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -24,13 +26,22 @@ namespace MFM {
     BlackHole(unsigned card = 0u)
       : mCardNum(card)
       , mCurrentPhase(Phase::HAS_CARD_NUM)
-      , mCodeManager(mOurTLBs)
+      , mCodeManager(mCardNum,mOurTLBs)
     { }
     u32 getCardNumber() const {
       return mCardNum;
     }
     Phase changePhase(Phase newPhase) ;
     Phase getPhase() const { return mCurrentPhase; }
+
+    void BHLOGprintf(const char * fmt, ...) {
+      BHTag tag(TagType::APPDBG,mCardNum,0,0);
+      va_list args;
+      va_start(args, fmt);
+      return BHLog::getTheBHLog().vprintf(tag,fmt,args);
+      va_end(args);
+    }
+
   private:
     void phaseAdvance() ;
     void phaseRetreat() ;
@@ -89,20 +100,38 @@ namespace MFM {
         HOST_FATAL(ILLEGAL_ARGUMENT,"Unknown or unhandled phase %d",j);
       });
 
-      bh.def("open", [](BlackHole& b) { b.changePhase(Phase::HAS_OPEN_DEVICE); });
-      bh.def("allocateTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_TLBS); });
-      bh.def("configureTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_CONFIGURED_TLBS); });
-      bh.def("allocateHostRAM", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_HOST_RAM); });
+      bh.def("open", [](BlackHole& b) { b.changePhase(Phase::HAS_OPEN_DEVICE); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("allocateTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_TLBS); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("configureTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_CONFIGURED_TLBS); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("allocateHostRAM", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_HOST_RAM); }, py::call_guard<py::gil_scoped_release>());
       bh.def("setMFMxCodePath", &BlackHole::setMFMxCodePath);
-      bh.def("deployMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); });
-      bh.def("startMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); });
+      bh.def("deployMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("startMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); }, py::call_guard<py::gil_scoped_release>());
+      //
 
-      bh.def("stopMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_TILES_RESET); });
-      bh.def("clearMFMxCodePath", &BlackHole::clearMFMxCodePath);
-      bh.def("deallocateHostRAM", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_HOST_RAM-1)); });
-      bh.def("unconfigureTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_CONFIGURED_TLBS-1)); });
-      bh.def("freeTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_TLBS-1)); });
-      bh.def("close", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_OPEN_DEVICE-1)); });
+      bh.def("getT6Key",[](BlackHole& b, u32 cardnum, u32 col, u32 row) {
+        return BHTag(TagType::T6TADR,cardnum, col, row);
+      });
+      /*
+      bh.def("setT6LogCallback", [](BlackHole& b, py::function cb) {
+        b.mOurTLBs.setLogCallback([cb](const BHTag& tag, const std::string_view& chunk) {
+          py::gil_scoped_acquire snatchLock;
+          try {
+            cb(tag,chunk);
+          } catch (const py::error_already_set& e) {
+            PyErr_Print();
+            // re-raise error? or something else?
+          }
+        });
+      });
+      */
+
+      bh.def("stopMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_TILES_RESET); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("clearMFMxCodePath", &BlackHole::clearMFMxCodePath, py::call_guard<py::gil_scoped_release>());
+      bh.def("deallocateHostRAM", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_HOST_RAM-1)); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("unconfigureTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_CONFIGURED_TLBS-1)); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("freeTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_TLBS-1)); }, py::call_guard<py::gil_scoped_release>());
+      bh.def("close", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_OPEN_DEVICE-1)); }, py::call_guard<py::gil_scoped_release>());
 
     }
     

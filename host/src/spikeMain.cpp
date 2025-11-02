@@ -92,7 +92,7 @@ int spikeMain() {
   }
 
   printf("PHASE-------Deploy the code\n");
-  MFM::CodeManager cmgr(ourTLBs);
+  MFM::CodeManager cmgr(0u,ourTLBs);
   //  cmgr.deployRISCVCodeFromFile("../cross/bin/t6main.bin"); // OLDE WAIYE
   cmgr.deployRISCVCodeFromFile("./build_cross/bin/crossmain.bin"); // NEW CMAKE WAY GNU
 

@@ -11,6 +11,8 @@ target_sources(MFMx PRIVATE
     src/FATAL.cpp
     src/FailStrings.cpp
     src/OurTLBs.cpp
+    src/BHTag.cpp
+    src/BHLog.cpp
     src/HostUtils.cpp
     ${SHARED_SOURCES}
 )

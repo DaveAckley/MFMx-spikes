@@ -6,11 +6,15 @@
 #include "U16C.h"
 #include "TTKMDStuff.h"
 #include "TransportBlock.h"
+#include "BHTag.h"
+
+#include <pybind11/functional.h> // for std::function?
 
 namespace MFM {
 
   class OurTLBs {
   public:
+
     // constants
     static const u32 AHAX_CONSTANT2M = (1u<<21);
     static const u32 AHAX_CONSTANT2M_MASK = AHAX_CONSTANT2M-1u;

@@ -2,6 +2,7 @@
 #include <cstring>
 #include "BaseCar.h"
 #include "TransportBlock.h"
+#include "BHLog.h"
 
 // use the source AHAX ?
 #include <sys/ioctl.h>
@@ -21,8 +22,8 @@ namespace MFM {
     , mT6BufferSize(0)
     , mDMABufferPretendDeleted(false)
   {
-    memset(tlbInfos,0u,sizeof(tlbInfos));
-    memset(&mPinnedHostBuf,0u,sizeof(mPinnedHostBuf));
+    explicit_bzero(tlbInfos,sizeof(tlbInfos));
+    explicit_bzero(&mPinnedHostBuf,sizeof(mPinnedHostBuf));
   }
 
   void OurTLBs::allocateHostRAM(size_t sizePerT6) {
@@ -35,7 +36,7 @@ namespace MFM {
         HOST_FATAL(UNSUPPORTED_OPERATION,
                    "Can't change size of host RAM per T6 (original %lu, now requested %lu)",
                    mT6BufferSize, size);
-      printf("'Reallocated' host RAM buffer\n");
+      LOGprintf(mDevCardNum,"'Reallocated' host RAM buffer\n");
       mDMABufferPretendDeleted = false;
       return;
     }
@@ -47,8 +48,8 @@ namespace MFM {
 
     const u32 PAGE_SIZE = 4096;
     buf->size = ((size+PAGE_SIZE-1)/PAGE_SIZE) * PAGE_SIZE;
-    printf("Trying to allocate %lu/0x%lx (%lu + %lu) for host RAM buffer\n",
-           buf->size, buf->size, mT6BufferSize, buf->size - mT6BufferSize);
+    LOGprintf(mDevCardNum,"Trying to allocate %lu/0x%lx (%lu + %lu) for host RAM buffer\n",
+              buf->size, buf->size, mT6BufferSize, buf->size - mT6BufferSize);
 
     void* memory;
 #if 0 // Let's just jump to the last one which is the one that works for me
@@ -56,24 +57,24 @@ namespace MFM {
     // Try doing a regular allocation and pinning it.
     // This should work for 4 KiB allocations, or for any size if an IOMMU is present and enabled.
     memory = mmap(NULL, buf->size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    printf("(REGULAR) mmap returned %p\n",memory);
+    LOGprintf(mDevCardNum,"(REGULAR) mmap returned %p\n",memory);
     {
       struct tenstorrent_pin_pages_extended pin_req;
       memset(&pin_req, 0, sizeof(pin_req));
-      printf("BEF pin req in.os = %u, in.flags = %u\n",pin_req.in.output_size_bytes,pin_req.in.flags);
+      LOGprintf(mDevCardNum,"BEF pin req in.os = %u, in.flags = %u\n",pin_req.in.output_size_bytes,pin_req.in.flags);
       pin_req.in.output_size_bytes = sizeof(pin_req.out);
       pin_req.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA | TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
       pin_req.in.size = buf->size;
-      printf("AFT pin req in.os = %u, in.flags = %u\n",pin_req.in.output_size_bytes,pin_req.in.flags);
+      LOGprintf(mDevCardNum,"AFT pin req in.os = %u, in.flags = %u\n",pin_req.in.output_size_bytes,pin_req.in.flags);
       if (memory != MAP_FAILED) {
         pin_req.in.virtual_address = (uint64_t)(uintptr_t)memory;
-        printf("(REGULAR) IOCTL on %u\n",mDevFD);
+        LOGprintf(mDevCardNum,"(REGULAR) IOCTL on %u\n",mDevFD);
         if (ioctl(mDevFD, TENSTORRENT_IOCTL_PIN_PAGES, &pin_req) >= 0) {
           buf->host_ptr = memory;
           buf->noc_addr = pin_req.out.noc_address;
           return;
         }
-        printf("(REGULAR) IOCTL failed: %s\n",strerror(errno));
+        LOGprintf(mDevCardNum,"(REGULAR) IOCTL failed: %s\n",strerror(errno));
         munmap(memory, buf->size);
       }
       // Try doing a huge page allocation and pinning it.
@@ -82,22 +83,22 @@ namespace MFM {
                     PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS |
                     MAP_HUGETLB | (__builtin_ctzll(buf->size) << MAP_HUGE_SHIFT), -1, 0);
       if (memory == MAP_FAILED) 
-        printf("(HUGE) mmap failed: %s\n",strerror(errno));
+        LOGprintf(mDevCardNum,"(HUGE) mmap failed: %s\n",strerror(errno));
       else {
         pin_req.in.virtual_address = (uint64_t)(uintptr_t)memory;
-        printf("(HUGE) IOCTL on %u\n",mDevFD);
+        LOGprintf(mDevCardNum,"(HUGE) IOCTL on %u\n",mDevFD);
         if (ioctl(mDevFD, TENSTORRENT_IOCTL_PIN_PAGES, &pin_req) >= 0) {
           buf->host_ptr = memory;
           buf->noc_addr = pin_req.out.noc_address;
           return;
         }
-        printf("(HUGE) IOCTL failed: %s\n",strerror(errno));
+        LOGprintf(mDevCardNum,"(HUGE) IOCTL failed: %s\n",strerror(errno));
         munmap(memory, buf->size);
       }
     }
 #endif
     
-    printf("(DMA) Trying DMA allocation\n");
+    LOGprintf(mDevCardNum,"(DMA) Trying DMA allocation\n");
     // Try doing a DMA allocation.
     // This should work for any size up to the DMA buffer size limit, subject to host memory fragmentation.
     {
@@ -105,19 +106,19 @@ namespace MFM {
       memset(&dma_req, 0, sizeof(dma_req));
       dma_req.in.requested_size = buf->size;
       dma_req.in.flags = TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
-      //printf("(DMA) IOCTL on %u\n",mDevFD);
+      //LOGprintf(mDevCardNum,"(DMA) IOCTL on %u\n",mDevFD);
       if (ioctl(mDevFD, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_req) >= 0) {
-        //printf("(DMA) MMAP for %lu\n",buf->size);
+        //LOGprintf(mDevCardNum,"(DMA) MMAP for %lu\n",buf->size);
         memory = mmap(NULL, buf->size, PROT_READ | PROT_WRITE, MAP_SHARED, mDevFD, dma_req.out.mapping_offset);
         if (memory != MAP_FAILED) {
           buf->host_ptr = memory;
           buf->noc_addr = dma_req.out.noc_address;
-          //printf("(DMA) MMAP got hp %p..%p\n",(char*)memory,((char*)memory)+buf->size);
+          //LOGprintf(mDevCardNum,"(DMA) MMAP got hp %p..%p\n",(char*)memory,((char*)memory)+buf->size);
           return;
         }
-        //printf("(DMA) MMAP failed: %s\n",strerror(errno));
+        //LOGprintf(mDevCardNum,"(DMA) MMAP failed: %s\n",strerror(errno));
       } else {
-        //printf("(DMA) IOCTL failed: %s\n",strerror(errno));
+        //LOGprintf(mDevCardNum,"(DMA) IOCTL failed: %s\n",strerror(errno));
       }
     }
 
@@ -128,7 +129,7 @@ namespace MFM {
     if (mDMABufferPretendDeleted)
       HOST_FATAL(ILLEGAL_STATE,"DMA buffer already deleted");
 
-    printf("(DMA) Trying to (pretend) free DMA allocation\n");
+    LOGprintf(mDevCardNum,"(DMA) Trying to (pretend) free DMA allocation\n");
     // Free a DMA allocation.
     {
       // UMMMMMMMM. So there's not much input in the freeing DMA
@@ -198,7 +199,7 @@ namespace MFM {
 
       /*
       if (i < 2u || i >= AHAX_TLB2M_COUNT-2u)
-        printf("TLBALLOC id=%u uc=0x%lx wc=0x%lx\n",
+        LOGprintf(mDevCardNum,"TLBALLOC id=%u uc=0x%lx wc=0x%lx\n",
                tlbInfos[i].mAllocOut.id,
                tlbInfos[i].mAllocOut.mmap_offset_uc,
                tlbInfos[i].mAllocOut.mmap_offset_wc);
@@ -221,7 +222,7 @@ namespace MFM {
 
       /*
       if (i < 2u || i >= AHAX_TLB2M_COUNT-2u)
-        printf("TLBFREE id=%u uc=0x%lx wc=0x%lx\n",
+        LOGprintf(mCardNum,"TLBFREE id=%u uc=0x%lx wc=0x%lx\n",
                tlbInfos[i].mAllocOut.id,
                tlbInfos[i].mAllocOut.mmap_offset_uc,
                tlbInfos[i].mAllocOut.mmap_offset_wc);
@@ -234,7 +235,7 @@ namespace MFM {
     // get addrs to cover all our needs
     mMapAll = mmap(NULL, AHAX_MMAP_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     ASSERT(mMapAll != MAP_FAILED);
-    printf("MMAP AT %p\n", mMapAll);
+    LOGprintf(mDevCardNum,"MMAP AT %p\n", mMapAll);
 
     // configure and map all but the last two to the fleet - L1 uni
     for (unsigned i = AHAX_TLBI_L1_FIRST_UNI; i <= AHAX_TLBI_L1_LAST_UNI; ++i) {
@@ -245,7 +246,7 @@ namespace MFM {
 
       /*
       if (i < 2u || i >= AHAX_TLB2M_COUNT-4u)
-        printf("TLBCFG %u @ (%u,%u) mapped at %p\n",i,nocc.x,nocc.y,ptr);
+        LOGprintf(mCardNum,"TLBCFG %u @ (%u,%u) mapped at %p\n",i,nocc.x,nocc.y,ptr);
       */
       
     }
@@ -253,11 +254,11 @@ namespace MFM {
     // map last two
     {
       void * ptr = configureMulticastWindow(AHAX_TLBI_L1_MULTI, 0x0, /*wc=*/ true);
-      //printf("L1MULTI %u mapped at %p\n",AHAX_TLBI_L1_MULTI,ptr);
+      //LOGprintf(mCardNum,"L1MULTI %u mapped at %p\n",AHAX_TLBI_L1_MULTI,ptr);
     }
     {
       void * ptr = configureMulticastWindow(AHAX_TLBI_DEBUG_MULTI, 0xFFB12000, false);
-      //printf("DEBUGMULTI %u mapped at %p\n",AHAX_TLBI_DEBUG_MULTI,ptr);
+      //LOGprintf(mCardNum,"DEBUGMULTI %u mapped at %p\n",AHAX_TLBI_DEBUG_MULTI,ptr);
     }
   }
 
@@ -279,7 +280,7 @@ namespace MFM {
                  tlbi,tlbBase,destTop,destAddr,destOffsetWords<<2u);
     for (u32 i = 0u; i < wordCount; ++i) {
       if (false && (i < 10u || i >= wordCount - 10u))
-        printf("WT %d/%d %p/0x%08x = 0x%08x\n",
+        LOGprintf(mDevCardNum,"WT %d/%d %p/0x%08x = 0x%08x\n",
                tlbi,i,
                (volatile uint32_t*)(tlbBase + destOffsetWords + i),
                destAddr+4u*i,
@@ -293,13 +294,13 @@ namespace MFM {
     u32 srcTop = srcByteAddr&~AHAX_CONSTANT2M_MASK;
     u32 srcOffsetWords = srcByteAddr&AHAX_CONSTANT2M_MASK;
     if (srcTop != 0u)
-      printf("IGNORING TOP BITS FOR TLBI %d base %p top 0x%x (from 0x%x, using 0x%x)\n",
+      LOGprintf(mDevCardNum,"IGNORING TOP BITS FOR TLBI %d base %p top 0x%x (from 0x%x, using 0x%x)\n",
              tlbi,tlbBase,srcTop,srcByteAddr,srcOffsetWords<<2u);
     for (u32 i = 0u; i < wordCount; ++i) {
       words[i] = *(volatile uint32_t*)(tlbBase + srcOffsetWords + (i<<2u));
       if (false) {
         if (i < 20u || i >= wordCount - 20u)
-          printf("RF %d %p = 0x%08x (%d)\n",
+          LOGprintf(mDevCardNum,"RF %d %p = 0x%08x (%d)\n",
                  i,(volatile uint32_t*)(tlbBase + srcOffsetWords + (i<<2u)),words[i],tlbi);
       }
     }
@@ -315,7 +316,7 @@ namespace MFM {
 
   void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
     unsigned ismulti = range.area() > 1u;
-    //printf("CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
+    //LOGprintf(mCardNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
     struct tenstorrent_configure_tlb confio;
     memset(&confio,0,sizeof(confio));
     struct tenstorrent_configure_tlb_in & cfin = confio.in;
@@ -364,7 +365,7 @@ namespace MFM {
         CarSig cs = lc.getHeader();
         u32 caroffset = ((char*)&lc) - ((char*) &stg);
         if (false/*i < 2 || i > 137*/) {
-          printf("ULOG %u %u 0x%02x cls %p lc %p noc 0x%lx + %lu\n",
+          LOGprintf(mDevCardNum,"ULOG %u %u 0x%02x cls %p lc %p noc 0x%lx + %lu\n",
                  i,car,
                  (u32) cs.mCarMagic,
                  &stg,
@@ -375,10 +376,13 @@ namespace MFM {
         }
         if (lc.isComplete() && lc.getCarState() == CarState::HEADING_INBOUND) {
           LogBlock & lb = lc.getContent();
-          printf("LOG:%u.%u.%u<",mDevCardNum,i,car);
-          for (u32 i = 0u; i < lb.mLength; ++i) 
-            printf("%c",lb.mData[i]);
-          printf(">%u.%u.%u:\n",mDevCardNum,i,car);
+
+          U16C addr = U16C::makeNocCoordFromTLBI(i);
+          BHTag tag(TagType::T6TADR,mDevCardNum,addr.x,addr.y);
+
+          BHLog & theLog = BHLog::getTheBHLog();
+          theLog.handle(tag, lb.mData, lb.mLength);
+          
           lb.reset();           // empty car
           lc.setCarState(CarState::HEADING_OUTBOUND);
         }
@@ -400,10 +404,10 @@ namespace MFM {
       {RISCV_DEBUG_REG_TRISC_RESET_PC_OVERRIDE, 0x1|0x2|0x4}, // use custom start addrs for T0,T1,T2
       {RISCV_DEBUG_REG_NCRISC_RESET_PC_OVERRIDE, 0x1},        // use custom start addr for NCRISC
     };
-    //printf("DATA %lu SIZ %lu\n",sizeof(data),sizeof(data[0]));
+    //LOGprintf(mCardNum,"DATA %lu SIZ %lu\n",sizeof(data),sizeof(data[0]));
 
     for (MFM::u32 i = 0u; i < sizeof(data)/sizeof(data[0]); ++i) {
-      //printf("%u 0x%08x = 0x%08x\n",i,data[i][0],data[i][1]);
+      //LOGprintf(mCardNum,"%u 0x%08x = 0x%08x\n",i,data[i][0],data[i][1]);
       write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI, data[i][0], data[i][1]);
     }
   }
