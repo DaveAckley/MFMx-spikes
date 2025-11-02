@@ -6,6 +6,8 @@
 #include <cstring>
 #include "BaseCar.h"
 #include "Fail.h"
+#include "EventWindow.h"
+//#include "CrossUtils.h"
 
 namespace MFM {
 
@@ -53,7 +55,8 @@ namespace MFM {
     }
   };
 
-  struct EWBlock : public TransportableContent<EWBlock> {
+  class EWBlock : public TransportableContent<EWBlock> {
+  public:
     bool readyToClose() const { // Closing (to be) handled by ew processing
       return false;
     }
@@ -63,9 +66,10 @@ namespace MFM {
     void reset() {
       memset_s(this,0u,sizeof(this)); // toyota
     }
-    typedef u32 EWAtom[4];
-    EWAtom mOld[41];
-    EWAtom mNew[41];
+    EventWindow mOld, mNew;
+  private:
+    friend class EWControl; // host side only
+    s32 mHiddenXPos, mHiddenYPos;
   };
 
   struct LogCarStorage {
@@ -73,17 +77,32 @@ namespace MFM {
       memset_s(&mLogCars,0u,sizeof(mLogCars));
     }
     typedef BaseCar<LogBlock> LogCar;
-    static constexpr u32 CAR_COUNT = 2u;
+    static constexpr u32 CAR_COUNT = 5;
     LogCar mLogCars[CAR_COUNT];
   };
   extern LogCarStorage theLogCarStorage;
   
+  struct LogCarMetadata {
+    LogCarMetadata() {
+      memset_s(&mLogData,0u,sizeof(mLogData));
+    }
+    static constexpr u32 CAR_COUNT = LogCarStorage::CAR_COUNT;
+    BaseCarMetadata mLogData[CAR_COUNT];
+  };
+
   struct EWCarStorage {
     typedef BaseCar<EWBlock> EWCar;
     static constexpr u32 CAR_COUNT = 3u;
     EWCar mEWCars[CAR_COUNT];
   };    
-  extern EWCarStorage theEWCarStorage;
+
+  struct EWCarMetadata {
+    EWCarMetadata() {
+      memset_s(&mEWData,0u,sizeof(mEWData));
+    }
+    static constexpr u32 CAR_COUNT = EWCarStorage::CAR_COUNT;
+    BaseCarMetadata mEWData[CAR_COUNT];
+  };
 
   struct TransportBlock {
     u32 mLogCarStorageT6Ptr;

@@ -71,6 +71,10 @@ namespace MFM {
     }
   };
 
+  struct BaseCarMetadata {
+    u32 mOccupiedTime;
+  };
+
   template<class CONTENT>
   class alignas(16) BaseCar {
   public:

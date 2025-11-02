@@ -45,6 +45,18 @@ namespace MFM {
     }
     return logfile;
   }
+
+  void EEvprintf(const char * file, u32 line, const char * fmt, va_list args) {
+    FILE * logfile = getHostLog();
+    char * base = strrchr((char*) file,'/');
+    if (base) file = base+1;
+    fprintf(logfile,"%s:%d: ",file,line);
+    BHLog & bhl = BHLog::getTheBHLog();
+    bhl.logLockStates();
+    vfprintf(logfile,fmt,args);
+    fflush(logfile);
+  }
+
   void EEprintf(const char * file, u32 line, const char * fmt, ...) {
     FILE * logfile = getHostLog();
     char * base = strrchr((char*) file,'/');
@@ -57,6 +69,21 @@ namespace MFM {
     vfprintf(logfile,fmt,args);
     va_end(args);
     fflush(logfile);
+  }
+
+  void interpretFailBits(u8 failbits, u8 * data, u32 count) {
+    const char chars[] = "BTT0T1T2NC";
+    u32 next = 0u;
+    for (u32 h = 0u; h<5u; ++h) {
+      if (failbits & (1<<h)) {
+        if (next < count-1) data[next++] = chars[2*h];
+        if (next < count-1) data[next++] = chars[2*h+1];
+      }
+    }
+    if (next == 0u && next < count-1)
+      data[next++] = '+'; // all good
+    if (next < count)
+      data[next] = 0u;
   }
   
 }

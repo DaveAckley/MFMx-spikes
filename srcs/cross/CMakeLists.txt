@@ -15,9 +15,9 @@ add_executable(crossmain
   src/FastT1.cpp
   src/FastT2.cpp
   src/P2PElevator.cpp
+  src/P2PEWElevatorPlatform.cpp
   src/Printf.cpp
   src/T6ElevatorTransport.cpp
-  src/randmt.cpp
   src/t6main.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES}
@@ -64,6 +64,8 @@ target_link_libraries(crossmain PRIVATE
 
 # our hackogack objdump parser
 set(PERL_FORMATTER_PATH "${CMAKE_SOURCE_DIR}/srcs/cross/src/formatSymbols.pl")
+# and our hackogack size parser
+set(PERL_SIZER_PATH "${CMAKE_SOURCE_DIR}/srcs/cross/src/formatSize.pl")
 
 # Ensure the executable depends on the generated linker script target
 add_dependencies(crossmain ${GENERATED_LDSCRIPT_TARGET_NAME}) 
@@ -76,6 +78,9 @@ set(CROSSMAIN_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/crossmain.bin")
 # Add a custom command that runs AFTER crossmain is linked
 add_custom_command(
   TARGET crossmain POST_BUILD # This command runs after crossmain is built
+  COMMAND ${CMAKE_SIZE} $<TARGET_FILE:crossmain> | tail -1 | # Extract last line of T6 code size 
+  ${PERL_SIZER_PATH} - $<TARGET_FILE:crossmain> | # format with time info
+  tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:crossmain> ${CROSSMAIN_BINFILE_PATH}
   COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:crossmain> | # Dump symbol table
   sort -r -k 5 - | # alphabetize entries for OCD

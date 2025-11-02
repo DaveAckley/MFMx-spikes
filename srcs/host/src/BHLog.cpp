@@ -24,7 +24,11 @@ namespace MFM {
         PyGILState_STATE gstate;
         gstate = PyGILState_Ensure(); // Acquire GIL to call back into python
 
-        Eprintf("handle13 (%u) PRE logcb (%p) (have GIL & pycb) %s\n",getThrId(),&mLogCallback,myGILState());
+        Eprintf("handle13 (%u) PRE logcb (%s) (%p/%p) (have GIL & pycb) %s\n",
+                getThrId(),
+                tag.to_string().c_str(),
+                data,&s,
+                myGILState());
         mLogCallback(tag,s);
         Eprintf("handle14 (%u) POST logcb (%p) (about to release GIL & pycb) %s\n",getThrId(),&mLogCallback,myGILState());
 

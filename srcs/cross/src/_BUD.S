@@ -126,9 +126,14 @@ t6hang:
         la t0, __fast_start     # addr of stashed hartnum
 	lbu t0,0(t0)             # get hartnum
 	la t2, __host_block_start+4  # get host block, skipping HBMAGIC
-	sh2add t1, t0, t2       # t1: addr of mPerRiscArg[s0] 
+	sh2add t1, t0, t2       # t1: addr of mPerRiscArg[hartnum] 
         sw a0,0(t1)             # store arg
-1:      j 1b                    # hang 
+	li t1,1                 # get 1
+	sll t1,t1,t0            # get 1<<hartnum
+	lbu t0,23(t2)           # get mFails from hostblock+27
+	or t0,t0,t1             # include 1<<hartnum in mFails
+        sb t0,23(t2)            # (we explicitly ignore races here)
+1:      j 1b                    # and hang 
         .cfi_endproc
 	
 	.global estimateStackUsage

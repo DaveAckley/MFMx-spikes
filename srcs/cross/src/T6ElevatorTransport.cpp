@@ -21,18 +21,24 @@ namespace MFM {
 
   static volatile u32 * const NOC_CMD_CTRL =      NIU_ADDRESS(0x40,0,0);
 
+  LogCarMetadata theLogCarMetadata;
+  EWCarMetadata theEWCarMetadata;
+
   void T6ElevatorTransport::init(HostBlock & hb, TransportBlock & tb) {
     mHostBlockPtr = &hb;
     mTransportBlockPtr = &tb;
     u64 noc = hb.getHostNocAddr();
-    mP2PLogCarManager.initCars((LogCarStorage::LogCar*) tb.mLogCarStorageT6Ptr,
-                               LogCarStorage::CAR_COUNT,
-                               noc + (tb.mLogCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
-                               false);
-    mP2PEWCarManager.initCars((EWCarStorage::EWCar*) tb.mEWCarStorageT6Ptr,
-                              EWCarStorage::CAR_COUNT,
-                              noc + (tb.mEWCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
+    mP2PLogTransport.initCars((LogCarStorage::LogCar*) tb.mLogCarStorageT6Ptr,
+                              &theLogCarMetadata.mLogData[0],
+                              LogCarStorage::CAR_COUNT,
+                              noc + (tb.mLogCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
                               false);
+
+    mP2PEWTransport.initCars((EWCarStorage::EWCar*) tb.mEWCarStorageT6Ptr,
+                             &theEWCarMetadata.mEWData[0],
+                             EWCarStorage::CAR_COUNT,
+                             noc + (tb.mEWCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
+                             false);
   }
 
   bool T6ElevatorTransport::allClear() {
@@ -87,9 +93,9 @@ namespace MFM {
 
   bool T6ElevatorTransport::updateTransportBlock() {
     bool didWork = !allClear();
-    if (!didWork) didWork = mP2PLogCarManager.update(*this);
-    if (!didWork) didWork = mP2PEWCarManager.update(*this);
-    if (!didWork) sleepCycles(1'000'000u);
+    if (!didWork) didWork = mP2PLogTransport.update(*this);
+    if (!didWork) didWork = mP2PEWTransport.update(*this);
+    if (!didWork) sleepCycles(10'000u);
     return didWork;
   }
 

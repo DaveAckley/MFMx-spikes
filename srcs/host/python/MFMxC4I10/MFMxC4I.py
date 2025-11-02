@@ -103,10 +103,13 @@ class MFMxC4I(App):
         print("BLAAAMODS")
         self.log(f"INSWITCHALLBHS {on}")
         print("BLAAAMODS2222")
+        file = f"{self.scriptDir}/../../../../build_cross/bin/crossmain.bin"
         for c in range(4):
             self.log(f"BH{c} TO CLOSE")
             self.bhs[c].close()
-            self.bhs[c].setMFMxCodePath(f"{self.scriptDir}/../../../../build_cross/bin/crossmain.bin")
+            if not self.bhs[c].setMFMxCodePath(file):
+                self.log(f"BAD PATH {file}")
+                return
         self.log(f"ALL BHs CLOSED")
         if not on:
             return

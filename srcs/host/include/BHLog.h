@@ -122,13 +122,19 @@ namespace MFM {
   };
 
   inline void LOGprintf(u32 bhcard, const char * fmt, ...) {
-    Eprintf("LOGprintf in '%s'\n",fmt);
     BHTag tag(TagType::APPDBG,bhcard,0,0);
+    FILE * logfile = getHostLog();
+    fprintf(logfile,"%s[[%s]]",
+            dateTimeStamp().c_str(),
+            tag.to_string().c_str());
     va_list args;
+    va_start(args, fmt);
+    vfprintf(logfile,fmt, args);
+    va_end(args);
+
     va_start(args, fmt);
     BHLog::getTheBHLog().vprintf(tag,fmt,args);
     va_end(args);
-    Eprintf("LOGprintf out '%s'\n",fmt);
   }
   
 }

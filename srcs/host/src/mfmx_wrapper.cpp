@@ -2,6 +2,7 @@
 #include "BHTag.h" 
 #include "BHLog.h" 
 #include "BlackHole.h" 
+#include "EWControl.h" 
 #include "HostUtils.h" 
 
 namespace py = pybind11;
@@ -21,4 +22,7 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the BlackHole class
   MFM::BlackHole::pybindings(m);
+
+  // Expose the EWControl class
+  MFM::EWControl::pybindings(m);
 }

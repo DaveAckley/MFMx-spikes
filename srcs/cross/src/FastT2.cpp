@@ -71,8 +71,8 @@ namespace MFM {
            ++hartnum, addr += MAILBOX_INCR) {
 
         bool canread = *((volatile u32 *) (addr+4u)); // TRYREAD
-        if (__builtin_expect(!canread,1)) continue;
-        u32 val = *((volatile u32 *) (addr+0u)); // READ 
+        if (__builtin_expect(!canread,1)) continue;  
+        *((volatile u32 *) (addr+0u));                // READ, discard
         *((volatile u32 *) (addr+0u)) = fT2.mRandom.randomMT(); // WRITE
       }
     }

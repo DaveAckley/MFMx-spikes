@@ -6,7 +6,7 @@ var = 0
 def cb(key,text):
   global var
   var = var + 1
-  print(f"{var} CHUG:{key} -> {text}",end='')
+  print(f"{var} CHUG:{key} -> <{text}>",end='')
   sleep(.02) # waste time to cause problems?
 
 cb("TEST","ZOOISI")
@@ -25,21 +25,20 @@ print("BUILDBH SET PATH")
    print("STARTED",b))
    for b in bhs]
 
-from time import sleep
-sleep(1)
-print("ELDONEBO")
-l.setDefaultDestination(0) # discard if no logcb
-l.clearLogCallback()
-print("NNNOOOW",[ b.close() for b in bhs])
-print("TRREEGO",[ b.open() for b in bhs])
+# from time import sleep
+# sleep(1)
+# print("ELDONEBO")
+# l.setDefaultDestination(0) # discard if no logcb
+# l.clearLogCallback()
+# print("NNNOOOW",[ b.close() for b in bhs])
+#print("TRREEGO",[ b.open() for b in bhs])
 l.setLogCallback(cb)
 [ b.startMFMxCode() for b in bhs]
-for i in range(2):
+for i in range(3):
   sleep(1)
   [ b.monitorFleet() for b in reversed(bhs)]
 sleep(2)
 [ b.stopMFMxCode() for b in bhs]
-sleep(2)
 l.clearLogCallback()
 print("AND OUT",[ b.close() for b in bhs])
 

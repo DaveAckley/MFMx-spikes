@@ -26,7 +26,9 @@ namespace MFM {
 
     OurTLBs() ;
     LogCarStorage::LogCar * getLogCarHost(u32 tlbi, u32 carnum) ;
-    bool updateLogTransports() ;
+    bool updateTransports() ;
+    void updateLogCars(unsigned tlbi) ;
+    void updateEWCars(unsigned tlbi) ;
     u32 getLogCarT6(u32 tlbi, u32 carnum) ;
 
     void setDeviceInfo(u32 cardNum, s32 devfd) {
@@ -77,6 +79,13 @@ namespace MFM {
     void * hostRAMPtr() const { return mPinnedHostBuf.host_ptr; }
     u64 hostRAMNocAddr() const { return mPinnedHostBuf.noc_addr; }
 
+    struct TLBInfo {
+      struct tenstorrent_allocate_tlb_out mAllocOut;
+      u32 mRemoteBaseAddress;
+      u8 mFailStatus;
+    };
+    TLBInfo & getTLBInfo(u32 tlbi) ;
+
   private:
     static const u32 AHAX_TLB2M_COUNT = (AHAX_TLBI_DEBUG_MULTI + 1);
     static const u32 AHAX_MMAP_SIZE = (AHAX_CONSTANT2M * AHAX_TLB2M_COUNT);
@@ -87,16 +96,14 @@ namespace MFM {
     void * configureWindow(unsigned tlbi, U16CRange range, u32 address, bool wc) ;
 
     // data
-    struct TLBInfo {
-      struct tenstorrent_allocate_tlb_out mAllocOut;
-      u32 mRemoteBaseAddress;
-    } tlbInfos[AHAX_TLB2M_COUNT];
+    TLBInfo mTLBInfos[AHAX_TLB2M_COUNT];
     pinned_host_buffer_t mPinnedHostBuf;
     u32 mDevCardNum;
     s32 mDevFD;
     void * mMapAll;
     size_t mT6BufferSize;
     bool mDMABufferPretendDeleted;
+    u64 mEWsShipped, mEWsReturned, mEWsCommitted;
   };
 } // namespace MFM
 

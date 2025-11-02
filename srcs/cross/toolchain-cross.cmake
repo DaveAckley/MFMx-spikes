@@ -10,6 +10,7 @@ set(CMAKE_C_COMPILER   ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-gcc)
 set(CMAKE_CXX_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-g++)
 set(CMAKE_OBJCOPY ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-objcopy)
 set(CMAKE_OBJDUMP ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-objdump)
+set(CMAKE_SIZE ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-size)
 
 #set(CMAKE_ASM_COMPILER ${COMPILER_BASE_DIR}/bin/riscv32-tt-elf-as)
 #message(STATUS "ZONGSR")

@@ -25,8 +25,13 @@ namespace MFM {
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
-    while (true) 
+    u32 loops = 0u;
+    while (true) {
       theT6ElevatorTransport.updateTransportBlock();
+      if ((++loops % 1000u) == 0u)
+        LOG.printf("%d:KL %u.%03u\n",fAll.mHartNum,loops/1000,loops%1000);
+      sleepCycles(100'000u);
+    }
 
     return 0; /* NOT REACHED */
   }

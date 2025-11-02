@@ -24,6 +24,7 @@ namespace MFM {
       HAS_T6_TILES_RESET,       // 7
       HAS_T6_CODE_DEPLOYED,     // 8
       HAS_T6_CODE_RUNNING,      // 9
+      HAS_T6_EVENT_WINDOWS,     // 10
     };
     BlackHole(unsigned card = 0u)
       : mCardNum(card)
@@ -40,6 +41,8 @@ namespace MFM {
     }
     Phase changePhase(Phase newPhase) ;
     Phase getPhase() const { return mCurrentPhase; }
+
+    u32 monitorFleet() ; //< return count of new failures
 
     void BHLOGprintf(const char * fmt, ...) {
       BHTag tag(TagType::APPDBG,mCardNum,0,0);
@@ -111,6 +114,7 @@ namespace MFM {
         }
         HOST_FATAL(ILLEGAL_ARGUMENT,"Unknown or unhandled phase %d",j);
       },py::call_guard<py::gil_scoped_release>());
+      bh.def("monitorFleet", &BlackHole::monitorFleet,py::call_guard<py::gil_scoped_release>());
 
       bh.def("open", [](BlackHole& b) { b.changePhase(Phase::HAS_OPEN_DEVICE); },py::call_guard<py::gil_scoped_release>());
       bh.def("allocateTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());

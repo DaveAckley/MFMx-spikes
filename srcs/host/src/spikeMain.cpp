@@ -70,7 +70,7 @@ int spikeMain() {
       const MFM::u64 aBILLION = 1'000'000'000ul;
       if (i % aBILLION == 0)
         MFM::Eprintf("\n\n YAMINDA transport thread yo %uG %p\n\n",(MFM::u32) (i/aBILLION),  &ourTLBs);
-      ourTLBs.updateLogTransports();
+      ourTLBs.updateTransports();
     }
   });
 

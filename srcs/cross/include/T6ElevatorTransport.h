@@ -7,8 +7,13 @@
 #include "TransportBlock.h"
 #include "AtomicLock.h"
 #include "P2PElevator.h"
+#include "P2PEWElevatorPlatform.h"
 
 namespace MFM {
+
+  struct ElevatorTransportBase {
+    void notice(const char * fmt, ...) ;
+  };
 
   struct T6ElevatorTransport : public ElevatorTransportBase {
     // We have P150B boards, so we are using the PCIe 0 tile, which is
@@ -32,11 +37,8 @@ namespace MFM {
     const HostBlock * mHostBlockPtr;
     TransportBlock * mTransportBlockPtr;
 
-    typedef P2PElevatorPlatform<LogCarStorage::LogCar,T6ElevatorTransport> P2PLogCarManager;
-    P2PLogCarManager mP2PLogCarManager;
-
-    typedef P2PElevatorPlatform<EWCarStorage::EWCar,T6ElevatorTransport> P2PEWCarManager;
-    P2PEWCarManager mP2PEWCarManager;
+    P2PLogElevatorPlatform mP2PLogTransport;
+    P2PEWElevatorPlatform mP2PEWTransport;
 
   };
 

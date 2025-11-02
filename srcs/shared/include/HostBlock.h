@@ -13,7 +13,7 @@ namespace MFM {
     u32 mHBMagic;               // MUST BE FIRST u32 BYTES 0..3
 
     s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
-    u8 mXPos, mYPos, mTLBI, mRsrv1; // MUST BE BYTES 24..27
+    u8 mXPos, mYPos, mTLBI, mFails; // MUST BE BYTES 24..27
     u32 mCommonArgs[3];         // MUST BE BYTES 28..39
 
     u32 mHostBaseAddrLo;
@@ -21,7 +21,7 @@ namespace MFM {
 
     u32 mAIClockFrequency;
 
-    typedef RingBuffer<u8,8u> LogBuffer;
+    typedef RingBuffer<u8,9u> LogBuffer;
     LogBuffer mLogBuffer;
 
     u32 mHBCigam;         // MUST BE LAST u32

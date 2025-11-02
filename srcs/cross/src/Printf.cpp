@@ -21,47 +21,40 @@ namespace MFM {
   extern HostBlock theHostBlock;
 
   Printer DP;
-  static void debugPrintPutc(int c, void * ctx) {
+  AtomicLock DPLock; // for debug printfing to hostblock
+
+  static void debugPrintPutc(int c, void * ctx /*Printer*/) {
     theHostBlock.addByte((u8) c);
   }
 
   Printer LOG;
-  static void logPrintPutc(int c, void * ctx) {
+  static void logPrintPutc(int c, void * ctx /*Printer*/) {
     MFM_API_ASSERT_NONNULL(ctx);
-    T6ElevatorTransport::P2PLogCarManager
-      & mgr = theT6ElevatorTransport.mP2PLogCarManager;
-    LogCarStorage::LogCar * lcp = mgr.getCurrentCarIfAny();
-    if (!lcp) FAIL(INCOMPLETE_CODE);
-    if (lcp->getCarState() != CarState::OPEN) FAIL(ILLEGAL_STATE);
-    u64 remoteaddr = mgr.getCarRemoteAddress();
-    LogBlock & lb = lcp->getContent();
-    if (lb.spaceRemaining() == 1u) {
-      Printer * prt = (Printer*) ctx;
-      lb.addByte('X');
-    }
-    else lb.addByte(c);
-
-          {
-            static bool once;
-            if (lb.spaceRemaining() < 60 && !once) {
-              DP.printf("lPP(%d)\n",lb.spaceRemaining());
-              once = true;
-            }
-          }
+    Printer & prt = *(Printer*) ctx;
+    P2PLogElevatorPlatform & mgr = prt.getPlatform();
+    bool worked = mgr.sendByte(c);
+    //    if (!worked) FAIL(OUT_OF_ROOM);
   }
 
-  void t6InitPrinters(HostBlock & hb) {
+  void t6InitPrinters(HostBlock & hb, T6ElevatorTransport & t6et) {
     u64 hostaddr = hb.getHostNocAddr();
-    DP.init(debugPrintPutc,hostaddr);
-    LOG.init(logPrintPutc,hostaddr);
+    DP.init(DPLock,0,debugPrintPutc,hostaddr);
+    debugPrintPutc('!',0);      // Flag debug initted
+    DP.printf("+");             // test DP.printfing
+    LOG.init(t6et.mP2PLogTransport.getPlatformLock(),&t6et.mP2PLogTransport,logPrintPutc,hostaddr);
+  }
+
+  P2PLogElevatorPlatform & Printer::getPlatform() {
+    MFM_API_ASSERT_NONNULL(mPlatformPtr);
+    return *mPlatformPtr;
   }
 
   u32 Printer::vprintf(const char * format, va_list ap) {
     MFM_API_ASSERT_NONNULL(mPutc);
-    void * contextToCome = this;
-    mLock.acquireLock();
-    u32 ret = npf_vpprintf(mPutc,contextToCome,format,ap);
-    mLock.releaseLock();
+    MFM_API_ASSERT_NONNULL(mPrintLockPtr);
+    void * contextIsPrinter = this;
+    AtomicScopeLock guard(*mPrintLockPtr);
+    u32 ret = npf_vpprintf(mPutc,contextIsPrinter,format,ap);
     return ret;
   }
 

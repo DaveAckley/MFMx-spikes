@@ -26,7 +26,7 @@ namespace MFM {
     hb.mXPos = ((node_id >> 0) & 0x3f);
     hb.mYPos = ((node_id >> 6) & 0x3f);
     hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mXPos,hb.mYPos});
-    t6InitPrinters(hb);
+    t6InitPrinters(hb,theT6ElevatorTransport);
     return 0;
   }
 

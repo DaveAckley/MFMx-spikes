@@ -73,7 +73,7 @@ namespace MFM {
     mRVCodeSize = rvsize;
 
     // "Multicast all the code to the entire fleet"
-    mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
+    mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount+1u);
 
     // Let's try some sanity read-backs..
     u32 hits = 0u, misses = 0u;
@@ -91,28 +91,32 @@ namespace MFM {
           ++hits;
           //LOGprintf(mCardNum,"%3d. Hit %d on 0x%08x : 0x%08x\n",tlbi, hits, word, data);
         }
+      }
         
-        // confirm certain addresses are in 'prerun' state
-        u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
-        //LOGprintf(mCardNum,"SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
-        {
-          HostBlock rbhb;
-          memset(&rbhb,0,sizeof(rbhb));
-          mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
-          u32 hbmagicpre = rbhb.mHBMagic;
-          //printf("HostBlock magic %x\n", hbmagicpre);
-          //printf("HostBlock x %u y %u\n", rbhb.mXPos, rbhb.mYPos);
-          if (hbmagicpre != HostBlock::HBMAGIC || rbhb.mHBCigam != HostBlock::HBCIGAM)
-            HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%0x\n",hbmagicpre);
-          //printf("HostBlock HBA 0x%08x:%08x\n", rbhb.mHostBaseAddrHi, rbhb.mHostBaseAddrLo);
-          if (rbhb.mHostBaseAddrHi != hb->mHostBaseAddrHi ||
-              rbhb.mHostBaseAddrLo != hb->mHostBaseAddrLo)
-            HOST_FATAL(BAD_VALUE,"Corrupt HBA Hi 0x%08x:0x%08x wanted 0x%08x:0x%08x\n",
-                  rbhb.mHostBaseAddrHi,rbhb.mHostBaseAddrLo,
-                  hb->mHostBaseAddrHi,hb->mHostBaseAddrLo);
-          else
-            ++hits;
-        }
+      // confirm certain addresses are in 'prerun' state
+      u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+      //LOGprintf(mCardNum,"SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
+      {
+        HostBlock rbhb;
+        memset(&rbhb,0,sizeof(rbhb));
+        sleepUsec(1000);
+        mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
+        sleepUsec(1000);
+        u32 hbmagicpre = rbhb.mHBMagic;
+        //printf("HostBlock magic %x\n", hbmagicpre);
+        //printf("HostBlock x %u y %u\n", rbhb.mXPos, rbhb.mYPos);
+        if (hbmagicpre != HostBlock::HBMAGIC)
+          HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%0x\n",hbmagicpre);
+        if (rbhb.mHBCigam != HostBlock::HBCIGAM)
+          HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%0x\n",rbhb.mHBCigam);
+        //printf("HostBlock HBA 0x%08x:%08x\n", rbhb.mHostBaseAddrHi, rbhb.mHostBaseAddrLo);
+        if (rbhb.mHostBaseAddrHi != hb->mHostBaseAddrHi ||
+            rbhb.mHostBaseAddrLo != hb->mHostBaseAddrLo)
+          HOST_FATAL(BAD_VALUE,"Corrupt HBA Hi 0x%08x:0x%08x wanted 0x%08x:0x%08x\n",
+                     rbhb.mHostBaseAddrHi,rbhb.mHostBaseAddrLo,
+                     hb->mHostBaseAddrHi,hb->mHostBaseAddrLo);
+        else
+          ++hits;
       }
     }
     LOGprintf(mCardNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
@@ -126,6 +130,33 @@ namespace MFM {
     LOGprintf(mCardNum,"PHASE-------Check magic\n");
     sleepUsec(100'000);
     assertGoodMagic();
+  }
+
+  u32 CodeManager::newFails(T6FailCallback cb) {
+    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+    u32 ret = 0u;
+    for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
+         tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
+         tlbi++) {
+      u32 failsOffset = offsetof(HostBlock,mFails)/4u*4u; 
+      HostBlock hb;
+      mOurTLBs.readFromBytes(tlbi,
+                             hostblockaddr+failsOffset,
+                             ((u8*) &hb)+failsOffset,
+                             4u);
+      OurTLBs::TLBInfo & tlbinfo = mOurTLBs.getTLBInfo(tlbi);
+      if (tlbinfo.mFailStatus != hb.mFails) {
+        // if new fails, read whole thing
+        mOurTLBs.readFromBytes(tlbi, hostblockaddr, (u8*) &hb, sizeof(hb)); 
+        U16C noc = U16C::makeNocCoordFromTLBI(tlbi);
+        BHTag tag(TagType::T6TADR, mCardNum, noc.x, noc.y);
+        cb(tag, hb, tlbinfo.mFailStatus, hb.mFails);
+        tlbinfo.mFailStatus = hb.mFails;
+        ++ret;
+      }
+    }
+
+    return ret;
   }
 
   void CodeManager::assertGoodMagic() {

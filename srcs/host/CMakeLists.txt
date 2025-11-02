@@ -8,6 +8,7 @@ target_sources(MFMx PRIVATE
     src/BlackHole.cpp
     src/C4I.cpp
     src/CodeManager.cpp
+    src/EWControl.cpp
     src/FATAL.cpp
     src/FailStrings.cpp
     src/OurTLBs.cpp

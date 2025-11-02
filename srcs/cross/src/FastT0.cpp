@@ -33,7 +33,8 @@ namespace MFM {
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
     t0TicksElapsed = 0u;
-    while (true) {
+    u32 stopTicks = between(50u,5000u);
+    while (t0TicksElapsed < stopTicks) {
       u64 now = FastT0::readDebugTimestamper(); // pound away at the timestamper!
       u64 cycles = now - fT0.debugTimestamperStart;
       u32 ticksElapsed = (u32) (cycles>>26u); // 200MHz-> ~3Hz, 800MHz-> ~12Hz, 1235MHZ-> ~18Hz
@@ -42,13 +43,14 @@ namespace MFM {
       if (fT0.debugTicksElapsed != ticksElapsed) {
         if (ticksElapsed % 100u == 0) { // ~8s -> ~5.5s
           DP.printf("%d[ticks%d] ",fAll.mHartNum,(u32) ticksElapsed);
-          //LOG.printf("%d:KT %u.%03u\n",fAll.mHartNum,ticksElapsed/1000,ticksElapsed%1000);
+          LOG.printf("%d:KT %u.%03u\n",fAll.mHartNum,ticksElapsed/1000,ticksElapsed%1000);
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors
-        
       }
     }
+    //    FAIL(USER_REQUESTED_FAILURE); // try to set T0's fail bit
+
     return 0;
   }
 
@@ -58,7 +60,5 @@ namespace MFM {
     DP.printf("T0#%d(%d,%d)\n",hb.mTLBI,hb.mXPos,hb.mYPos);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     return liveT0(hb);          // go do your hart t0 thing you
-    
-    return 0;
   }
 }

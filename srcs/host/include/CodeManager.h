@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "TTKMDStuff.h"
 #include "OurTLBs.h"
+#include "HostBlock.h"
 
 namespace MFM {
   class CodeManager {
@@ -20,6 +21,9 @@ namespace MFM {
 
     void assertGoodMagic() ;
     s32 awaitResults() ;
+
+    typedef std::function< void(BHTag t6, HostBlock & hb, u8 oldfail, u8 newfail) > T6FailCallback;
+    u32 newFails(T6FailCallback cb) ;
 
   private:
     u32 mCardNum;

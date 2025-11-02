@@ -11,6 +11,9 @@ namespace MFM {
 
   extern u32 create(u32 max) __attribute__ ((optimize(3))) ;
 
+  inline u32 between(u32 min, u32 max) {
+    return create(max-min+1u)+min;
+  }
 #define COUNT_LEADING_ZEROS(ofnum) __builtin_clz(ofnum)
 
   inline u32 createBits(u8 bitsNeeded) {

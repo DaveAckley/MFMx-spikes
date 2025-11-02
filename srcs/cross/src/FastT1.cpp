@@ -17,14 +17,17 @@ namespace MFM {
     DP.printf("%d:Hoo[0x%04x] ",fAll.mHartNum, createBits(16));
     //    LOG.printf("BANGYORDED\n");
     //    LOG.printf("LOGAT(%p)\n",&LOG);
-    u32 stop = createBits(5)+1u;
-    for (u32 i = 0u; i < stop; ++i)
+    u32 stop = createBits(3u)+3u;
+    for (u32 i = 0u; i < stop; ++i) {
       LOG.printf("HI LOOK %02d %02d T1@(%u,%u) SENT YOU '%c'!\n",
                  create(41),
                  create(41),
                  hb.mXPos,hb.mYPos,
                  createBits(6)+32u);
+      sleepCycles(100'000'000u);
+    }
     LOG.printf("%d:GO LIVE MAXSTAX %d\n",fAll.mHartNum,estimateStackUsage());
+    //    FAIL(USER_REQUESTED_FAILURE); // try to set T1's fail bit
     return 0;
   }  
 }

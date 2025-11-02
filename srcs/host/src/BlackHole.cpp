@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <fstream>
 #include "HostUtils.h" // for sleepUsec
+#include "FailStrings.h" // for sleepUsec
+#include "t6-exports.h" // for transportblock_*
 
 namespace MFM {
 
@@ -12,6 +14,31 @@ namespace MFM {
     while (mCurrentPhase < newPhase) phaseAdvance();
     while (mCurrentPhase > newPhase) phaseRetreat();
     return ret;
+  }
+
+  u32 BlackHole::monitorFleet() {
+    if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
+      return U32_MAX;
+    u32 newfails = mCodeManager.newFails([] (BHTag tag, HostBlock & hb, u8 oldf, u8 newf) -> void {
+      const u32 BUF_SIZE = 500u;
+      char buf[BUF_SIZE];
+      u32 bufNext = 0u;
+      BHLog & bhl = BHLog::getTheBHLog();
+      u8 oldbuf[8], newbuf[8];
+      interpretFailBits(oldf,oldbuf,8);
+      interpretFailBits(newf,newbuf,8);
+      bufNext += snprintf(&buf[bufNext],BUF_SIZE-bufNext,"NEWFAIL %s -> %s",oldbuf,newbuf);
+      for (u32 h = 0u; h < 5u; ++h) {
+        u8 bit = ((u8)1u)<<h;
+        if ((newf&bit) != 0u && (oldf&bit) == 0u) {
+          interpretFailBits(bit,newbuf,8);
+          bufNext += snprintf(&buf[bufNext],BUF_SIZE-bufNext," %s:%s",newbuf,
+                              getFailCodeString((FAILCode) hb.mPerHartStatus[h]));
+        }
+      }
+      bhl.printf(tag,"%s\n",buf);
+    });
+    return newfails;
   }
 
   void BlackHole::phaseAdvance() {
@@ -50,6 +77,7 @@ namespace MFM {
       worked = allocateHostRAM();
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
+
       BHLOGprintf("<BlackHole:%u> allocated %u (per T6) host RAM\n", mCardNum, HOST_RAM_PER_BH);
       break;
 
@@ -92,6 +120,9 @@ namespace MFM {
 
   void BlackHole::phaseRetreat() {
     BHLog & bhl = BHLog::getTheBHLog();
+    if (mCurrentPhase >= Phase::HAS_T6_CODE_DEPLOYED &&
+        monitorFleet() == 0u)
+      Eprintf("(%u) No fail changes detected #d\n",bhl.getThrId(),mCardNum);
     Eprintf("(%u) retreating from %u\n",bhl.getThrId(),(u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
@@ -208,6 +239,9 @@ namespace MFM {
   }
 
   bool BlackHole::allocateHostRAM() {
+    constexpr bool cTRANSPORTBLOCKFITS = HOST_RAM_PER_BH >=
+      (T6::transportblock_log_size + T6::transportblock_ew_size);
+    COMPILATION_REQUIREMENT<cTRANSPORTBLOCKFITS>();
     mOurTLBs.allocateHostRAM(HOST_RAM_PER_BH);
     return true;
   }
@@ -253,7 +287,7 @@ namespace MFM {
                       this->mCardNum,
                       &this->mOurTLBs);
         }
-        this->mOurTLBs.updateLogTransports();
+        this->mOurTLBs.updateTransports();
       }
       Eprintf("TransportThread (%u) OUT %s\n",bhl.getThrId(),myGILState());
     });
