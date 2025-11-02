@@ -374,17 +374,17 @@ namespace MFM {
                  sizeof(lc)
                  );
         }
-        if (lc.isComplete() && lc.getCarState() == CarState::HEADING_INBOUND) {
+        if (lc.isComplete() && lc.getCarState() == CarState::INBOUND_DEPARTED) {
           LogBlock & lb = lc.getContent();
 
           U16C addr = U16C::makeNocCoordFromTLBI(i);
           BHTag tag(TagType::T6TADR,mDevCardNum,addr.x,addr.y);
 
           BHLog & theLog = BHLog::getTheBHLog();
-          theLog.handle(tag, lb.mData, lb.mLength);
+          theLog.handle(tag, lb.mData, lb.mLength); // deal with the passengers
           
-          lb.reset();           // empty car
-          lc.setCarState(CarState::HEADING_OUTBOUND);
+          lb.reset();           // clean the car
+          lc.setCarState(CarState::OUTBOUND_DEPARTED); // ship back an empty
         }
       }
     }

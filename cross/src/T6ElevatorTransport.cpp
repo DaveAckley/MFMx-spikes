@@ -92,7 +92,7 @@ namespace MFM {
     }
     u64 v = mHostBlockPtr->getHostNocAddr();
     v += ((u64) mHostBlockPtr->mTLBI)*(1<<13)+carnum*sizeof(lc);
-    lc.setCarState(CarState::HEADING_INBOUND);
+    lc.setCarState(CarState::INBOUND_DEPARTED);
     s32 status = initiateWriteToHost((u32*) &lc, sizeof(lc),  v);
     DP.printf("CRAG %d 0x%016llx:0x%08x.\n",
               mHostBlockPtr->mTLBI, v,

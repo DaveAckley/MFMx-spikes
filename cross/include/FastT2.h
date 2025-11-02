@@ -9,8 +9,12 @@ namespace MFM {
 
   extern u32 createByMail() ;
 
+  extern u32 create(u32 max) __attribute__ ((optimize(3))) ;
+
+#define COUNT_LEADING_ZEROS(ofnum) __builtin_clz(ofnum)
+
   inline u32 createBits(u8 bitsNeeded) {
-    if (fAll.mInspirationOnHand < bitsNeeded) {
+    if (__builtin_expect(fAll.mInspirationOnHand < bitsNeeded,0)) {
       fAll.mCreativityBuffer = createByMail();
       fAll.mInspirationOnHand = 32u;
     }

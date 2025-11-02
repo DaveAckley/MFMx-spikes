@@ -19,11 +19,12 @@ namespace MFM {
     //    LOG.printf("LOGAT(%p)\n",&LOG);
     u32 stop = createBits(4)+1u;
     for (u32 i = 0u; i < stop; ++i)
-      LOG.printf("HI LOOK 0x%03x%04x T1@(%u,%u) SENT YOU '%c'!\n",
-                 createBits(12),
-                 createBits(16),
+      LOG.printf("HI LOOK %02d %02d T1@(%u,%u) SENT YOU '%c'!\n",
+                 create(41),
+                 create(41),
                  hb.mXPos,hb.mYPos,
                  createBits(6)+32u);
+    LOG.printf("%d:GO LIVE MAXSTAX %d\n",fAll.mHartNum,estimateStackUsage());
     return 0;
   }  
 }

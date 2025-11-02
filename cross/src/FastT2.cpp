@@ -11,6 +11,16 @@ namespace MFM {
     return ret;
   }
 
+  u32 create(u32 max) {
+    if (__builtin_expect(max == 0u,0)) return 0u; 
+    u32 bits = 32u - COUNT_LEADING_ZEROS(max-1u);
+    u32 ret;
+    do {
+      ret = createBits(bits);
+    } while (ret >= max);
+    return ret;
+  }
+
   struct FastT2 {
     RandMT mRandom;
   };

@@ -6,8 +6,8 @@ var = 0
 def cb(key,text):
   global var
   var = var + 1
-  print(f"{var} CHUG({key} -> {text})")
-  sleep(.1) # waste time to cause problems?
+  print(f"{var} CHUG:{key} -> {text}",end='')
+  sleep(.02) # waste time to cause problems?
 
 cb("TEST","ZOOISI")
 l.setDefaultDestination(2) # stderr if no logcb

@@ -7,8 +7,8 @@ namespace MFM {
     UNUSED = 0u,           // under construction
     OPEN,                  // available for (un)loading locally
     CLOSED,                // finished (un)loading locally
-    HEADING_INBOUND,       // left t6 or arrived host
-    HEADING_OUTBOUND,      // left host or arrived t6
+    INBOUND_DEPARTED,      // left t6 or arrived host
+    OUTBOUND_DEPARTED,     // left host or arrived t6
   };
 
   struct CarSig {

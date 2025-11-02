@@ -23,10 +23,10 @@ namespace MFM {
 
     CAR * getCurrentCarIfAny() ;
     CarState departingState() const {
-      return mIsIn ? CarState::HEADING_OUTBOUND : CarState::HEADING_INBOUND;
+      return mIsIn ? CarState::OUTBOUND_DEPARTED : CarState::INBOUND_DEPARTED;
     }
     CarState arrivingState() const {
-      return mIsIn ? CarState::HEADING_INBOUND : CarState::HEADING_OUTBOUND;
+      return mIsIn ? CarState::INBOUND_DEPARTED : CarState::OUTBOUND_DEPARTED;
     }
     bool isArriving(CarState cs) const { return cs == arrivingState(); }
     bool isDeparting(CarState cs) const { return cs == departingState(); }

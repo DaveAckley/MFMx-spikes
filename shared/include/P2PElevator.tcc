@@ -40,11 +40,11 @@ namespace MFM {
       switch (cs) {
       case CarState::UNUSED:
         // start with all cars on T6
-        car.setCarState(mIsIn ? CarState::HEADING_OUTBOUND : CarState::OPEN );
+        car.setCarState(mIsIn ? CarState::OUTBOUND_DEPARTED : CarState::OPEN );
         break;
 
-      case CarState::HEADING_INBOUND:
-      case CarState::HEADING_OUTBOUND:
+      case CarState::INBOUND_DEPARTED:
+      case CarState::OUTBOUND_DEPARTED:
         if (isArriving(cs)) 
           car.setCarState(CarState::OPEN); // You Have Arrived
         // if isDeparting, wait for external developments
