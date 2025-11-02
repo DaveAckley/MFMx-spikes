@@ -1,0 +1,7 @@
+CMod.cpp
+setup.py
+CMod.egg-info/PKG-INFO
+CMod.egg-info/SOURCES.txt
+CMod.egg-info/dependency_links.txt
+CMod.egg-info/not-zip-safe
+CMod.egg-info/top_level.txt
