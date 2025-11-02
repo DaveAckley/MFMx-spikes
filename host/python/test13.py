@@ -10,12 +10,17 @@ def cb(key,text):
 cb("TEST","ZOOISI")
 l.setLogCallback(cb)
 l.setDefaultDestination(3)
+print("COMMIBALM")
 print(l)
 
+print("BUILDBH2")
 b = MFMx.BlackHole(2)
+print("BUILDBH2 SET PATH")
 b.setMFMxCodePath("./build_cross/bin/crossmain.bin")
 
+print("START",b)
 b.startMFMxCode()
+print("STARTED",b)
 from time import sleep
 sleep(1)
 print("ELDONEBO")

@@ -14,19 +14,25 @@ namespace MFM {
   }
 
   void BlackHole::phaseAdvance() {
+    BHLog & bhl = BHLog::getTheBHLog();
+    Eprintf("(%u) advancing from %u\n",bhl.getThrId(),(u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
 
     case Phase::HAS_CARD_NUM: 
       worked = openCard();
+      Eprintf("after opencard %u\n",(u32) worked);
       if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
+      Eprintf("before bhlog (%u)\n",bhl.getThrId());
       BHLOGprintf("<BlackHole:%u> opened fd %d\n",mCardNum,mCardFD);
+      Eprintf("after bhlog (%u)\n",bhl.getThrId());
       break;
 
     case Phase::HAS_OPEN_DEVICE:
       worked = allocateTLBs();
+      Eprintf("after allocatetlbs (%u)\n",bhl.getThrId());
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_TLBS;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<BlackHole:%u> allocated TLBs\n",mCardNum);
@@ -84,6 +90,8 @@ namespace MFM {
   }
 
   void BlackHole::phaseRetreat() {
+    BHLog & bhl = BHLog::getTheBHLog();
+    Eprintf("(%u) retreating from %u\n",bhl.getThrId(),(u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
@@ -209,32 +217,86 @@ namespace MFM {
   }
 
   bool BlackHole::startTransportThread() {
-    mQuitTransportThread = false;
-    mTransportThread = std::make_unique<std::thread>([this]() {
-      sleepUsec(10'000);
-      BHLOGprintf("\n\n %d YAMINDA RUNNING ON INTERNAL POWER\n",this->mCardNum);
+    BHLog & bhl = BHLog::getTheBHLog();
+    Eprintf("startTransportThread 10 (%u) PRE transmute\n",bhl.getThrId());
+
+    // hold thread lock before fucking with the transport thread
+    OurScopeLock guard(mTransportThreadMutex);
+
+    Eprintf("startTransportThread 11 (%u) HAVE transmute\n",bhl.getThrId());
+    if (mTransportThreadPtr) // already have a transport thread?
+      HOST_FATAL(ILLEGAL_STATE,"Thread already running"); // uwack
+
+    Eprintf("startTransportThread 12 (%u) HAVE transmute\n",bhl.getThrId());
+    mQuitTransportThread.store(false); // set up for thread
+    Eprintf("startTransportThread 13 (%u) PRE make thread HAVE transmute\n",bhl.getThrId());
+    mTransportThreadPtr = std::make_unique<std::thread>([this]() {
+      
+      BHLog & bhl = BHLog::getTheBHLog();
+
+      Eprintf("TransportThread (%u) STARTUP %s\n",bhl.getThrId(),myGILState());
+      // WE DO NOT HOLD THE GIL AT THIS POINT
+      BHLOGprintf("\n\n %d (%u) YAMINDA RUNNING ON INTERNAL POWER %s\n",
+                  this->mCardNum,bhl.getThrId(),myGILState());
                 
       for (MFM::u64 i = 0u; ++i != 0u; ) {
-        if (this->mQuitTransportThread) {
-          BHLOGprintf("\n\n %d YAMINDA EXTERNAL QUITZOS BAHT (%" PRIu64 ")\n",this->mCardNum,i);
+        if (this->mQuitTransportThread.load()) { // should we quit?
+          Eprintf("TransportThread (%u) QUIT REQ\n",bhl.getThrId());
+          BHLOGprintf("\n\n %d (%u) YAMINDA EXTERNAL QUITZOS BAHT (%" PRIu64 ")\n",this->mCardNum,bhl.getThrId(),i);
           break;
         }
         const MFM::u64 aBILLION = 1'000'000'000ul;
-        if (false && (i % aBILLION == 0))
+        if (true && (i % aBILLION == 0)) {
+          Eprintf("TransportThread (%u) BILLION\n",bhl.getThrId());
           BHLOGprintf("\n\n %d YAMINDA transport thread yo %uG %p\n",(MFM::u32) (i/aBILLION),
                       this->mCardNum,
                       &this->mOurTLBs);
+        }
         this->mOurTLBs.updateLogTransports();
       }
+      Eprintf("TransportThread (%u) OUT %s\n",bhl.getThrId(),myGILState());
     });
+    Eprintf("startTransportThread 14 (%u) NEW((%p)) %s OUT releasing transmut\n",
+            bhl.getThrId(),
+            mTransportThreadPtr.get(),
+            myGILState());
     return true;
   }
 
   bool BlackHole::stopTransportThread() {
-    BHLOGprintf("Stopping transport thread\n");
-    mQuitTransportThread = true;
-    mTransportThread->join();
+    _stopTransportThread();
     return true;
+  }
+
+  void BlackHole::_stopTransportThread() {
+    BHLog & bhl = BHLog::getTheBHLog();
+    Eprintf("stopTransportThread 10 (%u)\n",bhl.getThrId());
+
+    // Get thread lock before fucking with transport thread
+    //std::unique_lock<std::mutex> threadLock(mTransportThreadMutex);
+    OurScopeLock guard(mTransportThreadMutex);
+
+    Eprintf("stopTransportThread 11 (%u) %p\n",bhl.getThrId(),mTransportThreadPtr.get());
+    if (mTransportThreadPtr && mTransportThreadPtr->joinable()) {
+
+      Eprintf("stopTransportThread 12 (%u)\n",bhl.getThrId());
+      mQuitTransportThread.store(true);
+
+      Eprintf("stopTransportThread 13 (%u)\n",bhl.getThrId());
+      //threadLock.unlock(); // release threadLock before join 'to prevent deadlock'
+      Eprintf("stopTransportThread 14 (%u)\n",bhl.getThrId());
+
+      //      py::gil_scoped_release releaseGilForJoin; // also drop GIL (or blow up if we don't have it)
+      mTransportThreadPtr->join();              // bring it on in
+
+      Eprintf("stopTransportThread 15 (%u)\n",bhl.getThrId());
+      
+      //threadLock.lock();                        // relock C++ lock
+
+      Eprintf("stopTransportThread 16 (%u)\n",bhl.getThrId());
+      mTransportThreadPtr.reset();              // thread gone
+    }
+    Eprintf("stopTransportThread 17 (%u) OUT\n",bhl.getThrId());
   }
 
   bool BlackHole::resetTheFleet() {
@@ -269,5 +331,11 @@ namespace MFM {
     mCodeManager.releaseTheHounds();
     return true;
   }
-  
+
+  BlackHole::~BlackHole() {
+    BHLog & bhl = BHLog::getTheBHLog();
+    Eprintf("BH DTORRRRR (%u) IN\n",bhl.getThrId());
+    _stopTransportThread();
+    Eprintf("BH DTORRRRR (%u) OUT\n",bhl.getThrId());
+  }
 }

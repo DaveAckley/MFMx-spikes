@@ -180,18 +180,18 @@ namespace MFM {
           HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
 
         if (false) {
-          /*          printf("HBLOG %u %u\n",
+          /*          Eprintf("HBLOG %u %u\n",
                  hb.mLogBuffer.mFirstFreeIdx,
                  hb.mLogBuffer.mFirstUsedIdx);
           */
             bool first = true;
             s32 ch;
             while ((ch = hb.removeByte()) >= 0) {
-              if (first) printf("%d HOSTBUFvvvvv\n",tlbi);
+              if (first) Eprintf("%d HOSTBUFvvvvv\n",tlbi);
               first = false;
-              printf("%c",(u8) ch);
+              Eprintf("%c",(u8) ch);
             }
-            if (!first) printf("%d HOSTBUF^^^^^\n",tlbi);
+            if (!first) Eprintf("%d HOSTBUF^^^^^\n",tlbi);
         }
 
         // printf("0: 0x%08x   1: 0x%08x   2: 0x%08x\n",
@@ -224,20 +224,20 @@ namespace MFM {
           if (true) {
             bool stuff = !hb.mLogBuffer.isEmpty(); 
             if (stuff) {
-              printf("%d HOSTBUFvvvvv\n",tlbi);
+              Eprintf("%d HOSTBUFvvvvv\n",tlbi);
               s32 ch;
               while ((ch = hb.removeByte()) >= 0) {
-                printf("%c",(u8) ch);
+                Eprintf("%c",(u8) ch);
               }
-              printf("%d HOSTBUF^^^^^\n",tlbi);
+              Eprintf("%d HOSTBUF^^^^^\n",tlbi);
             }
           }
         }
         if (tlbi & 1) {
-          printf("%x",living[tlbi-1]+living[tlbi]);
+          Eprintf("%x",living[tlbi-1]+living[tlbi]);
         }
       }
-      printf(" %d\n",allDone);
+      Eprintf(" %d\n",allDone);
       if (allDone == 140u) return 0;
     }
     return -1;

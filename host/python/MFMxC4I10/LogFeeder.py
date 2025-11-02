@@ -48,7 +48,7 @@ class LogFeeder(Label):
         #self.log(f"WATRCHING ({oldBuffer}) <{newBuffer}>")
 
     def eatFrontOfLog(self):
-        softmax = 1000
+        softmax = 10000
         if len(self.logBuf) > 2*softmax:
             i = self.logBuf.find('\n', softmax)
             if i < 0:

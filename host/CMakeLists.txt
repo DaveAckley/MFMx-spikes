@@ -14,13 +14,14 @@ target_sources(MFMx PRIVATE
     src/BHTag.cpp
     src/BHLog.cpp
     src/HostUtils.cpp
+    src/OurMutex.cpp
     ${SHARED_SOURCES}
 )
 
 # Add C++ compiler options specifically for pymain ---
 target_compile_options(MFMx PRIVATE
   -g          # Add debug symbols
-    #    -O0         # Disable optimizations (often desired for debugging)
+      -O0         # Disable optimizations (often desired for debugging)
     #  -Wall       # Enable all common warnings
     #  -Wextra     # Enable extra warnings
     -Wno-unused-parameter  # stuff we want

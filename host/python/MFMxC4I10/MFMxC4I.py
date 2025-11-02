@@ -29,7 +29,7 @@ class MFMxC4I(App):
             self.acceptLog(key,text)
                 
         self.bhlog.setLogCallback(logcb)
-        self.bhlog.setDefaultDestination(2)
+        self.bhlog.setDefaultDestination(2)  # 2: use stderr if no logcb
 
         def cleanup():
             self.bhlog.clearLogCallback();
@@ -38,8 +38,8 @@ class MFMxC4I(App):
 
         super().__init__()
 
-    @work(exclusive=False)
-    async def acceptLog(self,key,text):
+        #    @work(exclusive=False)
+    def acceptLog(self,key,text):
         tag=str(key)
         (t,(c,x,y)) = tag[:2],tag[2:]
         if t == "at":
@@ -126,7 +126,7 @@ class MFMxC4I(App):
         self.log(f"ALL ALL OOOOOORUNME({event})")
         #asyncio.create_task(self.switchAllBHs(True))
         self.switchAllBHs(True)
-        self.log(f"DONEGO? ALL OOOOOORUNME({self.bhs})")
+        #self.log(f"DONEGO? ALL OOOOOORUNME({self.bhs})")
 
     @on(Button.Pressed, selector=".hw-ish")
     def on_hw_button_clicked(self,event: Click) -> None:
