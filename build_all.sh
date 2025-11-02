@@ -6,8 +6,8 @@ set -e
 # Define build directories
 HOST_BUILD_DIR="build_host"
 CROSS_BUILD_DIR="build_cross"
-TOOLCHAIN_FILE="cross/toolchain-cross.cmake" # Ensure this path is correct
-SHARED_GENERATED_HEADERS_DIR="generated_headers" # Must match CMakeLists.txt
+TOOLCHAIN_FILE="srcs/cross/toolchain-cross.cmake" # Ensure this path is correct
+SHARED_GENERATED_HEADERS_DIR="srcs/generated_headers" # Must match CMakeLists.txt
 
 DIR=$(dirname $(readlink -f $0))
 CUR=`pwd`
