@@ -425,7 +425,7 @@ namespace MFM {
           
           BHTag tag(TagType::T6TADR,mDevCardNum,addr.x,addr.y);
 
-          Eprintf("(%u) handle standard from %d (%d,%d) %d bytes\n", bhl.getThrId(),
+          Eprintf("(%u) handle standard from T%d (%d,%d) %d bytes\n", bhl.getThrId(),
                   tlbi, addr.x, addr.y, lb.mLength);
 
           BHLog & theLog = BHLog::getTheBHLog();
@@ -558,7 +558,8 @@ namespace MFM {
       updateLogCars(tlbi);
       updateEWCars(tlbi);
     }
-    sleepUsec(500);
+    //XXX BURN BABY BURNNNNN:
+    //sleepUsec(50);
     return true;
   }
 

@@ -103,7 +103,7 @@ namespace MFM {
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
     
     DP.printf("T2 HI1\n");
-    u32 seed = hb.mCommonArgs[0] * (hb.mXPos+1) + (hb.mYPos);
+    u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
     fT2.mRandom.seedMT_MFM(seed);
     hb.hartbeat(fAll.mHartNum);
     DP.printf("T2 HI2 %d\n",hb.mPerHartWatchdog[fAll.mHartNum]);

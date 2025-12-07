@@ -60,6 +60,12 @@ namespace MFM {
     case Phase::HAS_CARD_NUM: 
       worked = openCard();
       Eprintf("after opencard %u\n",(u32) worked);
+      Eprintf("hbmagic+%d, mperhst[4]+%d, mpos+%d, mtlbi+%d, size+%d\n",
+              offsetof(HostBlock, mHBMagic),
+              offsetof(HostBlock, mPerHartStatus[4]),
+              offsetof(HostBlock, mPos),
+              offsetof(HostBlock, mTLBI),
+              sizeof(HostBlock));
       if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
       Eprintf("before bhlog (%u)\n",bhl.getThrId());

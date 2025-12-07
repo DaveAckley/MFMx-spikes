@@ -13,19 +13,18 @@
 namespace MFM {
   HostBlock theHostBlock __attribute__ ((section(".hostblock"))) = {
     .mHBMagic = HostBlock::HBMAGIC,
-    .mXPos = U8_MAX,            // bad init to overwrite
-    .mYPos = U8_MAX-1u,         //  "
-    .mTLBI = U8_MAX-2u,         //  "
+    .mPos = { U8_MAX, U8_MAX-1u },  // bad init to overwrite
+    .mTLBI = U8_MAX-2u,             //  "
     .mHBCigam = HostBlock::HBCIGAM
   };
 
   int t6setup(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
-    //    hb.mXPos = 8;
-    //    hb.mYPos = 7;
-    hb.mXPos = ((node_id >> 0) & 0x3f);
-    hb.mYPos = ((node_id >> 6) & 0x3f);
-    hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mXPos,hb.mYPos});
+    //    hb.mPos.x = 8;
+    //    hb.mPos[y = 7;
+    hb.mPos.x = ((node_id >> 0) & 0x3f);
+    hb.mPos.y = ((node_id >> 6) & 0x3f);
+    hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mPos.x,hb.mPos.y});
     t6InitPrinters(hb,theT6ElevatorTransport);
     return 0;
   }

@@ -2,6 +2,7 @@
 #include "itype.h"
 #include "utils.h"
 #include "Fail.h"
+#include "U8C.h"
 
 // See cross/src/_BUD.ld.in for section defs and such
 
@@ -15,8 +16,10 @@
 #define MFM_API_ASSERT_NOT_ON_HART(expr) MFM_API_ASSERT(fAll.mHartNum!=(expr),WRONG_HART)
 
 namespace MFM {
-  struct FastAll {
-    u8 mHartNum, mXPos, mYPos, mInspirationOnHand;
+  struct FastAll { 
+    /// DO NOT CHANGE THIS STRUCT WITHOUT CONSULTING _BUD.S ///
+    u8 mHartNum, mInspirationOnHand;
+    U8C mPos;              // local copy of HostBlock.mPos
     u32 mCreativityBuffer; // see FastT2.h
   };
 

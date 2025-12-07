@@ -67,7 +67,7 @@ namespace MFM {
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
     hb->mHBMagic;
     hb->mHBCigam;
-    hb->mYPos = 99;             // but pre-blow ypos
+    hb->mPos.y = 99;             // but pre-blow ypos
     LOGprintf(mCardNum," HB1 0x%08x 0x%08x\n",
            hb->mHostBaseAddrHi,
            hb->mHostBaseAddrLo);
@@ -76,17 +76,20 @@ namespace MFM {
     // "Multicast all the code to the entire fleet"
     mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
 
+    // Waste Some Time OK
+    sleepUsec(1'000'000);
+
     // Let's try some sanity read-backs..
     u32 hits = 0u, misses = 0u;
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
          tlbi += /*69*/1) {
-      for (u32 word = 0u; word < wordcount; word += 11) {
+      for (u32 word = 0u; word < wordcount; word += 1) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
         if (codewords[word] != data) {
           ++misses;
-          LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%08x : got 0x%08x need 0x%08x\n",
+          LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%08x: got 0x%08x need 0x%08x\n",
                     mCardNum, tlbi, misses, word<<2, data, codewords[word]);
         } else {
           ++hits;
@@ -103,7 +106,7 @@ namespace MFM {
         mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
         u32 hbmagicpre = rbhb.mHBMagic;
         //printf("HostBlock magic %x\n", hbmagicpre);
-        //printf("HostBlock x %u y %u\n", rbhb.mXPos, rbhb.mYPos);
+        //printf("HostBlock x %u y %u\n", rbhb.mPos.x, rbhb.mPos.y);
         if (hbmagicpre != HostBlock::HBMAGIC)
           HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%0x\n",hbmagicpre);
         if (rbhb.mHBCigam != HostBlock::HBCIGAM)
@@ -126,6 +129,7 @@ namespace MFM {
     mOurTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
                      RISCV_DEBUG_REG_SOFT_RESET_0,
                      SOFT_RESET_ALL_RISCV_EXCEPT_B);
+    //sleepUsec(1'000'000);
     LOGprintf(mCardNum,"PHASE-------Check magic\n");
     assertGoodMagic();
   }
@@ -169,7 +173,7 @@ namespace MFM {
       if (false) {
         LOGprintf(mCardNum,"HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
                hb.mHBMagic,tlbi,hb.mTLBI,
-               hb.mXPos,hb.mYPos,
+               hb.mPos.x,hb.mPos.y,
                hb.mPerHartStatus[0],
                hb.mPerHartStatus[1],
                hb.mPerHartStatus[2],
@@ -181,9 +185,9 @@ namespace MFM {
       if (hb.mHBCigam != HostBlock::HBCIGAM)
         HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
       U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
-      if (true && (hb.mXPos != nocc.x || hb.mYPos != nocc.y || hb.mTLBI != tlbi))
+      if (true && (hb.mPos.x != nocc.x || hb.mPos.y != nocc.y || hb.mTLBI != tlbi))
         HOST_FATAL(BAD_VALUE,"Bad NOC0 COORD (%u,%u) wanted (%u,%u) @ %u vs %u\n",
-                   hb.mXPos,hb.mYPos,
+                   hb.mPos.x,hb.mPos.y,
                    nocc.x, nocc.y,
                    tlbi, hb.mTLBI
                    );
@@ -199,7 +203,7 @@ namespace MFM {
         }
         if (idx != 0u) {
           buf[idx] = 0;
-          LOGprintf(mCardNum,"(%u,%u)HB<%s>\n",hb.mXPos,hb.mYPos,buf);
+          LOGprintf(mCardNum,"(%u,%u)HB<%s>\n",hb.mPos.x,hb.mPos.y,buf);
         }
       }
     }
@@ -239,10 +243,10 @@ namespace MFM {
         }
 
         U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
-        if (hb.mXPos != nocc.x || hb.mYPos != nocc.y)
+        if (hb.mPos.x != nocc.x || hb.mPos.y != nocc.y)
           LOGprintf(mCardNum,"CROOD MIMSATCH %u (%u,%u) vs (%u,%u)\n",
                  tlbi, nocc.x, nocc.y,
-                 hb.mXPos, hb.mYPos);
+                 hb.mPos.x, hb.mPos.y);
         if (true && tries<3 && tlbi<10u)
           LOGprintf(mCardNum,"\n[%u] %d,%d,%d,%d,%d\n",
                  tlbi,
@@ -314,7 +318,7 @@ namespace MFM {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
         if (info.mStuckDog[hart]) {
           Eprintf("BH%d:(%2u,%2u)%s STUCK? 0x%08x = FAIL%d:%s\n",
-                  mCardNum,hb.mXPos,hb.mYPos,hartName(hart),
+                  mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
                   hb.mPerHartWatchdog[hart],
                   hb.mPerHartStatus[hart],
                   getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
@@ -338,9 +342,9 @@ namespace MFM {
       }
       if (idx != 0u) {
         buf[idx] = 0;
-        Eprintf("BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",mCardNum,hb.mXPos,hb.mYPos,buf);
+        Eprintf("BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",mCardNum,hb.mPos.x,hb.mPos.y,buf);
         // UPDATE FLUSHED HostBlock!
-        //mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
+        mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
       }
     }
     return 0;

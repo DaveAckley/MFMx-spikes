@@ -76,16 +76,14 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	la t1, __fast_start     # get local ptr
 	la t2, __hostblock_start # get hb ptr
 	sb s0,(t1)              # set fast[0] 0..7 to hartnum
-        lbu t3,24(t2)           # get hb.mXPos
-        sb t3,1(t1)             # stash in fALL.mXPos
-        lbu t3,25(t2)           # get hb.mYPos
-        sb t3,2(t1)             # stash in fall.mYPox
+        lhu t3,24(t2)           # get hb.mPos
+        sh t3,2(t1)             # stash in fALL.mPos
 
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value
 	addi t1,sp,-1024        # down 1K
  3: 	sw t2,(t1)              # you get a canary
-        addi t1, t1, 4          # and YOU
+        addi t1, t1, 4          # and YOU get a canary
         bne t1,sp,3b            # AND
         ## FALL THROUGH	
 	

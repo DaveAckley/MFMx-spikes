@@ -16,6 +16,7 @@ target_sources(MFMx PRIVATE
     src/OurMutex.cpp
     src/OurTLBs.cpp
     src/S32C.cpp
+    src/StringBlock.cpp
     src/STVL.cpp
     src/spikeMain.cpp
     ${SHARED_SOURCES}

@@ -55,7 +55,7 @@ namespace MFM {
     // TARG (lo+mid) is the source in our L1. TARG hi is our raw NoC coord
     u32 targlo = (u32) data;
     u32 targmid = 0u;
-    u32 targhi = ((mHostBlockPtr->mYPos&0x3f)<<6)|(mHostBlockPtr->mXPos&0x3f);
+    u32 targhi = ((mHostBlockPtr->mPos.x&0x3f)<<6)|(mHostBlockPtr->mPos.y&0x3f);
 
     // In general:
     //   RET (lo+mid) is the dest addr, RET hi is the raw NoC coord of the dest tile

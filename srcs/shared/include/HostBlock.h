@@ -3,6 +3,7 @@
 
 #include "itype.h"
 #include "RingBuffer.h"
+#include "U8C.h"
 
 namespace MFM {
   struct HostBlock {
@@ -13,7 +14,8 @@ namespace MFM {
     u32 mHBMagic;               // MUST BE FIRST u32 BYTES 0..3
 
     s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
-    u8 mXPos, mYPos, mTLBI, mFails; // MUST BE BYTES 24..27
+    U8C mPos;                   // MUST BE BYTES 24..25
+    u8 mTLBI, mFails;           // MUST BE BYTES 26..27
     u32 mCommonArgs[3];         // MUST BE BYTES 28..39
 
     u32 mPerHartWatchdog[5];    // spin counter for liveness checks

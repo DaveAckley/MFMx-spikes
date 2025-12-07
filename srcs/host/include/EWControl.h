@@ -35,8 +35,8 @@ namespace MFM {
     EWControl() ;
   public:
     ~EWControl() ;
-    static constexpr u32 GRID_WIDTH = 1920u*2u;
-    static constexpr u32 GRID_HEIGHT = 1080u*2u;
+    static constexpr u32 GRID_WIDTH = 1920u*1u;
+    static constexpr u32 GRID_HEIGHT = 1080u*1u;
 
     S32C getGridSize() const { return S32C(GRID_WIDTH,GRID_HEIGHT); }
 
@@ -102,6 +102,10 @@ namespace MFM {
       mEWsActive.store(newActive);
       return ret;
     }
+
+    std::string doNuke(bool large) ;
+
+    std::string doSeed() ;
 
     S32C randomCoordInBounds() ;
 
@@ -212,6 +216,8 @@ namespace MFM {
       ewc.def("makeAtom",&EWControl::makeAtom);
       ewc.def("isActive",&EWControl::isActive);
       ewc.def("setActive",&EWControl::setActive);
+      ewc.def("doNuke",&EWControl::doNuke);
+      ewc.def("doSeed",&EWControl::doSeed);
     }
   };
 }

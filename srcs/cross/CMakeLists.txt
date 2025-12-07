@@ -14,13 +14,15 @@ add_executable(crossmain
   src/FastT0.cpp
   src/FastT1.cpp
   src/FastT2.cpp
-  src/NoCs.cpp
+#  src/NoCs.cpp
   src/P2PLogElevatorPlatform.cpp
   src/P2PEWElevatorPlatform.cpp
   src/Printf.cpp
   src/T6ElevatorTransport.cpp
   src/t6main.cpp
+  src/T6RingO.cpp
   src/U8C.cpp
+  src/Wrap8.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES}
   src/formatSymbols.pl

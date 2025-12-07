@@ -120,13 +120,21 @@ namespace MFM {
   std::string size4(u64 num) {
     std::string ret;
     const u32 scaler = 1000;
-    const char suffixes[] = "_KMGTQ";
+    const char suffixes[] = ".KMGTQ";
+    if (num < 10*scaler) {
+      u32 n = scaler;
+      while (n > 1u && num < n) {
+        ret += " ";
+        n /= 10u;
+      }
+      ret += std::to_string(num);        
+      return ret;
+    }
     for (u32 i = 0; i < sizeof(suffixes); ++i) {
       if (num < scaler) {
         if (num < scaler/100u) ret += " ";
         if (num < scaler/10u) ret += " ";
-        ret += std::to_string(num);
-        if (i > 0) ret += suffixes[i];
+        ret += std::to_string(num) + suffixes[i];
         break;
       }
       if (num < 10*scaler && i < sizeof(suffixes) - 1) {

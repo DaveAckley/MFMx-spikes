@@ -2,101 +2,10 @@
 #include "Fail.h"
 #include <time.h>     /* For time() */
 #include "MDist.h"
+#include "StringBlock.h"
 
 namespace MFM {
-  struct StringBlock {
-    StringBlock()
-      : mBytes(0)
-      , mLen(0)
-      , mRowLen(0)
-      , mFillPos(0)
-      , mDims({0,0})
-    {}
 
-    ~StringBlock() { clear(); }
-
-    void displayAtom(S32C dtcoord, S32C dsize, S32C sgcoord, S32C ssize, const P4Atom & a) {
-      u16 t = a.getType();
-      char xch = ' ', ych = ' ';
-      u32 div;
-      if (ssize.x < 3u) div = 5u;
-      else if (ssize.x < 13u) div = 50u;
-      else div = 500u;
-
-      // NO AXES IN HERE
-      //      if ((sgcoord.x-ssize.x/2u)/div != (sgcoord.x+ssize.x/2u)/div) xch = '.';
-      //      if ((sgcoord.y-ssize.y/2u)/div != (sgcoord.y+ssize.y/2u)/div) ych = '.';
-
-      char ch;
-      if (xch != ' ' && ych != ' ') ch = '+';
-      else if (xch != ' ') ch = xch;
-      else ch = ych;
-
-      put2D(dtcoord,t==0 ? ' ' : '0'+t);
-      put2D(dtcoord+S32C({1,0}), ch);
-    }
-
-    void clear() {
-      delete [] mBytes;
-      mBytes = 0;
-      mLen = 0;
-      mDims = { 0,0 };
-      mFillPos = 0u;
-    }
-
-    void append(std::string s) {
-      const char * data = s.data();
-      u32 len = s.size();
-      while (len-->0) 
-        if (mFillPos < mLen) mBytes[mFillPos++] = *data++;
-    }
-
-    bool put2D(S32C at, std::string s, bool erase = false) {
-      const char * data = s.data();
-      u32 len = s.size();
-      while (len-->0) {
-        if (put2D(at,*data++,erase)) at.x++;
-        else return false;
-      }
-      return true;
-    }
-
-    bool put2D(S32C at, char c, bool erase = false) {
-      if (at.x < 0 || at.x >= mDims.x ||
-          at.y < 0 || at.y >= mDims.y)
-        return false;
-      char * p = &mBytes[at.y * mRowLen + at.x];
-      if (c != ' ' || erase)
-        if (*p != '\n') *p = c;
-      return true;
-    }
-
-    void init(S32C dims) {
-      if (dims != mDims) {
-        clear();
-        mDims = dims;
-        mRowLen = mDims.x+1u;
-        mLen = mRowLen*mDims.y;
-        mBytes = new char [mLen+1]; // +1 for null
-      }
-      mFillPos = 0u;
-      memset_s(mBytes,' ',mLen);
-      for (u32 r = 0u; r < mDims.y; ++r) {
-        mBytes[r*mRowLen+0] = '>'; // DEBUG
-        mBytes[r*mRowLen+mDims.x-1] = '|'; // DEBUG
-        mBytes[r*mRowLen+mDims.x] = '\n';
-      }
-      mBytes[mLen] = '\0';
-    }
-
-    std::string_view asSV() { return std::string_view(mBytes,mLen); }
-
-    char * mBytes;
-    u32 mLen;
-    u32 mRowLen;
-    u32 mFillPos;
-    S32C mDims;
-  };
   thread_local HostRandom myPRNG;
   thread_local StringBlock ewRenderBlock;
   thread_local std::string statsLineBuffer;
@@ -162,6 +71,33 @@ namespace MFM {
     s32 x = myPRNG.Between(mMin.x,mMax.x); // note with center in bounds,
     s32 y = myPRNG.Between(mMin.y,mMax.y); // ew may reach beyond bounds
     return { x, y };
+  }
+
+  std::string EWControl::doSeed() {
+    S32C loc = randomCoordInBounds();
+    setAtom(loc,P4Atom::makeStartAtom());
+    return "Seed@"+std::to_string(loc.x)+","+std::to_string(loc.y);
+  }
+
+  std::string EWControl::doNuke(bool large) {
+    S32C loc = randomCoordInBounds();
+    s32 r = myPRNG.Create(large? 500 : 50) + 5;
+    s32 r2 = r*r;
+    u32 nuked = 0u;
+    for (s32 x = loc.x - r; x <= loc.x+r; ++x) {
+      for (s32 y = loc.y - r; y <= loc.y+r; ++y) {
+        S32C at(x,y);
+        if (at.euclideanSquaredDistance(loc) < r2) {
+          u16 t = getAtom(at).getType();
+          if (t != P4Atom::EMPTY_TYPE &&
+              t != P4Atom::INACCESSIBLE_TYPE) {
+            setAtom(at,P4Atom::makeEmptyAtom());
+            ++nuked;
+          }
+        }
+      }
+    }
+    return size4(nuked)+"!"+std::to_string(r)+"@"+std::to_string(loc.x)+","+std::to_string(loc.y);
   }
 
   bool EWControl::pickEWCenter(S32C & occupied, EWLocker::Entry & token) {
@@ -295,7 +231,6 @@ namespace MFM {
 
 
   std::string_view EWControl::renderGridWindow(S32C gcenter, S32C tsize, s32 zoom) {
-    //tsize.x--; // RESERVE LAST COLUMN HACK
     const S32C tcenter = tsize/2; // gcenter anchor in textels
     const S32C dcenter = tcenter/ASPECT_RATIO; // gcenter anchor in display boxes
 

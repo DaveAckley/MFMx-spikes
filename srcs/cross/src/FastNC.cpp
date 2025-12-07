@@ -2,8 +2,9 @@
 #include "FastLocal.h"
 #include "TransportBlock.h"
 #include "Printf.h"
-#include "NoCs.h"
+//#include "NoCs.h"
 #include "S8C.h"
+//#include "FastT2.h" // REMEMBER: NO createByMail on HART NC!
 
 namespace MFM {
   T6ElevatorTransport theT6ElevatorTransport;
@@ -17,8 +18,8 @@ namespace MFM {
   };
 
   struct FastNC {
-    void init() { mNoCs.init(); }
-    NoCs mNoCs;
+    void init() { }
+    //NoCs mNoCs;
   };
   FAST_LOCAL(FastNC,fNC,nc);
 
@@ -39,24 +40,24 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     theT6ElevatorTransport.init(hb,theTransportBlock);
     fNC.init(); // ctors don't run for objects in our fast RAMs!
-    if (false) {
-      U8C xy0 = fNC.mNoCs.mNoC0.mNoCXY;
-      U8C xy1 = fNC.mNoCs.mNoC1.mNoCXY;
-      DP.printf("NC#%d(%d,%d)x(%d,%d)\n",
+    /*
+    NoCHop h;
+    Dir4 d4 = (Dir4) ((hb.mPos.x+hb.mPos.y)&0x3);
+    if (h.initForNextT6InDir4(d4,hb.mPos))
+      DP.printf("NC@%d(%u,%u)%c:(%u,%u)!\n",
                 hb.mTLBI,
-                xy0.x, xy0.y,
-                xy1.x, xy1.y);
-      for (u32 n = 0u; n < 2u; ++n)
-        for (u32 i = 0u; i < 4u; ++i)
-          DP.printf("NR%d.%d:0x%08x\n",n, i,(u32) fNC.mNoCs.getNoC(n).getNIUReqAddress(0u, i));
-    }
-    {
-      for (u8 d = Dir8::NT; d <= Dir8::NE; ++d) {
-        S8C s = S8C::makeS8CFromDir8((Dir8) d);
-        DP.printf("DIR%d=(%d,%d)\n", d, s.x, s.y);
-      }
-    }
-    
+                h.mSrcCoord.x,
+                h.mSrcCoord.y,
+                dir4ToByteCode(d4),
+                h.mDestCoord.x,
+                h.mDestCoord.y
+                );
+    else
+      DP.printf("NC@(%u,%u)%c:NO!\n",
+                hb.mPos.x,hb.mPos.y,
+                dir4ToByteCode(d4)
+                );
+    */
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     return liveNC(hb);
 

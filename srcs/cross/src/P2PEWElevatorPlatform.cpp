@@ -78,13 +78,20 @@ namespace MFM {
         // start with all EW cars host side
         // host: INBOUND_DEPARTED means just arrive
         // cross: INBOUND_DEPARTED means already gone
-        et.notice("EWINIT %d of %d\n",c,mCarCount);
+        //et.notice("EWINIT %d of %d\n",c,mCarCount);
         car.setCarState(CarState::INBOUND_DEPARTED, CarType::STANDARD);
         continue;
       }
 
       if (!car.isComplete()) {     // should only be possible if delivery in progress
-        et.notice("incomplete car\n");
+        CarSig hdr = car.getHeader(); 
+        if (hdr.mCarState != CarState::OUTBOUND_DEPARTED) // which should only show as OUTBOUND_DEPARTED?
+          et.notice("(%d,%d)BADCAR: m%02x n%d s%d t%d\n",
+                    fAll.mPos.x,fAll.mPos.y,
+                    hdr.mCarMagic,
+                    hdr.mCarNonce,
+                    hdr.mCarState,
+                    hdr.mCarType);
         continue;
       }
 

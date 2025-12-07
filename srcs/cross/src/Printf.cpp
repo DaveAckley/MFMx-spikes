@@ -1,6 +1,7 @@
 #include "Printf.h"
 #include "Fail.h"
 #include "T6ElevatorTransport.h"
+#include "FastLocal.h"
 
 #if 1
 #define NANOPRINTF_USE_FIELD_WIDTH_FORMAT_SPECIFIERS 1
@@ -36,6 +37,7 @@ namespace MFM {
     //    if (!worked) FAIL(OUT_OF_ROOM);
   }
 
+
   void t6InitPrinters(HostBlock & hb, T6ElevatorTransport & t6et) {
     u64 hostaddr = hb.getHostNocAddr();
     DP.init(DPLock,0,debugPrintPutc,hostaddr);
@@ -58,10 +60,26 @@ namespace MFM {
     return ret;
   }
 
+  s32 snprintf(char * buf, u32 siz, const char * format, ...) {
+    va_list ap;
+    va_start(ap,format);
+    s32 ret = npf_vsnprintf(buf,siz,format,ap);
+    va_end(ap);
+    return ret;
+  }
+
   u32 Printer::printf(const char * format, ...) {
     va_list ap;
     va_start(ap,format);
-    u32 ret = this->vprintf(format,ap);
+    u32 ret;
+    /*
+    if (false && this == &DP &&
+        (fAll.mPos.x < 3 || fAll.mPos.x > 5 ||
+         fAll.mPos.y < 3 || fAll.mPos.y > 5))
+      ret = 1u;
+    else
+    */
+      ret = this->vprintf(format,ap);
     va_end(ap);
     return ret;
   }

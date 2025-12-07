@@ -34,6 +34,12 @@ struct S32C {
   S32C operator/(const u32 s) const { return S32C(x/s,y/s); }
   S32C operator/(const s32 s) const { return S32C(x/s,y/s); }
   
+  u32 manhattanLength() const { return abs(x) + abs(y); }
+  u32 euclideanSquaredLength() const { return x*x + y*y; }
+
+  u32 manhattanDistance(const S32C & other) const { return (*this - other).manhattanLength(); }
+  u32 euclideanSquaredDistance(const S32C & other) const { return (*this - other).euclideanSquaredLength(); }
+
   // ASGN OPS
   S32C & operator=(const S32C & other) { x = other.x; y = other.y; return *this; }
   S32C & operator+=(const S32C & other) { x += other.x; y += other.y; return *this; }

@@ -61,18 +61,65 @@ namespace MFM
     MANHATTAN_TABLE_EVENT = MANHATTAN_TABLE_RADIUS_4
   } TableType;
 
-  typedef enum
-  {
-    NT = 0,
-    NW = 1,
-    WT = 2,
-    SW = 3,
-    ST = 4,
-    SE = 5,
-    ET = 6,
-    NE = 7,
-  } Dir8;
+  enum Dir4 {
+    D4_N = 0,
+    D4_W = 1,
+    D4_S = 2,
+    D4_E = 3,
+  };
   
+  static Dir4 nextCCWDir(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
+  static Dir4 nextCWDir(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
+
+  enum Dir8 {
+    D8_NT = 0,
+    D8_NW = 1,
+    D8_WT = 2,
+    D8_SW = 3,
+    D8_ST = 4,
+    D8_SE = 5,
+    D8_ET = 6,
+    D8_NE = 7,
+  };
+
+  static u8 dir4ToByteCode(const Dir4 d4) { return (u8) "NWSE"[d4]; }
+  static Dir8 dir4ToDir8(const Dir4 d4) { return (Dir8) (d4*2u); }
+
+  static const char * dir8ToByteString(const Dir8 d8) {
+    return "NT8\0NW8\0WT8\0SW8\0ST8\0SE8\0ET8\0NE8" + d8*4u;
+  }
+  static bool dir8ToDir4(const Dir8 d8, Dir4 & d4) {
+    if (d8&1) return false;
+    d4 = (Dir4) (d8/2u);
+    return true;
+  }
+
+  enum Corner4 {
+    C4_SE = 0,
+    C4_SW = 1,
+    C4_NW = 2,
+    C4_NE = 3,
+
+    C4_MIN = C4_SE,
+    C4_MAX = C4_NE,
+  };
+
+  static const Dir4 clockwiseDir4FromCorner4(const Corner4 c4) {
+    return (Dir4) (C4_NE - c4); // SE:E, SW:S, NW:W, NE:N
+  }
+
+  static const Corner4 clockwiseCorner4(const Corner4 c4) {
+    return (Corner4) (((u8)c4+1u)&0x3); // SE:SW, SW:NW, NW:NE, NE:SE
+  }
+
+  static const Corner4 counterClockwiseCorner4(const Corner4 c4) {
+    return (Corner4) (((u8)c4+3u)&0x3);
+  }
+
+  static const char * corner4ToByteString(const Corner4 c4) {
+    return "SE\0SW\0NW\0NE" + (u8)c4*3u;
+  }
+
   /**
    * A singleton class consisting of many utilities used for
    * calculating Many-kinds-of Distances, including Manhattan distance

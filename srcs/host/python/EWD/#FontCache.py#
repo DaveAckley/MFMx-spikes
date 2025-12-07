@@ -1,0 +1,30 @@
+from PIL import ImageFont, ImageDraw, Image
+import numpy as np
+
+class CachedFont:
+    BOX_SIZE = 32
+    MAX_GLYPHS = 512
+    def __init__(self,key):
+        self.key = key
+        path,size,fg,bg = key
+        tripleSize = int(3*size)
+        self.bigPILFont = ImageFont.truetype(path,tripleSize)
+        self.scratchPILImg = Image.new("RGBA",(
+        self.fontImg = np.zeros((MAX*GLYPHS*BOX_SIZE,BOX_SIZE,3), np.uint8)
+        self.map = {}    # unicode point -> fontImg index
+        self.firstFreeIndex = 0
+        
+        
+class FontCache:
+    def __init__(self):
+        self.fonts = {}
+
+    def getFont(self,path,size,fg,bg):
+        key = (path,size,fg,bg)
+        f = self.fonts.get(key)
+        if not f:
+            f = self.initFont(key)
+        return f
+
+    def initFont(self,key):
+        

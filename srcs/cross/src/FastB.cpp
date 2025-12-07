@@ -147,7 +147,7 @@ namespace MFM {
   int hartMainB(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     preloadT2Mailbox();
-    DP.printf("B#%d(%d,%d)\n",hb.mTLBI,hb.mXPos,hb.mYPos);
+    DP.printf("B#%d(%d,%d)\n",hb.mTLBI,hb.mPos.x,hb.mPos.y);
     // hb.mCommonArgs[0] reserved for nonce (used by T2)
     // hb.mCommonArgs[1] reserved for start decay type
     // hb.mCommonArgs[2] = (u32) hb.mHostBaseAddrHi; //ET_NIU_NODE_ID;

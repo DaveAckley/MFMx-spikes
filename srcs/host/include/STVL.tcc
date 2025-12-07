@@ -39,7 +39,7 @@ bool STVL<XMIN,YMIN,XMAX,YMAX,LOCK_RADIUS,LOCK_USEC>::tryLock(S32C center, Entry
         // now check distances
         for (u32 i = 0u; i < bkt.mInUse; ++i) {
           Entry & e = bkt.mEntries[i];
-          u32 dist = manhattanDistance(center,e.mPosition);
+          u32 dist = center.manhattanDistance(e.mPosition);
           if (dist < 2*LOCK_RADIUS)
             return false;       // we're blown
         }

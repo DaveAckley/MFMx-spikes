@@ -28,6 +28,7 @@ namespace MFM {
     Putchar * mPutc;
   };
 
+  extern s32 snprintf(char * buf, u32 siz, const char * format, ...) ;
   extern void t6InitPrinters(HostBlock & hb, T6ElevatorTransport & t6t) ;
   extern Printer DP;
   extern Printer LOG;

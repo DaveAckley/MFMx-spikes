@@ -19,14 +19,14 @@ namespace MFM {
 
     static S8C makeS8CFromDir8(Dir8 d8) {
       switch (d8) {
-      case Dir8::NT: return S8C( 0,-1);
-      case Dir8::NW: return S8C( 1,-1);
-      case Dir8::WT: return S8C( 1, 0);
-      case Dir8::SW: return S8C( 1, 1);
-      case Dir8::ST: return S8C( 0, 1);
-      case Dir8::SE: return S8C(-1, 1);
-      case Dir8::ET: return S8C(-1, 0);
-      case Dir8::NE: return S8C(-1,-1);
+      case D8_NT: return S8C( 0,-1);
+      case D8_NW: return S8C( 1,-1);
+      case D8_WT: return S8C( 1, 0);
+      case D8_SW: return S8C( 1, 1);
+      case D8_ST: return S8C( 0, 1);
+      case D8_SE: return S8C(-1, 1);
+      case D8_ET: return S8C(-1, 0);
+      case D8_NE: return S8C(-1,-1);
       default: FAIL(ILLEGAL_ARGUMENT);
       }
     }

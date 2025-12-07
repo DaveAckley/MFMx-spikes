@@ -17,14 +17,6 @@
  */
 
 using namespace MFM;
-inline u32 manhattanLength(S32C pt) {
-  return (u32) (abs(pt.x) + abs(pt.y));
-}
-inline u32 manhattanDistance(S32C a, S32C b) {
-  a.x -= b.x;
-  a.y -= b.y;
-  return manhattanLength(a);
-}
 template<s32 GRID_X_MIN, s32 GRID_Y_MIN, s32 GRID_X_MAX, s32 GRID_Y_MAX, u32 LOCK_RADIUS, u32 LOCK_USEC>
 struct STVL {
 
