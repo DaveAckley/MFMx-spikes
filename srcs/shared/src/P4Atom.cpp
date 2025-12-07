@@ -39,6 +39,8 @@ namespace MFM {
   }
 
   bool P4Atom::isValidParity(u16 d) {
+    if ((d&0x1ff) == INACCESSIBLE_TYPE)
+      return false;
     for (u32 i = 0u; i < sizeof(MASKS2D3X3)/sizeof(MASKS2D3X3[0]); ++i) 
       if (__builtin_popcount(d & MASKS2D3X3[i])&1) return false;
     return true;

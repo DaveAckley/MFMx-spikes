@@ -9,6 +9,7 @@
 #include "BHTag.h"
 #include "OurMutex.h"
 #include "S32C.h"
+#include "U8C.h"
 #include "STVL.h"
 
 #include <time.h>     /* For time() */
@@ -168,6 +169,13 @@ namespace MFM {
       s32c.def_readwrite("y", &S32C::y);
       s32c.def("__repr__",&S32C::to_repr);
 
+      py::class_<U8C> u8c(m,"U8C");
+      u8c.def(py::init<>());
+      u8c.def(py::init<const u8,const u8>());
+      u8c.def_readwrite("x", &U8C::x);
+      u8c.def_readwrite("y", &U8C::y);
+      u8c.def("__repr__",&U8C::to_repr);
+      
       py::class_<P4Atom> p4(m,"P4Atom");
       p4.def("__repr__",[](const P4Atom& a) {
         const u32 BUF_SIZ=100;

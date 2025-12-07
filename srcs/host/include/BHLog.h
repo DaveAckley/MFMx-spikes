@@ -127,6 +127,12 @@ namespace MFM {
                     [](LogCallback cb) {
                       BHLog::getTheBHLog().setLogCallbackNoGIL(cb); },
                     py::call_guard<py::gil_scoped_release>());
+      lg.def_static("log",
+                    [](std::string text) {
+                      FILE * logfile = getHostLog();
+                      fprintf(logfile,"python: %s\n",text.c_str());
+                    },
+                    py::call_guard<py::gil_scoped_release>());
     }
   };
 

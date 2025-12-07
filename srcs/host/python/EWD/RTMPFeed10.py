@@ -6,6 +6,9 @@ import subprocess
 import numpy as np
 import cv2
 
+import socket
+import errno
+
 # 'overlay_transparent'
 # Source - https://stackoverflow.com/a
 # Posted by Cristian Garcia, modified by community. See post 'Timeline' for change history
@@ -62,90 +65,121 @@ def shadowText(img,text,org,col,offset=1,fontscale=.8):
       return ret
 
 class RTMPFeed:
-      def __init__(self,stream='test'):
-            self.logo_path = "logo/logotype-lcf-chop-16-yellow-on-transparent-shadow.png"
-            logo = cv2.imread(self.logo_path,-1) # neg arg to keep alpha
-            lw,lh = logo.shape[0:2]
-            pctsize=1.48
-            self.slw,self.slh = int(pctsize*lw/100),int(pctsize*lh/100)
-            self.smlogo = cv2.resize(logo,(self.slw,self.slh),interpolation=cv2.INTER_AREA)
-            print("smlogo",self.smlogo.shape)
-            self.rtmp_url = "rtmp://100.111.186.67:1935/live/"+stream
+    def __init__(self,ewd,stream='test'):
+        self.ewd = ewd
+        self.key = "RT10";
+        self.logo_path = "logo/logotype-lcf-chop-16-yellow-on-transparent-shadow.png"
+        logo = cv2.imread(self.logo_path,-1) # neg arg to keep alpha
+        lw,lh = logo.shape[0:2]
+        pctsize=1.48
+        self.slw,self.slh = int(pctsize*lw/100),int(pctsize*lh/100)
+        self.smlogo = cv2.resize(logo,(self.slw,self.slh),interpolation=cv2.INTER_AREA)
+        print("smlogo",self.smlogo.shape)
+        self.rtmp_url = "rtmp://vidsrv:1935/live/"+stream
 
-            h,w = 1080,1920
-            b,g,r = 0x3e, 0x88, 0x35 # orange
-            b,g,r = 20,20,20 # dark greyf
-            self.img = np.zeros((h,w,3), np.uint8)
-            self.img[:,:,0] = b
-            self.img[:,:,1] = g
-            self.img[:,:,2] = r
+        h,w = 1080,1920
+        b,g,r = 0x3e, 0x88, 0x35 # orange
+        b,g,r = 20,20,20 # dark greyf
+        self.img = np.zeros((h,w,3), np.uint8)
+        self.img[:,:,0] = b
+        self.img[:,:,1] = g
+        self.img[:,:,2] = r
 
-            self.rgbimg = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
-            #self.pil_img = Image.fromarray(self.rgbimg)
+        self.rgbimg = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+        #self.pil_img = Image.fromarray(self.rgbimg)
 
-            #self.renderFont = ImageFont.truetype("fonts/Inconsolata.ttf",16)
-            #self.renderFont = ImageFont.truetype("fonts/JetBrainsMono/ttf/JetBrainsMono-ExtraLight.ttf",18)
+        #self.renderFont = ImageFont.truetype("fonts/Inconsolata.ttf",16)
+        #self.renderFont = ImageFont.truetype("fonts/JetBrainsMono/ttf/JetBrainsMono-ExtraLight.ttf",18)
 
-            #gather video info to ffmpeg
-            self.fps = int(10)
-            self.height = self.img.shape[0]
-            self.width = self.img.shape[1]
-            self.goplen = 10*self.fps # max ten seconds to I?
-            self.ffmpegCommand = [
-                  'ffmpeg', '-y',
-                  '-re',
-                  '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
-                  '-s', "{}x{}".format(self.width, self.height), '-r', str(self.fps), '-vsync', '2', '-i', '-',
-                  '-c:v', 'libx264', '-g', str(self.goplen), '-x264-params', 'no-scenecut=1',
-                  '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-f', 'flv', '-flvflags', 'no_duration_filesize',
-                  self.rtmp_url
-            ]
+        #gather video info to ffmpeg
+        self.fps = int(10)
+        self.height = self.img.shape[0]
+        self.width = self.img.shape[1]
+        self.goplen = 10*self.fps # max ten seconds to I?
+        self.ffmpegCommand = [
+            'ffmpeg', '-y',
+            #'-re',
+            '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
+            '-s', "{}x{}".format(self.width, self.height),
+            '-framerate', str(self.fps),   # 'input option' ?
+            '-vsync', '2', '-i', '-',
+            '-r', str(self.fps),           # 'output option' ?
+            '-c:v', 'libx264', '-g', str(self.goplen), '-x264-params', 'no-scenecut=1',
+            '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-f', 'flv', '-flvflags', 'no_duration_filesize',
+            self.rtmp_url
+        ]
 
-            print(f"SIZE {self.width} x {self.height}")
-            print(f"RUN {self.ffmpegCommand}")
+        self.ewd.logkt(self.key,f"SIZE {self.width} x {self.height}")
+        self.ewd.logkt(self.key,f"RUN {self.ffmpegCommand}")
 
-            #using subprocess and pipe to fetch frame data
-            self.subproc = subprocess.Popen(self.ffmpegCommand, stdin=subprocess.PIPE)
-            print(f"PROC IS {self.subproc}")
+        self.ewd.logkt(self.key,f"GORMO")
+        self.subproc_started = 0
+        self.restartSubProc();
+        self.ewd.logkt(self.key,f"SLORG")
 
-      def sendTextFrame(self,text):
-            now = datetime.datetime.now(datetime.timezone.utc)
-            snowd = now.strftime("%Y%m%d")
-            #snowt = now.strftime("%H%M%S%Z")
-            snowt = now.strftime("%H:%M:%S")
-            #status, img = camera.read()
-            #self.pil_img.paste((10,10,10), (0,0, self.pil_img.size[0], self.pil_img.size[1]))
-            #image.paste( (200,200,200), (0, 0, image.size[0], image.size[1]))
+        self.ewd.logkt(self.key,f"XX {self.subproc_started}")
+
+    def restartSubProc(self):
+        self.framesSentThisSubproc = 0
+        if False and self.subproc_started > 10:
+            print("TOO MONEY RESTRATS",self.subproc_started)
+            sys.exit(1)
+        #using subprocess and pipe to fetch frame data
+        self.ewd.logkt(self.key,f"STARTING {self.ffmpegCommand}")
+        self.subproc = subprocess.Popen(self.ffmpegCommand, stdin=subprocess.PIPE)
+        self.subproc_started += 1
+        self.ewd.logkt(self.key,f"SUBPROC #{self.subproc_started} IS {self.subproc}")
+        self.ewd.logkt(self.key,"CLAMS!")
+
+    def sendTextFrame(self,text):
+        self.framesSentThisSubproc += 1
+        if False and self.framesSentThisSubproc > 1000:
+            self.ewd.logkt(self.key,f"CREFRESHING {self.subproc} WITH PREJUDICE")
+            self.subproc.terminate()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        snowd = now.strftime("%Y%m%d")
+        #snowt = now.strftime("%H%M%S%Z")
+        snowt = now.strftime("%H:%M:%S")
+        #self.ewd.logkt(self.key,f"sendTextFrame #{snowt}\n")
+        #status, img = camera.read()
+        #self.pil_img.paste((10,10,10), (0,0, self.pil_img.size[0], self.pil_img.size[1]))
+        #image.paste( (200,200,200), (0, 0, image.size[0], image.size[1]))
             
-            #draw = ImageDraw.Draw(self.pil_img)
-            #draw.multiline_text((0,0), text, font=self.renderFont, fill=(200,200,0))
-            #lines = 0
-            #for l in text.split("\n"):
-            #      timg = draw.text((10,10+lines*20), l, font=self.renderFont)
-            #      lines = lines + 1
+        #draw = ImageDraw.Draw(self.pil_img)
+        #draw.multiline_text((0,0), text, font=self.renderFont, fill=(200,200,0))
+        #lines = 0
+        #for l in text.split("\n"):
+        #      timg = draw.text((10,10+lines*20), l, font=self.renderFont)
+        #      lines = lines + 1
+        
+        #timg = np.asarray(self.pil_img)
+        #timg = cv2.cvtColor(timg,cv2.COLOR_RGB2BGR)
 
-            #timg = np.asarray(self.pil_img)
-            #timg = cv2.cvtColor(timg,cv2.COLOR_RGB2BGR)
+        timg = np.copy(self.img)
+        atext = unidecode(text,'replace',replace_str=".")
+        lines = 0
+        cols = 0
+        for i in range(0,len(atext)):
+            ch = atext[i]
+            if ch == '\n':
+                lines = lines+1
+                cols = 0
+            else:
+                if ch != ' ':
+                    timg = cv2.putText(timg,text=ch,org=(cols*10,12+lines*20), fontFace=2, fontScale=.5,color=(0,200,200),thickness=1)
+                cols = cols+1
 
-            timg = np.copy(self.img)
-            atext = unidecode(text,'replace',replace_str=".")
-            lines = 0
-            cols = 0
-            for i in range(0,len(atext)):
-                  ch = atext[i]
-                  if ch == '\n':
-                        lines = lines+1
-                        cols = 0
-                  else:
-                        if ch != ' ':
-                              timg = cv2.putText(timg,text=ch,org=(cols*10,12+lines*20), fontFace=2, fontScale=.5,color=(0,200,200),thickness=1)
-                        cols = cols+1
-
-            xup = 4
-            timg = shadowText(timg,snowd, (self.slw+6,self.height-12-24-xup), (0,180,180),fontscale=.75)
-            timg = shadowText(timg,snowt, (self.slw+6,self.height-10-xup), (0,180,180),fontscale=.85)
-            timg = overlay_transparent(timg, self.smlogo, 4, self.height-self.slh-8)
-            #print(chopt.shape,timg.shape)
-            # write to pipe
+        xup = 4
+        timg = shadowText(timg,snowd, (self.slw+6,self.height-12-24-xup), (0,180,180),fontscale=.75)
+        timg = shadowText(timg,snowt, (self.slw+6,self.height-10-xup), (0,180,180),fontscale=.85)
+        timg = overlay_transparent(timg, self.smlogo, 4, self.height-self.slh-8)
+        #print(chopt.shape,timg.shape)
+        # write to pipe
+        try:
             self.subproc.stdin.write(timg.tobytes())
-
+            self.subproc.stdin.flush()
+        except socket.error as e:
+            if e.errno != errno.EPIPE:
+                raise
+            self.ewd.logkt(self.key,f"BORKEN PIPE {e}")
+            self.restartSubProc()

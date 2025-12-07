@@ -1,6 +1,6 @@
 #!/data/ackley/PART4/code/D/blackholeSpikes/venv/bin/python
+import time
 from mfmx import MFMx
-from time import sleep
 
 from RTMPFeed10 import RTMPFeed
 
@@ -81,10 +81,7 @@ ewd = None
 def logcb(key,text):
   global ewd
   if ewd:
-    rid = ewd.query_one("#richlog")
-    if rid:
-      text = text.strip("\n")
-      rid.write(f"{key}:{text}")
+    ewd.logkt(key,text)
 
 #class EWD(App[None]):
 class EWD(App):
@@ -92,6 +89,8 @@ class EWD(App):
     super().__init__()
     self.renderConsole = None
     self.theRTMPFeed = RTMPFeed(self,'ewd')
+    self.key = "EWDA"
+    self.logkt(self.key,f"FEEED {self.theRTMPFeed}")
 
   CSS_PATH = "styles.tcss"
 
@@ -130,6 +129,14 @@ class EWD(App):
   BHMIN = 1
   BHMAX = 3
 
+  def logkt(self,key,text):
+    global ewd
+    text = text.strip("\n")
+    msg = f"{key}:{text}"
+    if ewd and (rlist := ewd.query("#richlog")):
+      rlist.first().write(msg)     # write to onscreen log
+    MFMx.BHLog.log(msg)  # alt/2nd dest
+
   def run(self):
     self.bhs = [ MFMx.BlackHole(i) for i in range(self.BHMIN,self.BHMAX+1) ]
     self.ewc = MFMx.EWControl.getEWControl()
@@ -139,8 +146,8 @@ class EWD(App):
     super().run()
 
   def compose(self) -> ComposeResult:
+    self.logkt(self.key,f"composestart {self}")
     global ewd
-    ewd = self
     yield Header()
     with Horizontal(id="horiz"):
       with Vertical(id="leftvert"):
@@ -167,6 +174,9 @@ class EWD(App):
           yield Label("",id="statsline")
         yield AsciiAnimation(id="ascii-animation")
     yield Footer()
+    self.logkt(self.key,f"composeend10 {self}")
+    ewd = self
+    self.logkt(self.key,f"composeend11 {self}")
 
   def action_changeZoom(self,id):
     anim = self.query_one("#ascii-animation")
@@ -190,24 +200,31 @@ class EWD(App):
     anim.refresh()
 
   def update_animation_content(self):
+    curtime = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
+    elapsedns = curtime - self.animation_start_time
+    if elapsedns < 1_000_000_000 * self.animation_frame_count / self.animation_frames_per_second:
+      return
+    self.animation_frame_count += 1
     animation_widget = self.query_one("#ascii-animation", AsciiAnimation)
     animation_widget.refresh()
     animation_widget.refreshCount += 1
     self.doRTMPFrame()
-    if False and animation_widget.refreshCount % 10 == 0:
-      import gc
-      gc.collect()
-        
+      
   async def on_mount(self) -> None:
     """
       Called when the app is ready. Sets up the virtual size and
       links the scroll position to the animation widget.
     """
+    self.logkt(self.key,f"on_mount {self}")
     animation_widget = self.query_one("#ascii-animation", AsciiAnimation)
     animation_widget.poslabel = self.query_one("#renderpos", Label)
     animation_widget.statslabel = self.query_one("#statsline", Label)
 
-    self.animation_timer = self.set_interval(1 / 10, self.update_animation_content, pause=False)
+    self.animation_frame_count = 0
+    self.animation_frames_per_second = 10
+    self.animation_start_time = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
+    self.animation_timer = self.set_interval(1 / (2*self.animation_frames_per_second),
+                                             self.update_animation_content, pause=False)
     self.runEvents()
 
   def reset(self):
@@ -239,10 +256,10 @@ class EWD(App):
     self.ewc.setActive(False)
     if False:
       for i in range(1000):
-        sleep(1)
+        time.sleep(1)
         self.slowScan(140);
         print("STOPPING EWPROC\n")
-    sleep(1)
+    time.sleep(1)
     self.ewc.setActive(False)
     #self.stop()
 

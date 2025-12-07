@@ -31,7 +31,7 @@
 
 namespace MFM {
 
-/* THIS IS NOT REALLY THE PLACE FOR THESE BUT WE WANT THEM LOW-LEVEL */
+/* THIS IS REALLY NOT THE PLACE FOR THESE BUT WE WANT THEM LOW-LEVEL */
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 

@@ -61,6 +61,18 @@ namespace MFM
     MANHATTAN_TABLE_EVENT = MANHATTAN_TABLE_RADIUS_4
   } TableType;
 
+  typedef enum
+  {
+    NT = 0,
+    NW = 1,
+    WT = 2,
+    SW = 3,
+    ST = 4,
+    SE = 5,
+    ET = 6,
+    NE = 7,
+  } Dir8;
+  
   /**
    * A singleton class consisting of many utilities used for
    * calculating Many-kinds-of Distances, including Manhattan distance

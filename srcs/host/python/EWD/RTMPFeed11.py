@@ -83,7 +83,7 @@ class RTMPFeed:
             self.slw,self.slh = int(pctsize*lw/100),int(pctsize*lh/100)
             self.smlogo = cv2.resize(logo,(self.slw,self.slh),interpolation=cv2.INTER_AREA)
             print("smlogo",self.smlogo.shape)
-            self.rtmp_url = "rtmp://100.111.186.67:1935/live/"+stream
+            self.rtmp_url = "rtmp://vidsrv:1935/live/"+stream
 
 
             h,w = RTMPFeed.IMAGE_SIZE

@@ -13,6 +13,7 @@ namespace MFM {
     T6TADR = 1u,            // t6 tile address
     BHCADR = 2u,            // blackhole card address
     APPDBG = 3u,            // app-level (global) context
+    PYTHON = 4u,            // python (supraglobal) context
   };
 
   struct BHTag {
@@ -47,6 +48,7 @@ namespace MFM {
       case TagType::T6TADR: buf[0] = 'a'; buf[1] = 't'; break; // 'a'ddress of 't'ile
       case TagType::BHCADR: buf[0] = 'b'; buf[1] = 'h'; break; // 'b'lack'h'ole card level source
       case TagType::APPDBG: buf[0] = 'g'; buf[1] = 'd'; break; // 'g'lobal 'd'ebug source of some kind
+      case TagType::PYTHON: buf[0] = 'p'; buf[1] = 'y'; break; // 'py'thon source of some kind
       default: buf[0] = '#'; buf[1] = '#'; break; // try to break stuff in python/css
       }
       std::to_chars(buf+2,buf+3,mCard,10);
