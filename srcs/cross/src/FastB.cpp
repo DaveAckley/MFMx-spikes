@@ -7,6 +7,8 @@
 #include "EventWindow.h"
 #include "T6Grid.h"
 
+#include "T6STVL.h" // XXX TESTING
+
 namespace MFM {
   struct FastB {
     EventWindow mFastEW;
@@ -15,6 +17,9 @@ namespace MFM {
     u32 mEWsFailed;
   };
   FAST_LOCAL(FastB,fB,b);
+
+  typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
+  T6EWLocker theT6EWLocker;
 
   static constexpr u32 PHY_DREG = 2u;
   static constexpr u32 PHY_RES = 3u;
@@ -70,7 +75,8 @@ namespace MFM {
         if (oneIn(10u)) na = P4Atom::makeEmptyAtom();
       } else if (oneIn(20u)) { // general destruction
         na = P4Atom::makeEmptyAtom();
-        ew.swap(0u,ngbsn);
+        if (!ew.swap(0u,ngbsn))
+          FAIL(USER_REQUESTED_FAILURE); // XXX use swap retval
       } 
       return true;
     }
@@ -96,6 +102,16 @@ namespace MFM {
     const u32 LCR = 1'000'000u;
 
     u8 spin = 0u;
+    // XXX TEST EWLOCKER
+    T6EWLocker::Entry lentry;
+    bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
+    DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
+              b,
+              lentry.mPosition.x,
+              lentry.mPosition.y,
+              lentry.mWhenAllocated,
+              '.');
+
     while (true) {
       if (++spin == 0) hb.hartbeat(fAll.mHartNum);
       EWCar * ewc = ewp.getCurrentCarIfAny();
@@ -119,8 +135,9 @@ namespace MFM {
         else {
           ++fB.mEWsSucceeded;
           { static u32 once;
-            if (once < 1) {
-              DP.printf("%d EWSUC! %d/%d/%d #%d\n",
+            if (once < 2) {
+              DP.printf("(%u,%u)EWSUC! %d  %d/%d/%d #%d\n",
+                        fAll.mPos.x, fAll.mPos.y,
                         once++,
                         fB.mEWsAttempted,
                         fB.mEWsSucceeded,

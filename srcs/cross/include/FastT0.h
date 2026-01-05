@@ -11,4 +11,8 @@ namespace MFM {
   inline u32 millisFrom(u32 earlierms, u32 laterms) {
     return laterms - earlierms; // unsigned underflow 'just works'
   }
+
+  inline bool millisLess(u32 less, u32 more) {
+    return millisFrom(less,more) < millisFrom(more,less);
+  }
 }

@@ -100,7 +100,7 @@ namespace MFM {
     EventWindow mEW;
     CarSig mWaister;  // 16 <= offsetof(mFooter) - offsetof(mWaister) < 32
     CornerState mEWTag;
-    S8C mEWOrigin; //< relative to ring corner as (0,0) with E:x+, S:y+
+    S8C mEWOriginCC; //< ew origin in corner coords
     u8 mEWCommand;
     u8 mSitesClaimed;
     CarSig mFooter;
@@ -140,8 +140,8 @@ namespace MFM {
 
     NRI3 mShipEWConfig;
 
-    void createEW();            //< populate our EW given we are active
-    void sendEW(CornerState cs); //< send our EW downstream on tag cs
+    void createEW(CornerState tag); //< populate our EW given we are active
+    void sendEW();                  //< send our EW downstream
 
     char * c4Info() const ;
 

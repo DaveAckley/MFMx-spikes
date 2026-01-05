@@ -3,20 +3,21 @@
 #include "itype.h"
 #include <string>
 #include "MDist.h"
+#include "Point.h" // for SPoint
 
 namespace MFM {
   struct U8C; // FORWARD
 
   struct S8C {
     S8C() : x(0) , y(0) { }
+    S8C(const SPoint sp) : x(sp.GetX()), y(sp.GetY()) { }
     S8C(s32 sx, s32 sy) : x(sx), y(sy) { }
     S8C(U8C u) ;
     
     s8 x, y;
 
-    S8C operator+(const S8C other) const {
-      return S8C(x+other.x,y+other.y);
-    }
+    S8C operator+(const S8C other) const { return S8C(x+other.x,y+other.y); }
+    S8C operator-(const S8C other) const { return S8C(x-other.x,y-other.y); }
 
     std::string to_repr() const {
       return

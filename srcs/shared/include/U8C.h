@@ -14,6 +14,12 @@ namespace MFM {
     U8C(u8 ax, u8 ay) : x(ax), y(ay) { }
     U8C(S8C s) ;
 
+    u32 manhattanDistance(const U8C & other) const {
+      return
+        ((x < other.x) ? other.x - x : x - other.x) +
+        ((y < other.y) ? other.y - y : x - other.y);
+    }
+    bool operator==(const U8C & other) const { return x==other.x && y==other.y; }
     U8C operator+(const S8C & s8) const ;
     bool addTo(const S8C & s8) ;
 

@@ -82,7 +82,8 @@ namespace MFM {
 
   void funcWriteNRIAddress(u32 noc, u32 nri, u32 byteOffset, u32 value) {
     volatile u32 * p = funcGetNRIAddress(noc, nri, byteOffset);
-    P.printf("FWNA 0x%08x=%d/0x%x\n", (u32) p, value, value);
+    if (false)
+      P.printf("FWNA 0x%08x=%d/0x%x\n", (u32) p, value, value);
     *p = value;
   }
 
@@ -113,12 +114,12 @@ namespace MFM {
   }
 
   u32 CornerEW::load(S8C center, Corner4 c4) {
-    mEWOrigin = center; // in corner coords
+    mEWOriginCC = center; // in corner coords
     return loadStore(c4,true);
   }
 
   u32 CornerEW::store(S8C center, Corner4 c4) {
-    mEWOrigin = center; // in corner coords
+    mEWOriginCC = center; // in corner coords
     return loadStore(c4,false);
   }
 
@@ -127,13 +128,18 @@ namespace MFM {
     MDist4 md;
     u32 count = mSitesClaimed;;
     for (u32 sn = 0u; sn < 41u; ++sn) {
-      SPoint ewc = md.GetPoint(sn); // ew coord
-      S8C cc(mEWOrigin.x + ewc.GetX(), mEWOrigin.y + ewc.GetY()); // corner coord
+      SPoint ewc = md.GetPoint(sn);    // ew coord..
+      S8C cc = mEWOriginCC + S8C(ewc); // ..as corner coord offset 
       U8C tc;
       if (!T6Grid::cornerCoordToTileCoordIfAny(cc,c4,tc)) continue;
-      if (doLoad)
+      if (doLoad) {
         mEW.getAtom(sn) = theT6Grid.getAtom(tc);
-      else /* doStore */
+        P.printf("%s:LEW%2d[%d,%d]=(%u,%u)\n",
+                 corner4ToByteString(c4),
+                 mSitesClaimed,
+                 ewc.GetX(),ewc.GetY(),
+                 tc.x,tc.y);
+      } else /* doStore */ 
         theT6Grid.getAtom(tc) = mEW.getAtom(sn);
       ++mSitesClaimed;
     }
@@ -146,7 +152,7 @@ namespace MFM {
     mEW.reset();
     mWaister = mHeader;
     mEWTag.mWord = 0u;          // init me later
-    mEWOrigin = S8C(0,0);       // ditto
+    mEWOriginCC = S8C(0,0);       // ditto
     mEWCommand = 0u;
     mSitesClaimed = 0u;
     mFooter = mHeader;
@@ -379,26 +385,26 @@ namespace MFM {
     mLastSent = cs;
   }
 
-  void T6RingCorner::createEW() {
-    P.printf("%sCREW+\n",c4Info());
+  void T6RingCorner::createEW(CornerState cs) {
     S8C center;
-    do {
-      center = S8C(between(-5,5),between(-5,5));
-    } while (center.x == 0 || center.y == 0);
-    cornerEWs[mRingCorner].mSitesClaimed = 0u;
-    u32 sites = cornerEWs[mRingCorner].load(center,mRingCorner);
-    P.printf("%sCREW(%d,%d)+%d\n",c4Info(),center.x,center.y,sites);
+    center = S8C(between(-5,4),between(-5,4)); 
+
+    CornerEW & cew = cornerEWs[mRingCorner];
+    cew.mSitesClaimed = 0u;
+    cew.mEWTag = cs;
+    P.printf("%sCREW+(%d,%d):%08x\n",c4Info(),center.x,center.y,cew.mEWTag.mWord);
+    u32 sites = cew.load(center,mRingCorner);
+    P.printf("%sCREWS=%d:%08x\n",c4Info(),sites,cew.mEWTag.mWord);
   }
 
-  void T6RingCorner::sendEW(CornerState cs) {
-    cornerEWs[mRingCorner].mEWTag = cs;
-
+  void T6RingCorner::sendEW() {
+    CornerEW & cew = cornerEWs[mRingCorner];
     P.printf("%sSDEW=%d %08x\n",c4Info(),
-             cornerEWs[mRingCorner].mSitesClaimed,cs);
+             cew.mSitesClaimed,cew.mEWTag);
     while (!mShipEWConfig.initiateWrite()) {
       P.printf(".");
     }
-    P.printf("%sSDEW- %08x\n",c4Info(),cs);
+    P.printf("%sSDEW- %08x\n",c4Info(),cew.mEWTag);
   }
 
   void T6RingCorner::enterActive() {
@@ -428,13 +434,31 @@ namespace MFM {
     switch (phase) {
     case 2:
       if (cew.mEWTag.mWord == mLastRcvd.mWord) {
-        u32 sites = cew.load(cew.mEWOrigin,mRingCorner);
-        sendEW(mLastRcvd);
+        P.printf("%sPPEW(%d,%d)+%d\n",c4Info(),
+                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                 cew.mSitesClaimed);
+        u32 sites = cew.load(cew.mEWOriginCC,mRingCorner);
         P.printf("%sSPEW(%d,%d)+%d=%d\n",c4Info(),
-                 cew.mEWOrigin.x,cew.mEWOrigin.y,
+                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
                  sites,cew.mSitesClaimed);
+        sendEW();               // pass it on (maybe with our additions)
         doPropagate(mLastRcvd);
       } else P.printf("%sDOX: %d %08x\n",c4Info(),
+                      cornerEWs[mRingCorner].isComplete(),
+                      cornerEWs[mRingCorner].mEWTag.mWord);
+      break;
+    case 3:
+      if (cew.mEWTag.mWord == mLastRcvd.mWord) {
+        P.printf("%sSTEW(%d,%d)+%d\n",c4Info(),
+                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                 cew.mSitesClaimed);
+        u32 sites = cew.store(cew.mEWOriginCC,mRingCorner);
+        P.printf("%sPSTEW(%d,%d)+%d=%d\n",c4Info(),
+                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                 sites,cew.mSitesClaimed);
+        sendEW();               // pass it on (untouched by us)
+        doPropagate(mLastRcvd);
+      } else P.printf("%sDOST: %d %08x\n",c4Info(),
                       cornerEWs[mRingCorner].isComplete(),
                       cornerEWs[mRingCorner].mEWTag.mWord);
       break;
@@ -447,6 +471,7 @@ namespace MFM {
     // enter on stability, meaning passives have all responded to our
     // previous gap propagation
     u32 gap = mLastRcvd.getPhaseGap();
+    CornerEW & cew = cornerEWs[mRingCorner];
     if (gap > 3) exitActive();
     else if (mActiveCounter == 0u) {
       P.printf("%sGAP%d\n",c4Info(),gap);
@@ -454,10 +479,22 @@ namespace MFM {
       CornerState cur = mLastRcvd;
       if (!cur.incrementPhaseGap())
         P.printf("%sINCFAIL%d\n",c4Info(),gap);
-      if (gap==1u) { // meaning we're about to send P2
-        createEW();
-        sendEW(cur);
-      }
+      if (gap==1u) { // meaning we're about to send a fill-EW
+        createEW(cur);
+        sendEW();
+      } else if (gap==2u) { // meaning we need to do the EWT
+        P.printf("%sEWRT(%d,%d)+%d %08x %s\n",c4Info(),
+                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                 cew.mSitesClaimed,
+                 cew.mEWTag.mWord,
+                 cew.isComplete()?"COMP":"INCO");
+        // XXX DO THE FOGGIN TRANSITION
+        // XXX WALA THE FOGGIN TRANSITION IS NOW DONE
+        cew.mEWTag = cur;       // update ewt
+        sendEW();               // and send it around again
+      } else P.printf("%sDRX: %d %08x\n",c4Info(),
+                      cew.isComplete(),
+                      cew.mEWTag.mWord);
       doPropagate(cur);
     } else --mActiveCounter;
   }

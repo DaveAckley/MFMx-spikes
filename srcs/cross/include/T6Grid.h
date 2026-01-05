@@ -24,7 +24,8 @@ namespace MFM {
       return mT6Grid[c.x][c.y];
     }
     
-    static U8C rawTileCoordOfCorner(Corner4 c4) {
+    /** coord of site in this T6Grid that is closest to c4 */
+    static U8C tileCoordOfCorner(Corner4 c4) {
       switch (c4) {
       case C4_SE: return U8C(T6GRID_WIDTH-1, T6GRID_HEIGHT-1);
       case C4_SW: return U8C(0u, T6GRID_HEIGHT-1);
@@ -34,13 +35,15 @@ namespace MFM {
       return U8C(U8_MAX,U8_MAX); // try to blow things up in lieu for paying for a FAIL(UNREACHABLE_CODE);
     }
 
-    // returns the extended tile site diagonally beyond the given corner
-    static S8C tileCoordOfCorner(Corner4 c4) {
+    /** the extended tile coord, for the c4 corner,
+        corresponding to corner coord (0,0) of a ring
+    */
+    static S8C tileCoordCornerOrigin(Corner4 c4) {
       switch (c4) {
       case C4_SE: return S8C(T6GRID_WIDTH, T6GRID_HEIGHT);
-      case C4_SW: return S8C(-1, T6GRID_HEIGHT);
-      case C4_NW: return S8C(-1, -1);
-      case C4_NE: return S8C(T6GRID_WIDTH, -1);
+      case C4_SW: return S8C(0, T6GRID_HEIGHT);
+      case C4_NW: return S8C(0, 0);
+      case C4_NE: return S8C(T6GRID_WIDTH, 0);
       }
       return S8C(S8_MIN,S8_MIN); // try to blow things up in lieu for paying for a FAIL(UNREACHABLE_CODE);
     }
@@ -56,13 +59,13 @@ namespace MFM {
     }
 
     static S8C tileCoordToCornerCoord(U8C tc, Corner4 c4) {
-      S8C cc = tileCoordOfCorner(c4);
-      return S8C(((s32) tc.x)-cc.x,((s32) tc.y)-cc.y);
+      S8C cc = tileCoordCornerOrigin(c4);
+      return cc - S8C(tc);
     }
 
     static S8C cornerCoordToExtendedTileCoord(S8C cc, Corner4 c4) {
-      S8C tc = tileCoordOfCorner(c4);
-      return cc+tc;
+      S8C tc = tileCoordCornerOrigin(c4);
+      return cc + tc;
     }
 
     static bool cornerCoordToTileCoordIfAny(S8C cc, Corner4 c4, U8C & tc) {
