@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from datetime import datetime
 from mfmx import MFMx
 from rich.syntax import Syntax

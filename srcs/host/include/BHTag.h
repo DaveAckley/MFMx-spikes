@@ -38,6 +38,14 @@ namespace MFM {
       setTLBI();
     }
 
+    bool operator==(const BHTag & other) const {
+      return
+        mType == other.mType &&
+        mCard == other.mCard &&
+        mTLBI == other.mTLBI &&
+        mPos == other.mPos;
+    }
+
     void setTLBI() { mTLBI = U16C::makeTLBIFromNocCoord({mPos.x,mPos.y}); }
     void setXY() { mPos = U16C::makeNocCoordFromTLBI(mTLBI); }
 
@@ -82,4 +90,15 @@ namespace MFM {
     }
   };
 }
+
+template<>
+struct std::hash<MFM::BHTag> {
+  std::size_t operator()(const MFM::BHTag & t) const {
+    return
+      (((((((t.mType << 1) + t.mCard) << 1) + t.mTLBI) << 1)
+        + t.mPos.x) << 1) + t.mPos.y;
+  }
+};
+
+  
 

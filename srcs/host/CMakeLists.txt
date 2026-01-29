@@ -13,11 +13,13 @@ target_sources(MFMx PRIVATE
     src/FATAL.cpp
     src/FailStrings.cpp
     src/HostUtils.cpp
+    src/ImageManager.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
     src/S32C.cpp
-    src/StringBlock.cpp
     src/STVL.cpp
+    src/StringBlock.cpp
+    src/T6Image.cpp
     src/spikeMain.cpp
     ${SHARED_SOURCES}
 )
@@ -25,7 +27,7 @@ target_sources(MFMx PRIVATE
 # Add C++ compiler options specifically for pymain ---
 target_compile_options(MFMx PRIVATE
   -g          # Add debug symbols
-      -O0         # Disable optimizations (often desired for debugging)
+  # -O0         # Disable optimizations (often desired for debugging)
     #  -Wall       # Enable all common warnings
     #  -Wextra     # Enable extra warnings
     -Wno-unused-parameter  # stuff we want

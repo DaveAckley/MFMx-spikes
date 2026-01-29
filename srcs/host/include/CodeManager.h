@@ -5,6 +5,7 @@
 #include "TTKMDStuff.h"
 #include "OurTLBs.h"
 #include "HostBlock.h"
+#include "T6Image.h"
 
 namespace MFM {
   class CodeManager {
@@ -12,14 +13,12 @@ namespace MFM {
     CodeManager(u32 cardNum, OurTLBs & tlbs)
       : mCardNum(cardNum)
       , mOurTLBs(tlbs)
-      , mRVCodeSize(0u)
       , mLastTLBISlowScanned(U32_MAX)
       , mStartDecayType(U16_MAX)
     {
     }
     void setStartDecayType(u16 val) { mStartDecayType = val; }
-    s32 deployRISCVCodeFromFile(const char * path) ;
-    s32 deployThisRISCVCode(const char * rvcode, u32 rvsize) ;
+    s32 deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) ;
 
     void releaseTheHounds() ;
 
@@ -34,7 +33,6 @@ namespace MFM {
   private:
     u32 mCardNum;
     OurTLBs & mOurTLBs;
-    u32 mRVCodeSize;
     u32 mLastTLBISlowScanned;
     u16 mStartDecayType;
   };

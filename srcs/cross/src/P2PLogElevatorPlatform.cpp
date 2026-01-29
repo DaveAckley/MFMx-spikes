@@ -42,14 +42,19 @@ namespace MFM {
         carmeta.mOccupiedTime = millisElapsed(); // note the time!
 
       u32 room = lb.spaceRemaining();
-      if (room > 32u || byte != '\n') { // room for one more
+      bool hasroom = room > 0u;
+      bool shipearly = room <= 32 && byte == '\n';
+      if (hasroom) {            // room for at least one more
         lb.addByte(byte);
-        return true;
+        if (!shipearly)         // unless nearly full and just shipped \n
+          return true;          // keep loading
       }
-      // current car is fully packed, so close it
+      // current car is pretty packed, so close it
       lcp->setCarState(CarState::CLOSED,CarType::STANDARD); 
-      advanceToNextCar();       // and hope for rooom in the next one
-    }
+      advanceToNextCar();       // look for anther car
+      if (hasroom && shipearly) 
+        return true;            // this was an early ship; done
+    }                           // else hope there's another car
     return false; // we're blown.
   }
 

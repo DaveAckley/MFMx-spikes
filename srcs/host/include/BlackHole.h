@@ -6,6 +6,7 @@
 #include "BHTag.h"
 #include "BHLog.h"
 #include "OurMutex.h"
+#include "ImageManager.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
@@ -33,6 +34,7 @@ namespace MFM {
       , mQuitTransportThread(false)
       , mCodeManager(mCardNum,mOurTLBs)
       , mTransportThreadMutex("TSPO")
+      , mTheImageManager(ImageManager::getTheImageManager())
     { }
 
     ~BlackHole() ;
@@ -48,6 +50,7 @@ namespace MFM {
 
     u32 monitorFleet() ; //< return count of new failures
     s32 runSlowScans(u32 count) ; //< return something after count HostBlock scans
+    s32 deployRISCVCodeFromImage(T6Image& img, u8 toTLBI) ;
 
     void BHLOGprintf(const char * fmt, ...) {
       BHTag tag(TagType::APPDBG,mCardNum,0,0);
@@ -78,12 +81,12 @@ namespace MFM {
     bool startTransportThread() ;
     bool stopTransportThread() ;
 
-    bool setMFMxCodePath(std::string path) ;
-    void clearMFMxCodePath() { mMFMxCodePath.clear(); }
+    bool setMFMxDefaultCodePath(std::string path) ;
+    void clearMFMxDefaultCodePath() { mMFMxCodePath.clear(); }
 
     bool resetTheFleet() ;
 
-    bool deployTheCode() ;
+    bool layoutImages() ;
 
     bool releaseTheHounds() ;
 
@@ -101,6 +104,7 @@ namespace MFM {
     std::string mMFMxCodePath;
 
     CodeManager mCodeManager;
+    ImageManager & mTheImageManager;
     
   public:
     static void pybindings(py::module & m) {
@@ -142,9 +146,9 @@ namespace MFM {
       bh.def("allocateTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());
       bh.def("configureTLBs", [](BlackHole& b) { b.changePhase(Phase::HAS_CONFIGURED_TLBS); },py::call_guard<py::gil_scoped_release>());
       bh.def("allocateHostRAM", [](BlackHole& b) { b.changePhase(Phase::HAS_ALLOCATED_HOST_RAM); },py::call_guard<py::gil_scoped_release>());
-      bh.def("setMFMxCodePath", &BlackHole::setMFMxCodePath,py::call_guard<py::gil_scoped_release>());
-      bh.def("deployMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); },py::call_guard<py::gil_scoped_release>());
-      bh.def("startMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
+      //bh.def("setMFMxDefaultCodePath", &BlackHole::setMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
+      bh.def("layoutImages", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); },py::call_guard<py::gil_scoped_release>());
+      bh.def("startMachine", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
       //
 
       bh.def("runSlowScans", &BlackHole::runSlowScans,py::call_guard<py::gil_scoped_release>());
@@ -154,7 +158,7 @@ namespace MFM {
       },py::call_guard<py::gil_scoped_release>());
 
       bh.def("stopMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_TILES_RESET); },py::call_guard<py::gil_scoped_release>());
-      bh.def("clearMFMxCodePath", &BlackHole::clearMFMxCodePath,py::call_guard<py::gil_scoped_release>());
+      bh.def("clearMFMxDefaultCodePath", &BlackHole::clearMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
       bh.def("deallocateHostRAM", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_HOST_RAM-1)); },py::call_guard<py::gil_scoped_release>());
       bh.def("unconfigureTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_CONFIGURED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());
       bh.def("freeTLBs", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());

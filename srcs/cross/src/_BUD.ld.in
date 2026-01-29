@@ -1,4 +1,5 @@
 /* _BUD.ld:
+  Thu Jan 15 01:58:15 2026 Work for an imageblock section for self-describing T6 code
   Fri Sep 26 15:57:42 2025 Try to add a 'transportblock' section
   Wed Aug 27 16:11:19 2025 Spike loader script on the road to non-trivial C++ on BH
  */
@@ -74,12 +75,24 @@ SECTIONS
     . = ORIGIN(L1);
     . = ALIGN(4);
 
-    /* .start section: Must land at 0 */
-    .start :
+    /* .jumpstart section: Must land at 0 */
+    .jumpstart :
     {
       *(.start)
     } > L1
-    
+
+    . = ALIGN(4);
+    /* .imageblock section. Supposed to land at 0x14/20/word 5? */
+    .imageblock : {
+      *(.imageblock)
+    } > L1
+
+    /* .endstart section: (rest of _start) Follows imageblock */
+    .endstart :
+    {
+      *(.endstart)
+    } > L1
+
     /* .text section: Contains executable code.
      * This section will be placed after the start up code in L1. */
     .text :
@@ -185,6 +198,21 @@ SECTIONS
       __transportblock_ew_size = ABSOLUTE(__transportblock_ew_end - __transportblock_ew_start);
     } > L1
 
+    .imageblock :
+    {
+      . = ALIGN(16);
+      PROVIDE(__imageblock_start = .);
+      *(.imageblock)
+      PROVIDE(__imageblock_end = .);
+      __imageblock_size = ABSOLUTE(__imageblock_end - __imageblock_start);
+      PROVIDE(_end = .);
+    } > L1
+
+
+    /* HOSTBLOCK MUST BE LAST IN IMAGE, because
+       host/src/CodeManager.cpp looks for it at
+       codesize-sizeof(HostBlock)! */
+    
     .hostblock :
     {
       . = ALIGN(16);
@@ -194,5 +222,6 @@ SECTIONS
       __hostblock_size = ABSOLUTE(__hostblock_end - __hostblock_start);
       PROVIDE(_end = .);
     } > L1
+
  }
  

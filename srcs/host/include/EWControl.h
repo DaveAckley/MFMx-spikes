@@ -9,6 +9,7 @@
 #include "BHTag.h"
 #include "OurMutex.h"
 #include "S32C.h"
+#include "S8C.h"
 #include "U8C.h"
 #include "STVL.h"
 
@@ -179,6 +180,13 @@ namespace MFM {
       u8c.def_readwrite("x", &U8C::x);
       u8c.def_readwrite("y", &U8C::y);
       u8c.def("__repr__",&U8C::to_repr);
+
+      py::class_<S8C> s8c(m,"S8C");
+      s8c.def(py::init<>());
+      s8c.def(py::init<const s8,const s8>());
+      s8c.def_readwrite("x", &S8C::x);
+      s8c.def_readwrite("y", &S8C::y);
+      s8c.def("__repr__",&S8C::to_repr);
       
       py::class_<P4Atom> p4(m,"P4Atom");
       p4.def("__repr__",[](const P4Atom& a) {

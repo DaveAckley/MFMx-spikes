@@ -1,5 +1,6 @@
 #include "itype.h"
 #include "HostBlock.h"
+#include "ImageBlock.h"
 #include "Printf.h" // for t6InitPrinters()
 
 // Baby RV Service APIs 
@@ -17,6 +18,18 @@ namespace MFM {
     .mTLBI = U8_MAX-2u,             //  "
     .mHBCigam = HostBlock::HBCIGAM
   };
+#if 0
+  //  ImageBlock theImageBlock __attribute__ ((section(".imageblock"))) = {
+#define DECLARE_THE_IMAGE_BLOCK(IMAGECODE,ENTRIES)                      \
+  ImageBlockT<ENTRIES> theImageBlock __attribute__ ((section(".imageblock"))) = { {  \
+      .mIBMagic = ImageBlockHeader::IBMAGIC,                             \
+      .mImageCode = IMAGECODE,                       \
+      .mImageEdoc = (IMAGECODE)^0xff,                \
+      .mEntries = ENTRIES \
+    } }
+    
+  DECLARE_THE_IMAGE_BLOCK(0xea,18);
+#endif
 
   int t6setup(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
@@ -24,6 +37,11 @@ namespace MFM {
     //    hb.mPos[y = 7;
     hb.mPos.x = ((node_id >> 0) & 0x3f);
     hb.mPos.y = ((node_id >> 6) & 0x3f);
+    /*
+    if (theImageBlock.mImageCode[0]=='I') {
+      theImageBlock.mImageMajVer = (u8) (u32) &theImageBlock;
+      hb.mPos.x = 0x3f;
+      }*/
     hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mPos.x,hb.mPos.y});
     t6InitPrinters(hb,theT6ElevatorTransport);
     return 0;

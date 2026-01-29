@@ -5,6 +5,7 @@
 #include "HostUtils.h" // for sleepUsec
 #include "FailStrings.h" // for sleepUsec
 #include "t6-exports.h" // for transportblock_*
+#include "BlockCode.h"
 
 namespace MFM {
 
@@ -110,7 +111,7 @@ namespace MFM {
       break;
 
     case Phase::HAS_T6_TILES_RESET:
-      worked = deployTheCode();
+      worked = layoutImages();
       if (worked) {
         mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED;
         BHLOGprintf("<BlackHole:%u> code delivered to the fleet\n", mCardNum);
@@ -361,18 +362,22 @@ namespace MFM {
     return true;
   }
 
-  bool BlackHole::deployTheCode() {
-    std::string path = mMFMxCodePath;
-    if (path.empty()) {
-      BHLOGprintf("Code path not set, cannot deploy\n");
-      return false;
-    }
-    BHLOGprintf("Trying to deploy %s\n",path.c_str());
-    s32 ret = mCodeManager.deployRISCVCodeFromFile(path.c_str());
-    return ret == 0;
+  bool BlackHole::layoutImages() {
+    BHLOGprintf("Trying to deploy to BH#%u",mCardNum);
+    return mTheImageManager.deployTo(*this);
   }
 
-  bool BlackHole::setMFMxCodePath(std::string path) {
+  s32 BlackHole::deployRISCVCodeFromImage(T6Image& img, u8 toTLBI) {
+    /*
+    Eprintf("BH#%u multicasting image %s, size %u, to the fleet\n",
+            mCardNum,
+            img.getName().c_str(),
+            img.getBinFileSize());
+    */
+    return mCodeManager.deployRISCVCodeFromImage(img, toTLBI);
+  }
+
+  bool BlackHole::setMFMxDefaultCodePath(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate); // Open in binary mode and at end
 
     if (!file.is_open()) {

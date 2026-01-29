@@ -17,15 +17,18 @@ namespace MFM {
     else memset(addr,byte,count);
   }
 
+  void initHostUtils() ; //< CALL ONCE, VERY EARLY..
+
   u32 millisElapsed() ;
   double runTimeSeconds() ;
 
   std::string size4(u64 amt);
   std::string pct4(u64 num, u64 den) ;
+  std::string toHex(u64 num) ;
 
   void interpretFailBits(u8 failbits, u8 * data, u32 count) ;
   void sleepUsec(u32 usec) ;
-  void initHostClocks() ;
+
   u32 millisElapsed() ;
   std::string dateTimeStamp() ;
   void KTEEwrite(const BHTag & key, const u8 * bytes, u32 len) ;
@@ -50,5 +53,8 @@ namespace MFM {
 
     return buf;
   }
+
+  std::string demangleCpp(const char* typeName) ; //< demangleCpp(typeid(FOO).name())) => MFM::FOO
+
 }
 

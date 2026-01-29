@@ -16,19 +16,22 @@ namespace MFM {
   static int liveT1(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveT1(HostBlock & hb) {
-    u32 spin = 0u;
+    u64 spin = 0u;
     DP.printf("+T1(%d,%d)+\n",fAll.mPos.x,fAll.mPos.y);
     fT1.mRingOs.init();
     while (true) {
       ++spin;
       if ((spin % (1<<5u))==0) hb.hartbeat(fAll.mHartNum);
-      if ((spin % (1<<20u))==0) {
-        LOG.printf("%s:TLWW:%dK (%dM)\n",
+      if ((spin % (1<<24u))==0) {
+        LOG.printf("%s(%d,%d) TLWW:%dK (%lldM)\n",
                    hartName(fAll.mHartNum),
+                   fAll.mPos.x,fAll.mPos.y,
                    fT1.mRingOs.totalKWordsWritten(),
                    spin/(1<<20u));
       }
-      fT1.mRingOs.update();
+      ///// XXXXX DON'T DO RINGOS, FOR NOW FOR DEMO SPEED
+      if (false)
+        fT1.mRingOs.update();
     }
     return 0;
   }

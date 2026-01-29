@@ -15,28 +15,9 @@
 #include "BHLog.h"
 
 namespace MFM {
-  s32 CodeManager::deployRISCVCodeFromFile(const char * path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate); // Open in binary mode and at end
-
-    if (!file.is_open()) 
-      HOST_FATAL(NOT_FOUND,"Failed to open file: %s", path);
-
-    std::streamsize rvCodeSize = file.tellg(); 
-    file.seekg(0, std::ios::beg); // Seek back to beginning
-
-    auto rvcode = std::make_unique<char[]>(rvCodeSize);
-
-    if (!file.read(rvcode.get(), rvCodeSize))
-      HOST_FATAL(READ_FAILURE,"Failed to read file: %s", path);
-
-    LOGprintf(mCardNum," RVCODE %s: ", path);
-
-    file.close();
-
-    return deployThisRISCVCode(rvcode.get(),rvCodeSize);
-  }
-
-  s32 CodeManager::deployThisRISCVCode(const char * rvcode, u32 rvsize) {
+  s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
+    u32 rvsize = image.getBinFileSize();
+    const char * rvcode = image.getTheBinFile();
     u32 * codewords = (u32*) rvcode;
     u32 wordcount = rvsize >> 2u;
     LOGprintf(mCardNum," LENGTH=%d (0x%08x, 0x%08x, ..., 0x%08x, 0x%08x)\n",
@@ -71,19 +52,37 @@ namespace MFM {
     LOGprintf(mCardNum," HB1 0x%08x 0x%08x\n",
            hb->mHostBaseAddrHi,
            hb->mHostBaseAddrLo);
-    mRVCodeSize = rvsize;
 
-    // "Multicast all the code to the entire fleet"
-    mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
+    if (toTLBI == U8_MAX) {
+      // "Multicast all the code to the entire fleet"
+      LOGprintf(mCardNum," Multicasting image '%s' to the fleet\n",
+                image.getName().c_str());
+      mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
+      for (u32 i = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
+           i <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++i) 
+        mOurTLBs.getTLBInfo(i).setDeployedImage(image);
+    } else {
+      U8C c = U8C::makeU8CRawT6CoordFromTLBI(toTLBI);
+      U8C nocc = U8C::makeU8CNoCCoordFromTLBI(toTLBI);
+      LOGprintf(mCardNum," Deploying '%s' to TLBI%u cell(%u,%u) noc(%u,%u)\n",
+                image.getName().c_str(),toTLBI,c.x,c.y,nocc.x,nocc.y);
+      mOurTLBs.writeToWords(toTLBI, 0u, codewords, wordcount);
+      mOurTLBs.getTLBInfo(toTLBI).setDeployedImage(image);
+    }
 
     // Waste Some Time OK
-    sleepUsec(1'000'000);
+    // sleepUsec(1'000'000);
 
     // Let's try some sanity read-backs..
     u32 hits = 0u, misses = 0u;
-    for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
-         tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
-         tlbi += /*69*/1) {
+    u32 first, last, stride = 1u;
+    if (toTLBI == U8_MAX) {
+      first = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
+      last = OurTLBs::AHAX_TLBI_L1_LAST_UNI;
+    } else {
+      first = last = toTLBI;
+    }
+    for (u32 tlbi = first; tlbi <= last; tlbi += stride) {
       for (u32 word = 0u; word < wordcount; word += 1) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
@@ -98,7 +97,7 @@ namespace MFM {
       }
         
       // confirm certain addresses are in 'prerun' state
-      u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+      u32 hostblockaddr = rvsize - sizeof(HostBlock); // ASSUMES HOSTBLOCK IS LAST IN IMAGE!
       //LOGprintf(mCardNum,"SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
       {
         HostBlock rbhb;
@@ -135,8 +134,10 @@ namespace MFM {
   }
 
   u32 CodeManager::newFails(T6FailCallback cb) {
-    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+    FAIL(INCOMPLETE_CODE);
     u32 ret = 0u;
+#if 0
+XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
          tlbi++) {
@@ -158,17 +159,26 @@ namespace MFM {
       }
     }
 
+#endif
     return ret;
   }
 
   void CodeManager::assertGoodMagic() {
-    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
-    LOGprintf(mCardNum,"GOODMAGICKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
-    HostBlock hb;
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
+      OurTLBs::TLBInfo & tinfo = mOurTLBs.getTLBInfo(tlbi);
+      const T6Image * t6ip = tinfo.getDeployedImageIfAny();
+      if (!t6ip) {
+        LOGprintf(mCardNum,"No image deployed to tlbi %u, skipping\n",tlbi);
+        continue;
+      }
+      const T6Image & t6i = *t6ip;
+
+      u32 hostblockaddr = t6i.getBinFileSize() - sizeof(HostBlock);
+      LOGprintf(mCardNum,"GOODMAGICKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
+      HostBlock hb;
       memset_s(&hb,0u,sizeof(hb)); //<< memset_s(,0,) uses explicit_bzero host side
-      // memset(&hb,0x0,sizeof(hb)); // FAILS???? WTF?? BUT E.G. memset(&hb,0x1,sizeof(hb)); WORKKKKKKS!?
+
       mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
       if (false) {
         LOGprintf(mCardNum,"HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
@@ -211,7 +221,9 @@ namespace MFM {
   }
 
   s32 CodeManager::awaitResults() {
-    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+    FAIL(INCOMPLETE_CODE);
+#if 0
+XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     for (u32 tries = 0u; tries < 100u; ++tries) {
       u32 stats[140] = { 0u };
       u32 living[140] = { 0u };
@@ -287,6 +299,7 @@ namespace MFM {
       Eprintf(" %d\n",allDone);
       if (allDone == 140u) return 0;
     }
+#endif
     return -1;
   }
 
@@ -295,8 +308,16 @@ namespace MFM {
       mLastTLBISlowScanned = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
     else
       ++mLastTLBISlowScanned;
+
     u32 tlbi = mLastTLBISlowScanned;
-    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
+    OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
+    const T6Image * t6ip = info.getDeployedImageIfAny();
+    if (!t6ip) {
+      LOGprintf(mCardNum,"No image deployed to tlbi %u, skipping\n",tlbi);
+      return 0;
+    }
+    const T6Image & t6i = *t6ip;
+    u32 hostblockaddr = t6i.getBinFileSize() - sizeof(HostBlock);
 
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mCardNum, tlbi);
@@ -313,7 +334,6 @@ namespace MFM {
       return -2;
     }
 
-    OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
     for (u32 hart = 0u; hart < 5u; ++hart) {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
         if (info.mStuckDog[hart]) {

@@ -90,10 +90,11 @@ namespace MFM {
   bool NRI3::initiateWrite() {
     if (isNRIBusy()) return false;
 
-    P.printf("NRIW:%d+%d S%08x(%d,%d) D%08x(%d,%d)\n",
-             mNoC, mWordCount,
-             mSourceL1, mSourceCoord0.x, mSourceCoord0.y,
-             mDestL1, mDestCoord0.x, mDestCoord0.y);
+    if (false)
+      P.printf("NRIW:%d+%d S%08x(%d,%d) D%08x(%d,%d)\n",
+               mNoC, mWordCount,
+               mSourceL1, mSourceCoord0.x, mSourceCoord0.y,
+               mDestL1, mDestCoord0.x, mDestCoord0.y);
 
     writeNRIAddress(NRI_NOC_TARG_ADDR_LO, mSourceL1); // 32 bit address of source
     writeNRIAddress(NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
@@ -134,11 +135,12 @@ namespace MFM {
       if (!T6Grid::cornerCoordToTileCoordIfAny(cc,c4,tc)) continue;
       if (doLoad) {
         mEW.getAtom(sn) = theT6Grid.getAtom(tc);
-        P.printf("%s:LEW%2d[%d,%d]=(%u,%u)\n",
-                 corner4ToByteString(c4),
-                 mSitesClaimed,
-                 ewc.GetX(),ewc.GetY(),
-                 tc.x,tc.y);
+        if (false)
+          P.printf("%s:LEW%2d[%d,%d]=(%u,%u)\n",
+                   corner4ToByteString(c4),
+                   mSitesClaimed,
+                   ewc.GetX(),ewc.GetY(),
+                   tc.x,tc.y);
       } else /* doStore */ 
         theT6Grid.getAtom(tc) = mEW.getAtom(sn);
       ++mSitesClaimed;
@@ -166,26 +168,29 @@ namespace MFM {
 
   void T6RingCorner::writeNIUAddress(u32 byteoffset, u32 value) const {
     volatile u32 * p = getNIUAddress(byteoffset);
-    P.printf("T6RCwNA n%d r%d %s*0x%08x=0x%08x,%d\n",
-              mNoC, mNRI,
-              c4Info(),
-              (u32) p, value, value);
+    if (false)
+      P.printf("T6RCwNA n%d r%d %s*0x%08x=0x%08x,%d\n",
+               mNoC, mNRI,
+               c4Info(),
+               (u32) p, value, value);
     *p = value;
     return; // XX DEBUG
   }
 
   void T6RingCorner::writeNRIAddress(u32 byteoffset, u32 value) const {
     volatile u32 * p = getNRIAddress(byteoffset);
-    if (byteoffset == 0)
-      P.printf("wRA %d.%d %s+0:%x,%d\n",
-                mNoC, mNRI, c4Info(),
-                value, value);
-    else if (byteoffset == 8) {
+    if (byteoffset == 0) {
+      if (false)
+        P.printf("wRA %d.%d %s+0:%x,%d\n",
+                 mNoC, mNRI, c4Info(),
+                 value, value);
+    } else if (byteoffset == 8) {
       U8C dc = U8C::makeU8CFromNoCNodeId(value);
-      P.printf("wRA %d.%d %s+8:%x,%d(%d,%d)\n",
-                mNoC, mNRI, c4Info(),
-                value, value,
-                dc.x,dc.y);
+      if (false)
+        P.printf("wRA %d.%d %s+8:%x,%d(%d,%d)\n",
+                 mNoC, mNRI, c4Info(),
+                 value, value,
+                 dc.x,dc.y);
     }
     *p = value;
   }
@@ -357,10 +362,11 @@ namespace MFM {
     waitTilNRIClear();
     volatile u32 * regaddr = getNRIAddress(NRI_NOC_TARG_ADDR_LO);
     u32 targaddr = readNRIAddress(NRI_NOC_TARG_ADDR_LO);
-    P.printf("SD %s%d.%d->%s%08x\n",
-              c4Info(), mNoC,mNRI,
-              tInfo(mDestCoord0,targaddr),
-              val);
+    if (false)
+      P.printf("SD %s%d.%d->%s%08x\n",
+               c4Info(), mNoC,mNRI,
+               tInfo(mDestCoord0,targaddr),
+               val);
     if (mSourceCoord0.x == 2 && mSourceCoord0.y == 2 &&
         mRingCorner == C4_SW && val == 0xee) {
       DP.printf("SD!!%sHEAH\n",c4Info());
@@ -392,75 +398,92 @@ namespace MFM {
     CornerEW & cew = cornerEWs[mRingCorner];
     cew.mSitesClaimed = 0u;
     cew.mEWTag = cs;
-    P.printf("%sCREW+(%d,%d):%08x\n",c4Info(),center.x,center.y,cew.mEWTag.mWord);
+    if (false)
+      P.printf("%sCREW+(%d,%d):%08x\n",c4Info(),center.x,center.y,cew.mEWTag.mWord);
     u32 sites = cew.load(center,mRingCorner);
-    P.printf("%sCREWS=%d:%08x\n",c4Info(),sites,cew.mEWTag.mWord);
+    if (false)
+      P.printf("%sCREWS=%d:%08x\n",c4Info(),sites,cew.mEWTag.mWord);
   }
 
   void T6RingCorner::sendEW() {
     CornerEW & cew = cornerEWs[mRingCorner];
-    P.printf("%sSDEW=%d %08x\n",c4Info(),
-             cew.mSitesClaimed,cew.mEWTag);
+    if (false)
+      P.printf("%sSDEW=%d %08x\n",c4Info(),
+               cew.mSitesClaimed,cew.mEWTag);
     while (!mShipEWConfig.initiateWrite()) {
-      P.printf(".");
+      if (false) P.printf(".");
     }
-    P.printf("%sSDEW- %08x\n",c4Info(),cew.mEWTag);
+    if (false) P.printf("%sSDEW- %08x\n",c4Info(),cew.mEWTag);
   }
 
   void T6RingCorner::enterActive() {
     ++mTimesActive;
     mActiveCounter = 10u;// U16_MAX; //between(5000,50000);
-    P.printf("%sENAC:%d:%08x\n",c4Info(),mTimesActive,
-             mLastSent.mWord);
+    if (false)
+      P.printf("%sENAC:%d:%08x\n",c4Info(),mTimesActive,
+               mLastSent.mWord);
     doPropagate(mLastRcvd);
   }
 
   void T6RingCorner::exitActive() {
-    P.printf("%sEXAC:%d:%08x->",
-             c4Info(),mTimesActive,
-             mLastRcvd.mWord);
+    if (false)
+      P.printf("%sEXAC:%d:%08x->",
+               c4Info(),mTimesActive,
+               mLastRcvd.mWord);
     CornerState cs = mLastRcvd;
     cs.passToken();             // jump mincorner state to be largest
-    P.printf("%08x\n",cs.mWord);
+    if (false)
+      P.printf("%08x\n",cs.mWord);
     doPropagate(cs);
   }
 
   void T6RingCorner::doPassive() {
     u32 phase = mLastRcvd.getPhaseGap();
-    P.printf("%sDOPS:*%08x P%d\n",c4Info(),
-             mLastRcvd.mWord,
-             phase);
+    if (false)
+      P.printf("%sDOPS:*%08x P%d\n",c4Info(),
+               mLastRcvd.mWord,
+               phase);
     CornerEW & cew = cornerEWs[mRingCorner];
     switch (phase) {
     case 2:
       if (cew.mEWTag.mWord == mLastRcvd.mWord) {
-        P.printf("%sPPEW(%d,%d)+%d\n",c4Info(),
-                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
-                 cew.mSitesClaimed);
+        if (false)
+          P.printf("%sPPEW(%d,%d)+%d\n",c4Info(),
+                   cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                   cew.mSitesClaimed);
         u32 sites = cew.load(cew.mEWOriginCC,mRingCorner);
-        P.printf("%sSPEW(%d,%d)+%d=%d\n",c4Info(),
-                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
-                 sites,cew.mSitesClaimed);
+        if (false)
+          P.printf("%sSPEW(%d,%d)+%d=%d\n",c4Info(),
+                   cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                   sites,cew.mSitesClaimed);
         sendEW();               // pass it on (maybe with our additions)
         doPropagate(mLastRcvd);
-      } else P.printf("%sDOX: %d %08x\n",c4Info(),
-                      cornerEWs[mRingCorner].isComplete(),
-                      cornerEWs[mRingCorner].mEWTag.mWord);
+      } else {
+        if (false)
+          P.printf("%sDOX: %d %08x\n",c4Info(),
+                   cornerEWs[mRingCorner].isComplete(),
+                   cornerEWs[mRingCorner].mEWTag.mWord);
+      }
       break;
     case 3:
       if (cew.mEWTag.mWord == mLastRcvd.mWord) {
-        P.printf("%sSTEW(%d,%d)+%d\n",c4Info(),
-                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
-                 cew.mSitesClaimed);
+        if (false)
+          P.printf("%sSTEW(%d,%d)+%d\n",c4Info(),
+                   cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                   cew.mSitesClaimed);
         u32 sites = cew.store(cew.mEWOriginCC,mRingCorner);
-        P.printf("%sPSTEW(%d,%d)+%d=%d\n",c4Info(),
-                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
-                 sites,cew.mSitesClaimed);
+        if (false)
+          P.printf("%sPSTEW(%d,%d)+%d=%d\n",c4Info(),
+                   cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                   sites,cew.mSitesClaimed);
         sendEW();               // pass it on (untouched by us)
         doPropagate(mLastRcvd);
-      } else P.printf("%sDOST: %d %08x\n",c4Info(),
-                      cornerEWs[mRingCorner].isComplete(),
-                      cornerEWs[mRingCorner].mEWTag.mWord);
+      } else {
+        if (false)
+          P.printf("%sDOST: %d %08x\n",c4Info(),
+                   cornerEWs[mRingCorner].isComplete(),
+                   cornerEWs[mRingCorner].mEWTag.mWord);
+      }
       break;
     default:
       doPropagate(mLastRcvd);
@@ -474,27 +497,34 @@ namespace MFM {
     CornerEW & cew = cornerEWs[mRingCorner];
     if (gap > 3) exitActive();
     else if (mActiveCounter == 0u) {
-      P.printf("%sGAP%d\n",c4Info(),gap);
+      if (false)
+        P.printf("%sGAP%d\n",c4Info(),gap);
       mActiveCounter = 10u;//U16_MAX;//between(5000,50000);
       CornerState cur = mLastRcvd;
-      if (!cur.incrementPhaseGap())
-        P.printf("%sINCFAIL%d\n",c4Info(),gap);
+      if (!cur.incrementPhaseGap()) {
+        if (false)
+          P.printf("%sINCFAIL%d\n",c4Info(),gap);
+      }
       if (gap==1u) { // meaning we're about to send a fill-EW
         createEW(cur);
         sendEW();
       } else if (gap==2u) { // meaning we need to do the EWT
-        P.printf("%sEWRT(%d,%d)+%d %08x %s\n",c4Info(),
-                 cew.mEWOriginCC.x,cew.mEWOriginCC.y,
-                 cew.mSitesClaimed,
-                 cew.mEWTag.mWord,
-                 cew.isComplete()?"COMP":"INCO");
+        if (false)
+          P.printf("%sEWRT(%d,%d)+%d %08x %s\n",c4Info(),
+                   cew.mEWOriginCC.x,cew.mEWOriginCC.y,
+                   cew.mSitesClaimed,
+                   cew.mEWTag.mWord,
+                   cew.isComplete()?"COMP":"INCO");
         // XXX DO THE FOGGIN TRANSITION
         // XXX WALA THE FOGGIN TRANSITION IS NOW DONE
         cew.mEWTag = cur;       // update ewt
         sendEW();               // and send it around again
-      } else P.printf("%sDRX: %d %08x\n",c4Info(),
-                      cew.isComplete(),
-                      cew.mEWTag.mWord);
+      } else {
+        if (false)
+          P.printf("%sDRX: %d %08x\n",c4Info(),
+                   cew.isComplete(),
+                   cew.mEWTag.mWord);
+      }
       doPropagate(cur);
     } else --mActiveCounter;
   }
@@ -504,7 +534,8 @@ namespace MFM {
     if (mAnchorCounter == 0u) {
       mResetPhase = 0u;
       mAnchorCounter = U16_MAX;
-      P.printf("dAR %s%08x\n", c4Info(),newcs);
+      if (false)
+        P.printf("dAR %s%08x\n", c4Info(),newcs);
     } else --mAnchorCounter;
 
     u32 sig1 = U8C::makeTLBIFromNoC0Coord(fAll.mPos); // use tlbi as signal
@@ -610,11 +641,12 @@ namespace MFM {
     }
     //>>> mLastRcvd != mLastSent
 
-    P.printf("RNU:%s%s%08x >> %08x\n", //Received New Update?
-             active?"*":"",
-             c4Info(),
-             mLastSent.mWord,
-             mLastRcvd.mWord);
+    if (false)
+      P.printf("RNU:%s%s%08x >> %08x\n", //Received New Update?
+               active?"*":"",
+               c4Info(),
+               mLastSent.mWord,
+               mLastRcvd.mWord);
 
     //=== Handle changing signal
     if (!mLastSent.isValid() ||           // transition to valid (exit reset)

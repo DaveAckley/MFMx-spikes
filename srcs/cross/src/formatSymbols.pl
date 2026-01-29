@@ -21,6 +21,6 @@ namespace MFM::T6 {
 EOM
 } 
 END { print "}\n" } 
-/^([0-9a-fA-F]+) .*?__((transportblock|hostblock).*?)$/ && print "  static const u32 $2 = 0x$1;\n";
+/^([0-9a-fA-F]+) .*?__((transportblock|hostblock|imageblock).*?)$/ && print "  static const u32 $2 = 0x$1;\n";
 
     

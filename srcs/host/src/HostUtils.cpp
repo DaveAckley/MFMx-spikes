@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <filesystem>
+#include <cxxabi.h>             // for demangle ugh
 #include "BHLog.h"
 
 namespace MFM {
-
 
   void sleepUsec(u32 usec) {
     struct timespec ts;
@@ -48,27 +48,26 @@ namespace MFM {
   }
 
   static std::string hostlogdir;
-  static FILE * hostlogfile;
+  static FILE * hostlogfile = NULL;
+
+  void initHostLogging() {
+    std::string dt = dateTimeStamp();
+    hostlogdir = "/tmp/MFMx-" + dt + "/";
+    // create dir to hold all the rest.
+    std::filesystem::create_directories(hostlogdir+"tiles/");
+    std::string logpath = hostlogdir + "all.txt";
+    hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
+    fprintf(hostlogfile,"pid=%d,tid=%lu\n",
+            ::getpid(),
+            std::hash<std::thread::id>{}(std::this_thread::get_id()));
+  }
 
   FILE * getHostLog() {
-    static bool initted;
-    if (!initted) {
-      std::string dt = dateTimeStamp();
-      hostlogdir = "/tmp/MFMx-" + dt + "/";
-      // create dir to hold all the rest.
-      std::filesystem::create_directories(hostlogdir+"tiles/");
-      std::string logpath = hostlogdir + "all.txt";
-      hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
-      fprintf(hostlogfile,"pid=%d,tid=%lu\n",
-              ::getpid(),
-              std::hash<std::thread::id>{}(std::this_thread::get_id()));
-      initted = true;
-    }
+    MFM_API_ASSERT_NONNULL(hostlogfile);
     return hostlogfile;
   }
 
   FILE * getHostLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED FILE *
-    getHostLog();               // ensure initted
     std::string keypath = hostlogdir + "tiles/" + key.to_string() + ".dat";
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
     fprintf(keylog,"---%0.4f---\n",runTimeSeconds());
@@ -93,13 +92,14 @@ namespace MFM {
   }
 
   void KTEEprintf(const BHTag & key, const char * file, u32 line, const char * fmt, ...) {
-    FILE * logfile = getHostLogForKey(key);
     // TIMESTAMP?
     char * base = strrchr((char*) file,'/');
     if (base) file = base+1;
-    fprintf(logfile,"%s:%d: ",file,line);
+
     va_list args;
     va_start(args, fmt);
+    FILE * logfile = getHostLogForKey(key);
+    fprintf(logfile,"%s:%d: ",file,line);
     vfprintf(logfile,fmt,args);
     va_end(args);
     fclose(logfile);
@@ -165,6 +165,13 @@ namespace MFM {
     // else [0 .. 10)
     return "0%";   
   }
+
+  std::string toHex(u64 num) {
+    std::string s(2*sizeof(u64),'.');
+    const auto res = std::to_chars(s.data(), s.data() + s.size(), num, 16);
+    return s.substr(0,res.ptr - s.data());
+  }
+
   std::string size4(u64 num) {
     std::string ret;
     const u32 scaler = 1000;
@@ -198,6 +205,23 @@ namespace MFM {
       num /= scaler;
     }
     return ret;
+  }
+
+  std::string demangleCpp(const char* typeName) {
+    int status = 1;
+    std::unique_ptr<char, void(*)(void*)> res {
+      abi::__cxa_demangle(typeName, NULL, NULL, &status),
+      std::free
+    };
+    return (status==0) ? res.get() : typeName ;
+  }
+  
+  void initHostUtils() {
+    static bool initted = false;
+    MFM_API_ASSERT_STATE(!initted); // rumemba: one ping only.
+    initHostClocks();
+    initHostLogging();
+    initted = true;
   }
 
 }

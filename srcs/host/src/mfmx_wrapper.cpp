@@ -3,7 +3,9 @@
 #include "BHLog.h" 
 #include "BlackHole.h" 
 #include "EWControl.h" 
+#include "T6Image.h" 
 #include "HostUtils.h" 
+#include "ImageManager.h" 
 
 namespace py = pybind11;
 
@@ -11,8 +13,8 @@ namespace py = pybind11;
 PYBIND11_MODULE(MFMx, m) {
   m.doc() = "pybind11 bindings for MFMx such as they is";
 
-  // Init the HostUtils clock at module load time
-  MFM::initHostClocks();         // (that's now, right?)
+  // Init the HostUtils (logging, clock, ...) at module load time
+  MFM::initHostUtils();         // (that's now, right?)
 
   // Expose the BHTag class
   MFM::BHTag::pybindings(m);
@@ -25,4 +27,14 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the EWControl class
   MFM::EWControl::pybindings(m);
+
+  // Expose the T6Image class
+  MFM::T6Image::pybindings(m);
+
+  // Expose the ImageManager class
+  MFM::ImageManager::pybindings(m);
+
+  // Expose the bullshit non-singleton access-to-ImageManager class
+  MFM::NSIM::pybindings(m);
+
 }

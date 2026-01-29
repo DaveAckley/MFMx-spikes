@@ -83,24 +83,24 @@ typedef volatile const uint32_t uvc32;   /**< Unsigned volatile const 32 bit typ
 typedef volatile const uint64_t uvc64;   /**< Unsigned volatile const 64 bit type */
 typedef volatile const uintptr_t uvcptr; /**< Unsigned volatile const type the size of a pointer on the current platform */
 
-#define S8_MAX     ((s8)127)           /**< Maximum value of signed 8 bit */
-#define S8_MIN     ((s8)-128)          /**< Minimum value of signed 8 bit */
-#define S16_MAX    ((s16)32767)        /**< Maximum value of signed 16 bit */
-#define S16_MIN    ((s16)-32768)       /**< Minimum value of signed 16 bit */
-#define S32_MAX    ((s32)2147483647)   /**< Maximum value of signed 32 bit */
-#define S32_MIN    ((s32)2147483648UL) /**< Minimum value of signed 32 bit */
-#define S64_MAX    ((((s64)0x7fffffff)<<32)|0xffffffff)    /**< Maximum value of signed 64 bit */
-#define S64_MIN    ((((s64)0x80000000)<<32))   /**< Minimum value of signed 64 bit */
+  static constexpr s8 S8_MAX     = ((s8)127);           /**< Maximum value of signed 8 bit */
+  static constexpr s8 S8_MIN     = ((s8)-128);          /**< Minimum value of signed 8 bit */
+  static constexpr s16 S16_MAX    = ((s16)32767);        /**< Maximum value of signed 16 bit */
+  static constexpr s16 S16_MIN    = ((s16)-32768);       /**< Minimum value of signed 16 bit */
+  static constexpr s32 S32_MAX    = ((s32)2147483647);   /**< Maximum value of signed 32 bit */
+  static constexpr s32 S32_MIN    = ((s32)2147483648UL); /**< Minimum value of signed 32 bit */
+  static constexpr s64 S64_MAX    = ((((s64)0x7fffffff)<<32)|0xffffffff);    /**< Maximum value of signed 64 bit */
+  static constexpr s64 S64_MIN    = ((((s64)0x80000000)<<32));   /**< Minimum value of signed 64 bit */
 
-#define U8_MAX     ((u8)255)           /**< Maximum value of unsigned 8 bit */
-#define U8_MIN     ((u8)0)             /**< Minimum value of unsigned 8 bit */
-#define U16_MAX    ((u16)65535U)       /**< Maximum value of unsigned 16 bit */
-#define U16_MIN    ((u16)0)            /**< Minimum value of unsigned 16 bit */
-#define U32_MAX    ((u32)4294967295UL) /**< Maximum value of unsigned 32 bit */
-#define U32_MIN    ((u32)0)            /**< Minimum value of unsigned 32 bit */
-#define U64_MAX    ((((u64)0xffffffff)<<32)|0xffffffff) /**< Maximum value of unsigned 64 bit */ 
+  static constexpr u8 U8_MAX     = ((u8)255);           /**< Maximum value of unsigned 8 bit */
+  static constexpr u8 U8_MIN     = ((u8)0);             /**< Minimum value of unsigned 8 bit */
+  static constexpr u16 U16_MAX    = ((u16)65535U);       /**< Maximum value of unsigned 16 bit */
+  static constexpr u16 U16_MIN    = ((u16)0);            /**< Minimum value of unsigned 16 bit */
+  static constexpr u32 U32_MAX    = ((u32)4294967295UL); /**< Maximum value of unsigned 32 bit */
+  static constexpr u32 U32_MIN    = ((u32)0);            /**< Minimum value of unsigned 32 bit */
+  static constexpr u64 U64_MAX    = ((((u64)0xffffffff)<<32)|0xffffffff); /**< Maximum value of unsigned 64 bit */ 
                                        /* U64_MAX hacked with an expression to avoid C99ish syntax.. */
-#define U64_MIN    ((u64)0LL)          /**< Minimum value of unsigned 64 bit */
+  static constexpr u64 U64_MIN    = ((u64)0LL);          /**< Minimum value of unsigned 64 bit */
 
 } /* namespace MFM */
 

@@ -7,6 +7,10 @@ namespace MFM {
   struct U16C {
     u16 x, y;
 
+    bool operator==(const U16C other) const {
+      return x == other.x && y == other.y;
+    }
+
     static U16C makeRawT6CoordFromTLBI(uint32_t tlbidx) {
       U16C ret;
       ret.x = tlbidx%14u;

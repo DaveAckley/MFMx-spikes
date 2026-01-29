@@ -372,49 +372,11 @@ namespace MFM {
     BHLog & bhl = BHLog::getTheBHLog();
 
     LogCarStorage & stg = *(LogCarStorage*) pert6addr;
-    for (u32 car = 0u; car < LogCarStorage::CAR_COUNT; ++car) {
+    TLBInfo & tin = getTLBInfo(tlbi);
+    for (u32 tries = 0u; tries < LogCarStorage::CAR_COUNT; ++tries) {
+      u32 car = tin.getLogCarIndex();
       LogCarStorage::LogCar & lc = stg.mLogCars[car];
       CarSig cs = lc.getHeader();
-      if (false/*tlbi < 2 || tlbi > 137*/) {
-        u32 caroffset = ((char*)&lc) - ((char*) &stg);
-        LOGprintf(mDevCardNum,"ULOG %u %u 0x%02x cls %p lc %p noc 0x%lx + %lu\n",
-                  tlbi,car,
-                  (u32) cs.mCarMagic,
-                  &stg,
-                  &lc,
-                  hostnocaddr + t6offset + caroffset,
-                  sizeof(lc)
-                  );
-      }
-
-      {
-        static bool once;
-        if (!once) {
-          Eprintf("(%u) OurTLBs::updateLogTransports>>\n",bhl.getThrId());
-          CarSig cs = lc.getHeader();
-          Eprintf("(%u) CARIN sig(%x,%x,%x,%x) %d\n",
-                  bhl.getThrId(),
-                  cs.mCarMagic,
-                  cs.mCarNonce,
-                  cs.mCarState,
-                  cs.mCarType,
-                  lc.getCarState()
-                  );
-        }
-        once = true;
-      }
-
-      if (false && lc.isComplete()) {
-        CarSig cs = lc.getHeader();
-        Eprintf("(%u) CARINCOMP sig(%x,%x,%x,%x) %d\n",
-                bhl.getThrId(),
-                cs.mCarMagic,
-                cs.mCarNonce,
-                cs.mCarState,
-                cs.mCarType,
-                lc.getCarState()
-                );
-      }
 
       U16C addr = U16C::makeNocCoordFromTLBI(tlbi);
       if (lc.isComplete() && lc.getCarState() == CarState::INBOUND_DEPARTED) {
@@ -429,11 +391,14 @@ namespace MFM {
             Eprintf("(%u) INBOUND TRAFFIC FROM T%d (%d,%d) %d bytes\n",
                     bhl.getThrId(), tlbi, addr.x, addr.y, lb.mLength);
 
-          KTEEwrite(tag, lb.mData, lb.mLength); // deal with the passengers
-          /*
-          BHLog & theLog = BHLog::getTheBHLog();
-          theLog.handle(tag, lb.mData, lb.mLength); // deal with the passengers
-          */
+          {                     // deal with the passengers
+            FILE* log = getHostLogForKey(tag);
+            fprintf(log,"[#%d]",car);
+            fwrite((const char *) lb.mData,lb.mLength,1u,log);
+            fclose(log);
+          }
+
+          //KTEEwrite(tag, lb.mData, lb.mLength);
         }
           
         lb.reset();           // clean the car (even if it was officially empty?)
@@ -445,13 +410,13 @@ namespace MFM {
             writeToWords(tlbi, destByteAddr, (u32*) &lc, 2u); 
           if (false)
             Eprintf("(%u) RETURNING EMPTY TO T%d 0x%08x @ (%d,%d)\n\n",
-                  bhl.getThrId(),
-                  tlbi,
-                  destByteAddr,
-                  addr.x, addr.y);
-
-        }
+                    bhl.getThrId(),
+                    tlbi,
+                    destByteAddr,
+                    addr.x, addr.y);
+        } 
       }
+      tin.advanceLogCarIndex(); // check next car
     }
   }
 
@@ -565,7 +530,7 @@ namespace MFM {
       updateEWCars(tlbi);
     }
     //XXX BURN BABY BURNNNNN:
-    //sleepUsec(50);
+    sleepUsec(10);
     return true;
   }
 

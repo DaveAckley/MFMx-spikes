@@ -94,6 +94,7 @@ namespace MFM {
         if (!canread) continue;
         u32 toss = *((volatile u32 *) (addr+0u)); // READ, discard
         *((volatile u32 *) (addr+0u)) = fT2.mRandom.randomMT(); // WRITE
+        XXX_DEBUG_FUNC(__FILE__,__LINE__);
       }
     }
     return 0u; // NOT REACHED
@@ -101,16 +102,21 @@ namespace MFM {
 
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
     
     DP.printf("+T2+n");
     u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    DP.printf("T2 &fT2=0x%08x\n",(u32) & (fT2.mRandom));
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     fT2.mRandom.seedMT_MFM(seed);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.hartbeat(fAll.mHartNum);
     //DP.printf("T2 HI2 %d\n",hb.mPerHartWatchdog[fAll.mHartNum]);
 
     LOG.printf("%s:GO LIVE MAXSTAX %d\n",hartName(fAll.mHartNum),estimateStackUsage());
-
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
     return liveT2(hb);          // go do your hart t2 thing you

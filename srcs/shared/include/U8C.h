@@ -20,6 +20,8 @@ namespace MFM {
         ((y < other.y) ? other.y - y : x - other.y);
     }
     bool operator==(const U8C & other) const { return x==other.x && y==other.y; }
+    U8C operator/(const U8C & other) const { return U8C(x / other.x, y / other.y); }
+    U8C operator%(const U8C & other) const { return U8C(x % other.x, y % other.y); }
     U8C operator+(const S8C & s8) const ;
     bool addTo(const S8C & s8) ;
 
@@ -93,6 +95,7 @@ namespace MFM {
     }
   };
 
+
   struct U8CRange {
     U8C start, end;
 
@@ -103,3 +106,12 @@ namespace MFM {
     }
   };
 }
+
+template<>
+struct std::hash<MFM::U8C> {
+  std::size_t operator()(const MFM::U8C & t) const {
+    return (t.x + 1u) * t.y;
+  }
+};
+
+  

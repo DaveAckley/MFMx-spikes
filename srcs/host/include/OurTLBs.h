@@ -8,6 +8,7 @@
 #include "TTKMDStuff.h"
 #include "TransportBlock.h"
 #include "BHTag.h"
+#include "T6Image.h"
 
 #include <pybind11/functional.h> // for std::function?
 
@@ -81,10 +82,25 @@ namespace MFM {
 
     struct TLBInfo {
       struct tenstorrent_allocate_tlb_out mAllocOut;
+      const T6Image *  mDeployedImage;
       u32 mRemoteBaseAddress;
       u8 mFailStatus;
+      u8 mNextLogCarIndex;
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
+
+      void setDeployedImage(const T6Image & img) {
+        mDeployedImage = &img;
+      }
+      const T6Image * getDeployedImageIfAny() const {
+        return mDeployedImage;
+      }
+      u32 getLogCarIndex() const { return mNextLogCarIndex; }
+      u32 advanceLogCarIndex() {
+        if (++mNextLogCarIndex >= LogCarStorage::CAR_COUNT)
+          mNextLogCarIndex = 0u;
+        return mNextLogCarIndex;
+      }
     };
     TLBInfo & getTLBInfo(u32 tlbi) ;
 

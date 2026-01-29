@@ -1,0 +1,42 @@
+#include "ImageManager.h"
+#include "BlackHole.h"
+
+namespace MFM {
+  ImageManager & ImageManager::getTheImageManager() {
+    static ImageManager theInstance(0);
+    return theInstance;
+  }
+
+  bool ImageManager::deployTo(BlackHole & bh, u32 layoutnumber) {
+    
+    FAIL(INCOMPLETE_CODE);
+    return false;
+  }
+
+  T6Image& ImageManager::makeT6Image(std::string ikey, u8 imageCode, std::string path) {
+    auto elt = mIKeyImageNumMap.find(ikey);
+    MFM_API_ASSERT(elt == mIKeyImageNumMap.end(),ILLEGAL_ARGUMENT);
+    u32 len = (u32) mImageVector.size();
+    mImageVector.push_back(std::make_unique<T6Image>(ikey,imageCode,path));
+    mIKeyImageNumMap[ikey] = len;
+    return *getT6ImageIfAny(len);
+  }
+
+  T6Image* ImageManager::getT6ImageIfAny(u32 imagenum) {
+    if (imagenum == 0u || imagenum >= mImageVector.size())
+      return NULL;
+    return mImageVector[imagenum].get();
+  }
+
+  T6Image& ImageManager::getT6Image(u32 imagenum) {
+    T6Image* tip = getT6ImageIfAny(imagenum);
+    if (!tip) FAIL(ILLEGAL_ARGUMENT);
+    return *tip;
+  }
+
+  T6Image& ImageManager::getT6Image(std::string ikey) {
+    auto elt = mIKeyImageNumMap.find(ikey);
+    MFM_API_ASSERT(elt != mIKeyImageNumMap.end(),ILLEGAL_ARGUMENT);
+    return getT6Image(elt->second);
+  }
+}

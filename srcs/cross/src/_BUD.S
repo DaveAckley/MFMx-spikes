@@ -1,5 +1,5 @@
 	.equ STACK_CANARY,0x11a2b30d
-        .section .start,"ax",@progbits
+        .section .jumpstart,"ax",@progbits
         .global _start
         .type   _start, @function
 
@@ -13,15 +13,21 @@ _start:
 	.global nc_setup
 
         # B must be first, at addr 0, as RISCV B has fixed reset address of zero
-b_setup: j b_init               # B entrypoint is 0
-t0_setup: j t0_init             # T0 entrypoint must be addr 4
-t1_setup: j t1_init             # T1 entrypoint must be addr 8
-t2_setup: j t2_init             # T2 entrypoint must be addr 12
-nc_setup: j nc_init             # NC entrypoint must be addr 16
+b_setup: j b_init               # B entrypoint is addr 0 word 0
+t0_setup: j t0_init             # T0 entrypoint must be addr 4 word 1
+t1_setup: j t1_init             # T1 entrypoint must be addr 8 word 2
+t2_setup: j t2_init             # T2 entrypoint must be addr 12 word 3
+nc_setup: j nc_init             # NC entrypoint must be addr 16 word 4
+	
+	.cfi_endproc
 	
 	# Not setting up gp until pretty late, so:
 	.option push
 	.option norelax
+
+        .section .endstart,"ax",@progbits
+        .cfi_startproc
+        .cfi_undefined ra /* "Inform the debugger that there is nowhere to backtrace past _start." */
 b_init:
 	li s0,0                 # we are hart0
 	la sp, __stack_top8K    # we've got 8k fastram 	
@@ -36,6 +42,9 @@ b_init:
 	
         la a0, __hostblock_start  # arg 1 is struct HOSTBLOCK *
 	call t6setup            # Do other t6 level setup on hartb only
+
+        ## ANY IMAGEBLOCK SETUP NEEDED?
+        # XXX
 	
         ## READY TO ROCK
         la t1, 0xFFB121B0   # RISCV_DEBUG_REG_SOFT_RESET_0
@@ -114,7 +123,7 @@ runmain:
 2:      fence
 done:  
         j done
-	.cfi_endproc
+        .cfi_endproc
 	
 	.global t6hang
         .type   t6hang, @function

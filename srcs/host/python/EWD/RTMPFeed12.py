@@ -153,7 +153,7 @@ class RTMPFeed:
         self.ewd.logkt(self.key,f"XX {self.subproc_started}")
         self.bytesWritten = 0
 
-    def restartSubProc(self):
+    def restartSubProcDEBUG(self):
         self.framesSentThisSubproc = 0
         if False and self.subproc_started > 10:
             print("TOO MONEY RESTRATS",self.subproc_started)
@@ -165,6 +165,18 @@ class RTMPFeed:
                                             stdin=subprocess.PIPE,
                                             stdout=f,
                                             stderr=subprocess.STDOUT)
+        self.subproc_started += 1
+        self.ewd.logkt(self.key,f"SUBPROC #{self.subproc_started} IS {self.subproc}")
+        self.ewd.logkt(self.key,"CLAMS!")
+
+    def restartSubProc(self):
+        self.framesSentThisSubproc = 0
+        #using subprocess and pipe to fetch frame data
+        self.ewd.logkt(self.key,f"STARTING {self.ffmpegCommand}")
+        self.subproc = subprocess.Popen(self.ffmpegCommand,
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.DEVNULL, 
+                                        stderr=subprocess.STDOUT)
         self.subproc_started += 1
         self.ewd.logkt(self.key,f"SUBPROC #{self.subproc_started} IS {self.subproc}")
         self.ewd.logkt(self.key,"CLAMS!")

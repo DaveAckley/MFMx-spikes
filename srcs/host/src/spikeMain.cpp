@@ -9,8 +9,10 @@
 #include <inttypes.h>
 
 #include "OurTLBs.h"
+#include "T6Image.h"
 #include "CodeManager.h"
 #include "Constants.h"
+#include "BlockCode.h"
 
 //#include "P2PElevator.h"
 #include "TransportBlock.h"
@@ -98,8 +100,10 @@ int spikeMain() {
   MFM::Eprintf("PHASE-------Deploy the code\n");
   MFM::CodeManager cmgr(0u,ourTLBs);
   //  cmgr.deployRISCVCodeFromFile("../cross/bin/t6main.bin"); // OLDE WAIYE
-  cmgr.deployRISCVCodeFromFile("./build_cross/bin/crossmain.bin"); // NEW CMAKE WAY GNU
-
+  // cmgr.deployRISCVCodeFromFile("./build_cross/bin/crossmain.bin"); // ANOTHREE OLD NEW CMAKE WAY GNU
+  MFM::T6Image t6img;
+  t6img.init("XM",MFM::ImageCode::IC_DEBUG,"./build_cross/bin/crossmain.bin");
+  cmgr.deployRISCVCodeFromImage(t6img,MFM::U8_MAX); // SUPERA NUNUNU WAYEE
   MFM::Eprintf("PHASE-------Release the hound( leader)s\n");
   ourTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
                   RISCV_DEBUG_REG_SOFT_RESET_0,
