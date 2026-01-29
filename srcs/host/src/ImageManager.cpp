@@ -47,7 +47,7 @@ namespace MFM {
     Eprintf("IM: Tiling BH#%u with cell '%s'\n",bhc,theCellName.c_str());
     
     // for each tlbi:
-    // - find 'raw' coord
+    // - find 'CT6' coord
     // - access cell by stride
     // - find target image
     // - compare to defimage
@@ -88,7 +88,7 @@ namespace MFM {
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
          ++tlbi) {
       ++tot;
-      U8C c = U8C::makeU8CRawT6CoordFromTLBI(tlbi);
+      U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
       U8C cc(c % cs);
       T6Image & t6i = getT6Image(theCell.getXY(cc.x,cc.y));
       if (t6i.getName() == defimage) continue;

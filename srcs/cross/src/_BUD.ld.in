@@ -198,6 +198,7 @@ SECTIONS
       __transportblock_ew_size = ABSOLUTE(__transportblock_ew_end - __transportblock_ew_start);
     } > L1
 
+/*
     .imageblock :
     {
       . = ALIGN(16);
@@ -207,7 +208,7 @@ SECTIONS
       __imageblock_size = ABSOLUTE(__imageblock_end - __imageblock_start);
       PROVIDE(_end = .);
     } > L1
-
+*/
 
     /* HOSTBLOCK MUST BE LAST IN IMAGE, because
        host/src/CodeManager.cpp looks for it at

@@ -31,7 +31,8 @@ namespace MFM {
                 data,&s,
                 myGILState());
         */
-        mLogCallback(tag,s);
+
+        ////XXXXX DON'T LOG TO PYTHON, TOO SLOWXXXX:  mLogCallback(tag,s);
         //Eprintf("handle14 (%u) POST logcb (%p) (about to release GIL & pycb) %s\n",getThrId(),&mLogCallback,myGILState());
 
         PyGILState_Release(gstate);

@@ -168,7 +168,10 @@ class EWD(App):
       imagecode = v['code']
       path = v['binfile']
       img = im.makeT6Image(k,imagecode,path)
-      print("KONG",k,img)
+      self.logkt("KEYK","KONGMO "+k+" "+str(img))
+      self.logkt("KEYK","BINPOS "+k+" "+str(hex(img.getBinWord(5))))
+      self.logkt("KEYK","BINP2S "+k+" "+str(hex(img.getBinWord(6))))
+      self.logkt("KEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
       keys.append(k)
     for k in keys:
       img = im.getT6Image(k)
@@ -220,6 +223,12 @@ class EWD(App):
     act = cfgdict['activeLayout']
     im.setActiveLayout(act)
     print("CDFGIDC",act)
+    for k in keys:
+      img = im.getT6Image(k)
+      self.logkt("ZEYK","KONGMO "+k+" "+str(img))
+      self.logkt("ZEYK","BINPOS "+k+" "+str(hex(img.getBinWord(5))))
+      self.logkt("ZEYK","BINP2S "+k+" "+str(hex(img.getBinWord(6))))
+      self.logkt("ZEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
 
   def run(self):
     self.logkt("HARO","THERE")
@@ -408,7 +417,7 @@ class EWD(App):
     self.theRTMPFeed.sendTextFrame(text)
 
 if __name__ == "__main__":
-  c = Config.Config("test18","/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd14/srcs/host/python/EWD/config/ewd16.dtoml")
+  c = Config.Config("ewd17","/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/srcs/host/python/EWD/config/mpmd15.dtoml")
   app = EWD(c)
   app.run()
 

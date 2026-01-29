@@ -47,28 +47,30 @@ namespace MFM {
     void init(const char * littleendian) {
       mIBMagic = littleendian[0];
       mImageCode = littleendian[1];
-      mImageEdoc = littleendian[2];
-      mEntries = littleendian[3];
+      mEntries = littleendian[2];
+      mIBCheck = littleendian[3];
     }
     
     //// DATA MEMBERS
     u8 mIBMagic; 
     u8 mImageCode;              // 0x01..0xff
-    u8 mImageEdoc;              // mImageCode^0xff
     u8 mEntries;                // # of following ImageBlockAddrs
+    u8 mIBCheck;                // mImageCode^(mEntries<<2u)
     
     //// METHODS
+    u8 checkbyte() const { return (mImageCode^(mEntries<<2u)); }
+
     bool isValid() const {
       return
         mIBMagic == IBMAGIC &&
-        mImageCode == (mImageEdoc^0xff);
+        checkbyte() == mIBCheck;
     }
 
     void init(u8 imageCode, u8 entries) {
       mIBMagic = IBMAGIC;
       mImageCode = imageCode;
-      mImageEdoc = mImageCode^0xff;
       mEntries = entries;
+      mIBCheck = checkbyte();
     }
 
     u8 getImageCode() const {

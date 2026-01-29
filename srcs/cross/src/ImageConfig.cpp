@@ -7,8 +7,8 @@ namespace MFM {
     { /* ImageBlockHeader */                                            \
       .mIBMagic = ImageBlockHeader::IBMAGIC,                            \
       .mImageCode = ImageCode::IC_##IMAGE_NAME,                         \
-      .mImageEdoc = (ImageCode::IC_##IMAGE_NAME)^0xff,                  \
       .mEntries = IMAGE_NAME##Entries,                                  \
+      .mIBCheck = (ImageCode::IC_##IMAGE_NAME)^(IMAGE_NAME##Entries<<2u), \
     },                                                                  \
 
 #define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE)      \

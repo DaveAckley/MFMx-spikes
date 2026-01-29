@@ -11,7 +11,7 @@ namespace MFM {
       return x == other.x && y == other.y;
     }
 
-    static U16C makeRawT6CoordFromTLBI(uint32_t tlbidx) {
+    static U16C makeCT6CoordFromTLBI(uint32_t tlbidx) {
       U16C ret;
       ret.x = tlbidx%14u;
       ret.y = tlbidx/14u;
@@ -19,14 +19,14 @@ namespace MFM {
     }
 
     static U16C makeNocCoordFromTLBI(uint32_t tlbidx) {
-      U16C ret = makeRawT6CoordFromTLBI(tlbidx);
+      U16C ret = makeCT6CoordFromTLBI(tlbidx);
       ret.x++;
       if (ret.x > 7u) ret.x += 2u;
       ret.y += 2u;
       return ret;
     }
 
-    static u32 makeTLBIFromRawCoord(U16C c) {
+    static u32 makeTLBIFromCT6Coord(U16C c) {
       u32 ret = c.y*14u + c.x;
       return ret;
     }
@@ -35,7 +35,7 @@ namespace MFM {
       c.y -= 2u;
       if (c.x > 9u) c.x -= 2u;
       c.x--;
-      return makeTLBIFromRawCoord(c);
+      return makeTLBIFromCT6Coord(c);
     }
   };
 

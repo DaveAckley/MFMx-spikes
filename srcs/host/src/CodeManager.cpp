@@ -16,16 +16,18 @@
 
 namespace MFM {
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
+    BHLog & bhl = BHLog::getTheBHLog();
+    BHTag tag(TagType::T6TADR, mCardNum, toTLBI);
     u32 rvsize = image.getBinFileSize();
     const char * rvcode = image.getTheBinFile();
     u32 * codewords = (u32*) rvcode;
     u32 wordcount = rvsize >> 2u;
-    LOGprintf(mCardNum," LENGTH=%d (0x%08x, 0x%08x, ..., 0x%08x, 0x%08x)\n",
+    LOGprintf(mCardNum," LENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
            rvsize,
-           codewords[0],
-           codewords[1],
-           codewords[wordcount-2],
-           codewords[wordcount-1]
+           codewords[5],
+           codewords[6],
+           codewords[7],
+           codewords[8]
            );
 
     if (rvsize%4 != 0u) HOST_FATAL(BAD_ALIGNMENT,"Bad code size %u",rvsize);
@@ -62,7 +64,7 @@ namespace MFM {
            i <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++i) 
         mOurTLBs.getTLBInfo(i).setDeployedImage(image);
     } else {
-      U8C c = U8C::makeU8CRawT6CoordFromTLBI(toTLBI);
+      U8C c = U8C::makeCT6CoordFromTLBI(toTLBI);
       U8C nocc = U8C::makeU8CNoCCoordFromTLBI(toTLBI);
       LOGprintf(mCardNum," Deploying '%s' to TLBI%u cell(%u,%u) noc(%u,%u)\n",
                 image.getName().c_str(),toTLBI,c.x,c.y,nocc.x,nocc.y);
@@ -72,6 +74,12 @@ namespace MFM {
 
     // Waste Some Time OK
     // sleepUsec(1'000'000);
+
+    {
+      bhl.printf(tag,"IBLI %s 24:0x%08x 32:0x%08x",
+                 image.getName().c_str(),
+                 codewords[6],codewords[8]);
+    }    
 
     // Let's try some sanity read-backs..
     u32 hits = 0u, misses = 0u;
@@ -86,6 +94,8 @@ namespace MFM {
       for (u32 word = 0u; word < wordcount; word += 1) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
+        if (word >= 5 && word <= 8)
+          LOGprintf(mCardNum,"IMGBLOCKREREAD %d:0x%08x\n",word,data);
         if (codewords[word] != data) {
           ++misses;
           LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%08x: got 0x%08x need 0x%08x\n",
@@ -120,6 +130,14 @@ namespace MFM {
           ++hits;
       }
     }
+    LOGprintf(mCardNum," REIMLENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
+              rvsize,
+              codewords[5],
+              codewords[6],
+              codewords[7],
+              codewords[8]
+              );
+        
     LOGprintf(mCardNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
     return 0;
   }
@@ -128,7 +146,7 @@ namespace MFM {
     mOurTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
                      RISCV_DEBUG_REG_SOFT_RESET_0,
                      SOFT_RESET_ALL_RISCV_EXCEPT_B);
-    sleepUsec(1'000'000);
+    sleepUsec(3'000'000);
     LOGprintf(mCardNum,"PHASE-------Check magic\n");
     assertGoodMagic();
   }
@@ -164,6 +182,7 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
   }
 
   void CodeManager::assertGoodMagic() {
+    sleepUsec(1'000'000);
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       OurTLBs::TLBInfo & tinfo = mOurTLBs.getTLBInfo(tlbi);
@@ -317,10 +336,22 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       return 0;
     }
     const T6Image & t6i = *t6ip;
-    u32 hostblockaddr = t6i.getBinFileSize() - sizeof(HostBlock);
+    u32 hostblockaddr = t6i.getHostBlockAddr();
 
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mCardNum, tlbi);
+    bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
+               t6i.getName().c_str(),
+               t6i.getBinFileSize(),
+               hostblockaddr);
+    {
+      u32 word[4]; // peek at imageblock
+      mOurTLBs.readFromWords(tlbi, 0x14>>2, word, sizeof(word)>>2);
+      bhl.printf(tag,"IBLK %s 24:0x%08x 32:0x%08x",
+                 t6i.getName().c_str(),
+                 word[1], word[3]);
+    }
+
     HostBlock hb;
     memset_s(&hb,0,sizeof(hb));
     mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);

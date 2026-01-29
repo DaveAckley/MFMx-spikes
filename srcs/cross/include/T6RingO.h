@@ -7,9 +7,10 @@
 #include "Printf.h"
 #include "EventWindow.h"
 #include "CornerState.h"
+#include "NRIUtils.h"
 
 namespace MFM {
-
+#if 0
   /** NoC byte offsets (arg to getNIUAddress) */
   //static constexpr u32 NOC_NODE_ID = 0x44;
 
@@ -94,6 +95,7 @@ namespace MFM {
     void waitTilNRIClear() const ;
 
   };
+#endif
 
   struct CornerEW {
     CarSig mHeader;

@@ -69,9 +69,12 @@ namespace MFM {
   }
 
   int hartMainT0(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
     preloadT2Mailbox();
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return liveT0(hb);          // go do your hart t0 thing you
   }
 }

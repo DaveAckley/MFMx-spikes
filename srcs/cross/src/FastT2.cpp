@@ -25,35 +25,67 @@ namespace MFM {
     RandMT mRandom;
   };
   FAST_LOCAL(FastT2,fT2,t2);
-  volatile bool mT2Serving = false; // don't get smart on me mr compiler
-  static bool randomServerReady() { return mT2Serving; }
+
+  static volatile bool mT2Serving = false; 
+  static AtomicLock t2ServingLock;
+
+  static bool randomServerReady() {
+    AtomicScopeLock guard(t2ServingLock);
+    return mT2Serving;
+  }
+
+  static void markServerReady() {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    {
+      AtomicScopeLock guard(t2ServingLock);
+      mT2Serving = true;
+    }
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+  }
 
   static void primePump() {
     *((volatile u32 *) (MAILBOX_BASE_T2+0u)) = 1u; // prime the random number pump
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
+    //DP.printf("&fT2=0x%08x+%d\n",&fT2,sizeof(fT2));
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     while (!randomServerReady()) { }
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     primePump();
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
   }
   
   static void initT2() {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
     u32 addr = MAILBOX_BASE;
     bool canread;
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
+      //DP.printf("IT2:%u[%s] @0x%08x\n",hartnum,hartName(hartnum),addr);
       while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
         u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
       }
     }
+    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     sleepCycles(1'000);
-    mT2Serving = true;
+    markServerReady(); // sets mT2Serving;
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
   }
 
-  static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
+  //  static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveT2(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     // SERVE BUFFERED RANDOM #s TO B,T0,T1,T2:
     // THEORY: If they send us a msg, eat it and send back a PRNG#
 
@@ -84,17 +116,21 @@ namespace MFM {
     // so we can safely push once and not block.)
 
     initT2();
-    
-    u8 spin = 0u;
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);    
+
+    u16 spin = 0u;
     while (true) {
-      if (spin++ == 0u) hb.hartbeat(fAll.mHartNum);
+      if (spin++ == 0u) {
+        hb.hartbeat(fAll.mHartNum);
+        //        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+      }
       for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
         u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);
         bool canread = *((volatile u32 *) (addr+4u)); // TRYREAD
         if (!canread) continue;
         u32 toss = *((volatile u32 *) (addr+0u)); // READ, discard
         *((volatile u32 *) (addr+0u)) = fT2.mRandom.randomMT(); // WRITE
-        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+        XXX_DEBUG_FUNC(__FILE__,__LINE__);    
       }
     }
     return 0u; // NOT REACHED
@@ -102,23 +138,21 @@ namespace MFM {
 
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
     
-    DP.printf("+T2+n");
+    //    DP.printf("+T2+\n");
     u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    DP.printf("T2 &fT2=0x%08x\n",(u32) & (fT2.mRandom));
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    fT2.mRandom.seedMT_MFM(seed);
+    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //fT2.mRandom.seedMT_MFM(seed);
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.hartbeat(fAll.mHartNum);
     //DP.printf("T2 HI2 %d\n",hb.mPerHartWatchdog[fAll.mHartNum]);
 
     LOG.printf("%s:GO LIVE MAXSTAX %d\n",hartName(fAll.mHartNum),estimateStackUsage());
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

@@ -26,9 +26,13 @@ namespace MFM {
   static int liveNC(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveNC(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     u8 spin = 0u;
     while (true) {
-      if (++spin == 0) hb.hartbeat(fAll.mHartNum);
+      if (++spin == 0) {
+        hb.hartbeat(fAll.mHartNum);
+        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+      }
       theT6ElevatorTransport.updateTransportBlock();
       hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
       sleepCycles(1'000u);
@@ -59,6 +63,7 @@ namespace MFM {
                 );
     */
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return liveNC(hb);
 
     return 0; /* NOT REACHED */

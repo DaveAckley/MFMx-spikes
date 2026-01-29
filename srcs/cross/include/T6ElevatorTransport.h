@@ -17,7 +17,7 @@ namespace MFM {
 
   struct T6ElevatorTransport : public ElevatorTransportBase {
     // We have P150B boards, so we are using the PCIe 0 tile, which is
-    // at (2,0) in raw NoC0 coords
+    // at (2,0) in NoC0 coords
     static constexpr U16C PCIeTILE_COORD = {2,0};
     void notice(const char * fmt, ...) ;
 

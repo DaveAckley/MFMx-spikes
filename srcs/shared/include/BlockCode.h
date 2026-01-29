@@ -9,6 +9,7 @@ namespace MFM {
     IC_HUB = 2,                //< 2x2 w/hub@00 + 3 EWPs @01,10,11
     IC_HUB3X3 = 3,             //< 3x3 w/hub@11 + 8 EWPs
     IC_DEBUG = 4,              //< unspecified test images
+    IC_ZOT = 5,                //< another scratch image
   };
 
   enum BlockCode {

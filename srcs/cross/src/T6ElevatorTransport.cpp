@@ -52,15 +52,15 @@ namespace MFM {
     if (byteCount == 0 || byteCount > (1<<14))
       return -2;                // EINVAL: bad size
 
-    // TARG (lo+mid) is the source in our L1. TARG hi is our raw NoC coord
+    // TARG (lo+mid) is the source in our L1. TARG hi is our NoC0 coord as NodeId
     u32 targlo = (u32) data;
     u32 targmid = 0u;
     u32 targhi = ((mHostBlockPtr->mPos.x&0x3f)<<6)|(mHostBlockPtr->mPos.y&0x3f);
 
     // In general:
-    //   RET (lo+mid) is the dest addr, RET hi is the raw NoC coord of the dest tile
+    //   RET (lo+mid) is the dest addr, RET hi is the NoC0 coord of the dest tile
     // For initiateWriteToHost specifically:
-    //   RET (lo+mid) is the dest in Host RAM, RET hi is the raw NoC coord of the PCIe tile ?
+    //   RET (lo+mid) is the dest in Host RAM, RET hi is the NoC0 coord of the PCIe tile ?
     u32 retlo = (u32) (destaddr&0xffffffff);
     u32 retmid = (u32) ((destaddr>>32)&0xffffffff);
     u32 rethi = ((xy.y&0x3f)<<6)|(xy.x&0x3f);

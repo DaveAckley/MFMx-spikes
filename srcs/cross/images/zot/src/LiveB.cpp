@@ -5,8 +5,6 @@
 #include "TransportBlock.h"
 #include "EventWindow.h"
 #include "T6Grid.h"
-#include "NRIUtils.h" // for NRI3
-#include "ImageConfig.h"        // for theImageBlock
 
 #include "T6STVL.h" // XXX TESTING
 
@@ -101,61 +99,14 @@ namespace MFM {
   T6Grid theT6Grid;
 
   int liveB(HostBlock & hb) {
-    //    DP.printf("HUBSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
-    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-          {
-            u32 * ibu = (u32*) &theImageBlock;
-            DP.printf("POURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
-                      &ibu[0],ibu[0],
-                      &ibu[1],ibu[1],
-                      &ibu[2],ibu[2]);
-          }
-
- if (false) { // TEST BLOCKING L1 READS
-      DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
-
-      U8C usnoc = hb.mPos;
-      U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
-      //DP.printf("PREBLIRD! (%u,%u)\n", usct6.x, usct6.y);
-      if (!U8C::onBoardCT6Coord(usct6))
-        DP.printf("FUCKAGE (%u,%u)->%u,%u\n",
-                  usnoc.x, usnoc.y, usct6.x, usct6.y);
-      else {
-        U8C us2 = usct6;
-        U8C themct6 = usct6 + S8C(1,0); // look east young man
-        if (!U8C::onBoardCT6Coord(themct6))
-          DP.printf("OFFBOARD (%u,%u)->%u,%u\n",
-                    usct6.x, usct6.y, themct6.x, themct6.y);
-        else {
-          NRI3 nri3;
-          u32 themibh[5];
-          {
-            u32 * ibu = (u32*) &theImageBlock;
-            DP.printf("OURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
-                      &ibu[0],ibu[0],
-                      &ibu[1],ibu[1],
-                      &ibu[2],ibu[2]);
-          }
-          bool ret = nri3.blockingL1Read(usct6, themct6,
-                                         (u32) &theImageBlock,
-                                         sizeof(themibh)>>2u, themibh);
-          DP.printf("BLIRD! %d (%u,%u)<-(%u,%u)==0x%08x\n",
-                    ret, us2.x, us2.y, themct6.x, themct6.y, themibh[0]);
-        }
-      }
-    }
+    DP.printf("SZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
     typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
     u8 spin = 0u;
-    if (false) {
     // XXX TEST EWLOCKER
     T6EWLocker::Entry lentry;
     bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
@@ -166,7 +117,6 @@ namespace MFM {
               lentry.mWhenAllocated,
               '.');
 
-    }
     while (true) {
       if (++spin == 0) hb.hartbeat(fAll.mHartNum);
       EWCar * ewc = ewp.getCurrentCarIfAny();
@@ -176,10 +126,7 @@ namespace MFM {
           continue;
         }
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("hubhBRND IoH %d CrBu %08x > %02x\n",
-                    fAll.mInspirationOnHand,
-                    fAll.mCreativityBuffer,
-                    createBits(8));
+          DP.printf("zothBRND %d\n",createBits(10));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,

@@ -29,6 +29,11 @@ namespace MFM {
       return ibh;
     }
 
+    u32 getBinWord(u32 wordAddr) const {
+      if (wordAddr*4 >= getBinFileSize()) return U8_MAX;
+      return getBinFileWords()[wordAddr];
+    }
+
     u8 getImageCode() const {
       ImageBlockHeader ibh = getImageBlockHeader();
       return ibh.mImageCode;
@@ -88,6 +93,7 @@ namespace MFM {
       t6.def("getBinFilePath", &T6Image::getBinFilePath,py::call_guard<py::gil_scoped_release>());
       t6.def("getBinFileSize", &T6Image::getBinFileSize,py::call_guard<py::gil_scoped_release>());
       t6.def("getHostBlockAddr", &T6Image::getHostBlockAddr,py::call_guard<py::gil_scoped_release>());
+      t6.def("getBinWord", &T6Image::getBinWord,py::call_guard<py::gil_scoped_release>());
       t6.def("getImageBlockHeader", &T6Image::getImageBlockHeader,py::call_guard<py::gil_scoped_release>());
       t6.def("getImageCode", &T6Image::getImageCode,py::call_guard<py::gil_scoped_release>());
 

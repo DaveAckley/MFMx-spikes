@@ -17,6 +17,7 @@
 
 namespace MFM {
 
+#if 0
   /** T6-wide NoC x NRI Assignments
 
             NoC 0                 NoC 1
@@ -43,6 +44,7 @@ namespace MFM {
         +-------------------+ +-------------------+
    */
 
+#endif
   static constexpr u32 NOC0_ROUTER_CFG_2 = 0xffb2'010C; //< stg for state incoming to SE
   static constexpr u32 NOC0_ROUTER_CFG_4 = 0xffb2'0114; //< stg for state incoming to SW
   static constexpr u32 NOC1_ROUTER_CFG_2 = 0xffb3'010C; //< stg for state incoming to NW
@@ -80,6 +82,7 @@ namespace MFM {
     return true;
   }
 
+#if 0
   void funcWriteNRIAddress(u32 noc, u32 nri, u32 byteOffset, u32 value) {
     volatile u32 * p = funcGetNRIAddress(noc, nri, byteOffset);
     if (false)
@@ -98,11 +101,11 @@ namespace MFM {
 
     writeNRIAddress(NRI_NOC_TARG_ADDR_LO, mSourceL1); // 32 bit address of source
     writeNRIAddress(NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromU8CCoord(mSourceCoord0));
+    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(mSourceCoord0));
 
     writeNRIAddress(NRI_NOC_RET_ADDR_LO, mDestL1);   // 32 bit address of dest
     writeNRIAddress(NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromU8CCoord(mDestCoord0));
+    writeNRIAddress(NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(mDestCoord0));
 
     writeNRIAddress(NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
     writeNRIAddress(NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)
@@ -113,6 +116,7 @@ namespace MFM {
     writeNRIAddress(NRI_NOC_CMD_CTRL,1);             // initiate write
     return true;
   }
+#endif
 
   u32 CornerEW::load(S8C center, Corner4 c4) {
     mEWOriginCC = center; // in corner coords
@@ -185,7 +189,7 @@ namespace MFM {
                  mNoC, mNRI, c4Info(),
                  value, value);
     } else if (byteoffset == 8) {
-      U8C dc = U8C::makeU8CFromNoCNodeId(value);
+      U8C dc = U8C::makeNoCCoordFromNoCNodeId(value);
       if (false)
         P.printf("wRA %d.%d %s+8:%x,%d(%d,%d)\n",
                  mNoC, mNRI, c4Info(),
@@ -275,7 +279,7 @@ namespace MFM {
               c4Info(),
               mSourceCoord0.x,mSourceCoord0.y,
               mDestCoord0.x,mDestCoord0.y,
-              U8C::makeNoCNodeIdFromU8CCoord(mDestCoord0));
+              U8C::makeNoCNodeIdFromNoCCoord(mDestCoord0));
 
     P.printf("%sPEWI\n",c4Info());
     mShipEWConfig.mSourceL1 = (u32) &cornerEWs[mRingCorner];
@@ -310,8 +314,8 @@ namespace MFM {
 
     U8C destOnNoC = mDestCoord0;
     if (/*doh*/false && mNoC != 0u)
-      destOnNoC = U8C::makeU8CRawT6CoordFromOtherNoC(destOnNoC);
-    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromU8CCoord(destOnNoC));
+      destOnNoC = U8C::makeNoCCoordFromOtherNoC(destOnNoC);
+    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destOnNoC));
 
     u32 niu_cfg_0 = readNIUAddress(0x100);
     P.printf("cfnoc %d.%d %x %s@0x%08x da:*0x%08x (%d,%d) DON (%d,%d)\n",

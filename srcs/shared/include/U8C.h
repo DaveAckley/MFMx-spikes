@@ -14,6 +14,8 @@ namespace MFM {
     U8C(u8 ax, u8 ay) : x(ax), y(ay) { }
     U8C(S8C s) ;
 
+    void reset() { x = y = 0u; }
+
     u32 manhattanDistance(const U8C & other) const {
       return
         ((x < other.x) ? other.x - x : x - other.x) +
@@ -22,6 +24,7 @@ namespace MFM {
     bool operator==(const U8C & other) const { return x==other.x && y==other.y; }
     U8C operator/(const U8C & other) const { return U8C(x / other.x, y / other.y); }
     U8C operator%(const U8C & other) const { return U8C(x % other.x, y % other.y); }
+    U8C operator+(const U8C & other) const { return U8C(x + other.x, y + other.y); }
     U8C operator+(const S8C & s8) const ;
     bool addTo(const S8C & s8) ;
 
@@ -31,13 +34,31 @@ namespace MFM {
         ",y=" + std::to_string(y) + ">";
     }
 
-    static U8C makeU8CRawT6CoordFromOtherNoC(U8C otherNoCCoord) {
+    static U8C makeNoCCoordFromOtherNoC(U8C otherNoCCoord) {
       otherNoCCoord.x = 16u-otherNoCCoord.x;
       otherNoCCoord.y = 11u-otherNoCCoord.y;
       return otherNoCCoord;
     }
 
-    static U8C makeU8CRawT6CoordFromTLBI(uint32_t tlbidx) {
+    static U8C makeNoC0CoordFromCT6Coord(U8C ct6c) { //< or (255,255) if invalid
+      if (!onBoardCT6Coord(ct6c)) return U8C(255,255);
+      U8C ret = ct6c;
+      ret.x++;
+      if (ret.x > 7u) ret.x += 2u;
+      ret.y += 2u;
+      return ret;
+    }
+
+    static U8C makeCT6CoordFromNoC0Coord(U8C nocc) { //< or (255,255) if !T6
+      if (!isNoC0CoordAT6(nocc)) return U8C(255,255);
+      U8C ct6 = nocc;
+      ct6.y -= 2u;
+      if (ct6.x > 9u) ct6.x -= 2u;
+      ct6.x--;
+      return ct6;
+    }
+
+    static U8C makeCT6CoordFromTLBI(uint32_t tlbidx) {
       U8C ret;
       ret.x = tlbidx%14u;
       ret.y = tlbidx/14u;
@@ -45,11 +66,22 @@ namespace MFM {
     }
 
     static U8C makeU8CNoCCoordFromTLBI(uint32_t tlbidx) {
-      U8C ret = makeU8CRawT6CoordFromTLBI(tlbidx);
+      U8C ret = makeCT6CoordFromTLBI(tlbidx);
       ret.x++;
       if (ret.x > 7u) ret.x += 2u;
       ret.y += 2u;
       return ret;
+    }
+
+    static bool onBoardCT6Coord(U8C c) { return c.x < 14 && c.y < 10; }
+
+    static bool onBoardNoC0Coord(U8C nocc) { return nocc.x <= 16u && nocc.y <= 11u; }
+
+    static bool isNoC0CoordAT6(U8C nocc) {
+      if (nocc.y < 2u || nocc.y > 11u) return false;
+      if (nocc.x < 1u || nocc.x > 16u) return false;
+      if (nocc.x > 7u && nocc.x < 10u) return false;
+      return true;
     }
 
     /** TLBI-only computation works regardless of NoC coords */
@@ -67,7 +99,7 @@ namespace MFM {
       return U8C(16u-c.x, 11u-c.y);
     }
 
-    static u32 makeTLBIFromRawU8CCoord(U8C c) {
+    static u32 makeTLBIFromCT6Coord(U8C c) {
       u32 ret = c.y*14u + c.x;
       return ret;
     }
@@ -76,18 +108,18 @@ namespace MFM {
       c.y -= 2u;
       if (c.x > 9u) c.x -= 2u;
       c.x--;
-      return makeTLBIFromRawU8CCoord(c);
+      return makeTLBIFromCT6Coord(c);
     }
 
     static u32 makeTLBIFromNoC1Coord(U8C c) {
       return makeTLBIFromNoC0Coord(switchNoCCoord(c));
     }
 
-    static u32 makeNoCNodeIdFromU8CCoord(U8C c) {
+    static u32 makeNoCNodeIdFromNoCCoord(U8C c) {
       return (u32) (((c.y&0x3f)<<6)|(c.x&0x3f));      
     }
 
-    static U8C makeU8CFromNoCNodeId(u32 nodeid) {
+    static U8C makeNoCCoordFromNoCNodeId(u32 nodeid) {
       U8C ret;
       ret.x = nodeid&0x3f;
       ret.y = (nodeid>>6)&0x3f;

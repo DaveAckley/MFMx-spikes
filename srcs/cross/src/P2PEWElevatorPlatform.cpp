@@ -64,11 +64,13 @@ namespace MFM {
 
     {
       static u32 once = 0;
-      if (once % 1000 == 0) {
-        et.notice("%d P2PEWP.upd call %d/%d\n",++once,mCurrentCarIdx,mCarCount);
+      if (once++ % 1000 == 0) {
+        //XXX_DEBUG_FUNC(__FILE__,__LINE__);
+        //et.notice("%d P2PEWP.upd call %d/%d\n",once,mCurrentCarIdx,mCarCount);
       }
     }
 
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     bool ret = false;
     for (u32 c = 0u; c < mCarCount; ++c) {
       EWCar& car = mCars[c];
@@ -83,6 +85,8 @@ namespace MFM {
         car.setCarState(CarState::INBOUND_DEPARTED, CarType::STANDARD);
         continue;
       }
+
+      //      XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
       if (!car.isComplete()) {     // urgh we could be racing with inbound delivery or outbound shipping prep
         CarSig hdr = car.getHeader(); 
@@ -152,6 +156,7 @@ namespace MFM {
         break;
       }
     }
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return ret;
   }
 }

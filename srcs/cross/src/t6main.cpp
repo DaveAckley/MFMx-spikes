@@ -22,10 +22,10 @@ namespace MFM {
   //  ImageBlock theImageBlock __attribute__ ((section(".imageblock"))) = {
 #define DECLARE_THE_IMAGE_BLOCK(IMAGECODE,ENTRIES)                      \
   ImageBlockT<ENTRIES> theImageBlock __attribute__ ((section(".imageblock"))) = { {  \
-      .mIBMagic = ImageBlockHeader::IBMAGIC,                             \
+      .mIBMagic = ImageBlockHeader::IBMAGIC,                            \
       .mImageCode = IMAGECODE,                       \
-      .mImageEdoc = (IMAGECODE)^0xff,                \
-      .mEntries = ENTRIES \
+      .mEntries = ENTRIES                            \
+      .mIBCheck = (IMAGECODE)^(ENTRIES<<2u)          \
     } }
     
   DECLARE_THE_IMAGE_BLOCK(0xea,18);
@@ -43,7 +43,9 @@ namespace MFM {
       hb.mPos.x = 0x3f;
       }*/
     hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mPos.x,hb.mPos.y});
+    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     t6InitPrinters(hb,theT6ElevatorTransport);
+    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return 0;
   }
 

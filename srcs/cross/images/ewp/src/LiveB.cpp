@@ -99,14 +99,16 @@ namespace MFM {
   T6Grid theT6Grid;
 
   int liveB(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
-    DP.printf("SZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    DP.printf("EWPSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
     typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
     u8 spin = 0u;
+    if (false) {
     // XXX TEST EWLOCKER
     T6EWLocker::Entry lentry;
     bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
@@ -116,9 +118,12 @@ namespace MFM {
               lentry.mPosition.y,
               lentry.mWhenAllocated,
               '.');
-
+    }
     while (true) {
-      if (++spin == 0) hb.hartbeat(fAll.mHartNum);
+      if (++spin == 0) {
+        hb.hartbeat(fAll.mHartNum);
+        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+      }
       EWCar * ewc = ewp.getCurrentCarIfAny();
       if (ewc) {
         if (ewc->getCarState() != CarState::OPEN) {
@@ -126,7 +131,10 @@ namespace MFM {
           continue;
         }
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("hBRND %d\n",createBits(10));
+          DP.printf("ewphBRND IoH %d CrBu %08x > %02x\n",
+                    fAll.mInspirationOnHand,
+                    fAll.mCreativityBuffer,
+                    createBits(8));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,

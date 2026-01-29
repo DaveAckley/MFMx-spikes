@@ -37,9 +37,11 @@ namespace MFM {
   }
 
   int hartMainT1(HostBlock & hb) {
-    DP.printf("T1@(%u,%u)\n", hb.mPos.x, hb.mPos.y);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //DP.printf("T1@(%u,%u)\n", hb.mPos.x, hb.mPos.y);
     MFM_API_ASSERT_ON_HART(HARTNUM_T1);
     preloadT2Mailbox();
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     DP.printf("CEW+%u,%d <%d:%08x>\n",
               sizeof(CornerEW),
               (s32) (offsetof(CornerEW,mFooter) - offsetof(CornerEW,mWaister)),
