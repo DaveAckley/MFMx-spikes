@@ -15,6 +15,7 @@ set(CROSS_COMPILER_OPTIONS
   -Wno-unused-function   # let ld sort it out
   -Wno-missing-field-initializers   # too many to be worth it?
   -Werror                # die on warnings for now
+  -Wno-array-bounds      # just too many false positives on this?
   # Add any other host-specific C++ flags here
 )
 
@@ -35,6 +36,7 @@ target_sources(crosslib PUBLIC
   src/P2PEWElevatorPlatform.cpp
   src/P2PLogElevatorPlatform.cpp
   src/Printf.cpp
+  src/T6CellO.cpp
   src/T6ElevatorTransport.cpp
   src/T6Grid.cpp
   src/T6ImageBlock.cpp

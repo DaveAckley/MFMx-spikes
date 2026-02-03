@@ -4,6 +4,7 @@
 pybind11_add_module(MFMx src/mfmx_wrapper.cpp)
 
 target_sources(MFMx PRIVATE
+    src/BGRImage.cpp
     src/BHLog.cpp
     src/BHTag.cpp
     src/BlackHole.cpp

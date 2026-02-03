@@ -2,7 +2,7 @@
 #include "Fail.h"
 #include <fcntl.h>
 #include <fstream>
-#include "HostUtils.h" // for sleepUsec
+#include "HostUtils.h" // for sleepUsec, strcmp
 #include "FailStrings.h" // for sleepUsec
 #include "t6-exports.h" // for transportblock_*
 #include "BlockCode.h"
@@ -53,7 +53,7 @@ namespace MFM {
 
   void BlackHole::phaseAdvance() {
     BHLog & bhl = BHLog::getTheBHLog();
-    Eprintf("(%u) advancing from %u\n",bhl.getThrId(),(u32) mCurrentPhase);
+    Eprintf("%d(%u) advancing from %u\n",mCardNum,bhl.getThrId(),(u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
@@ -94,7 +94,8 @@ namespace MFM {
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
 
-      BHLOGprintf("<BlackHole:%u> allocated %u (per T6) host RAM\n", mCardNum, HOST_RAM_PER_BH);
+      BHLOGprintf("<BlackHole:%u> allocated %u (per T6) host RAM\n",
+                  mCardNum, HOST_RAM_PER_BH);
       break;
 
     case Phase::HAS_ALLOCATED_HOST_RAM:
@@ -129,6 +130,11 @@ namespace MFM {
         HOST_FATAL(ILLEGAL_STATE,"Failed to release the fleet");
       break;
 
+    case Phase::HAS_T6_CODE_RUNNING:
+      BHLOGprintf("<BlackHole:%u> event window processing begun\n", mCardNum);
+      mCurrentPhase = Phase::HAS_T6_EVENT_WINDOWS;
+      break;
+      
     default:
       HOST_FATAL(ILLEGAL_STATE,"Unhandled phase %d", mCurrentPhase);
     }
@@ -210,7 +216,12 @@ namespace MFM {
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<BlackHole:%u> (fleet reset to stop running code)\n", mCardNum);
       break;
-      
+
+    case Phase::HAS_T6_EVENT_WINDOWS:
+      mCurrentPhase = Phase::HAS_T6_CODE_RUNNING;
+      BHLOGprintf("<BlackHole:%u> event window processing ceased\n", mCardNum);
+      break;
+
     default:
       HOST_FATAL(ILLEGAL_STATE,"Unhandled retreat from %d",mCurrentPhase);
     }
@@ -255,8 +266,8 @@ namespace MFM {
   }
 
   bool BlackHole::allocateHostRAM() {
-    constexpr bool cTRANSPORTBLOCKFITS = HOST_RAM_PER_BH >=
-      (T6::transportblock_log_size + T6::transportblock_ew_size);
+    constexpr bool cTRANSPORTBLOCKFITS =
+      HOST_RAM_PER_BH >= MIN_GTEED_HOST_RAM_PER_BH;
     COMPILATION_REQUIREMENT<cTRANSPORTBLOCKFITS>();
     mOurTLBs.allocateHostRAM(HOST_RAM_PER_BH);
     return true;
@@ -310,7 +321,7 @@ namespace MFM {
                         (MFM::u32) (i/aMILLION),
                         &this->mOurTLBs);
         }
-        this->mOurTLBs.updateTransports();
+        this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
       }
       Eprintf("TransportThread (%u) OUT %s\n",bhl.getThrId(),myGILState());
     });

@@ -1,5 +1,12 @@
 #pragma once  /* -*- C++ -*- */
 
+/* USES 'strcmp_s'
+   HOST:   #include "HostUtils.h"
+   CROSS:  #include "CrossUtils.h"
+
+   before: #include "BlockCode.h"
+*/
+
 #include "itype.h"
 
 namespace MFM {
@@ -12,10 +19,24 @@ namespace MFM {
     IC_ZOT = 5,                //< another scratch image
   };
 
+#define BLOCKCODE_LIST()                     \
+  XX(LOGCARS,LogCarStorage)                  \
+  XX(EWCARS,EWCarStorage)                    \
+  XX(CELLBLOCK,CellBlock)                    \
+  XX(EWHUB,EWHub[8])
+
+#define XX(NAME,TYPE) \
+  BC_##NAME,
+  
   enum BlockCode {
     BC_RSRV_ILL = 0,
-    BC_LOGCARS,                 //< LogCarStorage theLogCarStorage
-    BC_EWCARS,                  //< EWCarStorage theEWCarStorage
+    BLOCKCODE_LIST()
+    BC_BLOCKCODE_COUNT
   };
+
+#undef XX
+
+  const char * getNameFromBlockCode(BlockCode b) ;
+  BlockCode getBlockCodeFromName(const char * n) ;
 }
 

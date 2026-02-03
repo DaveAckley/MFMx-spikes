@@ -21,8 +21,8 @@ namespace MFM {
       } while (hi1 != hi2);
       return (((u64) hi1)<<32u)|lo;
     }
-    u32 shadowImageBlock[4];
-    u8 shadowImageCode;
+    //u32 shadowImageBlock[4];
+    //u8 shadowImageCode;
   };
   FAST_LOCAL(FastT0,fT0,t0);
 
@@ -32,6 +32,7 @@ namespace MFM {
   static int liveT0(HostBlock & hb) /*__attribute__ ((optimize("O2")))*/;
 
   u32 lastMillisChange;
+#if 0
   static void dumpIBOnChange() {
 #pragma GCC diagnostic push 
 #pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh
@@ -64,8 +65,10 @@ namespace MFM {
     }
 #pragma GCC diagnostic pop
   }
+#endif
 
   int liveT0(HostBlock & hb) {
+#if 0
 #pragma GCC diagnostic push 
 #pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh
     {
@@ -79,6 +82,7 @@ namespace MFM {
       lastMillisChange = totalMillisElapsed;
     }
 #pragma GCC diagnostic pop
+#endif
     DP.printf("T0:RND %d\n",create(100));
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
@@ -86,7 +90,7 @@ namespace MFM {
 
     u16 spin = 0u;
     while (true) {
-      dumpIBOnChange(); // XXX Let's get right on this..
+      //dumpIBOnChange(); // XXX Let's get right on this..
       if (++spin == 0) hb.hartbeat(fAll.mHartNum);
       u64 now = FastT0::readDebugTimestamper(); // pound away at the timestamper!
       u64 cycles = now - fT0.debugTimestamperStart;
@@ -97,7 +101,7 @@ namespace MFM {
         totalMillisElapsed = (u32) ((1000 * cycles) / hb.mAIClockFrequency);
       { static u32 once = 0;
         if (once < 60) {
-          if (false && totalMillisElapsed >= 1000*once) {
+          if (true && totalMillisElapsed >= 10000*once) {
             DP.printf("%d T0#%d %uMHz %us %u ticks",
                       once,hb.mTLBI,hb.mAIClockFrequency/1'000'000u,totalMillisElapsed/1000u,t0TicksElapsed);
             once += between(1u,10u);
@@ -121,7 +125,7 @@ namespace MFM {
   int hartMainT0(HostBlock & hb) {
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    //preloadT2Mailbox();
+    preloadT2Mailbox();
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     XXX_DEBUG_FUNC(__FILE__,__LINE__);

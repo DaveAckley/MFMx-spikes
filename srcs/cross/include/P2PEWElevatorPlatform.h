@@ -1,5 +1,5 @@
 #pragma once /* -*- C++ -*- */
-#include "P2PEWElevatorPlatform.h"
+
 #include "BaseCar.h"
 #include "AtomicLock.h"
 #include "TransportBlock.h"

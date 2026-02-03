@@ -5,11 +5,6 @@ namespace MFM {
 
   /// SERVICES FOR OTHER HARTS:
   u32 createByMail() {
-    // XXXX DEBUG
-    static u32 HOHORANDO;
-    return HOHORANDO = 1235u*HOHORANDO + 2467u;
-    // XXXX DEBUG
-    
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     u32 ret =  *((volatile u32 *) (MAILBOX_BASE_T2+0u)); // BLOCKING READ
     *((volatile u32 *) (MAILBOX_BASE_T2+0u)) = 1u;       // WRITE REQUEST for next number
@@ -28,9 +23,20 @@ namespace MFM {
 
   struct FastT2 {
     RandMT mRandom;
+    typedef RingBuffer<u32,4> RandomBuffer;
+    RandomBuffer mRandomBuffer;
+    void fillRandomBuffer() {
+      while (!mRandomBuffer.isFull())
+        mRandomBuffer.add(mRandom.randomMT());
+    }
+    u32 mBlocked;
+    u32 getFromRandomBuffer() {
+      u32 ret;
+      while (!mRandomBuffer.remove(ret)) { ++mBlocked; }
+      return ret;
+    }
   };
   FAST_LOCAL(FastT2,fT2,t2);
-  //  FastT2 fT2; // STICK IN L1?
 
   static volatile bool mT2Serving = false; 
   static AtomicLock t2ServingLock;
@@ -55,9 +61,11 @@ namespace MFM {
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
+#if 0
     //DP.printf("&fT2=0x%08x+%d\n",&fT2,sizeof(fT2));
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return; /// XXXXXXXDEBUG
+#endif
 
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     while (!randomServerReady()) { }
@@ -123,21 +131,20 @@ namespace MFM {
     // so we can safely push once and not block.)
 
     initT2();
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);    
 
-    u16 spin = 0u;
+    u32 spin = 0u;
     while (true) {
-      if (spin++ == 0u) {
+      fT2.fillRandomBuffer();
+      if ((spin++ & 0xfffff) == 0u) {
         hb.hartbeat(fAll.mHartNum);
-        //        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+        if (fT2.mBlocked > 0) DP.printf("RNDBLOCKED %d %d\n", spin, fT2.mBlocked);
       }
       for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
         u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);
         bool canread = *((volatile u32 *) (addr+4u)); // TRYREAD
         if (!canread) continue;
         u32 toss = *((volatile u32 *) (addr+0u)); // READ, discard
-        *((volatile u32 *) (addr+0u)) = fT2.mRandom.randomMT(); // WRITE
-        XXX_DEBUG_FUNC(__FILE__,__LINE__);    
+        *((volatile u32 *) (addr+0u)) = fT2.getFromRandomBuffer(); // WRITE
       }
     }
     return 0u; // NOT REACHED
@@ -159,13 +166,15 @@ namespace MFM {
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
+#if 0
     for (u32 i = 0u; true; ++i) { // DEBUG NO LIVEXXX AT ALL FOR ANYBODY
       if ((i & 0xfffff)==0) {
         XXX_DEBUG_FUNC(__FILE__,__LINE__);
         hb.hartbeat(fAll.mHartNum);
       }
     }
-
+#endif
+    
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

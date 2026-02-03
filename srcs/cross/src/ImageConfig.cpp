@@ -14,10 +14,10 @@ namespace MFM {
 #define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE)      \
     { /* ImageBlockAddr m##BLOCK_CODE */                                \
     .mIBAMagic = ImageBlockAddr::IBA_MAGIC,                             \
-    .mBlockType = BlockCode::BLOCK_CODE,                                \
+    .mBlockCode = BlockCode::BLOCK_CODE,                                \
     .mArrayLength = ARRAY_LEN,                                          \
-    .mFlagsOrSomeShit = 0,                                              \
-    .mBlockAddr = (u32) (void*) &(GLOBAL_VAR),                          \
+    .mHostChunkOffsetOpt = U8_MAX, /* assume no host mapping */         \
+    .mBlockAddr = (u32) (void*) &(GLOBAL_VAR[0]),                       \
   },
 
 #define XIC_END_IMAGE_BLOCK(IMAGE_NAME) }; /* IMAGE_NAME##Entries */    \

@@ -27,7 +27,7 @@ namespace MFM {
 
     OurTLBs() ;
     LogCarStorage::LogCar * getLogCarHost(u32 tlbi, u32 carnum) ;
-    bool updateTransports() ;
+    bool updateTransports(bool includeEWs) ;
     void updateLogCars(unsigned tlbi) ;
     void updateEWCars(unsigned tlbi) ;
     u32 getLogCarT6(u32 tlbi, u32 carnum) ;
@@ -83,15 +83,17 @@ namespace MFM {
     struct TLBInfo {
       struct tenstorrent_allocate_tlb_out mAllocOut;
       const T6Image *  mDeployedImage;
+      u32 mLogTransportBlockStart;
+      //u32 mLogCars;
+      u32 mEWTransportBlockStart;
       u32 mRemoteBaseAddress;
       u8 mFailStatus;
       u8 mNextLogCarIndex;
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
 
-      void setDeployedImage(const T6Image & img) {
-        mDeployedImage = &img;
-      }
+      void setDeployedImage(const T6Image & img) ;
+
       const T6Image * getDeployedImageIfAny() const {
         return mDeployedImage;
       }

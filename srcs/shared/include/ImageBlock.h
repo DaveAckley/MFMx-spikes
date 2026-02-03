@@ -6,30 +6,40 @@
 #include "S8C.h"
 
 namespace MFM {
+  extern void memset_s(void*, u8, u32) ;
+
   struct ImageBlockAddr {
     static constexpr u8 IBA_MAGIC = 0xba;
     u8 mIBAMagic;
-    u8 mBlockType;
+    u8 mBlockCode;
     u8 mArrayLength;
-    u8 mFlagsOrSomeShit;
+    u8 mHostChunkOffsetOpt;     // if this != 255, host maps iba blockcode to noc + this*64
     u32 mBlockAddr;
+
+    bool isValid() const {
+      return
+        mIBAMagic == IBA_MAGIC &&
+        mBlockCode != 0u;
+    }
 
     static ImageBlockAddr make(u8 type, u8 len, u32 addr) {
       ImageBlockAddr iba;
       iba.init(type,len,addr);
       return iba;
     }
-    void init(u8 type, u8 len, u32 addr) {
+    void reset() { memset_s(this,'\0',sizeof(*this)); }
+    
+    void init(u8 blockcode, u8 len, u32 addr) {
       mIBAMagic = IBA_MAGIC;
-      mBlockType = type;
+      mBlockCode = blockcode;
       mArrayLength = len;
-      mFlagsOrSomeShit = 0;
+      mHostChunkOffsetOpt = U8_MAX; //< assume no host/ mapping
       mBlockAddr = addr;
     }
 
     bool goodMagic() const { return mIBAMagic == IBA_MAGIC; }
 
-    u8 getBlockType() const { return mBlockType; }
+    u8 getBlockCode() const { return mBlockCode; }
 
     u32 getBlockAddr() const { return mBlockAddr; }
 
@@ -82,13 +92,36 @@ namespace MFM {
       if (!isValid()) return 0u;
       return mEntries;
     }
+
+    ImageBlockAddr findIBAIfAny(u8 blockcode) const {
+      ImageBlockAddr ret;
+      ret.reset();
+      u8 ec = getEntriesCount();
+      for (u8 i = 0u; i < ec; ++i) {
+        const ImageBlockAddr *piba = getImageBlockAddressIfAny(i);
+        if (piba) {
+          ImageBlockAddr iba = *piba;
+          if (iba.mBlockCode == blockcode) {
+            ret = iba;
+            break;
+          }
+        }
+      }
+      return ret;
+    }
+
+    const ImageBlockAddr * getImageBlockAddressIfAny(u8 entrynum) const {
+      if (!isValid() || entrynum >= getEntriesCount()) return 0;
+      const ImageBlockAddr * firstiba = (const ImageBlockAddr*) (((const u8*) this)+sizeof(*this));
+      return firstiba + entrynum;
+    }
+
   };
 
   template<unsigned COUNT> struct ImageBlockT : public ImageBlockHeader {
     ImageBlockAddr mBlocks[COUNT];
   };
 
-  //  extern ImageBlock theImageBlock;
 }
 
 #endif /*IMAGEBLOCK_H*/

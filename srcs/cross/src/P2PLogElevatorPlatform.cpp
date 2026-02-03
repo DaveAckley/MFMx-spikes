@@ -1,5 +1,4 @@
 #include "P2PLogElevatorPlatform.h"
-#include <string.h>
 #include "Fail.h"
 #include "FATAL.h"
 #include "BaseCar.h"

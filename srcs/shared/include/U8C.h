@@ -22,6 +22,7 @@ namespace MFM {
         ((y < other.y) ? other.y - y : x - other.y);
     }
     bool operator==(const U8C & other) const { return x==other.x && y==other.y; }
+    U8C operator*(const U8C & other) const { return U8C(x * other.x, y * other.y); }
     U8C operator/(const U8C & other) const { return U8C(x / other.x, y / other.y); }
     U8C operator%(const U8C & other) const { return U8C(x % other.x, y % other.y); }
     U8C operator+(const U8C & other) const { return U8C(x + other.x, y + other.y); }

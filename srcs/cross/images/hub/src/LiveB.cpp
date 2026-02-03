@@ -99,20 +99,14 @@ namespace MFM {
   }
 
   T6Grid theT6Grid;
+  EWCarStorage theEWHub[8];
 
   int liveB(HostBlock & hb) {
-    //    DP.printf("HUBSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    DP.printf("HUBSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    DP.printf("EWHUBSZ(%u) of %u\n", sizeof(theEWHub), sizeof(EWCarStorage));
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-          {
-            u32 * ibu = (u32*) &theImageBlock;
-            DP.printf("POURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
-                      &ibu[0],ibu[0],
-                      &ibu[1],ibu[1],
-                      &ibu[2],ibu[2]);
-          }
+    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
  if (false) { // TEST BLOCKING L1 READS
       DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
@@ -154,7 +148,7 @@ namespace MFM {
 
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
-    u8 spin = 0u;
+    u32 spin = 0u;
     if (false) {
     // XXX TEST EWLOCKER
     T6EWLocker::Entry lentry;
@@ -168,7 +162,14 @@ namespace MFM {
 
     }
     while (true) {
-      if (++spin == 0) hb.hartbeat(fAll.mHartNum);
+      if ((++spin & 0x1fffff) == 0) {
+        hb.hartbeat(fAll.mHartNum);
+        if (false) DP.printf("hubhBRND IoH %d CrBu %08x > %02x (atm%d)\n",
+                  fAll.mInspirationOnHand,
+                  fAll.mCreativityBuffer,
+                  createBits(8),
+                  fB.mEWsAttempted);
+      }
       EWCar * ewc = ewp.getCurrentCarIfAny();
       if (ewc) {
         if (ewc->getCarState() != CarState::OPEN) {
@@ -176,10 +177,6 @@ namespace MFM {
           continue;
         }
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("hubhBRND IoH %d CrBu %08x > %02x\n",
-                    fAll.mInspirationOnHand,
-                    fAll.mCreativityBuffer,
-                    createBits(8));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,

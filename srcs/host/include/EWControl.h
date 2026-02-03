@@ -11,7 +11,9 @@
 #include "S32C.h"
 #include "S8C.h"
 #include "U8C.h"
+#include "U16C.h"
 #include "STVL.h"
+#include "BGRImage.h"
 
 #include <time.h>     /* For time() */
 
@@ -47,7 +49,7 @@ namespace MFM {
     static constexpr s32 GRID_XMAX = (GRID_WIDTH+1)/2;
     static constexpr s32 GRID_YMAX = (GRID_HEIGHT+1)/2;
     
-    typedef STVL<GRID_XMIN,GRID_YMIN,GRID_XMAX,GRID_YMAX,4u,5'000'000u> EWLocker;
+    typedef STVL<GRID_XMIN,GRID_YMIN,GRID_XMAX,GRID_YMAX,4u,1'000'000u> EWLocker;
     EWLocker mEWLocker;
 
     std::atomic<bool> mEWsActive;
@@ -137,6 +139,10 @@ namespace MFM {
 
     std::string_view renderGridWindow(S32C corner, S32C size, s32 zoom) ;
 
+    std::string_view renderGraphicsGridWindow(S32C pixelsize, s32 zoom) ;
+
+    BGRImageHD & renderGraphicsGridWindowToImage() ;
+
     bool pickEWCenter(S32C & occupied, EWLocker::Entry & token) ;
 
     void fillEW(S32C center, EventWindow & ew) ;
@@ -181,6 +187,13 @@ namespace MFM {
       u8c.def_readwrite("y", &U8C::y);
       u8c.def("__repr__",&U8C::to_repr);
 
+      py::class_<U16C> u16c(m,"U16C");
+      u16c.def(py::init<>());
+      u16c.def(py::init<const u8,const u8>());
+      u16c.def_readwrite("x", &U16C::x);
+      u16c.def_readwrite("y", &U16C::y);
+      u16c.def("__repr__",&U16C::to_repr);
+
       py::class_<S8C> s8c(m,"S8C");
       s8c.def(py::init<>());
       s8c.def(py::init<const s8,const s8>());
@@ -212,6 +225,7 @@ namespace MFM {
       ewc.def("getGridSize",&EWControl::getGridSize);
       ewc.def("randomCoordInBounds",&EWControl::randomCoordInBounds);
       ewc.def("renderGridWindow",&EWControl::renderGridWindow);
+      ewc.def("renderGraphicsGridWindowToImage",&EWControl::renderGraphicsGridWindowToImage, py::return_value_policy::reference);
       ewc.def("statsLine",&EWControl::statsLine);
       ewc.def("pickEWCenter",[](EWControl & ewc) {
         S32C ret;

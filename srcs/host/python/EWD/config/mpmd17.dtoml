@@ -1,15 +1,17 @@
 # -*- mode: conf-toml; -*-
+# Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
 # Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
 
 [Config]
- activeLayout=zot10
+ activeLayout=std3x3
+# activeLayout=zot10
 # activeLayout=allone
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [layout.allone]
   bhcards = [2]
   defaultImage = ZOT
-  card.all = C1X1_ONE
+  cell.all = C1X1_ONE
 
 [cell.C1X1_ONE]
   size = [1,1]
@@ -36,6 +38,11 @@
   size = [3,3]
   fill = EWP
   image.1.1 = HUB
+
+[cell.C3X3Z]
+  size = [3,3]
+  fill = EWP
+  image.1.1 = HUB
   image.2.2 = ZOT
 
 [cell.C7X2]
@@ -53,8 +60,13 @@
   defaultImage = EWP
   fill = C7X2
   
+[layout.std3x3]
+  bhcards = [1,2]
+  defaultImage = EWP
+  fill = C3X3
+
 [layout.zot10]
   bhcards = [2]
   defaultImage = EWP
-  fill = C3X3
+  fill = C3X3Z
   

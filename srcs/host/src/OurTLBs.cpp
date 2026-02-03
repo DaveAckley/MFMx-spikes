@@ -182,7 +182,8 @@ namespace MFM {
 
   u32 OurTLBs::getLogCarT6(u32 tlbi, u32 carnum) {
     MFM_API_ASSERT_NONNULL(mMapAll);
-    u32 base = MFM::T6::transportblock_log_start;
+    const TLBInfo & info = getTLBInfo(tlbi);
+    u32 base = info.mLogTransportBlockStart; // WAS: MFM::T6::transportblock_log_start;
     u32 logcarsize = sizeof(MFM::LogCarStorage::LogCar);
     return base+carnum*logcarsize;
   }
@@ -290,7 +291,7 @@ namespace MFM {
                destAddr+4u*i,
                words[i]);
       u32 ow = destOffsetWords+i;
-      if (ow >= 0 && ow <= 8)
+      if (false && ow >= 0 && ow <= 8)
         Eprintf("(%u) da:%x+%dw WRITONG 0x%08x to 0x%x\n",
                 tlbi, destAddr, wordCount, words[i], ow<<2);
 
@@ -328,6 +329,27 @@ namespace MFM {
     MFM_API_ASSERT(tlbi < AHAX_TLB2M_COUNT, ARRAY_INDEX_OUT_OF_BOUNDS);
     return mTLBInfos[tlbi];
   }
+
+  void OurTLBs::TLBInfo::setDeployedImage(const T6Image & img) {
+    mDeployedImage = &img;
+    {
+      ImageBlockAddr * ibap = img.getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_LOGCARS);
+      if (ibap && ibap->isValid()) {
+        mLogTransportBlockStart = ibap->getBlockAddr();
+      } else {
+        mLogTransportBlockStart = 0u;
+      }
+    }
+    {
+      ImageBlockAddr * ibap = img.getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_EWCARS);
+      if (ibap && ibap->isValid()) {
+        mEWTransportBlockStart = ibap->getBlockAddr();
+      } else {
+        mEWTransportBlockStart = 0u;
+      }
+    }
+  }
+  
 
   void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
     unsigned ismulti = range.area() > 1u;
@@ -409,7 +431,7 @@ namespace MFM {
         lb.reset();           // clean the car (even if it was officially empty?)
         lc.setCarState(CarState::OUTBOUND_DEPARTED,CarType::EMPTY); // ship an empty
         { // APPARENTLY IT'S TIME TO ACTUALLY SHIP THIS MOFO
-          u32 destByteAddr = T6::transportblock_log_start + car * sizeof(lc);
+          u32 destByteAddr = tin.mLogTransportBlockStart + car * sizeof(lc);
           // empty case is 2 words only - header + footer
           if (true) // but for now let's NOT not and say we did
             writeToWords(tlbi, destByteAddr, (u32*) &lc, 2u); 
@@ -426,11 +448,34 @@ namespace MFM {
   }
 
   void OurTLBs::updateEWCars(unsigned tlbi) {
+    TLBInfo & info = getTLBInfo(tlbi);
+    const T6Image * image = info.getDeployedImageIfAny();
+
+    // Only send events to actual images..
+    if (!image) {
+      Eprintf("EW skipping %u - no image\n",tlbi);
+      return;
+    }
+    // ..that have BC_EWCARS blocks
+    if (info.mEWTransportBlockStart == 0u) {
+      Eprintf("EW skipping %u - EW cars\n",tlbi);
+      return;
+    }
+
+    /*
+    Eprintf("EW GO on %u vs %u\n", image->getImageCode(), ImageCode::IC_EWP);
+    if (image->getImageCode() != ImageCode::IC_EWP) {
+      Eprintf("EW mism %u != %u\n", image->getImageCode(), ImageCode::IC_EWP);
+      return;
+    }
+    */
+
+    
     pinned_host_buffer_t& buf = mPinnedHostBuf;
     void * hostmem = buf.host_ptr;
     u64 hostnocaddr = buf.noc_addr;
 
-    u32 t6offset = tlbi * mT6BufferSize + T6::transportblock_log_size; // ewblock is after logblock
+    u32 t6offset = tlbi * mT6BufferSize + info.mEWTransportBlockStart; 
     void * pert6addr = ((char*)hostmem) + t6offset;
 
     EWCarStorage & stg = *(EWCarStorage*) pert6addr;
@@ -486,10 +531,10 @@ namespace MFM {
         static u32 loops = 0u;
         constexpr u32 PERIOD = 100'000u;
 
+        EWBlock & eb = ec.getContent();
         if (ewc.tryLoadEWCar(ec)) {
 
           if ((loops++ % PERIOD) == 0u) {
-            EWBlock & eb = ec.getContent();
             LOGprintf(mDevCardNum,"<BH:%d> %u OPNLODE EW#%d[%d,%d] @ %d (%d,%d)!\n",
                       mDevCardNum,
                       loops/PERIOD,
@@ -498,7 +543,17 @@ namespace MFM {
                       eb.mHiddenYPos,
                       tlbi, addr.x, addr.y);
           }
-          
+
+          {
+            P4Atom a = eb.mOld.getAtom(0u);
+            if (a.getType() == P4Atom::START_TYPE)
+              Eprintf("<BH:%d> CLOSEEWSTART (%d,%d) ts=%f to noc(%u,%u)\n",
+                      mDevCardNum,
+                      eb.mHiddenXPos, eb.mHiddenYPos,
+                      secondsSinceStart(eb.mSTVLTime),
+                      addr.x, addr.y);
+          }
+
           ec.setCarState(CarState::CLOSED,CarType::STANDARD);
         }
         continue;
@@ -507,17 +562,30 @@ namespace MFM {
       if (ec.getCarState() == CarState::CLOSED) {
         // IT'S TIME TO SHIP THIS MOFO
         // BUT ONLY IF WE'RE EVENT WINDOWS ACTIVE
-        if (ewc.isActive()) {
+        if (!ewc.isActive()) {
+          Eprintf("<BlackHole:%d> tlbi%u: want to ship but not active\n",
+                  mDevCardNum, tlbi);
+        } else /*ewc.isActive()*/ {
           ec.setCarState(CarState::OUTBOUND_DEPARTED,CarType::STANDARD); 
 
-          u32 destByteAddr = T6::transportblock_ew_start + car * sizeof(ec);
-          if (false)
-            LOGprintf(mDevCardNum,"<BlackHole:%d> %d SHIPPING EW#%d(%d) TO [0x%08x..0x%08x) @ %d (%d,%d)!\n",
-                      mDevCardNum, mEWsShipped,
-                      car, ec.getCarState(),
-                      destByteAddr, destByteAddr+sizeof(ec),
-                      tlbi, addr.x, addr.y);
+          u32 destByteAddr = info.mEWTransportBlockStart + car * sizeof(ec);
+
           writeToWords(tlbi, destByteAddr, (u32*) &ec, sizeof(ec)>>2); 
+          {
+            P4Atom a = eb.mOld.getAtom(0u);
+            if (a.getType() == P4Atom::START_TYPE) {
+              Eprintf("<BH:%d> SHIPTEWSTART (%d,%d) ts=%f to noc(%u,%u)\n",
+                      mDevCardNum,
+                      eb.mHiddenXPos, eb.mHiddenYPos,
+                      secondsSinceStart(eb.mSTVLTime),
+                      addr.x, addr.y);
+              LOGprintf(mDevCardNum,"<BlackHole:%d> %d SHIPPING EW#%d(%d) TO [0x%08x..0x%08x) @ %d (%d,%d)!\n",
+                        mDevCardNum, mEWsShipped,
+                        car, ec.getCarState(),
+                        destByteAddr, destByteAddr+sizeof(ec),
+                        tlbi, addr.x, addr.y);
+            }
+          }          
           ++mEWsShipped;
         }
         continue;
@@ -535,10 +603,10 @@ namespace MFM {
     }
   }
 
-  bool OurTLBs::updateTransports() {
+  bool OurTLBs::updateTransports(bool includeEWs) {
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       updateLogCars(tlbi);
-      updateEWCars(tlbi);
+      if (includeEWs) updateEWCars(tlbi);
     }
     //XXX BURN BABY BURNNNNN:
     sleepUsec(10);

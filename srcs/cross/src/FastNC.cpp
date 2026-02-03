@@ -1,6 +1,7 @@
 #include "FastNC.h"
 #include "FastLocal.h"
 #include "TransportBlock.h"
+#include "CellBlock.h"
 #include "Printf.h"
 //#include "NoCs.h"
 #include "S8C.h"
@@ -9,13 +10,14 @@
 namespace MFM {
   T6ElevatorTransport theT6ElevatorTransport;
 
-  LogCarStorage theLogCarStorage __attribute__ ((section(".transportblocklog")));
+  LogCarStorage theLogCarStorage[1] __attribute__ ((section(".transportblocklog")));
   EWCarStorage theEWCarStorage __attribute__ ((section(".transportblockew")));
 
   TransportBlock theTransportBlock __attribute__ ((section(".transportblock"))) = {
     .mLogCarStorageT6Ptr = (u32) &theLogCarStorage,
     .mEWCarStorageT6Ptr = (u32) &theEWCarStorage,
   };
+  CellBlock theCellBlock[1] __attribute__ ((section(".crossrodata")));
 
   struct FastNC {
     void init() { }
@@ -34,7 +36,6 @@ namespace MFM {
         DIEWAY();
         hb.hartbeat(fAll.mHartNum);
         DIEWAY();
-        XXX_DEBUG_FUNC(__FILE__,__LINE__);
       }
 
       DIEWAY();

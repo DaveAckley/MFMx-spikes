@@ -33,6 +33,15 @@ namespace MFM {
   };
 
   struct T6ImageBlock {
+    static constexpr u32 IMAGE_BLOCK_ADDRESS = 0x14;
+
+    //#pragma GCC diagnostic push 
+    //#pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh
+    static ImageBlockHeader & getTheImageBlock() {
+      return *(ImageBlockHeader*) (volatile u32*) IMAGE_BLOCK_ADDRESS;
+    }
+    //#pragma GCC diagnostic pop
+
     ImageBlockHeader readHeader(T6Neighbor & ctn) ;
     
 #if 0

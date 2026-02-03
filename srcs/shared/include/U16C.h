@@ -2,10 +2,17 @@
 #define U16C_H
 
 #include "itype.h"
+#include <string>
 
 namespace MFM {
   struct U16C {
     u16 x, y;
+
+    std::string to_repr() const {
+      return
+        std::string("<U16:x=") + std::to_string(x) +
+        ",y=" + std::to_string(y) + ">";
+    }
 
     bool operator==(const U16C other) const {
       return x == other.x && y == other.y;

@@ -109,6 +109,7 @@ class EWD(App):
     self.key = "EWDA"
     self.logkt(self.key,f"FEEED {self.theRTMPFeed}")
     self.configureImageManager()
+
     # INIT ADVANCED AUTONUKE TECHNOLOGY
     self.fireCount = 0
     self.fireBig = False
@@ -172,6 +173,14 @@ class EWD(App):
   def configureImageManager(self):
     self.config.load()
     im = self.imageManager
+    modict = self.config.hash.get('module',{})
+    for k,v in modict.items():
+      hm = im.makeHostModule(k)
+      for b in v.get('blocks',[]):
+        hm.requireCommBlockNamed(b)
+        print("REBONGO",hm,b)
+      print("MODFONG",k,v,hm)
+
     cdict = self.config.hash['image']
     keys = []
     for k,v in cdict.items():
@@ -236,6 +245,13 @@ class EWD(App):
           c = 255 if c == 'all' else int(c)
           print("CD",c,cellname)
           lay.addCell(c, cellname)
+      modules = l.get('hostModules',[])
+      print("MODS",modules)
+      for hmname in modules:
+        hm = im.getHostModule(hmname) # or bang
+        lay.addHostModule(hm)
+        print("HMLAYMO",lay,hm)
+          
     cfgdict = self.config.hash['Config']
     act = cfgdict['activeLayout']
     im.setActiveLayout(act)
@@ -255,6 +271,10 @@ class EWD(App):
     al = self.im.getActiveLayout()
     bhcards =  al.getActiveBHCards()
     print("ASKLSQALK",al,bhcards)
+
+    print("DUUUUMPPERCONFIG")
+    dumper.dump(self.config)
+
     #dumper.dump(self)
     self.bhs = [ MFMx.BlackHole(i) for i in bhcards ]
     self.ewc = MFMx.EWControl.getEWControl()
@@ -455,7 +475,7 @@ class EWD(App):
     self.theRTMPFeed.sendGraphicsFrame(frameNP,simnanos,f"{self.scriptName}/{self.mfmxVersion}") 
 
 if __name__ == "__main__":
-  c = Config.Config(__file__,"config/mpmd17.dtoml")
+  c = Config.Config(__file__,"config/mpmd18.dtoml")
   dumper.dump(c)
   app = EWD(c)
   app.run()

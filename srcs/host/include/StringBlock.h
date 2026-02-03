@@ -82,7 +82,7 @@ namespace MFM {
       return true;
     }
 
-    void init(S32C dims) {
+    void init(S32C dims, u8 fillByte = ' ') {
       if (dims != mDims) {
         clear();
         mDims = dims;
@@ -91,7 +91,7 @@ namespace MFM {
         mBytes = new char [mLen+1]; // +1 for null
       }
       mFillPos = 0u;
-      memset_s(mBytes,' ',mLen);
+      memset_s(mBytes,fillByte,mLen);
       for (u32 r = 0u; r < mDims.y; ++r) {
         mBytes[r*mRowLen+0] = '>'; // DEBUG
         mBytes[r*mRowLen+mDims.x-1] = '|'; // DEBUG

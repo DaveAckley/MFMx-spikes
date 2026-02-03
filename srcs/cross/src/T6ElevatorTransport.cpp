@@ -25,7 +25,7 @@ namespace MFM {
   EWCarMetadata theEWCarMetadata;
 
   void T6ElevatorTransport::init(HostBlock & hb, TransportBlock & tb) {
-DIEWAY();
+    //DIEWAY();
 // SHOWADDR(hb);
 // SHOWADDR(tb);
     mHostBlockPtr = &hb;

@@ -2,11 +2,21 @@
 from mfmx import MFMx
 import tomlikey as tomli
 import hashlib
+import os
 
 class Config:
-    def __init__(self, name, path):
-        self.name = name
-        self.path = path
+    def __init__(self, scriptpath, path):
+        self.scriptpath = scriptpath
+        self.name = os.path.basename(self.scriptpath).removesuffix(".py")
+        self.path = ""
+        for cdir in (".",os.path.dirname(os.path.abspath(self.scriptpath))):
+            confpath = f"{cdir}/{path}"
+            if os.path.isfile(confpath):
+                self.path = confpath
+                break
+        if not self.path:
+            print(f"No config file found for '{path}'")
+            exit(6)
         self.reset()
 
     def reset(self):

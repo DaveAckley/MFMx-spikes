@@ -4,6 +4,7 @@
 #include "S32C.h"
 #include "OurMutex.h"
 #include "TimeDefs.h"
+#include "HostUtils.h"
 
 /** Dave's Cheezo Fixed-Radius Near Neighbors implementation.
     Cheezoifications include:
@@ -27,6 +28,16 @@ struct STVL {
       return
         mPosition == other.mPosition &&
         mWhenAllocated == other.mWhenAllocated;
+    }
+    std::string to_repr() const {
+      std::string ret = "<Entry p=";
+      ret.append(mPosition.to_repr());
+      ret.append(" ts=");
+      TimeStamp nowts = std::chrono::steady_clock::now();
+      double diff = secondsSinceStart(nowts);
+      ret.append(std::to_string(diff));
+      ret.append(">");
+      return ret;
     }
   };
   

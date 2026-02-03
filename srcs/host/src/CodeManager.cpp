@@ -96,7 +96,7 @@ namespace MFM {
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
         const u32 MINWORD = 4u;
         const u32 MAXWORD = 9u;
-        if (word >= MINWORD && word <= MAXWORD)
+        if (false && word >= MINWORD && word <= MAXWORD)
           LOGprintf(mCardNum,"IMGBLOCKREREAD 0x%x:0x%08x\n",word<<2u,data);
         if (codewords[word] != data) {
           ++misses;
@@ -104,7 +104,7 @@ namespace MFM {
                     mCardNum, tlbi, misses, word<<2, data, codewords[word]);
         } else {
           ++hits;
-          if (word >= MINWORD && word <= MAXWORD)
+          if (false && word >= MINWORD && word <= MAXWORD)
             LOGprintf(mCardNum,"%3d. Hit %2d on 0x%x:0x%08x\n",tlbi, hits, word<<2, data);
         }
       }
@@ -345,7 +345,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mCardNum, tlbi);
     //bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
-    Eprintf("BH%d:(%u,%u) IMCO %s sz%d hb0x%08x\n",
+    if (false) Eprintf("BH%d:(%u,%u) IMCO %s sz%d hb0x%08x\n",
             mCardNum,nocc.x,nocc.y,
             t6i.getName().c_str(),
             t6i.getBinFileSize(),
@@ -361,7 +361,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         flag[i] = word[i] == codewords[(0x14>>2)+i] ? ' ' : '>';
         if (flag[i] == '>') anyfail = true;
       }
-      Eprintf("BH%d:(%u,%u) %s %s"
+      if (false) Eprintf("BH%d:(%u,%u) %s %s"
               "%c0x%x:0x%08x"
               "%c0x%x:0x%08x"
               "%c0x%x:0x%08x"

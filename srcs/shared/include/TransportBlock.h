@@ -86,7 +86,7 @@ namespace MFM {
     static constexpr u32 CAR_COUNT = 16u;
     LogCar mLogCars[CAR_COUNT];
   };
-  extern LogCarStorage theLogCarStorage;
+  extern LogCarStorage theLogCarStorage[1];
   
   struct LogCarMetadata {
     LogCarMetadata() {
@@ -98,7 +98,7 @@ namespace MFM {
 
   struct EWCarStorage {
     typedef BaseCar<EWBlock> EWCar;
-    static constexpr u32 CAR_COUNT = 4u;
+    static constexpr u32 CAR_COUNT = 2u;
     EWCar mEWCars[CAR_COUNT];
   };    
 

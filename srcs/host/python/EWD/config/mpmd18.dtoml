@@ -1,0 +1,80 @@
+# -*- mode: conf-toml; -*-
+# Thu Feb 12 12:23:10 2026 Consider adding multimage host config here
+# Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
+# Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
+
+[Config]
+ activeLayout=std3x3
+# activeLayout=zot10
+# activeLayout=allone
+ bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
+
+[layout.std3x3]
+  bhcards = [1,2]
+  defaultImage = EWP
+  fill = C3X3
+  hostModules = [AcceptLogging,OriginateEWs]
+
+[module.AcceptLogging]
+  blocks = [BC_LOGCARS]
+
+[module.OriginateEWs]
+  blocks = [BC_EWCARS]
+
+[layout.hub10]
+  bhcards = [2]
+  defaultImage = EWP
+  card.all = C2X2               #alias: fill = C2X2
+
+[layout.hub11]
+  bhcards = [1,3]
+  defaultImage = EWP
+  fill = C7X2
+  
+[layout.zot10]
+  bhcards = [2]
+  defaultImage = EWP
+  fill = C3X3Z
+  
+[layout.allone]
+  bhcards = [2]
+  defaultImage = ZOT
+  cell.all = C1X1_ONE
+
+[cell.C1X1_ONE]
+  size = [1,1]
+  image.all.all = ZOT
+
+[image.EWP]
+  binfile="ewp.bin"
+  code=1
+
+[image.HUB]
+  binfile="hub.bin"
+  code=2
+
+[image.ZOT]
+  binfile="zot.bin"
+  code=5
+
+[cell.C2X2]
+  size = [2,2]
+  image.all.all = EWP   #alias: fill = EWP
+  image.0.0 = HUB
+
+[cell.C3X3]
+  size = [3,3]
+  fill = EWP
+  image.1.1 = HUB
+
+[cell.C3X3Z]
+  size = [3,3]
+  fill = EWP
+  image.1.1 = HUB
+  image.2.2 = ZOT
+
+[cell.C7X2]
+  size = [7,2]
+  fill = EWP
+  image.3.0 = HUB
+

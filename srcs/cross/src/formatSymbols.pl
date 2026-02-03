@@ -19,9 +19,10 @@ BY $path
 #include "itype.h"
 namespace MFM::T6 {
   inline const char * getMFMxModuleVersion() { return "MFMx-$timestamp"; }
+#if 0 /* BEGIN: ENTIRE SOURCE-CODE ADDRESS-PASSING CONCEPT IS DEPRECATED */
 EOM
 } 
-END { print "}\n" } 
+END { print "#endif /* 0 END DEPRECATION */\n}\n" } 
 /^([0-9a-fA-F]+) .*?__((transportblock|hostblock|imageblock).*?)$/ && print "  static const u32 $2 = 0x$1;\n";
 
     

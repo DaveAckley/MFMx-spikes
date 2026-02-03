@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <inttypes.h>
 
+#include "HostUtils.h"
 #include "OurTLBs.h"
 #include "T6Image.h"
 #include "CodeManager.h"
@@ -17,7 +18,6 @@
 //#include "P2PElevator.h"
 #include "TransportBlock.h"
 #include "HostBlock.h"
-#include "HostUtils.h"
 
 #include "t6-exports.h"
 
@@ -28,15 +28,19 @@ int spikeMain() {
   MFM::u64 initmillis;
 
   MFM::Eprintf("PHASE-------Pre-startup\n");
+#if 0 /* T6 block info DEPRECATED. USE ImageBlock->TLBInfo */
   MFM::Eprintf("T6-TRANSPO-INFO at 0x%08x, len %u/0x%x\n",
          MFM::T6::transportblock_all_start,
          MFM::T6::transportblock_all_size,
          MFM::T6::transportblock_all_size);
+#endif
 
   MFM::Eprintf("millis %ld\n", initmillis);
 
+#if 0 /* DEPRECATED DITTO */
   MFM::Eprintf("LogCarStoragePtr is at 0x%08x\n", MFM::T6::transportblock_log_start);
   MFM::Eprintf("EWCarStoragePtr is at 0x%08x\n", MFM::T6::transportblock_ew_start);
+#endif
 
   MFM::Eprintf("sizeof(HostBlock) = %lu\n",sizeof(MFM::HostBlock));
   //  printf("sizeof(myPlatform) = %lu\n",sizeof(MFM::myPlatform));
@@ -72,7 +76,7 @@ int spikeMain() {
       const MFM::u64 aBILLION = 1'000'000'000ul;
       if (i % aBILLION == 0)
         MFM::Eprintf("\n\n YAMINDA transport thread yo %uG %p\n\n",(MFM::u32) (i/aBILLION),  &ourTLBs);
-      ourTLBs.updateTransports();
+      ourTLBs.updateTransports(true);
     }
   });
 

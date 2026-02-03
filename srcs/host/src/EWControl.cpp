@@ -3,11 +3,13 @@
 #include <time.h>     /* For time() */
 #include "MDist.h"
 #include "StringBlock.h"
+#include "U16C.h"
 
 namespace MFM {
 
   thread_local HostRandom myPRNG;
   thread_local StringBlock ewRenderBlock;
+  thread_local BGRImageHD ewGraphicsRenderBlock;
   thread_local std::string statsLineBuffer;
 
   EWControl EWControl::theEWControl;
@@ -30,7 +32,8 @@ namespace MFM {
   
   void EWControl::runEWThread() {
     while (mEWRunnerThreadAlive.load()) {
-      if (false && mEWsActive.load()) {
+      if (false // need this? EWPs trigger by empty car arrivals from the sticks, not here
+          && isActive()) {
         // Do some? events
         // DEBUG: Try to allocate using STVL!
         S32C center(myPRNG.Between(GRID_XMIN,GRID_XMAX),
@@ -50,14 +53,14 @@ namespace MFM {
   EWControl::~EWControl() {
     {
       OurScopeLock guard(mEWRunnerThreadMutex);
-      mEWsActive.store(false);
+      setActive(false);
       mEWRunnerThreadAlive.store(false);
     }
     mEWRunnerThreadPtr->join();
   }
 
   void EWControl::initGrid() {
-    mEWsActive = false;
+    setActive(false);
     mMin = {-5,-5};
     mMax = {+5,+5};
     memset_s(mGrid, 0u, sizeof(mGrid));
@@ -101,12 +104,13 @@ namespace MFM {
   }
 
   bool EWControl::pickEWCenter(S32C & occupied, EWLocker::Entry & token) {
+    if (!isActive()) return false; // don't even try now
     u32 area = (mMax.x - mMin.x)*(mMax.y - mMin.y);
     // try sampling for a 
     bool nothingYet = true;
     for (u32 i = 0u;
-         (i < area/5u) ||
-           (nothingYet && i < 2u*area); ++i) {
+         (i < area/2u) ||
+           (nothingYet && i < 3u*area); ++i) {
       S32C c = randomCoordInBounds();
       u16 t = getAtom(c).getType();
       if (t != P4Atom::EMPTY_TYPE &&
@@ -115,14 +119,18 @@ namespace MFM {
         nothingYet = false;
         if (mEWLocker.tryLock(c,token)) {
           // we got the lock!
+          ++mEventCount;
           ++mEWCentersBySampling;
           occupied = c;
           ++mEventCentersPicked;
+          if (t == P4Atom::START_TYPE) {
+            Eprintf("EWSTART (%s) %s\n",c.to_repr().c_str(),token.to_repr().c_str());
+          }
           return true;
         } else ++mEventCentersLockedOut;
       }
     }
-#if 1
+#if 0
     // fall back to enumeration
     u32 count = 0u;
     for (s32 x = mMin.x; x <= mMax.x; ++x) {
@@ -140,14 +148,15 @@ namespace MFM {
 
     if (count > 0u) {
       if (mEWLocker.tryLock(occupied,token)) {
+        ++mEventCount;
         ++mEWCentersByEnumeration;
         ++mEventCentersPicked;
         return true;
       }
       ++mEventCentersLockedOut;
     }
-    return false;
 #endif
+    return false;
   }
 
   std::string_view EWControl::statsLine() const {
@@ -200,6 +209,13 @@ namespace MFM {
     eb.mHiddenYPos = ctr.y;
     eb.mSTVLTime = token.mWhenAllocated;
     fillEW(ctr,eb.mOld);
+    {
+      P4Atom a = eb.mOld.getAtom(0u);
+      if (a.getType() == P4Atom::START_TYPE)
+        Eprintf("LOADEWSTART (%d,%d) ts=%f\n",
+                eb.mHiddenXPos, eb.mHiddenYPos,
+                secondsSinceStart(eb.mSTVLTime));
+    }
     eb.mNew.reset();
     return true;
   }
@@ -323,18 +339,61 @@ namespace MFM {
         S32C sgmax = sgcoord + ssize - 1;
 
         s64 sval = (dby == 0) ? sgcoord.x : sgcoord.y;
-        bool neg = sval < 0;
-        u64 val = neg ? -sval : sval;
-        std::string num = size4(val);
-        if (neg) num = "-"+num;
-        //num = "*"+num;
-        
-        sb.put2D(dtcoord,num);
+        std::string num;
+        if (true) {
+          num = "["+std::to_string(sval)+"]";
+        } else {
+          bool neg = sval < 0;
+          u64 val = neg ? -sval : sval;
+          num = size4(val);
+          if (neg) num = "-"+num;
+          //num = "*"+num;
+        }
+        sb.put2D(dtcoord,num,true);
       }
     }
     
     return sb.asSV();
   }
+
+  std::string_view EWControl::renderGraphicsGridWindow(S32C pixelsize, s32 zoom) {
+    BGRImageHD & bgr = renderGraphicsGridWindowToImage();
+    return bgr.asSV();
+  }
+
+  BGRImageHD & EWControl::renderGraphicsGridWindowToImage() {
+    BGRImageHD & bgr = ewGraphicsRenderBlock;
+
+    U16C size = bgr.gridSize();
+    bgr.reset();
+    U16C idx;
+    RGBPix c;
+    for (idx.y = 0u; idx.y < size.y; ++idx.y) {
+      for (idx.x = 0u; idx.x < size.x; ++idx.x) {
+        S32C gc(idx.x + GRID_XMIN, idx.y + GRID_YMIN);
+        P4Atom a = getAtom(gc);
+        u16 t = a.getType();
+        switch (t) {
+        case P4Atom::EMPTY_TYPE: continue;
+        case 5u: // MAXFB
+          {
+            constexpr u32 slowBits = 1u;
+            u32 val = a.mStg[1]; // get hidden counter
+            u8 rd = (val>>0+slowBits)&0xf; rd = (rd-8)*(rd-8);
+            u8 gd = (val>>4+slowBits)&0xf; gd = (gd-8)*(gd-8);
+            u8 bd = (val>>8+slowBits)&0xf; bd = (bd-8)*(bd-8);
+            c.set(50u+3u*rd,50u+3u*gd,50+3u*bd);
+            break;
+          }
+        case P4Atom::INACCESSIBLE_TYPE: c.set(0x30,0x40,0x50); break;
+        default:
+          c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
+        }
+        bgr.setPixel(idx, c);
+      }
+    }
+    return bgr;
+  }  
 
 #if 0
   std::string_view EWControl::renderGridWindowOLD(S32C scorner, S32C ssize, s32 zoom) {

@@ -75,6 +75,7 @@ namespace MFM {
     bool unconfigureTLBs() ;
 
     static const u32 HOST_RAM_PER_BH = 1u<<13;
+    static const u32 MIN_GTEED_HOST_RAM_PER_BH = 1u<<13;
     bool allocateHostRAM() ;
     bool deallocateHostRAM() ;
 
@@ -149,6 +150,7 @@ namespace MFM {
       //bh.def("setMFMxDefaultCodePath", &BlackHole::setMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
       bh.def("layoutImages", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); },py::call_guard<py::gil_scoped_release>());
       bh.def("startMachine", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
+      bh.def("startEWProcessing", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_EVENT_WINDOWS); },py::call_guard<py::gil_scoped_release>());
       //
 
       bh.def("runSlowScans", &BlackHole::runSlowScans,py::call_guard<py::gil_scoped_release>());
@@ -157,6 +159,7 @@ namespace MFM {
         return BHTag(TagType::T6TADR,cardnum, col, row);
       },py::call_guard<py::gil_scoped_release>());
 
+      bh.def("stopEWProcessing", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
       bh.def("stopMFMxCode", [](BlackHole& b) { b.changePhase(Phase::HAS_T6_TILES_RESET); },py::call_guard<py::gil_scoped_release>());
       bh.def("clearMFMxDefaultCodePath", &BlackHole::clearMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
       bh.def("deallocateHostRAM", [](BlackHole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_HOST_RAM-1)); },py::call_guard<py::gil_scoped_release>());

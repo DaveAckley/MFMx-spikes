@@ -7,8 +7,18 @@ namespace MFM {
     memset(addr,byte,count); // don't have explicit_bzero in libs I'm using?
   }
 
-  //extern void XXX_DEBUG_FUNC(const char * file, u32 line) __attribute__ ((used)) ;
+  int strcmp_s(const char *s1, const char *s2) {
+    MFM_API_ASSERT(s1 && s2,ILLEGAL_ARGUMENT);
+    while (*s1 && *s2) {
+      int d = *s1++ - *s2++;
+      if (d) return d;
+    }
+    if (*s1) return 1;
+    if (*s2) return -1;
+    return 0;
+  }
 
+  //extern void XXX_DEBUG_FUNC(const char * file, u32 line) __attribute__ ((used)) ;
 
   static u8 * getu8fog(u32 p) {
     volatile union { u32 a; u8 * b; } c;
@@ -31,20 +41,26 @@ namespace MFM {
   }
 
   void XXX_MAYBE_DIE_FUNC(const char * file, u32 line, u32 & count) {
+    constexpr bool PRINT_FIRST = false;
     ++count;
     u32 val = *getu32fog(0x14+4);
-    if (val == 0x000101ba) return;
+    bool good = (val == 0x000101ba);
                              
+    if ((PRINT_FIRST && count == 1) || !good) {
     const char * suf = stripDirs(file);
-    DP.printf("%s:%d:(%d,%d,%s)XGDIE#%d\n",
+    DP.printf("%s:%d:(%d,%d,%s)XG%s#%d %x\n",
               suf, line,
               fAll.mPos.x, fAll.mPos.y,
               hartName(fAll.mHartNum),
-              count);
-    t6hang(DIE_WAY);
+              good?"OK":"DIE",
+              count,
+              val);
+    }
+    if (!good)
+      t6hang(DIE_WAY);
   }
 
-  void XXX_DEBUG_FUNC(const char * file, u32 line) {
+  void XXX_DEBUG_FUNC_DOIT(const char * file, u32 line) {
     if (fAll.mPos.x == 2u && fAll.mPos.y == 3u) {
       //#pragma GCC diagnostic push 
       //#pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh

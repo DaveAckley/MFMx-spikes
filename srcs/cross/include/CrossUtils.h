@@ -1,9 +1,9 @@
 #pragma once /* -*- C++ -*- */
 
 #include "itype.h"
-#include <string.h>
 
-#define DIEWAY() DIEWAYDOIT()
+/// SEE NOTE BELOW ABOUT XXX_MAYBE_DIR_FUNC
+#define DIEWAY() /*DIEWAYDOIT()*/
 #define DIEWAYDOIT() do {                       \
   static u32 count;                             \
   XXX_MAYBE_DIE_FUNC(__FILE__,__LINE__,count);  \
@@ -23,11 +23,18 @@
   _Pragma("GCC diagnostic pop")                 \
   } while (0)                                 
 
+#define XXX_DEBUG_FUNC(...) /* XXX_DEBUG_FUNC_DOIT(__FILE__,__LINE__) */
+
 namespace MFM {
   void memset_s(void* addr, u8 byte, u32 count) ;
 
-  void XXX_DEBUG_FUNC(const char * file, u32 line) ;
+  int strcmp_s(const char *s1, const char *s2) ;
 
+  void XXX_DEBUG_FUNC_DOIT(const char * file, u32 line) ;
+
+  /*** NOTE: XXX_MAYBE_DIE_FUNC IS HARDCODED TO ONE IMAGIC CONSTANT
+       IT IS NOT NOT NOT NOT FOR GENERAL USE
+   ***/
   void XXX_MAYBE_DIE_FUNC(const char * file, u32 line, u32& count);
 
   const char * stripDirs(const char * path, u32 dircount = 2u);

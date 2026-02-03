@@ -6,6 +6,7 @@
 #include "T6Image.h" 
 #include "HostUtils.h" 
 #include "ImageManager.h" 
+#include "BGRImage.h" 
 #include "t6-exports.h" // for getMFMxModuleVersion()
 
 namespace py = pybind11;
@@ -40,5 +41,8 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the bullshit non-singleton access-to-ImageManager class
   MFM::NSIM::pybindings(m);
+
+  // Expose the BGRImageHD class
+  MFM::BGRImageHD::pybindings(m);
 
 }

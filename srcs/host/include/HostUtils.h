@@ -2,7 +2,6 @@
 
 #include <itype.h>
 #include <cstdio>
-#include <string>
 #include <string.h>
 
 #include "BHTag.h"
@@ -17,9 +16,12 @@ namespace MFM {
     else memset(addr,byte,count);
   }
 
+  int strcmp_s(const char * s1, const char * s2) ;
+
   void initHostUtils() ; //< CALL ONCE, VERY EARLY..
 
   u32 millisElapsed() ;
+  double secondsSinceStart(TimeStamp tothis) ;
   double runTimeSeconds() ;
 
   std::string size4(u64 amt);

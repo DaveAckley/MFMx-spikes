@@ -103,10 +103,15 @@ namespace MFM {
             hdr.mCarState != CarState::INBOUND_DEPARTED) {   // shipping out in progress, just wait?
     DIEWAY();
           CarSig fut = car.getFooter();
-          et.notice("(%d,%d)BADCAR#%d h:%02x%02x.%02x%02x f:%02x%02x.%02x%02x \n",
-                    fAll.mPos.x,fAll.mPos.y, c,
-                    hdr.mCarMagic, hdr.mCarNonce, hdr.mCarState, hdr.mCarType,
-                    fut.mCarMagic, fut.mCarNonce, fut.mCarState, fut.mCarType);
+          {
+            static u32 spin;
+            if ((spin++ & 0xfff) == 0u)
+              et.notice("(%d,%d)BADCAR#%d h:%02x%02x.%02x%02x f:%02x%02x.%02x%02x %u\n",
+                        fAll.mPos.x,fAll.mPos.y, c,
+                        hdr.mCarMagic, hdr.mCarNonce, hdr.mCarState, hdr.mCarType,
+                        fut.mCarMagic, fut.mCarNonce, fut.mCarState, fut.mCarType,
+                        spin);
+          }
     DIEWAY();
         }
     DIEWAY();

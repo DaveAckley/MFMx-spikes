@@ -104,13 +104,13 @@ SECTIONS
 
     /* .rodata section: Contains read-only data (e.g., string literals, const variables).
      * Placed immediately after the .text section. */
-/*
     .rodata :
     {
        *(.rodata)             # Read-only data
        *(.rodata.*)
+       *(.crossrodata)        /* Stuff that's rodata on cross/ but messed with on host/ */
     } > L1
-*/
+
     /* .data section: Contains initialized global and static variables.
      * Placed immediately after the .rodata section. */
     .data :

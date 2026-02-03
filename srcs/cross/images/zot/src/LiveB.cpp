@@ -72,12 +72,12 @@ namespace MFM {
       P4Atom & na = ew.mAtoms[ngbsn];
       u32 natype = na.getType();
       if (natype == P4Atom::EMPTY_TYPE) {
-        if (oneIn(500u)) na = ca; // New me!
-        else if (oneIn(50u)) na = P4Atom::makeAtom(PHY_RES);
+        if (oneIn(250u)) na = ca; // New me!
+        else if (oneIn(25u)) na = P4Atom::makeAtom(PHY_RES);
         else ew.swap(0u,ngbsn);
       } else if (natype == PHY_DREG) { // dreg on dreg battle
-        if (oneIn(10u)) na = P4Atom::makeEmptyAtom();
-      } else if (oneIn(20u)) { // general destruction
+        if (oneIn(20u)) na = P4Atom::makeEmptyAtom();
+      } else if (oneIn(40u)) { // general destruction
         na = P4Atom::makeEmptyAtom();
         if (!ew.swap(0u,ngbsn))
           FAIL(USER_REQUESTED_FAILURE); // XXX use swap retval
@@ -111,7 +111,7 @@ namespace MFM {
     typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
-    u8 spin = 0u;
+    u32 spin = 0u;
     if (false) {
       // XXX TEST EWLOCKER
       T6EWLocker::Entry lentry;
@@ -127,7 +127,14 @@ namespace MFM {
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
       DIEWAY();
-      if (++spin == 0) hb.hartbeat(fAll.mHartNum);
+      if ((++spin & 0xfffff) == 0) {
+        hb.hartbeat(fAll.mHartNum);
+        if (false) DP.printf("zothBRND IoH %d CrBu %08x > %02x (atm%d)\n",
+                  fAll.mInspirationOnHand,
+                  fAll.mCreativityBuffer,
+                  createBits(8),
+                  fB.mEWsAttempted);
+      }
       DIEWAY();
       EWCar * ewc = ewp.getCurrentCarIfAny();
       DIEWAY();
@@ -145,10 +152,6 @@ namespace MFM {
         }
         DIEWAY();
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("zothBRND IoH %d CrBu %08x > %02x\n",
-                    fAll.mInspirationOnHand,
-                    fAll.mCreativityBuffer,
-                    createBits(8));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,

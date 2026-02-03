@@ -1,14 +1,19 @@
 #include "HostUtils.h"
 #include <time.h>
+#include <cstring>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <string.h>
 #include <filesystem>
 #include <cxxabi.h>             // for demangle ugh
 #include "BHLog.h"
 
+
 namespace MFM {
+
+  int strcmp_s(const char * s1, const char * s2) {
+    return ::strcmp(s1,s2);
+  }
 
   void sleepUsec(u32 usec) {
     struct timespec ts;
@@ -26,12 +31,16 @@ namespace MFM {
     steadyStartTime = std::chrono::steady_clock::now();
   }
 
-  double runTimeSeconds() {
-    TimeStamp now = std::chrono::steady_clock::now();
+  double secondsSinceStart(TimeStamp tothis) {
     typedef std::chrono::duration<double> dsecs;
-    dsecs secs = dsecs(now - steadyStartTime);
+    dsecs secs = dsecs(tothis - steadyStartTime);
     double seconds = secs.count();
     return seconds;
+  }
+
+  double runTimeSeconds() {
+    TimeStamp now = std::chrono::steady_clock::now();
+    return secondsSinceStart(now);
   }
 
   std::string dateTimeStamp() {

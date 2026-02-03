@@ -6,6 +6,7 @@
 set(SHARED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/srcs/shared)
 # Use CMAKE_CURRENT_SOURCE_DIR here as this file is within 'shared/'
 set(SHARED_SOURCES_LIST
+  ${SHARED_DIR}/src/BlockCode.cpp
   ${SHARED_DIR}/src/Dirs.cpp
   ${SHARED_DIR}/src/FailCodes.cpp
   ${SHARED_DIR}/src/MDist.cpp
