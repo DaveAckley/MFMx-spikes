@@ -20,6 +20,12 @@ if [ "x$1" == "xnuke" ]; then
     shift
     echo -n REALCLEANING---
     rm -rf ${DIR}/${HOST_BUILD_DIR} ${DIR}/${CROSS_BUILD_DIR} ${DIR}/${SHARED_GENERATED_HEADERS_DIR}
+    # ALSO NEW MULTICODE CONFIG DIR
+    # NO CAN'T NUKE THEM THEY ARE HANDMADE
+    # rm -rf ${DIR}/srcs/cross/codes
+    #
+    # NUKE pycaches?
+    rm -rf ${DIR}/srcs/host/python/__pycache__  ${DIR}/srcs/host/python/*/__pycache__
     echo DONE
 fi
 

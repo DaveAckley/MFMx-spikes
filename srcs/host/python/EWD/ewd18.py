@@ -1,5 +1,7 @@
 #!/data/ackley/PART4/code/D/blackholeSpikes/venv/bin/python
+import os
 import time
+from datetime import datetime
 from mfmx import MFMx
 
 import dumper
@@ -94,6 +96,9 @@ def logcb(key,text):
 class EWD(App):
   def __init__(self,config):
     super().__init__()
+    self.scriptDir = os.path.dirname(os.path.abspath(__file__))
+    self.baseDir = os.path.abspath(f"{self.scriptDir}/../../../..")
+    print("BASEDIR",self.baseDir)
     self.config = config
     print("BONGO",self.config)
     self.imageManager = MFMx.ImageManager()
@@ -167,12 +172,19 @@ class EWD(App):
     for k,v in cdict.items():
       imagecode = v['code']
       path = v['binfile']
-      img = im.makeT6Image(k,imagecode,path)
-      self.logkt("KEYK","KONGMO "+k+" "+str(img))
-      self.logkt("KEYK","BINPOS "+k+" "+str(hex(img.getBinWord(5))))
-      self.logkt("KEYK","BINP2S "+k+" "+str(hex(img.getBinWord(6))))
-      self.logkt("KEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
-      keys.append(k)
+      #dumper.dump(self.config)
+      for bindir in self.config.hash['Config']['bindirs']:
+        bd = os.path.abspath(bindir.replace("$script_dir",self.scriptDir,1))
+        if not os.path.isdir(bd): continue
+        maybebinfile = f"{bd}/{v['binfile']}"
+        if os.path.isfile(maybebinfile):
+          imagecode = v['code']
+          img = im.makeT6Image(k,imagecode,maybebinfile)
+          self.logkt("KEYK","KONGMO "+k+" "+str(img))
+          self.logkt("KEYK","BINPOS "+k+" "+str(hex(img.getBinWord(5))))
+          self.logkt("KEYK","BINP2S "+k+" "+str(hex(img.getBinWord(6))))
+          self.logkt("KEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
+          keys.append(k)
     for k in keys:
       img = im.getT6Image(k)
       print("ZANG",k,img,img.getImageCode(),img.getBinFileSize(),img.getBinFilePath())
@@ -231,7 +243,7 @@ class EWD(App):
       self.logkt("ZEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
 
   def run(self):
-    self.logkt("STARTUP",f"RUNNING MFMx VERSION >>> {MFMx.getVersion()} <<<")
+    self.mfmxVersion = MFMx.getVersion()
     import subprocess
     subprocess.run(["/opt/tenstorrent/pipx/bin/tt-smi","-r"])
     self.im = MFMx.ImageManager()
@@ -330,6 +342,8 @@ class EWD(App):
       Called when the app is ready. Sets up the virtual size and
       links the scroll position to the animation widget.
     """
+    scriptname = os.path.basename(__file__).removesuffix(".py")
+    self.title = f"version {scriptname} + {self.mfmxVersion} started {datetime.now().astimezone().isoformat()}"
     self.logkt(self.key,f"on_mount {self}")
     animation_widget = self.query_one("#ascii-animation", AsciiAnimation)
     animation_widget.poslabel = self.query_one("#renderpos", Label)
@@ -417,7 +431,8 @@ class EWD(App):
     self.theRTMPFeed.sendTextFrame(text)
 
 if __name__ == "__main__":
-  c = Config.Config("ewd17","/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/srcs/host/python/EWD/config/mpmd15.dtoml")
+  c = Config.Config(__file__,"/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/srcs/host/python/EWD/config/mpmd16.dtoml")
+  dumper.dump(c)
   app = EWD(c)
   app.run()
 

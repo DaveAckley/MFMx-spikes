@@ -6,8 +6,9 @@
 namespace MFM {
 
   int hartMainB(HostBlock & hb) {
+    DIEWAY();
+
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
-    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
     //DP.printf("B#%d(%d,%d)\n",hb.mTLBI,hb.mPos.x,hb.mPos.y);
 
@@ -17,6 +18,8 @@ namespace MFM {
     //hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+    DIEWAY();
     return liveB(hb);          // go do your hart B thing you
   }
 }

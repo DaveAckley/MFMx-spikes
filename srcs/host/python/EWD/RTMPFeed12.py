@@ -69,7 +69,8 @@ class RTMPFeed:
     def __init__(self,ewd,stream='test'):
         self.ewd = ewd
         self.key = "RT10";
-        self.logo_path = "logo/logotype-lcf-chop-16-yellow-on-transparent-shadow.png"
+        basedir = self.ewd.scriptDir
+        self.logo_path = f"{basedir}/logo/logotype-lcf-chop-16-yellow-on-transparent-shadow.png"
         logo = cv2.imread(self.logo_path,-1) # neg arg to keep alpha
         lw,lh = logo.shape[0:2]
         pctsize=1.48
@@ -94,7 +95,7 @@ class RTMPFeed:
         #self.renderFont = ImageFont.truetype("fonts/JetBrainsMono/ttf/JetBrainsMono-ExtraLight.ttf",18)
 
         self.fontCache = FontCache.FontCache(self.ewd)
-        self.fontCodeBody = self.fontCache.getFontCode("fonts/JetBrainsMono/ttf/JetBrainsMono-Light.ttf",23,
+        self.fontCodeBody = self.fontCache.getFontCode(f"{basedir}/fonts/JetBrainsMono/ttf/JetBrainsMono-Light.ttf",23,
                                                        (230,230,0), (0x12,0x14,0x12))
         # self.fontCodeDate = self.fontCache.getFontCode("fonts/JetBrainsMono/ttf/JetBrainsMono-Bold.ttf",30,
         #                                                (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
@@ -111,9 +112,9 @@ class RTMPFeed:
         # self.fontCodeTime = self.fontCache.getFontCode("fonts/SpaceMono-Regular.ttf",27,
         #                                                (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
 
-        self.fontCodeDate = self.fontCache.getFontCode("fonts/NK57 Monospace Cd Rg.otf",30,
+        self.fontCodeDate = self.fontCache.getFontCode(f"{basedir}/fonts/NK57 Monospace Cd Rg.otf",30,
                                                        (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
-        self.fontCodeTime = self.fontCache.getFontCode("fonts/NK57 Monospace Cd Rg.otf",27,
+        self.fontCodeTime = self.fontCache.getFontCode(f"{basedir}/fonts/NK57 Monospace Cd Rg.otf",27,
                                                        (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
 
         #gather video info to ffmpeg

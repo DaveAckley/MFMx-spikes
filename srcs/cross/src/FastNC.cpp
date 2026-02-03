@@ -23,20 +23,29 @@ namespace MFM {
   };
   FAST_LOCAL(FastNC,fNC,nc);
 
-  static int liveNC(HostBlock & hb) __attribute__ ((optimize("O2")));
+  //static int liveNC(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveNC(HostBlock & hb) {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    u8 spin = 0u;
+    DIEWAY();
+    u16 spin = 0u;
     while (true) {
+      DIEWAY();
       if (++spin == 0) {
+        DIEWAY();
         hb.hartbeat(fAll.mHartNum);
+        DIEWAY();
         XXX_DEBUG_FUNC(__FILE__,__LINE__);
       }
+
+      DIEWAY();
       theT6ElevatorTransport.updateTransportBlock();
+      DIEWAY();
+    
       hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
+      DIEWAY();
       sleepCycles(1'000u);
     }
+    DIEWAY();
     return 0;
   }
 

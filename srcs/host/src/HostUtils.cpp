@@ -29,7 +29,7 @@ namespace MFM {
   double runTimeSeconds() {
     TimeStamp now = std::chrono::steady_clock::now();
     typedef std::chrono::duration<double> dsecs;
-    dsecs secs = std::chrono::duration_cast<dsecs>(now - steadyStartTime);
+    dsecs secs = dsecs(now - steadyStartTime);
     double seconds = secs.count();
     return seconds;
   }

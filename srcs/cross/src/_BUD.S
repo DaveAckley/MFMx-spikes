@@ -48,7 +48,14 @@ b_init:
 	
         ## READY TO ROCK
         la t1, 0xFFB121B0   # RISCV_DEBUG_REG_SOFT_RESET_0
-	sw x0,(t1)          # release all
+	lw t2,(t1)          # Get current flags
+	#li t3, (0xffffffff^(1<<11)) # mask to release only B(11) (already released)
+	#li t3, (0xffffffff^(1<<11)^(1<<18)) # mask to release only B(11) and NC(18)
+	#li t3, (0xffffffff^(1<<11)^(1<<12)^(1<<18)) # mask to release only B(11), T0(12) and NC(18)
+	li t3, (0xffffffff^(1<<11)^(1<<12)^(1<<13)^(1<<14)^(1<<18)) # mask to release B(11) T0-T2 (12-14) and NC(18)     
+        and t2,t2,t3
+	sw t2,(t1)          # release selected
+	# sw x0,(t1)          # release all
         j exit_setup
         ## END OF HARTB-ONLY CODE
 

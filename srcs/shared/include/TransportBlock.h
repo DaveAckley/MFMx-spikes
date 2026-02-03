@@ -73,6 +73,7 @@ namespace MFM {
     EventWindow mOld, mNew;
   private:
     friend class EWControl; // host side only
+    friend class OurTLBs;   // host side only
     s32 mHiddenXPos, mHiddenYPos; // host side use only
     TimeStamp mSTVLTime;          // host side use only
   };

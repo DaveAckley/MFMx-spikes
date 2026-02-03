@@ -2,8 +2,12 @@
 #include "FATAL.h"
 #include "itype.h"
 #include "Printf.h"
+#include "FastLocal.h"
 
 void DieHereNow(signed code,const char * file,unsigned line) {
-  MFM::DP.printf("\n%s:%d:FAIL%d\n",file,line,code); // try to leave a corpse in hostbuffer
+  file = MFM::stripDirs(file);
+  MFM::DP.printf("\n%s:%d:(%d,%d,%s) DIES %d\n",file,line,
+                 MFM::fAll.mPos.x,MFM::fAll.mPos.y,
+                 MFM::hartName(MFM::fAll.mHartNum),code);    // try to leave a corpse in hostbuffer
   t6hang(code);
 }

@@ -10,7 +10,7 @@
 
 namespace MFM {
 
-  extern int liveB(HostBlock & hb) __attribute__ ((optimize("O2")));
+  extern int liveB(HostBlock & hb) /*__attribute__ ((optimize("O2")))*/;
 
   struct FastB {
     EventWindow mFastEW;
@@ -43,6 +43,7 @@ namespace MFM {
     case P4Atom::INACCESSIBLE_TYPE: return false;
 
     case P4Atom::START_TYPE: {
+      DP.printf("IAMI P4Atom::START_TYPE@0x%x\n",(u32) &ca);
       if (hb.mCommonArgs[1] != U16_MAX)
         ca = P4Atom::makeAtom((u16) hb.mCommonArgs[1]);
       else 
@@ -58,6 +59,7 @@ namespace MFM {
 
     case PHY_FB4: {
       ca.mStg[1]++;             // cheat and access underlying u32
+      //ca.mStg[1] ^= 1u;             // cheat and access underlying u32
       for (u32 ngbsn = 1u; ngbsn <= 40u; ++ngbsn) { //MAX FB!
         P4Atom & na = ew.mAtoms[ngbsn];
         na = ca; // kaboom
@@ -99,45 +101,70 @@ namespace MFM {
   T6Grid theT6Grid;
 
   int liveB(HostBlock & hb) {
+    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
+    DIEWAY();
     preloadT2Mailbox();
-    DP.printf("SZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    DIEWAY();
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
+    DP.printf("EWP @ 0x%08x\n",(u32) &ewp);
     typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
     u8 spin = 0u;
-    // XXX TEST EWLOCKER
-    T6EWLocker::Entry lentry;
-    bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
-    DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
-              b,
-              lentry.mPosition.x,
-              lentry.mPosition.y,
-              lentry.mWhenAllocated,
-              '.');
+    if (false) {
+      // XXX TEST EWLOCKER
+      T6EWLocker::Entry lentry;
+      bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
+      DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
+                b,
+                lentry.mPosition.x,
+                lentry.mPosition.y,
+                lentry.mWhenAllocated,
+                '.');
+    }
 
     while (true) {
+      if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
+      DIEWAY();
       if (++spin == 0) hb.hartbeat(fAll.mHartNum);
+      DIEWAY();
       EWCar * ewc = ewp.getCurrentCarIfAny();
+      DIEWAY();
       if (ewc) {
+        DIEWAY();
         if (ewc->getCarState() != CarState::OPEN) {
+          DIEWAY();
+          DIEWAY();
+          DIEWAY();
           ewp.advanceToNextCar();
+          DIEWAY();
+          DIEWAY();
+          DIEWAY();
           continue;
         }
+        DIEWAY();
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("zothBRND %d\n",createBits(10));
+          DP.printf("zothBRND IoH %d CrBu %08x > %02x\n",
+                    fAll.mInspirationOnHand,
+                    fAll.mCreativityBuffer,
+                    createBits(8));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,
                     fB.mEWsFailed,
                     ewp.getCurrentCarIndex());
         }
+        DIEWAY();
+
         EWBlock & ewb = ewc->getContent();
         ++fB.mEWsAttempted;
+        DIEWAY();
         memcpy(&fB.mFastEW,&ewb.mOld,sizeof(EventWindow));
+        DIEWAY();
         if (!updateFastEW(hb)) ++fB.mEWsFailed;
         else {
+          DIEWAY();
           ++fB.mEWsSucceeded;
           { static u32 once;
             if (once < 2) {
@@ -163,6 +190,7 @@ namespace MFM {
             }
           }
         }
+        DIEWAY();
       }
     }
     return 0;

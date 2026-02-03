@@ -13,7 +13,7 @@ namespace MFM {
 
   FAST_LOCAL(FastT1,fT1,t1);
 
-  static int liveT1(HostBlock & hb) __attribute__ ((optimize("O2")));
+  static int liveT1(HostBlock & hb) /*__attribute__ ((optimize("O2"))*/;
 
   int liveT1(HostBlock & hb) {
     u64 spin = 0u;
@@ -49,6 +49,7 @@ namespace MFM {
     DP.printf("T6G(%u,%u)=%d\n",T6GRID_WIDTH,T6GRID_HEIGHT,sizeof(T6Grid));
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     LOG.printf("%s:GO LIVE MAXSTAX %d\n",hartName(fAll.mHartNum),estimateStackUsage());
+
     return liveT1(hb);          // go do your hart t1 thing you
   }  
 }

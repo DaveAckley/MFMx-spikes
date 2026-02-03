@@ -289,6 +289,11 @@ namespace MFM {
                (volatile uint32_t*)(tlbBase + destOffsetWords + i),
                destAddr+4u*i,
                words[i]);
+      u32 ow = destOffsetWords+i;
+      if (ow >= 0 && ow <= 8)
+        Eprintf("(%u) da:%x+%dw WRITONG 0x%08x to 0x%x\n",
+                tlbi, destAddr, wordCount, words[i], ow<<2);
+
       *(volatile uint32_t*)(tlbBase + destOffsetWords + i) = words[i];
     }
   }
@@ -479,15 +484,21 @@ namespace MFM {
       if (ec.getCarState() == CarState::OPEN) {
         //// HANDLE FILLING AN OUTBOUND EW
         static u32 loops = 0u;
-        constexpr u32 PERIOD = 1'000'000u;
-        if ((loops++ % PERIOD) == 0u) 
-          LOGprintf(mDevCardNum,"<BH:%d> %u OPNLODE EW#%d @ %d (%d,%d)!\n",
-                    mDevCardNum,
-                    loops/PERIOD,
-                    car, 
-                    tlbi, addr.x, addr.y);
+        constexpr u32 PERIOD = 100'000u;
 
         if (ewc.tryLoadEWCar(ec)) {
+
+          if ((loops++ % PERIOD) == 0u) {
+            EWBlock & eb = ec.getContent();
+            LOGprintf(mDevCardNum,"<BH:%d> %u OPNLODE EW#%d[%d,%d] @ %d (%d,%d)!\n",
+                      mDevCardNum,
+                      loops/PERIOD,
+                      car, 
+                      eb.mHiddenXPos,
+                      eb.mHiddenYPos,
+                      tlbi, addr.x, addr.y);
+          }
+          
           ec.setCarState(CarState::CLOSED,CarType::STANDARD);
         }
         continue;

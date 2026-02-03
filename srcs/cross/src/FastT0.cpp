@@ -21,15 +21,64 @@ namespace MFM {
       } while (hi1 != hi2);
       return (((u64) hi1)<<32u)|lo;
     }
+    u32 shadowImageBlock[4];
+    u8 shadowImageCode;
   };
   FAST_LOCAL(FastT0,fT0,t0);
 
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;
 
-  static int liveT0(HostBlock & hb) __attribute__ ((optimize("O2")));
+  static int liveT0(HostBlock & hb) /*__attribute__ ((optimize("O2")))*/;
+
+  u32 lastMillisChange;
+  static void dumpIBOnChange() {
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh
+    u32 * imgblock = (u32 *) 0x14;
+    bool chg = false;
+    for (u32 i = 0u; i < sizeof(fT0.shadowImageBlock)>>2; ++i) {
+      if (fT0.shadowImageBlock[i] != imgblock[i]) {
+        chg = true;
+        break;
+      }
+    }
+    if (chg) {
+      u32 delta = totalMillisElapsed - lastMillisChange;
+      for (u32 i = 0u; i < sizeof(fT0.shadowImageBlock)>>2; ++i) {
+        u8 flag = (fT0.shadowImageBlock[i] != imgblock[i])?'*':' ';
+        if (flag=='*') {
+        DP.printf("%u.%03u+%u CIB#%d%c%x %x:%x\n",
+                  totalMillisElapsed/1000u,
+                  totalMillisElapsed%1000u,
+                  delta,
+                  fT0.shadowImageCode,
+                  flag,
+                  (u32) &imgblock[i],
+                  fT0.shadowImageBlock[i],
+                  imgblock[i]);
+        fT0.shadowImageBlock[i] = imgblock[i];
+        }
+      }
+      lastMillisChange = totalMillisElapsed;
+    }
+#pragma GCC diagnostic pop
+  }
 
   int liveT0(HostBlock & hb) {
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Warray-bounds"  // Aarrgh
+    {
+      u32 * imgblock = (u32 *) 0x14;
+      fT0.shadowImageCode = ((char*)&imgblock[0])[1];
+
+      for (u32 i = 0u; i < sizeof(fT0.shadowImageBlock)>>2; ++i) {
+        fT0.shadowImageBlock[i] = imgblock[i];
+        DP.printf("T0:SIB[0x%x] = 0x%08x\n",(u32) &imgblock[i],fT0.shadowImageBlock[i]);
+      }
+      lastMillisChange = totalMillisElapsed;
+    }
+#pragma GCC diagnostic pop
     DP.printf("T0:RND %d\n",create(100));
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
@@ -37,6 +86,7 @@ namespace MFM {
 
     u16 spin = 0u;
     while (true) {
+      dumpIBOnChange(); // XXX Let's get right on this..
       if (++spin == 0) hb.hartbeat(fAll.mHartNum);
       u64 now = FastT0::readDebugTimestamper(); // pound away at the timestamper!
       u64 cycles = now - fT0.debugTimestamperStart;
@@ -71,7 +121,7 @@ namespace MFM {
   int hartMainT0(HostBlock & hb) {
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    preloadT2Mailbox();
+    //preloadT2Mailbox();
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     XXX_DEBUG_FUNC(__FILE__,__LINE__);

@@ -5,6 +5,11 @@ namespace MFM {
 
   /// SERVICES FOR OTHER HARTS:
   u32 createByMail() {
+    // XXXX DEBUG
+    static u32 HOHORANDO;
+    return HOHORANDO = 1235u*HOHORANDO + 2467u;
+    // XXXX DEBUG
+    
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     u32 ret =  *((volatile u32 *) (MAILBOX_BASE_T2+0u)); // BLOCKING READ
     *((volatile u32 *) (MAILBOX_BASE_T2+0u)) = 1u;       // WRITE REQUEST for next number
@@ -25,6 +30,7 @@ namespace MFM {
     RandMT mRandom;
   };
   FAST_LOCAL(FastT2,fT2,t2);
+  //  FastT2 fT2; // STICK IN L1?
 
   static volatile bool mT2Serving = false; 
   static AtomicLock t2ServingLock;
@@ -41,16 +47,17 @@ namespace MFM {
       mT2Serving = true;
     }
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
   }
 
   static void primePump() {
-    *((volatile u32 *) (MAILBOX_BASE_T2+0u)) = 1u; // prime the random number pump
+    MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
+    *((volatile u32 *) (MAILBOX_BASE_T2)) = 1u; // write to T2 (from any but NC)
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
     //DP.printf("&fT2=0x%08x+%d\n",&fT2,sizeof(fT2));
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    return; /// XXXXXXXDEBUG
 
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     while (!randomServerReady()) { }
@@ -76,7 +83,7 @@ namespace MFM {
       }
     }
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    sleepCycles(1'000);
+    //sleepCycles(1'000);
     markServerReady(); // sets mT2Serving;
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
   }
@@ -143,7 +150,7 @@ namespace MFM {
     //    DP.printf("+T2+\n");
     u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    //fT2.mRandom.seedMT_MFM(seed);
+    fT2.mRandom.seedMT_MFM(seed);
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.hartbeat(fAll.mHartNum);
     //DP.printf("T2 HI2 %d\n",hb.mPerHartWatchdog[fAll.mHartNum]);
@@ -152,7 +159,13 @@ namespace MFM {
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    for (u32 i = 0u; true; ++i) { // DEBUG NO LIVEXXX AT ALL FOR ANYBODY
+      if ((i & 0xfffff)==0) {
+        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+        hb.hartbeat(fAll.mHartNum);
+      }
+    }
+
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

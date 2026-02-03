@@ -30,6 +30,9 @@ namespace MFM {
     u32 mHBCigam;         // MUST BE LAST u32
 
     //// METHODS
+    bool goodMagic() const {
+      return mHBMagic == HBMAGIC && mHBCigam == HBCIGAM; 
+    }
     inline void hartbeat(u32 hartnum) {
       if (hartnum < 5) ++mPerHartWatchdog[hartnum];
     }

@@ -6,6 +6,7 @@
 #include "T6Image.h" 
 #include "HostUtils.h" 
 #include "ImageManager.h" 
+#include "t6-exports.h" // for getMFMxModuleVersion()
 
 namespace py = pybind11;
 
@@ -15,6 +16,9 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Init the HostUtils (logging, clock, ...) at module load time
   MFM::initHostUtils();         // (that's now, right?)
+
+  // Expose the MFMx version string
+  m.def("getVersion", &MFM::T6::getMFMxModuleVersion);  
 
   // Expose the BHTag class
   MFM::BHTag::pybindings(m);

@@ -9,7 +9,7 @@ namespace MFM {
 
   extern u32 createByMail() ;
 
-  extern u32 create(u32 max) __attribute__ ((optimize(3))) ;
+  extern u32 create(u32 max) /*__attribute__ ((optimize(3))) */;
 
   inline u32 between(u32 min, u32 max) {
     return create(max-min+1u)+min;
@@ -34,6 +34,6 @@ namespace MFM {
     return creation;
   }
 
-  extern void preloadT2Mailbox() __attribute__ ((optimize(3))) ;
+  extern void preloadT2Mailbox() /*__attribute__ ((optimize(3))) */;
   extern int hartMainT2(HostBlock & hb) ;
 }

@@ -2,19 +2,29 @@
 # Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
 
 [Config]
- activeLayout=zot10
+# activeLayout=zot10
+ activeLayout=allone
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
+[layout.allone]
+  bhcards = [2]
+  defaultImage = ZOT
+  card.all = C1X1_ONE
+
+[cell.C1X1_ONE]
+  size = [1,1]
+  image.all.all = ZOT
+
 [image.EWP]
-  binfile="/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin/ewp.bin"
+  binfile="ewp.bin"
   code=1
 
 [image.HUB]
-  binfile="/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin/hub.bin"
+  binfile="hub.bin"
   code=2
 
 [image.ZOT]
-  binfile="/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin/zot.bin"
+  binfile="zot.bin"
   code=5
 
 [cell.C2X2]
@@ -26,7 +36,7 @@
   size = [3,3]
   fill = EWP
   image.1.1 = HUB
-  image.2.1 = ZOT
+  image.all.2 = ZOT
 
 [cell.C7X2]
   size = [7,2]

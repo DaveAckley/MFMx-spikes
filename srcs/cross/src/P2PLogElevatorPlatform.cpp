@@ -6,6 +6,7 @@
 #include "T6ElevatorTransport.h"
 #include "FastT0.h" // for millisElapsed
 #include "FastLocal.h" // for fAll
+#include "Printf.h" // for DP
 
 namespace MFM {
   P2PLogElevatorPlatform::P2PLogElevatorPlatform()
@@ -17,18 +18,18 @@ namespace MFM {
   { }
 
   void P2PLogElevatorPlatform::initCars(LogCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) {
+    MFM_API_ASSERT_NONNULL(stg);
+    MFM_API_ASSERT_NONNULL(meta);
+    AtomicScopeLock guard(getPlatformLock());
     MFM_API_ASSERT_ARG(count == 0u || stg != 0);
     mCars = stg;
+    mCarMetadata = meta;
     mCarCount = count;
     mCurrentCarIdx = 0u;
     mRemoteBaseAddress = remoteaddr;
     mIsIn = isIn;
     memset_s(mCars,0u,count*sizeof(LogCar));
-    {
-      static u8 once;
-      if (once++ > 0u) 
-        FAIL(ILLEGAL_STATE);
-    }
+    memset_s(mCarMetadata,0u,count*sizeof(BaseCarMetadata));
   }
 
   bool P2PLogElevatorPlatform::sendByte(u8 byte) {
@@ -64,28 +65,35 @@ namespace MFM {
   }
 
   bool P2PLogElevatorPlatform::update(T6ElevatorTransport & et) {
-
+    MFM_API_ASSERT_NONNULL(mCarMetadata);
+DIEWAY();
     AtomicScopeLock guard(getPlatformLock());
 
     extern HostBlock theHostBlock;
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::TRYING; 
 
+SHOWADDR(mCarMetadata);
     bool ret = false;
+DIEWAY();
     for (u32 c = 0u; c < mCarCount; ++c) {
       LogCar& car = mCars[c];
       BaseCarMetadata & carmeta = mCarMetadata[c];
+SHOWADDR(mCarMetadata[c]);
       CarState cs = car.getCarState();
+DIEWAY();
 
       if (cs == CarState::UNUSED) {
         // start with all cars on T6
         // host: OUTBOUND_DEPARTED means already gone
         // cross: OUTBOUND_DEPARTED means just arrived
         car.setCarState(CarState::OUTBOUND_DEPARTED, CarType::STANDARD);
+DIEWAY();
         continue;
       }
 
       if (!car.isComplete()) {     // should only be possible if delivery in progress
         if (false) et.notice("incomplete car\n");
+DIEWAY();
         continue;
       }
 
@@ -96,19 +104,15 @@ namespace MFM {
 
       case CarState::INBOUND_DEPARTED:
       case CarState::OUTBOUND_DEPARTED:
+DIEWAY();
         if (isArriving(cs)) {   // You Have Arrived
           carmeta.mArrivalTime = millisElapsed(); // note the time
-    {
-      static bool once;
-      if (!once) {
-        if (false) et.notice("P2PLogEPton 0x%08x of %d\n",&car,mCarCount);
-        once = true;
-      }
-    }
-
+SHOWADDR(carmeta.mArrivalTime);
+DIEWAY();
 
           CarSig sig = car.getHeader();
           if (sig.mCarType == CarType::EMPTY) {
+DIEWAY();
             { 
               static u8 once;
               if (false && once < 5u) {
@@ -125,41 +129,41 @@ namespace MFM {
                 ++once;
               }
             }
+DIEWAY();
+SHOWADDR(car);
             car.getContent().reset();         // clean out whole content
+DIEWAY();
           }
+DIEWAY();
           car.setCarState(CarState::OPEN,CarType::STANDARD); // now its standard
+DIEWAY();
         } 
         // if isDeparting, wait for external developments
         break;
 
       case CarState::OPEN:
-        {
-          static u8 once;
-          if (false && once < 1) {
-            et.notice("P2PLOGopen car%d=%u, %u, %u\n",
-                      c,
-                      carmeta.mArrivalTime,
-                      carmeta.mOccupiedTime,
-                      millisElapsed());
-            ++once;
-          }
-        }
+DIEWAY();
         
         if (car.readyToClose(carmeta,millisElapsed())) {
+DIEWAY();
           if (car.isEmpty())
             car.setCarState(CarState::CLOSED,CarType::EMPTY); 
           else
             car.setCarState(CarState::CLOSED,CarType::STANDARD); // Please Buckle Up
+DIEWAY();
         }
         break;
 
       case CarState::CLOSED:
+DIEWAY();
         ret = et.ship(car, c); // success advances to departing state
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
+DIEWAY();
         break;
       }
     }
 
+DIEWAY();
     
     return ret;
   }

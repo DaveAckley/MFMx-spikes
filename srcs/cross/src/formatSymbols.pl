@@ -18,6 +18,7 @@ BY $path
 #pragma once
 #include "itype.h"
 namespace MFM::T6 {
+  inline const char * getMFMxModuleVersion() { return "MFMx-$timestamp"; }
 EOM
 } 
 END { print "}\n" } 

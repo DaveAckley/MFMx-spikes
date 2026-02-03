@@ -101,7 +101,8 @@ namespace MFM {
   int liveB(HostBlock & hb) {
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
-    DP.printf("EWPSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //    DP.printf("EWPSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
     typedef P2PEWElevatorPlatform::EWCar EWCar;

@@ -94,15 +94,18 @@ namespace MFM {
       for (u32 word = 0u; word < wordcount; word += 1) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
-        if (word >= 5 && word <= 8)
-          LOGprintf(mCardNum,"IMGBLOCKREREAD %d:0x%08x\n",word,data);
+        const u32 MINWORD = 4u;
+        const u32 MAXWORD = 9u;
+        if (word >= MINWORD && word <= MAXWORD)
+          LOGprintf(mCardNum,"IMGBLOCKREREAD 0x%x:0x%08x\n",word<<2u,data);
         if (codewords[word] != data) {
           ++misses;
-          LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%08x: got 0x%08x need 0x%08x\n",
+          LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%x: got 0x%08x need 0x%08x\n",
                     mCardNum, tlbi, misses, word<<2, data, codewords[word]);
         } else {
           ++hits;
-          //LOGprintf(mCardNum,"%3d. Hit %d on 0x%08x : 0x%08x\n",tlbi, hits, word, data);
+          if (word >= MINWORD && word <= MAXWORD)
+            LOGprintf(mCardNum,"%3d. Hit %2d on 0x%x:0x%08x\n",tlbi, hits, word<<2, data);
         }
       }
         
@@ -329,6 +332,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       ++mLastTLBISlowScanned;
 
     u32 tlbi = mLastTLBISlowScanned;
+    U8C nocc = U8C::makeU8CNoCCoordFromTLBI(tlbi);
     OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
     const T6Image * t6ip = info.getDeployedImageIfAny();
     if (!t6ip) {
@@ -340,16 +344,38 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mCardNum, tlbi);
-    bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
-               t6i.getName().c_str(),
-               t6i.getBinFileSize(),
-               hostblockaddr);
+    //bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
+    Eprintf("BH%d:(%u,%u) IMCO %s sz%d hb0x%08x\n",
+            mCardNum,nocc.x,nocc.y,
+            t6i.getName().c_str(),
+            t6i.getBinFileSize(),
+            hostblockaddr);
     {
+      const char * rvcode = t6i.getTheBinFile();
+      u32 * codewords = (u32*) rvcode;
       u32 word[4]; // peek at imageblock
-      mOurTLBs.readFromWords(tlbi, 0x14>>2, word, sizeof(word)>>2);
-      bhl.printf(tag,"IBLK %s 24:0x%08x 32:0x%08x",
-                 t6i.getName().c_str(),
-                 word[1], word[3]);
+      char flag[4];
+      bool anyfail = false;
+      mOurTLBs.readFromWords(tlbi, 0x14, word, sizeof(word)>>2);
+      for (u32 i = 0u; i < 4u; ++i) {
+        flag[i] = word[i] == codewords[(0x14>>2)+i] ? ' ' : '>';
+        if (flag[i] == '>') anyfail = true;
+      }
+      Eprintf("BH%d:(%u,%u) %s %s"
+              "%c0x%x:0x%08x"
+              "%c0x%x:0x%08x"
+              "%c0x%x:0x%08x"
+              "%c0x%x:0x%08x"
+              "\n",
+              mCardNum,nocc.x,nocc.y,
+              anyfail ? "IXFAIL" : "IXGOOD",
+              t6i.getName().c_str(),
+              flag[0], (0<<2)+0x14, word[0],
+              flag[1], (1<<2)+0x14, word[1],
+              flag[2], (2<<2)+0x14, word[2],
+              flag[3], (3<<2)+0x14, word[3]
+              );
+
     }
 
     HostBlock hb;
@@ -393,7 +419,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       }
       if (idx != 0u) {
         buf[idx] = 0;
-        Eprintf("BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",mCardNum,hb.mPos.x,hb.mPos.y,buf);
+        Eprintf("%.03f BH%d:(%u,%u)HOBU<<%s>>UBOH\n",
+                runTimeSeconds(),
+                mCardNum,hb.mPos.x,hb.mPos.y,buf);
         // UPDATE FLUSHED HostBlock!
         mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
       }
