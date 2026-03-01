@@ -284,12 +284,14 @@ namespace MFM {
               U8C::makeNoCNodeIdFromNoCCoord(mDestCoord0));
 
     P.printf("%sPEWI\n",c4Info());
+#if 0
     mShipEWConfig.mSourceL1 = (u32) &cornerEWs[mRingCorner];
     mShipEWConfig.mDestL1 = (u32) &cornerEWs[clockwiseCorner4(mRingCorner)];
     mShipEWConfig.mWordCount = sizeof(cornerEWs[mRingCorner])>>2u;
     mShipEWConfig.mSourceCoord0 = mSourceCoord0;
     mShipEWConfig.mDestCoord0 = mDestCoord0;
     mShipEWConfig.mNoC = mNoC;
+#endif
     P.printf("%sCEWI:%02x\n",c4Info(),cornerEWs[mRingCorner].mHeader.mCarNonce);
 
     return true;
@@ -416,9 +418,12 @@ namespace MFM {
     if (false)
       P.printf("%sSDEW=%d %08x\n",c4Info(),
                cew.mSitesClaimed,cew.mEWTag);
-    while (!mShipEWConfig.initiateWrite()) {
+    FAIL(INCOMPLETE_CODE);
+    /*
+    while (!mShipEWConfig.initiateWrite()) { // DEIMPLEMENTED Thu Feb 26 16:25:27 2026 
       if (false) P.printf(".");
     }
+    */
     if (false) P.printf("%sSDEW- %08x\n",c4Info(),cew.mEWTag);
   }
 

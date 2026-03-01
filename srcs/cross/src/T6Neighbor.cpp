@@ -2,12 +2,12 @@
 #include "Printf.h" // for DP
 
 namespace MFM {
-  ImageBlockAddr T6Neighbor::findIBAIfAny(NRI3 & nri3, BlockCode bc) const {
+  ImageBlockAddr T6Neighbor::findIBAIfAny(BlockCode bc) const {
     ImageBlockAddr ret;         // invalid since not initted
-    ImageBlockHeader hubibh = nri3.blockingReadImageBlockHeader(mNoC0Us,mUsToNgbCT6Offset);
+    ImageBlockHeader hubibh = NRI3::blockingReadImageBlockHeader(mNoC0Us,mUsToNgbCT6Offset);
     if (hubibh.isValid()) {
       for (u32 e = 0u; e < hubibh.mEntries; ++e) {
-        ImageBlockAddr iba = nri3.blockingReadImageBlockAddr(mNoC0Us,mUsToNgbCT6Offset,e);
+        ImageBlockAddr iba = NRI3::blockingReadImageBlockAddr(mNoC0Us,mUsToNgbCT6Offset,e);
         if (!iba.isValid()) continue;
         if (iba.getBlockCode() == bc) {
           ret = iba;            // ret becomes valid
@@ -36,12 +36,17 @@ namespace MFM {
     mUsToNgbCT6Offset = ngbct6off;
     mNoC0Us = ournoc0c;
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(ournoc0c);
-    if (!U8C::onBoardCT6Coord(usct6)) return false;
-    DP.printf("T6NG (%u,%u) (%d,%d)\n",
+    bool usonbd = U8C::onBoardCT6Coord(usct6);
+    DP.printf("T6NG uob%u u6=%u,%u off6=%d,%d\n",
+              usonbd,
               usct6.x,usct6.y,
               ngbct6off.x,ngbct6off.y);
+    if (!usonbd) return false;
     U8C ngbct6 = usct6 + ngbct6off;
-    if (!U8C::onBoardCT6Coord(ngbct6)) return false;
+    bool nbonbd = U8C::onBoardCT6Coord(ngbct6);
+    DP.printf("T6NG2 nob%u n6=%u,%u\n",
+              nbonbd,ngbct6.x,ngbct6.y);
+    if (!nbonbd) return false;
     mNoC0Ngb = U8C::makeNoC0CoordFromCT6Coord(ngbct6);
     return true;
   }

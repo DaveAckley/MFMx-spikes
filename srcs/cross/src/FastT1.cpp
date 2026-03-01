@@ -42,11 +42,14 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_T1);
     preloadT2Mailbox();
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    /*
     DP.printf("CEW+%u,%d <%d:%08x>\n",
               sizeof(CornerEW),
               (s32) (offsetof(CornerEW,mFooter) - offsetof(CornerEW,mWaister)),
               fAll.mInspirationOnHand, fAll.mCreativityBuffer);
-    DP.printf("T6G(%u,%u)=%d\n",T6GRID_WIDTH,T6GRID_HEIGHT,sizeof(T6Grid));
+    */
+    //DP.printf("T6G(%u,%u)=%d\n",T6GRID_WIDTH,T6GRID_HEIGHT,sizeof(T6Grid));
+
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     LOG.printf("%s:GO LIVE MAXSTAX %d\n",hartName(fAll.mHartNum),estimateStackUsage());
 

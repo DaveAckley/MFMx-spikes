@@ -1,11 +1,11 @@
 #pragma once  /* -*- C++ -*- */
 
-#include <stdarg.h>
 #include "itype.h"
 #include "HostBlock.h"
 #include "AtomicLock.h"
 #include "P2PLogElevatorPlatform.h"
 #include "T6ElevatorTransport.h"
+#include "BaseCar.h"
 
 namespace MFM {
   class Printer {
@@ -21,6 +21,15 @@ namespace MFM {
     u32 vprintf(const char * format, va_list ap);
     u32 printf(const char * format, ...);
     u64 getHostAddr() const { return mHostAddr; }
+    Printer & print(BaseCar<EWBlock> & bc) {
+      printf("<EWCar 0x%p c=%u e=%u s=%u\n",
+             &bc,
+             bc.isComplete(),
+             bc.isEmpty(),
+             bc.getCarState());
+      return *this;
+    }
+                    
   private:
     AtomicLock * mPrintLockPtr;
     P2PLogElevatorPlatform * mPlatformPtr;

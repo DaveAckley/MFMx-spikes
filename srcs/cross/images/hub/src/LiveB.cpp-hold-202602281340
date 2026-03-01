@@ -5,8 +5,10 @@
 #include "TransportBlock.h"
 #include "EventWindow.h"
 #include "T6Grid.h"
-#include "T6CellO.h"
-#include "NRIUtils.h"
+#include "NRIUtils.h" // for NRI3
+
+#include "AllImageBlockDecls.h"
+#include "ImageConfig.h"        // for theImageBlock
 
 #include "T6STVL.h" // XXX TESTING
 
@@ -14,9 +16,9 @@ namespace MFM {
 
   extern int liveB(HostBlock & hb) __attribute__ ((optimize("O2")));
 
+  T6Grid theT6Grid[1] __attribute__ ((section(".crossrodata")));
+
   struct FastB {
-    T6CellO mCello;
-    NRI3 mNRI3;
     EventWindow mFastEW;
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
@@ -61,19 +63,11 @@ namespace MFM {
     }
 
     case PHY_FB4: {
-      u32 age = ++ca.mStg[1];             // cheat and access underlying u32
-      u32 empcount = 0u;
+      ca.mStg[1]++;             // cheat and access underlying u32
       for (u32 ngbsn = 1u; ngbsn <= 40u; ++ngbsn) { //MAX FB!
         P4Atom & na = ew.mAtoms[ngbsn];
-        bool isempty = na.getType()==P4Atom::EMPTY_TYPE;
-        if (isempty) ++empcount;
-        u32 div = (isempty ? 1024u : 64u);
-        if (create(age/div)==0) { // if youth tends to displace age, can we see a difference?
-          na = ca; // kaboom
-        }
+        na = ca; // kaboom
       }
-      if (empcount == 40u && age > 1024u) // I'M OLD AND ALL ALONE? WTF?
-        ca.mStg[1] = 0u;         // MIRACLE CURE FOUNTAIN OF YEWT
       return true;
     }
 
@@ -108,107 +102,76 @@ namespace MFM {
     return false; // NOT REACHED
   }
 
-  T6Grid theT6Grid;
-
-  u32 findHubEWAddress(HostBlock & hb, T6CellO & cello) {
-    FAIL(INCOMPLETE_CODE);
-    /*
-    U8C hubc = cello.getCellPofImage(ImageCode::IC_HUB); // intra-cell pos
-    U8C hubnoc = cello.getNoC0ofCellP(hubc);             // full NoC0 of our hub
-    */
-  }
+  EWCarStorage theEWHub[8];
 
   int liveB(HostBlock & hb) {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
+    DP.printf("HLIB10\n");
 
-    if (!fB.mCello.init())
-      FAIL(ILLEGAL_STATE);
-    
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    if (false) {
-      for (s8 y = -1; y <= 1; ++y) 
-        for (s8 x = -1; x <= 1; ++x) {
-          S8C offc(x,y);
-          if (offc.length() == 0) continue;
-          ImageBlockHeader ibh = fB.mNRI3.blockingReadImageBlockHeader(hb.mPos, offc);
-          DP.printf("(%u,%u) EWPIBH\n",hb.mPos.x,hb.mPos.y);
-          if (ibh.isValid()) {
-            for (u32 e = 0u; e < ibh.mEntries; ++e) {
-              DP.printf("(%u,%u) EWPIBAT#%d\n",hb.mPos.x,hb.mPos.y,e);
-              ImageBlockAddr iba = fB.mNRI3.blockingReadImageBlockAddr(hb.mPos,offc,e);
-              DP.printf("(%u,%u) EWPIBAR=%d 0x%08x 0x%08x\n",hb.mPos.x,hb.mPos.y,
-                        iba.isValid(),
-                        ((u32*) &iba)[0],
-                        ((u32*) &iba)[1]);
-              if (iba.isValid())
-                DP.printf("(%u,%u) EWPIBHC(%d,%d)#%d -> 0x%08x\n",
-                          hb.mPos.x, hb.mPos.y,
-                          offc.x, offc.y, e,
-                          *(u32*) &iba);
-            }
-          }
-        }
-    }
     {
-      U8C hubct6 = fB.mCello.getCellPofImage(ImageCode::IC_HUB); // intra-cell pos
-      U8C hubnoc = fB.mCello.getNoC0ofCellP(hubct6);             // full NoC0 of our hub
-      DP.printf("EWPT6CO"
-                //" a=0x%x"
-                " u6=(%u,%u)"
-                " c#=(%u,%u)"
-                " uc=(%u,%u)"
-                " hc=(%u,%u)"
-                " u0=(%u,%u)"
-                " h0=(%u,%u)"
-                " ix=%u"
-                "\n",
-                //cello.mCellBlockAddr,
-                fB.mCello.mUsCT6.x, fB.mCello.mUsCT6.y,
-                fB.mCello.mCellNum.x, fB.mCello.mCellNum.y,
-                fB.mCello.mUsCellPos.x, fB.mCello.mUsCellPos.y,
-                hubct6.x, hubct6.y,
+      P4Atom a = P4Atom::makeAtom(P4Atom::START_TYPE);
+      U8C startc(T6GRID_WIDTH/2u,T6GRID_HEIGHT/2u);
+      theT6Grid[0].setAtom(startc,a);
+      DP.printf("(%d,%d) HUBSZ6G(%ux%u)->%u, %04x:%04x-%08x-%08x\n",
                 hb.mPos.x,hb.mPos.y,
-                hubnoc.x,hubnoc.y,
-                fB.mCello.mImageTypeIndex
+                T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid),
+                a.mParityAndType,a.mData0,
+                a.mStg[0],a.mStg[1]
                 );
-      //// TRY TO ACCESS HUB'S EWHUB
-      if (U8C::onBoardNoC0Coord(hubnoc)) { // if hub actually exists
-        T6Neighbor hubngb;
-        S8C tohub = S8C(hubct6) - fB.mCello.mUsCT6; //from ewp,us to hub,them
-        hubngb.init(hb.mPos,tohub);
-        ImageBlockAddr iba = hubngb.findIBAIfAny(fB.mNRI3, BlockCode::BC_EWHUB);
-        DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d\n",
-                  iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
-                  iba.getHostChunkOffsetOpt(), iba.getArrayLength());
-#if 0        
-        DP.printf("[%u,%u] T6NGBINFO val=%d, nct=(%d,%d), usn0=(%u,%u), ngbn0=(%u,%u)\n",
-                  hb.mPos.x,hb.mPos.y,
-                  hubngb.isValid(),
-                  hubngb.mUsToNgbCT6Offset.x, hubngb.mUsToNgbCT6Offset.y,
-                  hubngb.mNoC0Us.x, hubngb.mNoC0Us.y,
-                  hubngb.mNoC0Ngb.x, hubngb.mNoC0Ngb.y);
-        ImageBlockHeader hubibh = fB.mNRI3.blockingReadImageBlockHeader(hb.mPos,tohub);
-        if (hubibh.isValid()) {
-          for (u32 e = 0u; e < hubibh.mEntries; ++e) {
-            ImageBlockAddr iba = fB.mNRI3.blockingReadImageBlockAddr(hb.mPos,tohub,e);
-            if (iba.isValid() && iba.getBlockCode() == BlockCode::BC_EWHUB) {
-              DP.printf("(%u,%u) FEWHUB#%d = 0x%x\n",hb.mPos.x,hb.mPos.y,e,iba.getBlockAddr());
+    }
+    
+    DP.printf("(%d,%d) EWHUBSZ(%u) of %u\n",
+              hb.mPos.x, hb.mPos.y,
+              sizeof(theEWHub), sizeof(EWCarStorage));
+
+    if (true) { // TEST BLOCKING L1 READS
+      DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
+
+      U8C usnoc = hb.mPos;
+      U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
+      //DP.printf("PREBLIRD! (%u,%u)\n", usct6.x, usct6.y);
+      if (!U8C::onBoardCT6Coord(usct6))
+        DP.printf("FUCKAGE (%u,%u)->%u,%u\n",
+                  usnoc.x, usnoc.y, usct6.x, usct6.y);
+      else {
+        U8C us2 = usct6;
+        U8C themct6 = usct6 + S8C(1,0); // look east young man
+        if (!U8C::onBoardCT6Coord(themct6))
+          DP.printf("OFFBOARD (%u,%u)->%u,%u\n",
+                    usct6.x, usct6.y, themct6.x, themct6.y);
+        else {
+          u32 themibh[5];
+          {
+            u32 * ibu = (u32*) &theImageBlock;
+            DP.printf("OURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
+                      &ibu[0],ibu[0],
+                      &ibu[1],ibu[1],
+                      &ibu[2],ibu[2]);
+          }
+          ImageBlockHeader tibh;
+          bool ret = NRI3::blockingL1Read(usct6, themct6,
+                                          (u32) &theImageBlock,
+                                          sizeof(tibh)>>2u, (u32*) &tibh);
+
+          DP.printf("BLIRD! %d (%u,%u)<-(%u,%u)==0x%08x\n",
+                    ret, us2.x, us2.y, themct6.x, themct6.y, *(u32*) &tibh);
+          if (ret) {
+
+            for (u32 e = 0u; e < tibh.mEntries; ++e) {
+              
             }
           }
         }
-#endif
-      } else DP.printf("[%u,%u] T6NGBINFO HUBOFF\n", hb.mPos.x,hb.mPos.y);
+          
+      }
     }
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
     typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
-    u8 spin = 0u;
+    u32 spin = 0u;
     if (false) {
-      // XXX TEST EWLOCKER
       T6EWLocker::Entry lentry;
       bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
       DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
@@ -219,9 +182,14 @@ namespace MFM {
                 '.');
     }
     while (true) {
-      if (++spin == 0) {
+      ++theT6Grid[0].mTotalChanges;
+      if ((++spin & 0x1fffff) == 0) {
         hb.hartbeat(fAll.mHartNum);
-        XXX_DEBUG_FUNC(__FILE__,__LINE__);
+        if (false) DP.printf("hubhBRND IoH %d CrBu %08x > %02x (atm%d)\n",
+                  fAll.mInspirationOnHand,
+                  fAll.mCreativityBuffer,
+                  createBits(8),
+                  fB.mEWsAttempted);
       }
       EWCar * ewc = ewp.getCurrentCarIfAny();
       if (ewc) {
@@ -230,10 +198,6 @@ namespace MFM {
           continue;
         }
         if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("ewphBRND IoH %d CrBu %08x > %02x\n",
-                    fAll.mInspirationOnHand,
-                    fAll.mCreativityBuffer,
-                    createBits(8));
           DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
                     fB.mEWsAttempted,
                     fB.mEWsSucceeded,

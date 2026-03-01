@@ -5,6 +5,7 @@ add_executable(hub)
 target_sources(hub PRIVATE
   src/ImageConfig.cpp
   images/hub/src/LiveB.cpp
+  images/hub/src/H2EEP.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 target_link_libraries(hub PRIVATE crosslib)

@@ -2,6 +2,7 @@
 #include "Fail.h"
 #include "FastLocal.h" // for sleepCycles
 #include "Printf.h"
+#include "SimConstants.h" // for HOST_RAM_PER_BH
 #include <stdarg.h>
 
 namespace MFM {
@@ -134,7 +135,7 @@ DIEWAY();
 DIEWAY();
     u64 v = mHostBlockPtr->getHostNocAddr();
 DIEWAY();
-    v += ((u64) mHostBlockPtr->mTLBI)*(1<<13)+carnum*sizeof(lc);
+    v += ((u64) mHostBlockPtr->mTLBI)*(HOST_RAM_PER_BH)+carnum*sizeof(lc);
 DIEWAY();
 SHOWADDR(lc);    
     CarSig csig = lc.getHeader();
@@ -162,7 +163,7 @@ DIEWAY();
 DIEWAY();
 
     u64 v = mHostBlockPtr->getHostNocAddr();
-    v += ((u64) mHostBlockPtr->mTLBI)*(1<<13) // host side base address
+    v += ((u64) mHostBlockPtr->mTLBI)*HOST_RAM_PER_BH // host side base address
       + (mTransportBlockPtr->mEWCarStorageT6Ptr - mTransportBlockPtr->mLogCarStorageT6Ptr) // offset to EW
       + carnum*sizeof(ewc);
 DIEWAY();

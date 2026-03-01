@@ -201,8 +201,14 @@ namespace MFM {
     return lcs.getLogCar(carnum);
   }
 
-  u32 OurTLBs::getLogCarT6L1(u32 tlbi, u32 carnum) {
+  char * OurTLBs::getL1HostAddressForTLBI(u32 tlbi) {
     MFM_API_ASSERT_NONNULL(mMapAllT6L1);
+    const TLBInfo & info = getTLBInfo(tlbi);
+    char * tlbistart = ((char*)mMapAllT6L1) + tlbi*AHAX_CONSTANT2M;
+    return tlbistart;
+  }
+
+  u32 OurTLBs::getLogCarT6L1(u32 tlbi, u32 carnum) {
     const TLBInfo & info = getTLBInfo(tlbi);
     u32 base = info.mLogTransportBlockStart; // WAS: MFM::T6::transportblock_log_start;
     u32 logcarsize = sizeof(MFM::LogCarStorage::LogCar);
@@ -439,11 +445,11 @@ namespace MFM {
 
       U16C addr = U16C::makeNocCoordFromTLBI(tlbi);
       if (lc.isComplete() && lc.getCarState() == CarState::INBOUND_DEPARTED) {
-        HTprintf("LOGCR %u %p\n", car, &lc);
+        HNprintf(100,"LOGCR %u %p\n", car, &lc);
         CarSig cs = lc.getHeader();
         LogBlock & lb = lc.getContent();
 
-        HTprintf("LOGCS %u %p\n", *(u32*)(&cs), &lb);
+        HNprintf(100,"LOGCS %u %p\n", *(u32*)(&cs), &lb);
 
         if (cs.mCarType == CarType::STANDARD) {
           
@@ -491,24 +497,15 @@ namespace MFM {
 
     // Only send events to actual images..
     if (!image) {
-      HTprintf("EW skipping %u - no image\n",tlbi);
+      HNprintf(200,"EW skipping %u - no image\n",tlbi);
       return;
     }
     // ..that have BC_EWCARS blocks
     if (info.mEWTransportBlockStart == 0u) {
-      HTprintf("EW skipping %u - EW cars\n",tlbi);
+      HNprintf(200,"EW skipping %u - EW cars\n",tlbi);
       return;
     }
 
-    /*
-    HTprintf("EW GO on %u vs %u\n", image->getImageCode(), ImageCode::IC_EWP);
-    if (image->getImageCode() != ImageCode::IC_EWP) {
-      HTprintf("EW mism %u != %u\n", image->getImageCode(), ImageCode::IC_EWP);
-      return;
-    }
-    */
-
-    
     void * hostewblock = hcm.getHostBlockAddress(tlbi, BlockCode::BC_EWCARS);
     /*
     pinned_host_buffer_t& buf = mPinnedHostBuf;
@@ -615,7 +612,7 @@ namespace MFM {
         // IT'S TIME TO SHIP THIS MOFO
         // BUT ONLY IF WE'RE EVENT WINDOWS ACTIVE
         if (!ewc.isActive()) {
-          HTprintf("<BlackHole:%d> tlbi%u: want to ship but not active\n",
+          HNprintf(200,"<BlackHole:%d> tlbi%u: want to ship but not active\n",
                   mDevCardNum, tlbi);
         } else /*ewc.isActive()*/ {
           ec.setCarState(CarState::OUTBOUND_DEPARTED,CarType::STANDARD); 

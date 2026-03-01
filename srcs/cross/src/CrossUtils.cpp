@@ -1,8 +1,19 @@
+#include <stdarg.h>
 #include "CrossUtils.h"
 #include "Printf.h"
 #include "FastLocal.h" // for fAll
 
 namespace MFM {
+
+  void CUprintf(u32 count, const char * file, u32 line, const char * fmt, ...) {
+    file = stripDirs(file);
+    DP.printf("%s:%u:[%u] ",file,line,count);
+    va_list ap;
+    va_start(ap,fmt);
+    DP.vprintf(fmt,ap);
+    va_end(ap);
+  }
+
   void memset_s(void* addr, u8 byte, u32 count) {
     memset(addr,byte,count); // don't have explicit_bzero in libs I'm using?
   }
@@ -33,8 +44,9 @@ namespace MFM {
 
   const char * stripDirs(const char * path, u32 dircount) {
     const char * suf = path;
-    for (u32 i = 0u; i < dircount; ++i) {  // skip some dirs to save space
-      while (*suf != 0 && *suf++ != '/') { }
+    while (*++suf != '\0') { } // get to end
+    for (u32 i = 0u; i <= dircount; ++i) {  // keep only dircount dirs to save space
+      while (suf != path && *--suf != '/') { }
     }
     if (!*suf) suf = path;
     return suf;

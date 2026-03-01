@@ -19,6 +19,10 @@ namespace MFM {
   }
 
   s32 BlackHole::runSlowScans(u32 count) { //< return something after count HostBlock scans
+    {
+      s32 hackret = mCodeManager.scanHubGrids();
+      MFM_API_ASSERT(hackret==0,ILLEGAL_STATE);
+    }
     if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
       return U32_MAX;
     s32 tot = 0;

@@ -1,6 +1,7 @@
 #pragma once   /* -*- C++ -*- */
 #include <atomic>
 #include "itype.h"
+#include "SimConstants.h"
 #include "OurTLBs.h"
 #include "CodeManager.h"
 #include "BHTag.h"
@@ -106,11 +107,6 @@ namespace MFM {
       bhl.vprintf(tag,fmt,args);
       va_end(args);
     }
-
-    // XXX WAS: static constexpr u32 HOST_RAM_PER_BH = 1u<<13;
-    //static constexpr u32 HOST_RAM_PER_BH = 1u<<14; // we can fir 16KB*140, but it seems super slow??
-    static constexpr u32 HOST_RAM_PER_BH = 1u<<13; // so stay here for now wtf wtf?
-    static constexpr u32 MIN_GTEED_HOST_RAM_PER_BH = 1u<<13;
 
     void * getHostRAMPtrIfAny() { return mOurTLBs.hostRAMPtr(); }
 

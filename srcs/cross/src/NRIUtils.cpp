@@ -61,35 +61,9 @@ namespace MFM {
     *p = value;
   }
 
-  bool NRI3::initiateWrite() {
-    if (isNRIBusy()) return false;
-
-    if (false)
-      P.printf("NRIW:%d+%d S%08x(%d,%d) D%08x(%d,%d)\n",
-               mNoC, mWordCount,
-               mSourceL1, mSourceCoord0.x, mSourceCoord0.y,
-               mDestL1, mDestCoord0.x, mDestCoord0.y);
-
-    writeNRIAddress(NRI_NOC_TARG_ADDR_LO, mSourceL1); // 32 bit address of source
-    writeNRIAddress(NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(mSourceCoord0));
-
-    writeNRIAddress(NRI_NOC_RET_ADDR_LO, mDestL1);   // 32 bit address of dest
-    writeNRIAddress(NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(mDestCoord0));
-
-    writeNRIAddress(NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
-    writeNRIAddress(NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)
-
-    writeNRIAddress(NRI_NOC_AT_LEN_BE, mWordCount<<2u); // bytecount to write
-    writeNRIAddress(NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
-
-    writeNRIAddress(NRI_NOC_CMD_CTRL,1);             // initiate write
-    return true;
-  }
-
   bool NRI3::blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
-                            u32 wordcount, u32 * destaddr) const { //< creams NRI3!
+                            u32 wordcount, u32 * destaddr) { 
+    u32 useNoC = 0u;
     const u32 MAXWORDS = 16u;
     if (wordcount > MAXWORDS) return false;
     
@@ -113,7 +87,7 @@ namespace MFM {
                readBuffer,baseaddr,l1readaddr);
     }
     u32 spin = 0u;
-    while (isNRIBusy()) {
+    while (isNRIBusy(useNoC)) {  
       if ((++spin % 0xfffff) == 0u) {
         P.printf("BL1R enter long block 0x%x\n",spin);
         return false;
@@ -126,28 +100,28 @@ namespace MFM {
         !U8C::onBoardNoC0Coord(themnocc))
       return false;
 
-    writeNRIAddress(NRI_NOC_TARG_ADDR_LO, l1readaddr); // 32 bit address of source
-    writeNRIAddress(NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(themnocc));
+    writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_LO, l1readaddr); // 32 bit address of source
+    writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
+    writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(themnocc));
 
-    writeNRIAddress(NRI_NOC_RET_ADDR_LO, baseaddr); // return read value here
-    writeNRIAddress(NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(usnocc));
+    writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_LO, baseaddr); // return read value here
+    writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
+    writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(usnocc));
 
-    writeNRIAddress(NRI_NOC_PACKET_TAG, NRI3_BLOCKING_TRANSACTION_ID<<10); // set transaction ID
-    writeNRIAddress(NRI_NOC_CTRL, (0u<<0));          // NOC_CMD_RD
+    writeNRIAddress(useNoC,NRI_NOC_PACKET_TAG, NRI3_BLOCKING_TRANSACTION_ID<<10); // set transaction ID
+    writeNRIAddress(useNoC,NRI_NOC_CTRL, (0u<<0));          // NOC_CMD_RD
 
     //    writeNRIAddress(NRI_NOC_AT_LEN_BE, 1u<<2u);      // bytecount to read
-    writeNRIAddress(NRI_NOC_AT_LEN_BE, wordcount<<2u);      // bytecount to read
-    writeNRIAddress(NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
+    writeNRIAddress(useNoC,NRI_NOC_AT_LEN_BE, wordcount<<2u);      // bytecount to read
+    writeNRIAddress(useNoC,NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
 
-    writeNRIAddress(NRI_NOC_CMD_CTRL,1);             // initiate write
-    readNRIAddress(NRI_NOC_CMD_CTRL);                // read for memory ordering
+    writeNRIAddress(useNoC,NRI_NOC_CMD_CTRL,1);             // initiate write
+    readNRIAddress(useNoC,NRI_NOC_CMD_CTRL);                // read for memory ordering
 
     XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
     spin = 0u;
-    while (readNIUReqsOutstanding(mNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) {
+    while (readNIUReqsOutstanding(useNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) {
       if ((++spin % 0xfffff) == 0u) {
         P.printf("BL1R xaction long block 0x%x\n",spin);
         return false;
@@ -166,7 +140,7 @@ namespace MFM {
     return true;
   }
 
-  ImageBlockHeader NRI3::blockingReadImageBlockHeader(U8C usnoc, S8C ct6off) const {
+  ImageBlockHeader NRI3::blockingReadImageBlockHeader(U8C usnoc, S8C ct6off) {
     ImageBlockHeader ret;       // uninit -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
@@ -183,7 +157,7 @@ namespace MFM {
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
-  ImageBlockAddr NRI3::blockingReadImageBlockAddr(U8C usnoc, S8C ct6off, u32 ibaIndex) const {
+  ImageBlockAddr NRI3::blockingReadImageBlockAddr(U8C usnoc, S8C ct6off, u32 ibaIndex) {
     ImageBlockAddr ret;       // uninit -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;

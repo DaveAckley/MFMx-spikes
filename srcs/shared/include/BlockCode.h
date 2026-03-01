@@ -10,20 +10,30 @@
 #include "itype.h"
 
 namespace MFM {
+#define IMAGECODE_LIST()                     \
+  XX(EWP)                                    \
+  XX(HUB)                                    \
+  XX(HUB3X3)                                 \
+  XX(DEBUG)                                  \
+  XX(ZOT)                                    \
+
   enum ImageCode {
-    IC_RSRVILL = 0,
-    IC_EWP = 1,                //< Generic event Window processor
-    IC_HUB = 2,                //< 2x2 w/hub@00 + 3 EWPs @01,10,11
-    IC_HUB3X3 = 3,             //< 3x3 w/hub@11 + 8 EWPs
-    IC_DEBUG = 4,              //< unspecified test images
-    IC_ZOT = 5,                //< another scratch image
+    IC_RSRV_ILL = 0,
+
+#define XX(NAME) IC_##NAME,
+    IMAGECODE_LIST()
+#undef XX
   };
+
+  const char * getNameFromImageCode(ImageCode b) ;
+  ImageCode getImageCodeFromName(const char * n) ;
 
 #define BLOCKCODE_LIST()                     \
   XX(LOGCARS,LogCarStorage)                  \
   XX(EWCARS,EWCarStorage)                    \
   XX(CELLBLOCK,CellBlock)                    \
   XX(EWHUB,EWCarStorage[8])                  \
+  XX(EWPCARS,EWCarStorage)                   \
   XX(T6GRID,T6Grid)
 
 #define XX(NAME,TYPE) \

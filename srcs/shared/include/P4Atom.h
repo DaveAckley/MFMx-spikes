@@ -14,7 +14,26 @@ namespace MFM {
 
     P4Atom() { memset_s(this, 0u, sizeof(P4Atom)); }
     s32 compareTo(const P4Atom other) const {
-      return memcmp((const void*) this, (const void*) &other, sizeof(P4Atom));
+      const u32 * us = (u32*) this;
+      const u32 * ot = (u32*) &other;
+      if (us[0] < ot[0]) return -1;
+      if (us[0] > ot[0]) return  1;
+      if (us[1] < ot[1]) return -1;
+      if (us[1] > ot[1]) return  1;
+      if (us[2] < ot[2]) return -1;
+      if (us[2] > ot[2]) return  1;
+      return 0;
+      /*
+      if (mParityAndType < other.mParityAndType) return -1;
+      if (mParityAndType > other.mParityAndType) return 1;
+      if (mData0 < other.mData0) return -1;
+      if (mData0 > other.mData0) return 1;
+      if (mStg[0] < other.mStg[0]) return -1;
+      if (mStg[0] > other.mStg[0]) return 1;
+      if (mStg[1] < other.mStg[1]) return -1;
+      if (mStg[1] > other.mStg[1]) return 1;
+      return 0;
+      */
     }
     bool operator==(const P4Atom other) const { return compareTo(other) == 0; }
     bool operator!=(const P4Atom other) const { return compareTo(other) != 0; }

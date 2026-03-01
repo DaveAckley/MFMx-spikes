@@ -69,48 +69,27 @@ namespace MFM {
 
   extern void funcWriteNRIAddress(u32 noc, u32 nri, u32 byteOffset, u32 value) ;
 
-  struct NRI3 {
-    static constexpr u8 NRI3_BLOCKING_TRANSACTION_ID = 0xe;
-    u32 mSourceL1;
-    u32 mDestL1;
-    u32 mWordCount;
-    U8C mSourceCoord0;
-    U8C mDestCoord0;
-    u8 mNoC;
+  namespace NRI3 {
 
-    bool initiateWrite() ;
+    constexpr u8 NRI3_BLOCKING_TRANSACTION_ID = 0xe;
 
     /** Read up to 16 words from ngb's L1. Note that destaddr MAY
         point to fast local memory, because the NoC read result is
         copied there from a private internal L1 buffer anyway.
      */
-    bool blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) const ; 
+    bool blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) ; 
 
-    ImageBlockHeader blockingReadImageBlockHeader(U8C ournoc0, S8C ct6off) const ;
-    ImageBlockAddr blockingReadImageBlockAddr(U8C ournoc0, S8C ct6off, u32 ibaIndex) const ;
-
-  private:
-    u32 getNIUBaseAddress() const { return funcGetNIUBaseAddress(mNoC); }
-    volatile u32 * getNIUAddress(u32 byteoffset) const { return funcGetNIUAddress(mNoC, byteoffset); }
-
-    u32 readNIUAddress(u32 byteoffset) const { return *funcGetNIUAddress(mNoC, byteoffset); }
-    void writeNIUAddress(u32 byteoffset, u32 value) const {
-      funcWriteNIUAddress(mNoC, byteoffset, value);
-    }
+    ImageBlockHeader blockingReadImageBlockHeader(U8C ournoc0, S8C ct6off) ;
+    ImageBlockAddr blockingReadImageBlockAddr(U8C ournoc0, S8C ct6off, u32 ibaIndex) ;
 
     //// NRI LEVEL
-    u32 getNRIBaseAddress() const { return funcGetNRIBaseAddress(mNoC,3); }
-    volatile u32 * getNRIAddress(u32 byteOffset) const {
-      return funcGetNRIAddress(mNoC,3,byteOffset);
+    inline u32 readNRIAddress(u32 noc, u32 byteOffset) { return funcReadNRIAddress(noc,3,byteOffset); }
+    inline void writeNRIAddress(u32 noc, u32 byteOffset, u32 value) {
+      funcWriteNRIAddress(noc, 3, byteOffset, value);
     }
 
-    u32 readNRIAddress(u32 byteOffset) const { return funcReadNRIAddress(mNoC,3,byteOffset); }
-    void writeNRIAddress(u32 byteOffset, u32 value) const {
-      funcWriteNRIAddress(mNoC, 3, byteOffset, value);
-    }
-
-    bool isNRIBusy() const { return funcReadNRIAddress(mNoC,3,NRI_NOC_CMD_CTRL) & 1; }
-    void waitTilNRIClear() const ;
+    inline bool isNRIBusy(u8 noc) { return funcReadNRIAddress(noc,3,NRI_NOC_CMD_CTRL) & 1; }
+    void waitTilNRIClear(u8 noc) ;
 
   };
 }

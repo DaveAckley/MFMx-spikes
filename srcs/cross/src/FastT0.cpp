@@ -83,7 +83,7 @@ namespace MFM {
     }
 #pragma GCC diagnostic pop
 #endif
-    DP.printf("T0:RND %d\n",create(100));
+    //DP.printf("T0:RND %d\n",create(100));
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
     t0TicksElapsed = 0u;
@@ -102,7 +102,7 @@ namespace MFM {
       { static u32 once = 0;
         if (once < 60) {
           if (true && totalMillisElapsed >= 10000*once) {
-            DP.printf("%d T0#%d %uMHz %us %u ticks\n",
+            DP.printf("%d T0#%d %uMHz %us %u ticks",
                       once,hb.mTLBI,hb.mAIClockFrequency/1'000'000u,totalMillisElapsed/1000u,t0TicksElapsed);
             once += between(1u,10u);
           }

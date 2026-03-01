@@ -16,6 +16,7 @@ namespace MFM {
 
     void reset() { x = y = 0u; }
 
+    bool isMaxed() const { return x == U8_MAX && y == U8_MAX; }
     u32 length() const { return x + y; }
     u32 manhattanDistance(const U8C & other) const {
       return

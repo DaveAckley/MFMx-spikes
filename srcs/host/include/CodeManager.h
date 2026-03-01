@@ -7,6 +7,8 @@
 #include "HostBlock.h"
 #include "T6Image.h"
 
+#include "T6Grid.h" // HACK TO ACCESS HUB T6Grids
+
 namespace MFM {
   class CodeManager {
   public:
@@ -31,7 +33,21 @@ namespace MFM {
     typedef std::function< void(BHTag t6, HostBlock & hb, u8 oldfail, u8 newfail) > T6FailCallback;
     u32 newFails(T6FailCallback cb) ;
 
+    void addHub(u32 tlbi,T6Grid & g) {
+      MFM_API_ASSERT(!definedHubTLBI(tlbi),DUPLICATE_ENTRY);
+      mHubTLBIToT6Grid.try_emplace(tlbi);
+      mHubTLBIToT6Grid[tlbi] = HubValue(0,&g);
+    }
   private:
+    typedef u32 HubTLBI;
+    typedef u32 ChangeCount;
+    typedef std::pair<ChangeCount,T6Grid*> HubValue;
+    typedef std::unordered_map<HubTLBI,HubValue> HubTLBIToT6Grid;
+    HubTLBIToT6Grid mHubTLBIToT6Grid;
+    bool definedHubTLBI(u32 tlbi) {
+      return mHubTLBIToT6Grid.find(tlbi) != mHubTLBIToT6Grid.end();
+    }
+
     u32 mCardNum;
     OurTLBs & mOurTLBs;
     u32 mLastTLBISlowScanned;

@@ -7,25 +7,27 @@
 #include "T6Grid.h"
 #include "T6CellO.h"
 #include "NRIUtils.h"
-
-#include "T6STVL.h" // XXX TESTING
+#include "E2HEP.h"
 
 namespace MFM {
 
   extern int liveB(HostBlock & hb) __attribute__ ((optimize("O2")));
 
+  EWCarStorage theEWPCarStorage;// __attribute__ ((section(".transportblockew")));
+
   struct FastB {
     T6CellO mCello;
-    NRI3 mNRI3;
     EventWindow mFastEW;
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
+    BaseCarMetadata mEWP2HUBMeta[EWCarStorage::CAR_COUNT];
   };
   FAST_LOCAL(FastB,fB,b);
 
-  typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
-  T6EWLocker theT6EWLocker;
+  E2HEP theE2HEl;
+
+  EWCarStorage theE2HCarStorage;
 
   static constexpr u32 PHY_DREG = 2u;
   static constexpr u32 PHY_RES = 3u;
@@ -108,117 +110,162 @@ namespace MFM {
     return false; // NOT REACHED
   }
 
-  //  T6Grid theT6Grid;
-
   u32 findHubEWAddress(HostBlock & hb, T6CellO & cello) {
-    FAIL(INCOMPLETE_CODE);
+    if (sizeof(theE2HEl) > 3)
+      DP.printf("E2HEP at %p\n",&theE2HEl);
+    return 0u;
     /*
-    U8C hubc = cello.getXYofImage(ImageCode::IC_HUB); // intra-cell pos
-    U8C hubnoc = cello.getNoC0ofXY(hubc);             // full NoC0 of our hub
     */
+  }
+
+  u32 computeHUBAddressForCellIndex(HostBlock& hb, T6CellO & cello) {
+    U8C hubc = cello.getCellPofImage(ImageCode::IC_HUB); // intra-cell pos of hub
+    U8C hubnoc = cello.getNoC0ofCellP(hubc);             // full NoC0 of our hub
+    U8C ournoc = cello.getNoC0ofUs();
+    U8C ourct6 = cello.getUsCT6();
+    U8C hubct6 = U8C::makeCT6CoordFromNoC0Coord(hubnoc);
+    
+    DP.printf("CHUB10 h6=%u,%u h0=%u,%u\n",
+              hubct6.x,hubct6.y,hubnoc.x,hubnoc.y);
+
+    S8C offct6 = S8C(hubct6) - ourct6;
+    u32 index = cello.mImageTypeIndex;                // which of our kind are we?
+    DP.printf("CHUBA u0=%u,%u hc=%u,%u h0=%u,%u uc=%u,%u \n",
+              ournoc.x,ournoc.y,
+              hubc.x,hubc.y,
+              hubnoc.x, hubnoc.y,
+              cello.mCellPosCT6.x,cello.mCellPosCT6.y);
+    T6NgbL1Block l1b;
+    if (!l1b.init(ournoc, offct6, BlockCode::BC_EWHUB))
+      DP.printf("L1B INVAL\n");
+    {
+      u32 addr = l1b.mBaseAddress;
+      DP.printf("v%d HUBBA al=%u sz=%uB addr=0x%x (%u,%u)->(%u,%u)\n",
+                l1b.isValid(),
+                l1b.mArrayLength,
+                l1b.mItemSize,
+                addr,
+                ourct6.x, ourct6.y,
+                hubct6.x, hubct6.y);
+      return addr;
+    }
+    return 0;
+  }
+
+  void initForHubEWPs(HostBlock & hb, T6CellO & cello) {
+    DP.printf("IHUE10\n");
+    theE2HEl.initCars(&theE2HCarStorage.mEWCars[0],
+                      &fB.mEWP2HUBMeta[0],
+                      EWCarStorage::CAR_COUNT,
+                      computeHUBAddressForCellIndex(hb,cello),
+                      false);
+    //cello.to_repr(DP);
+    theE2HEl.to_repr(DP);
+  }
+  void processHubEWPs() {
+    theE2HEl.update();
+  }
+
+  typedef P2PEWElevatorPlatform::EWCar EWCar;
+
+  bool processEWCar(HostBlock & hb, P2PEWElevatorPlatform & ewp) {
+    EWCar * ewc = ewp.getCurrentCarIfAny();
+    if (ewc) {
+      if (ewc->getCarState() != CarState::OPEN) {
+        ewp.advanceToNextCar();
+        return true;
+      }
+      if (fB.mEWsAttempted%1000u == 0u) {
+        DP.printf("ewphBRND IoH %d CrBu %08x > %02x\n",
+                  fAll.mInspirationOnHand,
+                  fAll.mCreativityBuffer,
+                  createBits(8));
+        DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
+                  fB.mEWsAttempted,
+                  fB.mEWsSucceeded,
+                  fB.mEWsFailed,
+                  ewp.getCurrentCarIndex());
+      }
+      EWBlock & ewb = ewc->getContent();
+      ++fB.mEWsAttempted;
+      memcpy(&fB.mFastEW,&ewb.mOld,sizeof(EventWindow));
+      if (!updateFastEW(hb)) ++fB.mEWsFailed;
+      else {
+        ++fB.mEWsSucceeded;
+        C9printf("(%u,%u)EWSUC! %d/%d/%d #%d\n",
+                 fAll.mPos.x, fAll.mPos.y,
+                 fB.mEWsAttempted,
+                 fB.mEWsSucceeded,
+                 fB.mEWsFailed,
+                 ewp.getCurrentCarIndex());
+        memcpy(&ewb.mNew,&fB.mFastEW,sizeof(EventWindow));
+        {
+          AtomicScopeLock guard(ewp.getPlatformLock()); 
+          ewc->setCarState(CarState::CLOSED, CarType::STANDARD); // let god sort it out
+          C9printf("EWCLOSD #%d\n",
+                   ewp.getCurrentCarIndex());
+        }
+      }
+    }
+    return true;
   }
 
   int liveB(HostBlock & hb) {
     preloadT2Mailbox();
+    DP.printf("ELIB10\n");
 
     if (!fB.mCello.init())
       FAIL(ILLEGAL_STATE);
-    u32 ourewpindex = fB.mCello.mImageTypeIndex;
 
-    {
-      U8C hubct6 = fB.mCello.getXYofImage(ImageCode::IC_HUB); // intra-cell pos
-      U8C hubnoc = fB.mCello.getNoC0ofXY(hubct6);             // full NoC0 of our hub
+    DP.printf("LIB11\n");
 
-      //// TRY TO ACCESS HUB'S EWHUB
-      if (U8C::onBoardNoC0Coord(hubnoc)) { // if hub actually exists
-        T6Neighbor hubngb;
-        S8C tohub = S8C(hubct6) - fB.mCello.mUsCT6; //from ewp,us to hub,them
-        hubngb.init(hb.mPos,tohub);
-        ImageBlockAddr iba = hubngb.findIBAIfAny(fB.mNRI3, BlockCode::BC_EWHUB);
-        if (iba.isValid()) {
-          if (ourewpindex >= iba.getArrayLength()) FAIL(OUT_OF_RESOURCES);
-          u32 ourhubaddr = iba.getBlockAddr() + ourewpindex*sizeof(EWCarStorage);
-          DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d IX=%u AD=0x%x\n",
-                    iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
-                    iba.getHostChunkOffsetOpt(), iba.getArrayLength(),
-                    ourewpindex, ourhubaddr);
-        }
-      } else DP.printf("[%u,%u] T6NGBINFO HUBOFF\n", hb.mPos.x,hb.mPos.y);
+    U8C hubct6 = fB.mCello.getCellPofImage(ImageCode::IC_HUB); // intra-cell pos
+    U8C hubnoc = fB.mCello.getNoC0ofCellP(hubct6);             // full NoC0 of our hub
+    bool doHUB = !hubnoc.isMaxed();
+    if (doHUB) { // If our cell actually has a hub..
+      u32 ourewpindex = fB.mCello.mImageTypeIndex;
+
+      DP.printf("LIB12 %u,%u\n",hubnoc.x,hubnoc.y);
+      initForHubEWPs(hb,fB.mCello);
+      DP.printf("LIB13 %u,%u\n",hubct6.x,hubct6.y);
+      {
+
+        //// TRY TO ACCESS HUB'S EWHUB
+        if (U8C::onBoardNoC0Coord(hubnoc)) { // if hub actually exists
+          T6Neighbor hubngb;
+          DP.printf("S8EW h6=%u,%u h0=%u,%u\n",
+                    hubct6.x,hubct6.y,
+                    hubnoc.x,hubnoc.y);
+          S8C tohub = S8C(hubct6) - fB.mCello.mUsCT6; //from ewp,us to hub,them
+          hubngb.init(hb.mPos,tohub);
+          ImageBlockAddr iba = hubngb.findIBAIfAny(BlockCode::BC_EWHUB);
+          if (iba.isValid()) {
+            if (ourewpindex >= iba.getArrayLength()) FAIL(OUT_OF_RESOURCES);
+            u32 ourhubaddr = iba.getBlockAddr() + ourewpindex*sizeof(EWCarStorage);
+            DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d IX=%u AD=0x%x\n",
+                      iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
+                      iba.getHostChunkOffsetOpt(), iba.getArrayLength(),
+                      ourewpindex, ourhubaddr);
+          }
+        } else DP.printf("[%u,%u] T6NGBINFO HUBOFF\n", hb.mPos.x,hb.mPos.y);
+      }
     }
 
     P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
-    typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
     u8 spin = 0u;
-    if (false) {
-      // XXX TEST EWLOCKER
-      T6EWLocker::Entry lentry;
-      bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
-      DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
-                b,
-                lentry.mPosition.x,
-                lentry.mPosition.y,
-                lentry.mWhenAllocated,
-                '.');
-    }
+
     while (true) {
       if (++spin == 0) {
         hb.hartbeat(fAll.mHartNum);
         XXX_DEBUG_FUNC(__FILE__,__LINE__);
       }
-      EWCar * ewc = ewp.getCurrentCarIfAny();
-      if (ewc) {
-        if (ewc->getCarState() != CarState::OPEN) {
-          ewp.advanceToNextCar();
-          continue;
-        }
-        if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("ewphBRND IoH %d CrBu %08x > %02x\n",
-                    fAll.mInspirationOnHand,
-                    fAll.mCreativityBuffer,
-                    createBits(8));
-          DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
-                    fB.mEWsAttempted,
-                    fB.mEWsSucceeded,
-                    fB.mEWsFailed,
-                    ewp.getCurrentCarIndex());
-        }
-        EWBlock & ewb = ewc->getContent();
-        ++fB.mEWsAttempted;
-        memcpy(&fB.mFastEW,&ewb.mOld,sizeof(EventWindow));
-        if (!updateFastEW(hb)) ++fB.mEWsFailed;
-        else {
-          ++fB.mEWsSucceeded;
-          { static u32 once;
-            if (once < 2) {
-              DP.printf("(%u,%u)EWSUC! %d  %d/%d/%d #%d\n",
-                        fAll.mPos.x, fAll.mPos.y,
-                        once++,
-                        fB.mEWsAttempted,
-                        fB.mEWsSucceeded,
-                        fB.mEWsFailed,
-                        ewp.getCurrentCarIndex());
-            }
-          }
-          memcpy(&ewb.mNew,&fB.mFastEW,sizeof(EventWindow));
-          {
-            AtomicScopeLock guard(ewp.getPlatformLock()); 
-            ewc->setCarState(CarState::CLOSED, CarType::STANDARD); // let god sort it out
-            { static u32 once;
-              if (once < 2) {
-                DP.printf("%d EWCLOSD #%d\n",
-                          once++,
-                          ewp.getCurrentCarIndex());
-              }
-            }
-          }
-        }
-      }
+      if (processEWCar(hb,ewp)) continue;
+      if (doHUB) processHubEWPs();
+      return 0;
     }
-    return 0;
   }
-
   
 
 }

@@ -5,6 +5,7 @@ add_executable(ewp)
 target_sources(ewp PRIVATE
   src/ImageConfig.cpp
   images/ewp/src/LiveB.cpp
+  images/ewp/src/E2HEP.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 target_link_libraries(ewp PRIVATE crosslib)

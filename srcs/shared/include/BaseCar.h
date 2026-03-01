@@ -9,8 +9,8 @@ namespace MFM {
     UNUSED = 0u,           // 0 under construction
     OPEN,                  // 1 available for (un)loading locally
     CLOSED,                // 2 finished (un)loading locally
-    INBOUND_DEPARTED,      // 3 left t6 or arrived host
-    OUTBOUND_DEPARTED,     // 4 left host or arrived t6
+    INBOUND_DEPARTED,      // 3 left t6/ewp or arrived host/hub
+    OUTBOUND_DEPARTED,     // 4 left host/hub or arrived t6/ewp
   };
 
   enum CarType : u8 {

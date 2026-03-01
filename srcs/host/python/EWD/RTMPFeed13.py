@@ -132,7 +132,7 @@ class RTMPFeed:
         self.fps = int(5)
         self.height = self.img.shape[0]
         self.width = self.img.shape[1]
-        self.secsPerI = 1
+        self.secsPerI = 2
         self.goplen = int(self.secsPerI*self.fps)
         self.ffmpegCommand = [
             'ffmpeg', '-y',

@@ -310,6 +310,7 @@ class EWD(App):
 
     print("UPTOSUPER",super())
     super().run()
+    MFMx.BHLog.clearLogCallback()
 
   def compose(self) -> ComposeResult:
     self.logkt(self.key,f"composestart {self}")
@@ -513,4 +514,3 @@ if __name__ == "__main__":
   print("GOINDGINKTORUN",app)
   app.run()
   print("HIEMBAK!",app)
-

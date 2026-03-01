@@ -7,23 +7,45 @@
 #include "S8C.h"
 
 namespace MFM {
-  static constexpr u32 NOMINAL_GRID_WIDTH = 1920u/* *2u/3u */;
-  static constexpr u32 NOMINAL_GRID_HEIGHT = 1080u/* *2u/3u */;
+  static constexpr u32 NOMINAL_GRID_WIDTH = 1920u/2u; //1BH DEBUG SIZE: 960
+  static constexpr u32 NOMINAL_GRID_HEIGHT = 1080u/2u; //1BH DEBUG SIZE: 540
 
   static constexpr u32 BLACKHOLE_T6_WIDTH = 14u;
   static constexpr u32 BLACKHOLE_T6_HEIGHT = 10u;
   
-  static constexpr u32 T6GRID_WIDTH = (NOMINAL_GRID_WIDTH + BLACKHOLE_T6_WIDTH - 1u)/BLACKHOLE_T6_WIDTH;
-  static constexpr u32 T6GRID_HEIGHT = (NOMINAL_GRID_HEIGHT + BLACKHOLE_T6_HEIGHT - 1u)/BLACKHOLE_T6_HEIGHT;
+  static constexpr u32 BLACKHOLE_HUBS_WIDTH_3X3 = BLACKHOLE_T6_WIDTH / 3u;
+  static constexpr u32 BLACKHOLE_HUBS_HEIGHT_3X3 = BLACKHOLE_T6_HEIGHT / 3u;
+
+  static constexpr u32 BLACKHOLE_HUBS_WIDTH_2X2 = BLACKHOLE_T6_WIDTH / 2u;
+  static constexpr u32 BLACKHOLE_HUBS_HEIGHT_2X2 = BLACKHOLE_T6_HEIGHT / 2u;
+
+  static constexpr u32 BLACKHOLE_ACTIVE_HUB_WIDTH = BLACKHOLE_HUBS_WIDTH_3X3;
+  static constexpr u32 BLACKHOLE_ACTIVE_HUB_HEIGHT = BLACKHOLE_HUBS_HEIGHT_3X3;
+
+  static constexpr u32 T6GRID_WIDTH = (NOMINAL_GRID_WIDTH + BLACKHOLE_ACTIVE_HUB_WIDTH - 1u)/BLACKHOLE_ACTIVE_HUB_WIDTH;
+  static constexpr u32 T6GRID_HEIGHT = (NOMINAL_GRID_HEIGHT + BLACKHOLE_ACTIVE_HUB_HEIGHT - 1u)/BLACKHOLE_ACTIVE_HUB_HEIGHT;
 
   struct T6Grid {
-    P4Atom mT6Grid[T6GRID_WIDTH][T6GRID_HEIGHT];
+    P4Atom mT6Grid[T6GRID_WIDTH][T6GRID_HEIGHT]; //< canonical atoms for this T6
+    u32 mTotalChanges;          //< will wrap eventually but do we care?
 
-    P4Atom & getAtom(U8C c) {
+    void init() {
+      memset_s(this,'\0',sizeof(*this));
+    }
+
+    P4Atom getAtom(U8C c) const {
       MFM_API_ASSERT(c.x < T6GRID_WIDTH && c.y < T6GRID_HEIGHT, ILLEGAL_ARGUMENT);
       return mT6Grid[c.x][c.y];
     }
-    
+
+    bool setAtom(U8C c, const P4Atom & newval) {
+      MFM_API_ASSERT(c.x < T6GRID_WIDTH && c.y < T6GRID_HEIGHT, ILLEGAL_ARGUMENT);
+      if (mT6Grid[c.x][c.y] == newval) return false;
+      mT6Grid[c.x][c.y] = newval;
+      ++mTotalChanges;
+      return true;
+    }
+
     /** coord of site in this T6Grid that is closest to c4 */
     static U8C tileCoordOfCorner(Corner4 c4) {
       switch (c4) {

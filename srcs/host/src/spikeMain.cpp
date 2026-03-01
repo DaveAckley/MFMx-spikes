@@ -13,6 +13,7 @@
 #include "T6Image.h"
 #include "CodeManager.h"
 #include "Constants.h"
+#include "SimConstants.h" // for HOST_RAM_PER_BH
 #include "BlockCode.h"
 
 //#include "P2PElevator.h"
@@ -53,7 +54,7 @@ int spikeMain() {
   ourTLBs.allocateTLBs();
   ourTLBs.configureTLBs();
   MFM::Eprintf("PHASE-------Allocate host buffer space\n");
-  ourTLBs.allocateHostRAM(1<<13); // size per T6
+  ourTLBs.allocateHostRAM(MFM::HOST_RAM_PER_BH); // size per T6
   //ourTLBs.allocateHostRAM(4096u);
   //ourTLBs.allocateHostRAM(1<<21u);
   MFM::Eprintf("  allocated %lu at %p for noc 0x%lx\n",

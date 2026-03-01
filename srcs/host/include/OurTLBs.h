@@ -33,6 +33,8 @@ namespace MFM {
     LogCarStorage::LogCar & getLogCarHost(u32 tlbi, u32 carnum) const ;
 
     // ACCESS FAKE MMAP'D ADDRS (TO R/W REMOTE T6s)
+    char * getL1HostAddressForTLBI(u32 tlbi) ; //< host-mapped address of L1 addr 0 for T6 tlbi
+
     u32 getLogCarT6L1(u32 tlbi, u32 carnum) ;
 
     bool updateTransports(bool includeEWs) ;

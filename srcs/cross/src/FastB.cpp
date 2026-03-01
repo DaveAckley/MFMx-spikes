@@ -9,29 +9,16 @@
 namespace MFM {
 
   int hartMainB(HostBlock & hb) {
-    //    DIEWAY();
-
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
-
-    //DP.printf("B#%d(%d,%d)\n",hb.mTLBI,hb.mPos.x,hb.mPos.y);
-
-    // hb.mCommonArgs[0] reserved for nonce (used by T2)
-    // hb.mCommonArgs[1] reserved for start decay type
-    // hb.mCommonArgs[2] = (u32) hb.mHostBaseAddrHi; //ET_NIU_NODE_ID;
-    //hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    DIEWAY();
-
-    {
+    if (false) {
       T6CellO cello;
       if (cello.init()) {
-        U8C hubc = cello.getXYofImage(ImageCode::IC_HUB);
-        U8C hubnoc = cello.getNoC0ofXY(hubc);
+        U8C hubc = cello.getCellPofImage(ImageCode::IC_HUB);
+        U8C hubnoc = cello.getNoC0ofCellP(hubc);
         DP.printf("T6CO"
                   //" a=0x%x"
-                  " up=(%u,%u)"
+                  " u6=(%u,%u)"
+                  " u0=(%u,%u)"
                   " c#=(%u,%u)"
                   " cp=(%u,%u)"
                   " h0=(%u,%u)"
@@ -39,6 +26,7 @@ namespace MFM {
                   "\n",
                   //cello.mOurCellBlockAddr,
                   cello.mUsCT6.x,cello.mUsCT6.y,
+                  cello.getNoC0ofUs().x,cello.getNoC0ofUs().y,
                   cello.mCellNum.x,cello.mCellNum.y,
                   cello.mUsCellPos.x,cello.mUsCellPos.y,
                   hubnoc.x,hubnoc.y,

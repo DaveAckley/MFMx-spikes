@@ -1,5 +1,5 @@
 #include "HostCommsMap.h"
-#include "BlackHole.h" // for MIN_GTEED_HOST_RAM_PER_BH
+#include "SimConstants.h" // for MIN_GTEED_HOST_RAM_PER_BH
 #include "OurTLBs.h" // for AHAX_TLBI_L1_LAST_UNI
 
 namespace MFM {
@@ -13,7 +13,7 @@ namespace MFM {
 
     u32 thisChunks = (size + HOST_COMMS_MAP_CHUNK_SIZE - 1u)/HOST_COMMS_MAP_CHUNK_SIZE;
     u32 totalChunks = thisChunks + mNextFreeChunk;
-    MFM_API_ASSERT(totalChunks*HOST_COMMS_MAP_CHUNK_SIZE <= BlackHole::MIN_GTEED_HOST_RAM_PER_BH, OUT_OF_ROOM);
+    MFM_API_ASSERT(totalChunks*HOST_COMMS_MAP_CHUNK_SIZE <= MIN_GTEED_HOST_RAM_PER_BH, OUT_OF_ROOM);
     MFM_API_ASSERT(totalChunks < U8_MAX, ARRAY_INDEX_OUT_OF_BOUNDS);
       
     mHostRAMChunkOffsets[b] = mNextFreeChunk;
@@ -81,7 +81,7 @@ namespace MFM {
     MFM_API_ASSERT(b < BlockCode::BC_BLOCKCODE_COUNT, ILLEGAL_ARGUMENT);
     MFM_API_ASSERT(mHostMemoryBaseAddress != 0u, ILLEGAL_STATE);
 
-    char * pert6base = ((char*)mHostMemoryBaseAddress) + tlbi * BlackHole::HOST_RAM_PER_BH;
+    char * pert6base = ((char*)mHostMemoryBaseAddress) + tlbi * HOST_RAM_PER_BH;
     u8 chunkoff = getHostRAMChunkOffset(b);
     MFM_API_ASSERT(chunkoff < U8_MAX,ILLEGAL_STATE);
     return (void*) (pert6base + chunkoff * HOST_COMMS_MAP_CHUNK_SIZE);

@@ -5,6 +5,8 @@
 #include "TransportBlock.h"
 #include "EventWindow.h"
 #include "T6Grid.h"
+#include "T6CellO.h"
+#include "H2EEP.h"
 #include "NRIUtils.h" // for NRI3
 
 #include "AllImageBlockDecls.h"
@@ -18,8 +20,13 @@ namespace MFM {
 
   T6Grid theT6Grid[1] __attribute__ ((section(".crossrodata")));
 
+  static constexpr u32 EWSLOTS = 8u;
+  EWCarStorage theEWHub[EWSLOTS];
+
   struct FastB {
-    EventWindow mFastEW;
+    EWCarMetadata mEWMeta[EWSLOTS];
+    H2EEP mH2El;
+    T6CellO mCello;
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
@@ -29,85 +36,75 @@ namespace MFM {
   typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
   T6EWLocker theT6EWLocker;
 
-  static constexpr u32 PHY_DREG = 2u;
-  static constexpr u32 PHY_RES = 3u;
-  static constexpr u32 PHY_FB1 = 4u;
-  static constexpr u32 PHY_FB4 = 5u;
-
-  static bool updateFastEW(HostBlock & hb) {
-    EventWindow & ew = fB.mFastEW;
-    P4Atom & ca = ew.mAtoms[0];
-    u32 cat = ca.getType();
-    ////// BEGIN "PHYSICS" //////
-    switch (cat) {
-    default: {
-      // wth are you? 
-      ca = P4Atom::makeEmptyAtom(); // buhbye now
-      return true;
-    }
-    case P4Atom::EMPTY_TYPE: return true;
-    case P4Atom::INACCESSIBLE_TYPE: return false;
-
-    case P4Atom::START_TYPE: {
-      if (hb.mCommonArgs[1] != U16_MAX)
-        ca = P4Atom::makeAtom((u16) hb.mCommonArgs[1]);
-      else 
-        ca = P4Atom::makeAtom(PHY_DREG);
-      return true;
-    }
-
-    case PHY_FB1: {
-      u32 ngbsn = between(1u,4u);
-      ew.mAtoms[ngbsn] = ca;
-      return true;
-    }
-
-    case PHY_FB4: {
-      ca.mStg[1]++;             // cheat and access underlying u32
-      for (u32 ngbsn = 1u; ngbsn <= 40u; ++ngbsn) { //MAX FB!
-        P4Atom & na = ew.mAtoms[ngbsn];
-        na = ca; // kaboom
-      }
-      return true;
-    }
-
-    case PHY_DREG: {
-      u32 ngbsn = between(1u, 4u);
-      P4Atom & na = ew.mAtoms[ngbsn];
-      u32 natype = na.getType();
-      if (natype == P4Atom::EMPTY_TYPE) {
-        if (oneIn(500u)) na = ca; // New me!
-        else if (oneIn(50u)) na = P4Atom::makeAtom(PHY_RES);
-        else ew.swap(0u,ngbsn);
-      } else if (natype == PHY_DREG) { // dreg on dreg battle
-        if (oneIn(10u)) na = P4Atom::makeEmptyAtom();
-      } else if (oneIn(20u)) { // general destruction
-        na = P4Atom::makeEmptyAtom();
-        if (!ew.swap(0u,ngbsn))
-          FAIL(USER_REQUESTED_FAILURE); // XXX use swap retval
-      } 
-      return true;
-    }
-      
-    case PHY_RES: {
-      u32 ngbsn = between(1u, 4u);
-      P4Atom & na = ew.mAtoms[ngbsn];
-      if (na.getType() == P4Atom::EMPTY_TYPE)
-        ew.swap(0u,ngbsn);
-      return true;
-    }
-    }
-    //// END OF "PHYSICS" ////
-    
-    return false; // NOT REACHED
+  void initHubForEWPs(HostBlock & hb, T6CellO & cello) {
+    fB.mH2El.init();
+    memset_s(&fB.mEWMeta[0],'\0',sizeof(fB.mEWMeta));
+    DP.printf("IHFE10\n");
+    fB.mH2El.initCars(&theEWHub[0].mEWCars[0],
+                      &fB.mEWMeta[0].mEWData[0],
+                      EWCarStorage::CAR_COUNT,
+                      0u,
+                      true);
+    DP.printf("IHFE11\n");
+    fB.mH2El.to_repr(DP);
   }
 
-  EWCarStorage theEWHub[8];
+  void checkEWCars(HostBlock & hb) {
+    static u32 spin = 0;
+    for (u32 idx = 0u; idx < EWSLOTS; ++idx) {
+      EWCarStorage & ews = theEWHub[idx];
+      EWCarMetadata & emet = fB.mEWMeta[idx];
+
+      if ((spin++ % 100'000'001u) == 0u)
+        DP.printf("CHEWC %u idx=%u ews=0x%p meta=0x%p\n",
+                  spin, idx, &ews, &emet);
+
+      for (u32 carnum = 0u; carnum < EWCarStorage::CAR_COUNT; ++carnum) {
+        EWCarStorage::EWCar & ewc = ews.mEWCars[carnum];
+        if (ewc.isComplete()) {
+          DP.printf("CARGP cn=%u sl=%u\n",carnum, idx);
+        }
+      }
+    }
+  }
+
+  void updateHubCUSTOM(HostBlock & hb) {
+    T6Grid & g = theT6Grid[0];
+    if ((++g.mTotalChanges % 10'000'000u) == 0u)
+      DP.printf("HUPD %u\n",g.mTotalChanges);
+    checkEWCars(hb);
+  }
+
+  void updateHubH2E(HostBlock & hb) {
+    T6Grid & g = theT6Grid[0];
+    if ((++g.mTotalChanges % 10'000'000u) == 0u)
+      DP.printf("HUPD %u\n",g.mTotalChanges);
+    fB.mH2El.update();
+  }
+
+  void updateHub(HostBlock & hb) { updateHubH2E(hb); }
 
   int liveB(HostBlock & hb) {
+    preloadT2Mailbox();
+
+    if (!fB.mCello.init())
+      FAIL(ILLEGAL_STATE);
+    
+    DP.printf("HLIB10");
+    for (u8 y = 0; y < 3; ++y)
+      for (u8 x = 0; x < 3; ++x) {
+        U8C cp(x,y);
+        u8 ic = fB.mCello.getImageCodeAtCellP(cp);
+        DP.printf(" %s:%u,%u",getNameFromImageCode((ImageCode) ic),x,y);
+      }
+    DP.printf(".\n");
+
+    initHubForEWPs(hb,fB.mCello);
+
     {
-      P4Atom & a = theT6Grid[0].getAtom({1,1});
-      a = P4Atom::makeAtom(P4Atom::START_TYPE);
+      P4Atom a = P4Atom::makeAtom(P4Atom::START_TYPE);
+      U8C startc(T6GRID_WIDTH/2u,T6GRID_HEIGHT/2u);
+      theT6Grid[0].setAtom(startc,a);
       DP.printf("(%d,%d) HUBSZ6G(%ux%u)->%u, %04x:%04x-%08x-%08x\n",
                 hb.mPos.x,hb.mPos.y,
                 T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid),
@@ -119,125 +116,13 @@ namespace MFM {
     DP.printf("(%d,%d) EWHUBSZ(%u) of %u\n",
               hb.mPos.x, hb.mPos.y,
               sizeof(theEWHub), sizeof(EWCarStorage));
-    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    preloadT2Mailbox();
-    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
- if (true) { // TEST BLOCKING L1 READS
-      DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
-
-      U8C usnoc = hb.mPos;
-      U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
-      //DP.printf("PREBLIRD! (%u,%u)\n", usct6.x, usct6.y);
-      if (!U8C::onBoardCT6Coord(usct6))
-        DP.printf("FUCKAGE (%u,%u)->%u,%u\n",
-                  usnoc.x, usnoc.y, usct6.x, usct6.y);
-      else {
-        U8C us2 = usct6;
-        U8C themct6 = usct6 + S8C(1,0); // look east young man
-        if (!U8C::onBoardCT6Coord(themct6))
-          DP.printf("OFFBOARD (%u,%u)->%u,%u\n",
-                    usct6.x, usct6.y, themct6.x, themct6.y);
-        else {
-          NRI3 nri3;
-          u32 themibh[5];
-          {
-            u32 * ibu = (u32*) &theImageBlock;
-            DP.printf("OURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
-                      &ibu[0],ibu[0],
-                      &ibu[1],ibu[1],
-                      &ibu[2],ibu[2]);
-          }
-          ImageBlockHeader tibh;
-          bool ret = nri3.blockingL1Read(usct6, themct6,
-                                         (u32) &theImageBlock,
-                                         sizeof(tibh)>>2u, (u32*) &tibh);
-
-          DP.printf("BLIRD! %d (%u,%u)<-(%u,%u)==0x%08x\n",
-                    ret, us2.x, us2.y, themct6.x, themct6.y, *(u32*) &tibh);
-          if (ret) {
-
-            for (u32 e = 0u; e < tibh.mEntries; ++e) {
-              
-            }
-          }
-        }
-          
-      }
-    }
-
-    P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
-    typedef P2PEWElevatorPlatform::EWCar EWCar;
-    const u32 LCR = 1'000'000u;
-
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    u32 spin = 0u;
-    if (false) {
-    // XXX TEST EWLOCKER
-    T6EWLocker::Entry lentry;
-    bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
-    DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
-              b,
-              lentry.mPosition.x,
-              lentry.mPosition.y,
-              lentry.mWhenAllocated,
-              '.');
-
-    }
+    u32 spin = 0;
     while (true) {
-      if ((++spin & 0x1fffff) == 0) {
+      if ((++spin & 0x1ffff) == 0) {
         hb.hartbeat(fAll.mHartNum);
-        if (false) DP.printf("hubhBRND IoH %d CrBu %08x > %02x (atm%d)\n",
-                  fAll.mInspirationOnHand,
-                  fAll.mCreativityBuffer,
-                  createBits(8),
-                  fB.mEWsAttempted);
       }
-      EWCar * ewc = ewp.getCurrentCarIfAny();
-      if (ewc) {
-        if (ewc->getCarState() != CarState::OPEN) {
-          ewp.advanceToNextCar();
-          continue;
-        }
-        if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
-                    fB.mEWsAttempted,
-                    fB.mEWsSucceeded,
-                    fB.mEWsFailed,
-                    ewp.getCurrentCarIndex());
-        }
-        EWBlock & ewb = ewc->getContent();
-        ++fB.mEWsAttempted;
-        memcpy(&fB.mFastEW,&ewb.mOld,sizeof(EventWindow));
-        if (!updateFastEW(hb)) ++fB.mEWsFailed;
-        else {
-          ++fB.mEWsSucceeded;
-          { static u32 once;
-            if (once < 2) {
-              DP.printf("(%u,%u)EWSUC! %d  %d/%d/%d #%d\n",
-                        fAll.mPos.x, fAll.mPos.y,
-                        once++,
-                        fB.mEWsAttempted,
-                        fB.mEWsSucceeded,
-                        fB.mEWsFailed,
-                        ewp.getCurrentCarIndex());
-            }
-          }
-          memcpy(&ewb.mNew,&fB.mFastEW,sizeof(EventWindow));
-          {
-            AtomicScopeLock guard(ewp.getPlatformLock()); 
-            ewc->setCarState(CarState::CLOSED, CarType::STANDARD); // let god sort it out
-            { static u32 once;
-              if (once < 2) {
-                DP.printf("%d EWCLOSD #%d\n",
-                          once++,
-                          ewp.getCurrentCarIndex());
-              }
-            }
-          }
-        }
-      }
+      updateHub(hb);
     }
     return 0;
   }

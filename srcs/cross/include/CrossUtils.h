@@ -2,7 +2,18 @@
 
 #include "itype.h"
 
-/// SEE NOTE BELOW ABOUT XXX_MAYBE_DIR_FUNC
+#define C9printf(...) CNprintf(9, __VA_ARGS__)
+
+#define CNprintf(COUNTCN, ...)                                          \
+  do {                                                                  \
+  static u32 __var;                                                     \
+  if (__var++ < COUNTCN)                                                \
+    CUprintf(__var, __FILE__,__LINE__, __VA_ARGS__);                    \
+  if (__var == COUNTCN)                                                 \
+    CUprintf(__var, __FILE__,__LINE__, "MUTING...\n");                  \
+  } while (0)
+
+/// SEE NOTE BELOW ABOUT XXX_MAYBE_DIE_FUNC
 #define DIEWAY() /*DIEWAYDOIT()*/
 #define DIEWAYDOIT() do {                       \
   static u32 count;                             \
@@ -29,6 +40,8 @@ namespace MFM {
   void memset_s(void* addr, u8 byte, u32 count) ;
 
   int strcmp_s(const char *s1, const char *s2) ;
+
+  void CUprintf(u32 count, const char * file, u32 line, const char * fmt, ...);
 
   void XXX_DEBUG_FUNC_DOIT(const char * file, u32 line) ;
 

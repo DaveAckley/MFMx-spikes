@@ -71,6 +71,18 @@ namespace MFM {
                 image.getName().c_str(),toTLBI,c.x,c.y,nocc.x,nocc.y);
       mOurTLBs.writeToWords(toTLBI, 0u, codewords, wordcount);
       mOurTLBs.getTLBInfo(toTLBI).setDeployedImage(image);
+
+      //// >>FOR UNICAST ONLY<< REMEMBER TLBI IF IMAGE PROVIDES BC_T6GRID
+      {
+        u32 t6gridaddr = mOurTLBs.getTLBInfo(toTLBI).mT6GridStart;
+        if (t6gridaddr!=0) {
+          char * l1base = mOurTLBs.getL1HostAddressForTLBI(toTLBI);
+          T6Grid * t6gp = (T6Grid*) (l1base + t6gridaddr);
+          addHub(toTLBI,*t6gp);
+          Eprintf("HUBADDED %u at %p\n",toTLBI,t6gp); 
+        }
+      }
+
     }
 
     // Waste Some Time OK
@@ -147,10 +159,11 @@ namespace MFM {
   }
 
   void CodeManager::releaseTheHounds() {
+    LOGprintf(mCardNum,"PHASE-------RELEASE THE HOUNDS\n");
     mOurTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
                      RISCV_DEBUG_REG_SOFT_RESET_0,
                      SOFT_RESET_ALL_RISCV_EXCEPT_B);
-    sleepUsec(3'000'000);
+    sleepUsec(1'000'000);
     LOGprintf(mCardNum,"PHASE-------Check magic\n");
     assertGoodMagic();
   }
@@ -328,6 +341,17 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 
   s32 CodeManager::scanHubGrids() {
     s32 ret = 0;
+    for (auto & item : mHubTLBIToT6Grid) {
+      HubTLBI tlbi = item.first;
+      ChangeCount ccnt = item.second.first;
+      T6Grid * tgp = item.second.second;
+      u32 tcnt = tgp->mTotalChanges;
+      if (ccnt != tcnt) {
+        item.second.first = tcnt;
+        HNprintf(1000,"SHGD %u %u->%u %p\n",tlbi, ccnt, tcnt, tgp);
+      }
+    }
+#if 0
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
          ++tlbi) {
@@ -342,6 +366,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       HNprintf(200,"SCANHUB %u %p (0x%x)\n", tlbi, &t6g, t6gridaddr);
       ++ret;
     }
+#endif
     return ret;
   }
 
