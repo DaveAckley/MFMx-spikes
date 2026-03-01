@@ -7,14 +7,30 @@
 #include "BHTag.h"
 #include "TimeDefs.h"
 
+#define H1printf(...) HNprintf(1, __VA_ARGS__)
+#define HNprintf(COUNTCN, ...)                                          \
+  do {                                                                  \
+  static u32 __var;                                                     \
+  if (__var++ < COUNTCN)                                                \
+    KTEEprintf(BH_HOST_TAG, __FILE__,__LINE__, __VA_ARGS__);            \
+  if (__var == COUNTCN)                                                 \
+    KTEEprintf(BH_HOST_TAG, __FILE__,__LINE__, "MUTING AFTER %d...\n",__var); \
+  } while (0)
+#define HTprintf(...) KTEEprintf(BH_HOST_TAG, __FILE__,__LINE__, __VA_ARGS__)
 #define KTprintf(key, ...) KTEEprintf(key, __FILE__,__LINE__, __VA_ARGS__)
 #define Eprintf(...) EEprintf(__FILE__,__LINE__, __VA_ARGS__)
 #define Evprintf(...) EEvprintf(__FILE__,__LINE__, __VA_ARGS__)
 namespace MFM {
+  static constexpr BHTag BH_HOST_TAG(TagType::HOSTCT, 0u);
   inline void memset_s(void* addr, u8 byte, u32 count) {
     if (byte == 0u) explicit_bzero(addr,count);
     else memset(addr,byte,count);
   }
+
+  u8 p1(void * p) ;
+  u16 p2(void * p) ;
+  u32 p4(void * p) ;
+  u64 p8(void * p) ;
 
   int strcmp_s(const char * s1, const char * s2) ;
 

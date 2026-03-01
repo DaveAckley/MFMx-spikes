@@ -38,8 +38,8 @@ target_sources(crosslib PUBLIC
   src/Printf.cpp
   src/T6CellO.cpp
   src/T6ElevatorTransport.cpp
-  src/T6Grid.cpp
   src/T6ImageBlock.cpp
+  src/T6Neighbor.cpp
   src/T6RingO.cpp
   src/Wrap8.cpp
   src/formatSymbols.pl

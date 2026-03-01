@@ -102,7 +102,7 @@ namespace MFM {
       { static u32 once = 0;
         if (once < 60) {
           if (true && totalMillisElapsed >= 10000*once) {
-            DP.printf("%d T0#%d %uMHz %us %u ticks",
+            DP.printf("%d T0#%d %uMHz %us %u ticks\n",
                       once,hb.mTLBI,hb.mAIClockFrequency/1'000'000u,totalMillisElapsed/1000u,t0TicksElapsed);
             once += between(1u,10u);
           }

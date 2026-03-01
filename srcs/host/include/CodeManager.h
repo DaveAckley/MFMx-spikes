@@ -25,6 +25,7 @@ namespace MFM {
     void assertGoodMagic() ;
     s32 awaitResults() ;
 
+    s32 scanHubGrids() ;
     s32 slowScanHostBlocks() ;
 
     typedef std::function< void(BHTag t6, HostBlock & hb, u8 oldfail, u8 newfail) > T6FailCallback;

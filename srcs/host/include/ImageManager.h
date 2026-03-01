@@ -8,7 +8,9 @@
 #include "CellBlock.h"
 #include "HostUtils.h"
 #include "BlockCode.h"
-//#include "BHTag.h"
+#include "Layout.h"
+#include "HostCommsMap.h"
+#include "CommsModule.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
@@ -57,116 +59,8 @@ namespace MFM {
       return &getItem(name);
     }
     ITEM& getItem(std::string name) {
-      MFM_API_ASSERT(definedKey(name),UNKNOWN_ELEMENT);
+      MFM_API_ASSERT(definedKey(name),NOT_FOUND);
       return mItemMap[name];
-    }
-  };
-
-  struct HostModule {
-    std::string mName;
-    u64 mBlockCodesRequired;    //< bit mask 0:ill, 1:BC_LOGCARS, .., 63:BC_LASTLEGAL
-    std::string getName() const { return mName; }
-    std::string to_repr() const {
-      std::string ret = "<HostModule:";
-      ret.append(getName());
-      bool first = true;
-      for (u32 i = 0u; i < sizeof(mBlockCodesRequired)*8u; ++i) {
-        if (mBlockCodesRequired&(((u64)1)<<i)) {
-          ret.append(first ? "+" : ",");
-          first = false;
-          ret.append(getNameFromBlockCode((BlockCode) i));
-        }
-      }
-      ret.append(">");
-      return ret;
-    }
-    void init(std::string modname) {
-      mName = modname;
-    }
-    u64 blockCodeMask(BlockCode bc) const { return ((u64)1)<<bc; }
-    void requireCommBlockNamed(std::string blockname) {
-      BlockCode b = getBlockCodeFromName(blockname.c_str());
-      MFM_API_ASSERT(b < sizeof(mBlockCodesRequired)*8u,OUT_OF_ROOM);
-      if (b != BlockCode::BC_RSRV_ILL)
-        mBlockCodesRequired |= blockCodeMask(b);
-    }
-
-    bool isBlockCodeRequired(BlockCode bc) {
-      FAIL(INCOMPLETE_CODE);
-      return false;
-    }
-  };
-
-  struct Layout {
-    static constexpr u32 MAXBHCARDS = 4u;
-    std::string mName;
-    std::string mCellForBHCard[MAXBHCARDS];
-    //std::string mDefaultCell;
-    std::string mDefaultImage;
-    u8 mCardFlags;              //< flags&(1<<cardnum) => use cardnum
-
-    std::vector<u32> getActiveBHCards() const {
-      std::vector<u32> ret;
-      for (u32 i = 0u; i < MAXBHCARDS; ++i) {
-        if (mCardFlags&(1u<<i)) {
-          ret.push_back(i);
-        }
-      }
-      return ret;
-    }
-
-    bool layoutAppliesToBHC(u32 bhcardnum) const {
-      return mCardFlags&(1u<<bhcardnum);
-    }
-
-    std::string getName() const { return mName; }
-
-    //std::string getDefaultCell() const { return mDefaultCell; }
-    
-    std::string getDefaultImage() const { return mDefaultImage; }
-    
-    void init(std::string name, std::string defaultimage) {
-      mName = name;
-      mCardFlags = 0u;
-      mDefaultImage = defaultimage;
-    }
-
-    void addHostModule(HostModule & hm) {
-      FAIL(INCOMPLETE_CODE);
-    }
-
-    void addBlackHoleCard(u8 card) {
-      mCardFlags |= 1u<<card;
-    }
-
-    void addCell(u8 card, std::string cellname) {
-      u32 mincard, maxcard;
-      if (card == U8_MAX) { mincard = 0u; maxcard = MAXBHCARDS; }
-      else if (card < MAXBHCARDS) { mincard = card; maxcard = card + 1u; }
-      else FAIL(ILLEGAL_ARGUMENT);
-      
-      for (u8 c = mincard; c < maxcard; ++c) {
-        mCellForBHCard[c] = cellname; // whether or not mCardFlags?
-      }
-    }
-
-    std::string to_string() const { return to_repr(); }
-    
-    std::string to_repr() const {
-      char buf[1024];
-      char *cur = buf, *end = buf + sizeof(buf);
-      cur += snprintf(cur,end - cur,"<Layout:%s [",
-                      mName.c_str());
-      u32 count = 0u;
-      for (u32 i = 0u; i < MAXBHCARDS; ++i) {
-        if (!(mCardFlags&(1u<<i))) continue;
-        if (count) cur += snprintf(cur, end-cur, " ");
-        cur += snprintf(cur, end-cur, "bh%u:%s",
-                        i,mCellForBHCard[i].c_str());
-        ++count;
-      }
-      cur += snprintf(cur,end - cur,"]>");
-      return std::string(buf);
     }
   };
 
@@ -237,15 +131,17 @@ namespace MFM {
     }
   };
 
+#if 0 // NOT NEEDED, CommsModule IS DOING IT
   struct HostRAMConfig {
-    u8 mHostRAMChunkOffsets[BlockCode::BC_BLOCKCODE_COUNT];
+
     void reset() ;
-    void configure(HostModule & hm) ;
+    void configure(CommsModule & hm) ;
     u8 getHostRAMChunkOffset(BlockCode bc) const {
       MFM_API_ASSERT(bc > 0 && bc < sizeof(mHostRAMChunkOffsets),ILLEGAL_ARGUMENT);
       return mHostRAMChunkOffsets[bc];
     }
   };
+#endif
 
   struct BlackHole; // FORWARD
 
@@ -253,7 +149,7 @@ namespace MFM {
     static ImageManager& getTheImageManager() ;
 
     bool deployTo(BlackHole & bh) ; //< using the configured active layout..
-    bool configureT6ImageCellBlockForBHCard(T6Image& t6i, u32 bhc) ; //< ditto
+    bool runtimeConfigureT6Image(T6Image& t6i, BlackHole & bh) ; //< ditto + bh
 
     T6Image& makeT6Image(std::string ikey, u8 imageCode, std::string path) ;
     T6Image& getT6Image(std::string ikey) ;
@@ -271,47 +167,31 @@ namespace MFM {
     LayoutMap mLayoutMap;       //< std::string -> Layout&
     LayoutMap & getLayouts() { return mLayoutMap; } 
 
-    HostModule& makeHostModule(std::string ikey) ;
-    HostModule& getHostModule(std::string ikey) ;
-    HostModule* getHostModuleIfAny(std::string ikey) ;
+    CommsModule& makeCommsModule(std::string ikey) ;
+    CommsModule& getCommsModule(std::string ikey) ;
+    CommsModule* getCommsModuleIfAny(std::string ikey) ;
 
-    typedef ItemFactory<HostModule> HostModuleMap;
-    HostModuleMap mHostModuleMap; //< std::string -> HostModule&
-    HostModuleMap & getHostModules() { return mHostModuleMap; }
+    typedef ItemFactory<CommsModule> CommsModuleMap;
+    CommsModuleMap mCommsModuleMap; //< std::string -> CommsModule&
+    CommsModuleMap & getCommsModules() { return mCommsModuleMap; }
 
     std::string mActiveLayout;
     void setActiveLayout(std::string layoutname) {
       if (!getLayouts().definedKey(layoutname))
         FAIL(ILLEGAL_ARGUMENT);
       mActiveLayout = layoutname;
-      configureHostRAM();
+      //configureHostRAM();
     }
     std::string getActiveLayout() const { return mActiveLayout; }
 
-    void configureHostRAM() ; //< based on HostModule of active layout
-
-    /*
-    typedef std::unique_ptr<T6Image> T6ImagePtr;
-    typedef std::vector<T6ImagePtr> ImageVector;
-    ImageVector mImageVector;
-    */
+    //void configureHostRAM() ; //< based on CommsModule of active layout
 
     static void pybindings(py::module & m) {
       {
-        py::class_<HostModule> l(m,"HostModule");
-        l.def("requireCommBlockNamed", &HostModule::requireCommBlockNamed,py::call_guard<py::gil_scoped_release>());
-        l.def("getName", &HostModule::getName,py::call_guard<py::gil_scoped_release>());
-        l.def("__repr__", &HostModule::to_repr,py::call_guard<py::gil_scoped_release>());
-      }
-      {
-        py::class_<Layout> l(m,"Layout");
-        l.def("getActiveBHCards", &Layout::getActiveBHCards,py::call_guard<py::gil_scoped_release>());
-        l.def("addCell", &Layout::addCell,py::call_guard<py::gil_scoped_release>());
-        l.def("addBlackHoleCard", &Layout::addBlackHoleCard,py::call_guard<py::gil_scoped_release>());
-        l.def("addHostModule", &Layout::addHostModule,py::call_guard<py::gil_scoped_release>());
-        l.def("getName", &Layout::getName,py::call_guard<py::gil_scoped_release>());
-        l.def("getDefaultImage", &Layout::getDefaultImage,py::call_guard<py::gil_scoped_release>());
-        l.def("__repr__", &Layout::to_repr,py::call_guard<py::gil_scoped_release>());
+        py::class_<CommsModule> l(m,"CommsModule");
+        l.def("requireCommBlockNamed", &CommsModule::requireCommBlockNamed,py::call_guard<py::gil_scoped_release>());
+        l.def("getName", &CommsModule::getName,py::call_guard<py::gil_scoped_release>());
+        l.def("__repr__", &CommsModule::to_repr,py::call_guard<py::gil_scoped_release>());
       }
       {
         py::class_<Cell> c(m,"Cell");
@@ -328,10 +208,10 @@ namespace MFM {
     ImageManager & g() { return ImageManager::getTheImageManager(); }
     const ImageManager & g() const { return ImageManager::getTheImageManager(); }
 
-    HostModule& makeHostModule(std::string ikey) {
-      return g().makeHostModule(ikey);
+    CommsModule& makeCommsModule(std::string ikey) {
+      return g().makeCommsModule(ikey);
     }
-    HostModule& getHostModule(std::string ikey) { return g().getHostModule(ikey); }
+    CommsModule& getCommsModule(std::string ikey) { return g().getCommsModule(ikey); }
 
     T6Image& getT6Image(std::string ikey) { return g().getT6Image(ikey); }
 
@@ -393,11 +273,11 @@ namespace MFM {
               py::call_guard<py::gil_scoped_release>(),
               py::return_value_policy::reference);
 
-        n.def("makeHostModule", &NSIM::makeHostModule,
+        n.def("makeCommsModule", &NSIM::makeCommsModule,
               py::call_guard<py::gil_scoped_release>(),
               py::return_value_policy::reference);
 
-        n.def("getHostModule", &NSIM::getHostModule,
+        n.def("getCommsModule", &NSIM::getCommsModule,
               py::call_guard<py::gil_scoped_release>(),
               py::return_value_policy::reference);
 

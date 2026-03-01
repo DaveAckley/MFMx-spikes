@@ -98,7 +98,7 @@ namespace MFM {
     return false; // NOT REACHED
   }
 
-  T6Grid theT6Grid;
+  //  T6Grid theT6Grid;
 
   int liveB(HostBlock & hb) {
     if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);

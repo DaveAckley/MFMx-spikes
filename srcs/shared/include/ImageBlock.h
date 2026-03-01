@@ -5,6 +5,9 @@
 #include <string>
 #include "S8C.h"
 
+#include "HostBlock.h"
+#include "BlockCode.h"
+
 namespace MFM {
   extern void memset_s(void*, u8, u32) ;
 
@@ -43,7 +46,35 @@ namespace MFM {
 
     u32 getBlockAddr() const { return mBlockAddr; }
 
+    u32 getHostChunkOffsetOpt() const { return mHostChunkOffsetOpt; }
+
     u32 getArrayLength() const { return mArrayLength; }
+
+    const char *to_repr() const {
+      static constexpr u32 BUF_SIZ = 100;
+      static char buf[BUF_SIZ];
+      const ImageBlockAddr & iba = *this;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+      if (iba.goodMagic()) 
+        snprintf(buf,BUF_SIZ,
+                 "<ImageBlockAddr:bc=%u,al=%u,hc=%u/0x%x,ad=0x%x>",
+                 iba.getBlockCode(),
+                 iba.getArrayLength(),
+                 iba.getHostChunkOffsetOpt(),
+                 iba.getHostChunkOffsetOpt() == U8_MAX ? 0u :
+                 HOST_COMMS_MAP_CHUNK_SIZE*iba.getHostChunkOffsetOpt(),
+                 iba.getBlockAddr());
+      else
+        snprintf(buf,BUF_SIZ,
+                 "<ImageBlockAddr:invalid(0x%x),%u,%u,0x%x>",
+                 iba.mIBAMagic,
+                 iba.getBlockCode(),
+                 iba.getArrayLength(),
+                 iba.getBlockAddr());
+#pragma GCC diagnostic pop
+      return buf;
+    }
   };
 
   struct ImageBlockHeader {

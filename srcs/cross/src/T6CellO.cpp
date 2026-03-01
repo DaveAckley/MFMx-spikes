@@ -10,12 +10,13 @@ namespace MFM {
     ImageBlockAddr cba = ib.findIBAIfAny(BlockCode::BC_CELLBLOCK);
     if (cba.mBlockCode != BlockCode::BC_CELLBLOCK) return false;
 
-    mCellBlockAddr = cba.mBlockAddr;
-    const CellBlock & cb = getCB();
+    mOurCellBlockAddr = cba.mBlockAddr;
+    const CellBlock & cb = getOurCB();
     if (!cb.isValid()) return false;
     
     U8C usnoc = fAll.mPos;
     mUsCT6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
+    mCellPosCT6 = mCellNum * cb.mCellStride;
     mCellNum = mUsCT6 / cb.mCellStride;
     mUsCellPos = mUsCT6 % cb.mCellStride;
 
@@ -28,31 +29,31 @@ namespace MFM {
           mImageTypeIndex = count;
           return true;
         }
-        if (getXY(atc) == ourimagecode) ++count;
+        if (getImageCodeAtXY(atc) == ourimagecode) ++count;
       }
     }
 
     return false; // failed to find ourselves?
   }
 
-  u8 T6CellO::getXY(U8C cp) const {
-    const CellBlock & cb = getCB();
+  u8 T6CellO::getImageCodeAtXY(U8C cp) const {
+    const CellBlock & cb = getOurCB();
     return cb.getCellPos(cp, 0u);
   }
 
   U8C T6CellO::getXYofImage(ImageCode ic) const {
-    const CellBlock & cb = getCB();
+    const CellBlock & cb = getOurCB();
     for (u8 y = 0u; y < cb.mCellSize.y; ++y) {
       for (u8 x = 0u; x < cb.mCellSize.x; ++x) {
         U8C at(x,y);
-        if (getXY(at) == ic) return at;
+        if (getImageCodeAtXY(at) == ic) return at;
       }
     }
     return {U8_MAX,U8_MAX};
   }
 
   U8C T6CellO::getNoC0ofXY(U8C cp) const {
-    const CellBlock & cb = getCB();
+    const CellBlock & cb = getOurCB();
     U8C cellct6 = mCellNum * cb.mCellStride;
     U8C xyct6 = cellct6 + cp;
     return U8C::makeNoC0CoordFromCT6Coord(xyct6); // 255,255 if no noc for cp

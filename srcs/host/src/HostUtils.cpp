@@ -11,6 +11,11 @@
 
 namespace MFM {
 
+  u8 p1(void *p) { return *(u8*)p; }
+  u16 p2(void *p) { return *(u16*)p; }
+  u32 p4(void *p) { return *(u32*)p; }
+  u64 p8(void *p) { return *(u64*)p; }
+
   int strcmp_s(const char * s1, const char * s2) {
     return ::strcmp(s1,s2);
   }
@@ -63,7 +68,8 @@ namespace MFM {
     std::string dt = dateTimeStamp();
     hostlogdir = "/tmp/MFMx-" + dt + "/";
     // create dir to hold all the rest.
-    std::filesystem::create_directories(hostlogdir+"tiles/");
+    std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
+    std::filesystem::create_directories(hostlogdir+"host/");  // for other BHTags
     std::string logpath = hostlogdir + "all.txt";
     hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
     fprintf(hostlogfile,"pid=%d,tid=%lu\n",
@@ -77,7 +83,14 @@ namespace MFM {
   }
 
   FILE * getHostLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED FILE *
-    std::string keypath = hostlogdir + "tiles/" + key.to_string() + ".dat";
+    std::string keypath = hostlogdir;
+    if (key.mType == TagType::T6TADR)
+      keypath.append("/tiles/");
+    else
+      keypath.append("/host/");
+    keypath.append(key.to_string());
+    keypath.append(".dat");
+      
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
     fprintf(keylog,"---%0.4f---\n",runTimeSeconds());
     return keylog;

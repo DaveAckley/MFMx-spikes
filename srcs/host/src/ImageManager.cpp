@@ -7,26 +7,38 @@ namespace MFM {
     return theInstance;
   }
 
-  bool ImageManager::configureT6ImageCellBlockForBHCard(T6Image& t6i, u32 bhc)
-  {
-    CellBlock * cbp = t6i.getCellBlockInBinFileIfAny();
-    if (!cbp) { Eprintf("NO CELLBLOCK\n"); return false; }
-    Eprintf("CellBlock: %s\n",cbp->reportCellBlock().c_str());
-
+  bool ImageManager::runtimeConfigureT6Image(T6Image& t6i, BlackHole & bh) {
+    u32 bhc = bh.getCardNumber();
     Layout & l = getLayouts().getItem(mActiveLayout); // or bang
-    std::string cellname = l.mCellForBHCard[bhc];
-    Eprintf("BH#%u, Cell: %s\n", bhc, cellname.c_str());
+    bool ret = true;
 
-    Cell & thecell = getCells().getItem(cellname);
-    CellBlock tcb;
-    bool cbb = thecell.configureCellBlock(*this, tcb);
-    bool cfgd = t6i.configureCellBlockIfNeeded(tcb);
-    Eprintf("Cell: %s cfgs b%d c%d\n",
-            tcb.reportCellBlock().c_str(),
-            cbb, cfgd);
-    return cfgd;
+    {
+      // CONFIGURE CELLBLOCK
+      CellBlock * cbp = t6i.getCellBlockInBinFileIfAny();
+      if (!cbp) { Eprintf("NO CELLBLOCK\n"); return false; }
+      Eprintf("CellBlock: %s\n",cbp->reportCellBlock().c_str());
+
+      std::string cellname = l.mCellForBHCard[bhc];
+      Eprintf("BH#%u, Cell: %s\n", bhc, cellname.c_str());
+
+      Cell & thecell = getCells().getItem(cellname);
+      CellBlock tcb;
+      bool cbb = thecell.configureCellBlock(*this, tcb);
+      bool cfgd = t6i.configureCellBlockIfNeeded(tcb);
+      Eprintf("Cell: %s cfgs b%d c%d\n",
+              tcb.reportCellBlock().c_str(),
+              cbb, cfgd);
+      ret &= cfgd;
+    }
+
+    {
+      // CONFIGURE IMAGEBLOCKADDRS FOR HOSTCOMMS
+      // <moved to blackhole>
+      // <moved back here>
+      ret &= bh.configureT6ImageForHostComms(t6i);
+    }
+    return ret;
   }
-
 
   bool ImageManager::deployTo(BlackHole & bh) {
     u32 bhc = bh.getCardNumber();
@@ -35,6 +47,8 @@ namespace MFM {
     Eprintf("IM: Deploying layout '%s' to BH#%u\n",
                    l.getName().c_str(),
                    bhc);
+
+    bh.setHostMemoryBaseAddress(); // based on already-configured HostCommsMap
 
     if (!l.layoutAppliesToBHC(bhc)) {
       Eprintf("IM: BH#%u not used in layout '%s'; skipping\n",
@@ -55,7 +69,8 @@ namespace MFM {
       return false;
     }
     Eprintf("Default ImageBlock: %s\n",t6i->reportImageBlock().c_str());
-    configureT6ImageCellBlockForBHCard(*t6i,bhc); // configure default image
+
+    runtimeConfigureT6Image(*t6i,bh); // configure default image for bhcard and comms
 
     bh.deployRISCVCodeFromImage(*t6i,U8_MAX); // multicast away!
 
@@ -117,7 +132,7 @@ namespace MFM {
       if (t6i.getName() == defimage) continue;
       ++overrides;
       
-      configureT6ImageCellBlockForBHCard(t6i,bhc); // configure default image
+      runtimeConfigureT6Image(t6i,bh); // configure override image for bh and comms
 
       bh.deployRISCVCodeFromImage(t6i,tlbi); // narrowcast
     }
@@ -125,20 +140,20 @@ namespace MFM {
     return true;
   }
 
-  HostModule& ImageManager::makeHostModule(std::string ikey) {
-    HostModuleMap & map = getHostModules();
-    HostModule & ret = map.makeItem(ikey); //< bang if exists
+  CommsModule& ImageManager::makeCommsModule(std::string ikey) {
+    CommsModuleMap & map = getCommsModules();
+    CommsModule & ret = map.makeItem(ikey); //< bang if exists
     ret.init(ikey);
     Eprintf("HOSTOMODULO: %s\n",ret.getName().c_str());
     return ret;
   }
 
-  HostModule* ImageManager::getHostModuleIfAny(std::string ikey) {
-    return getHostModules().getItemIfAny(ikey);
+  CommsModule* ImageManager::getCommsModuleIfAny(std::string ikey) {
+    return getCommsModules().getItemIfAny(ikey);
   }
 
-  HostModule& ImageManager::getHostModule(std::string ikey) {
-    return getHostModules().getItem(ikey);
+  CommsModule& ImageManager::getCommsModule(std::string ikey) {
+    return getCommsModules().getItem(ikey);
   }
 
   T6Image& ImageManager::makeT6Image(std::string ikey, u8 imageCode, std::string path) {
@@ -177,12 +192,15 @@ namespace MFM {
     return true;
   }
 
+#if 0
   void HostRAMConfig::reset() {
     memset_s(mHostRAMChunkOffsets,U8_MAX,sizeof(mHostRAMChunkOffsets));
     mHostRAMChunkOffsets[0] = 0u;
   }
 
-  void HostRAMConfig::configure(HostModule & hm) {
+  void HostRAMConfig::configure(CommsModule & hm) {
     
   }
+#endif
+  
 }

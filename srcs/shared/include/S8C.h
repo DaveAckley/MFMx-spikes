@@ -19,6 +19,13 @@ namespace MFM {
     S8C operator+(const S8C other) const { return S8C(x+other.x,y+other.y); }
     S8C operator-(const S8C other) const { return S8C(x-other.x,y-other.y); }
 
+    u16 length() const {
+      u16 l = 0;
+      l += (x<0) ? -x: x;
+      l += (y<0) ? -y: y;
+      return l;
+    }
+
     std::string to_string() const {
       return
         std::string("S8C(") + std::to_string(x) +

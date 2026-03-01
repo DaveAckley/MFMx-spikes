@@ -4,11 +4,7 @@
 
 #include "CrossUtils.h" // for strcmp
 
-// Include all possible sources of imageblocks here??
-#include "TransportBlock.h"
 #include "ImageBlock.h"
-#include "BlockCode.h"
-#include "CellBlock.h"
 
 namespace MFM {
 
@@ -30,7 +26,7 @@ namespace MFM {
   /// BEGIN: DECLARE EXTERNS
 #define XIC_START_IMAGE_BLOCK(IMAGE_NAME) 
 #define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE) \
-  extern VAR_TYPE GLOBAL_VAR[ARRAY_LEN];
+    extern VAR_TYPE GLOBAL_VAR[ARRAY_LEN];
 #define XIC_END_IMAGE_BLOCK(IMAGE_NAME) 
 
 #include "ImageConfig.inc" // in per-image subdir

@@ -36,6 +36,9 @@ PYBIND11_MODULE(MFMx, m) {
   // Expose the T6Image class
   MFM::T6Image::pybindings(m);
 
+  // Expose the Layout class
+  MFM::Layout::pybindings(m);
+
   // Expose the ImageManager class
   MFM::ImageManager::pybindings(m);
 
@@ -44,5 +47,4 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the BGRImageHD class
   MFM::BGRImageHD::pybindings(m);
-
 }

@@ -103,22 +103,13 @@ namespace MFM {
     }
 
     static std::string iba_to_string(const ImageBlockAddr & iba) {
-      if (iba.goodMagic())
-        return "<ImageBlockAddr:bcode="+std::to_string(iba.getBlockCode())
-          +",len="+std::to_string(iba.getArrayLength())
-          +",addr=0x"+ toHex(iba.getBlockAddr())
-          +">";
-      return "<ImageBlockAddr:invalid,"+std::to_string(iba.mIBAMagic)
-        +","+std::to_string(iba.getBlockCode())
-        +","+std::to_string(iba.getArrayLength())
-        +",0x"+ toHex(iba.getBlockAddr())
-        +">";
+      return iba.to_repr();
     }
     
     u32 getCellBlockBinFileAddrIfAny() const {
       ImageBlockAddr *ibacb = getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_CELLBLOCK);
-      if (!ibacb) return 0;
-      return (u32) ibacb->mBlockAddr;
+      if (!ibacb) return 0u;
+      return ibacb->mBlockAddr;
     }
 
     CellBlock * getCellBlockInBinFileIfAny() {

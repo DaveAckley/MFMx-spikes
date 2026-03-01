@@ -137,8 +137,9 @@ namespace MFM {
       S8C cc = mEWOriginCC + S8C(ewc); // ..as corner coord offset 
       U8C tc;
       if (!T6Grid::cornerCoordToTileCoordIfAny(cc,c4,tc)) continue;
+#if 0      
       if (doLoad) {
-        mEW.getAtom(sn) = theT6Grid.getAtom(tc);
+        mEW.getAtom(sn) = theT6Grid[0].getAtom(tc);
         if (false)
           P.printf("%s:LEW%2d[%d,%d]=(%u,%u)\n",
                    corner4ToByteString(c4),
@@ -146,7 +147,8 @@ namespace MFM {
                    ewc.GetX(),ewc.GetY(),
                    tc.x,tc.y);
       } else /* doStore */ 
-        theT6Grid.getAtom(tc) = mEW.getAtom(sn);
+        theT6Grid[0].getAtom(tc) = mEW.getAtom(sn);
+#endif
       ++mSitesClaimed;
     }
     return mSitesClaimed-count;

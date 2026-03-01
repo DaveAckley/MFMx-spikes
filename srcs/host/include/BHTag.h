@@ -14,6 +14,7 @@ namespace MFM {
     BHCADR = 2u,            // blackhole card address
     APPDBG = 3u,            // app-level (global) context
     PYTHON = 4u,            // python (supraglobal) context
+    HOSTCT = 5u,            // host context
   };
 
   struct BHTag {
@@ -29,6 +30,13 @@ namespace MFM {
     {
       setXY();
     }
+
+    constexpr BHTag(u8 t, u8 c)
+      : mType((TagType) t)
+      , mCard(c)
+      , mTLBI(0)
+      , mPos({0,0})
+    { }
 
     BHTag(u8 t, u8 c, u8 x, u8 y)
       : mType((TagType) t)
@@ -57,6 +65,7 @@ namespace MFM {
       case TagType::BHCADR: buf[0] = 'b'; buf[1] = 'h'; break; // 'b'lack'h'ole card level source
       case TagType::APPDBG: buf[0] = 'g'; buf[1] = 'd'; break; // 'g'lobal 'd'ebug source of some kind
       case TagType::PYTHON: buf[0] = 'p'; buf[1] = 'y'; break; // 'py'thon source of some kind
+      case TagType::HOSTCT: buf[0] = 'h'; buf[1] = 'c'; break; // 'h'ost 'c'ontext of some kind
       default: buf[0] = '#'; buf[1] = '#'; break; // try to break stuff in python/css
       }
       std::to_chars(buf+2,buf+3,mCard,10);

@@ -1,4 +1,5 @@
 #include "BlackHole.h"
+#include "HostCommsMap.h"
 #include "Fail.h"
 #include <fcntl.h>
 #include <fstream>
@@ -53,7 +54,9 @@ namespace MFM {
 
   void BlackHole::phaseAdvance() {
     BHLog & bhl = BHLog::getTheBHLog();
-    Eprintf("%d(%u) advancing from %u\n",mCardNum,bhl.getThrId(),(u32) mCurrentPhase);
+    Eprintf("%d(%u) advancing from %s(%u)\n",mCardNum,bhl.getThrId(),
+            nameOfCurrentPhase(),
+            (u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
@@ -99,13 +102,6 @@ namespace MFM {
       break;
 
     case Phase::HAS_ALLOCATED_HOST_RAM:
-      worked = startTransportThread();
-      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
-      else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> started transport thread\n", mCardNum);
-      break;
-      
-    case Phase::HAS_TRANSPORT_THREAD:
       worked = resetTheFleet();
       if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
       BHLOGprintf("<BlackHole:%u> fleet holding at first positions\n", mCardNum);
@@ -121,6 +117,13 @@ namespace MFM {
       break;
 
     case Phase::HAS_T6_CODE_DEPLOYED:
+      worked = startTransportThread();
+      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
+      else FAIL(ILLEGAL_STATE);
+      BHLOGprintf("<BlackHole:%u> started transport thread\n", mCardNum);
+      break;
+
+    case Phase::HAS_TRANSPORT_THREAD:
       BHLOGprintf("<BlackHole:%u> transmitting the go code\n", mCardNum);
       worked = releaseTheHounds();
       if (worked) {
@@ -134,6 +137,16 @@ namespace MFM {
       BHLOGprintf("<BlackHole:%u> event window processing begun\n", mCardNum);
       mCurrentPhase = Phase::HAS_T6_EVENT_WINDOWS;
       break;
+
+    case Phase::HAS_T6_EVENT_WINDOWS:
+      {
+        static bool once;
+        if (!once) {
+          BHLOGprintf("<BlackHole:%u> event window processing begun\n", mCardNum);
+          once = true;
+        }
+      }
+      break;
       
     default:
       HOST_FATAL(ILLEGAL_STATE,"Unhandled phase %d", mCurrentPhase);
@@ -145,7 +158,9 @@ namespace MFM {
     if (mCurrentPhase >= Phase::HAS_T6_CODE_DEPLOYED &&
         monitorFleet() == 0u)
       Eprintf("(%u) No fail changes detected #%d\n",bhl.getThrId(),mCardNum);
-    Eprintf("(%u) retreating from %u\n",bhl.getThrId(),(u32) mCurrentPhase);
+    Eprintf("(%u) retreating from %s (%u)\n",bhl.getThrId(),
+            nameOfCurrentPhase(),
+            (u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
@@ -183,16 +198,9 @@ namespace MFM {
       BHLOGprintf("<BlackHole:%u> deallocated %u (per T6) host RAM\n", mCardNum, HOST_RAM_PER_BH);
       break;
 
-    case Phase::HAS_TRANSPORT_THREAD:
-      worked = stopTransportThread();
-      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM;
-      else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> stopped transport thread\n", mCardNum);
-      break;
-
     case Phase::HAS_T6_TILES_RESET:
       worked = true; // don't unreset?
-      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
+      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM; // WAS Phase::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<BlackHole:%u> (left fleet at reset)\n", mCardNum);
       break;
@@ -204,15 +212,22 @@ namespace MFM {
       BHLOGprintf("<BlackHole:%u> (fleet reset to undeploy code)\n", mCardNum);
       break;
 
+    case Phase::HAS_TRANSPORT_THREAD:
+      worked = stopTransportThread();
+      if (worked) mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED; // WAS Phase::HAS_ALLOCATED_HOST_RAM;
+      else FAIL(ILLEGAL_STATE);
+      BHLOGprintf("<BlackHole:%u> stopped transport thread\n", mCardNum);
+      break;
+
     case Phase::HAS_T6_CODE_RUNNING:
       // We'd like retreating from state to mean 'debug pause', but
       // the BlackHole doc for that appears to be so-far missing and
       // the wormhole doc has some not-encouraging stuff (e.g., can't
       // pause NC) that we'd rather not assume if we don't have to..
-      // So just retreat here, for now, by bailing all the way back to reset.
+      // XXX no longer true: So just retreat here, for now, by bailing all the way back to reset.
 
       worked = resetTheFleet(); 
-      if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
+      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<BlackHole:%u> (fleet reset to stop running code)\n", mCardNum);
       break;
@@ -405,6 +420,13 @@ namespace MFM {
     return true;
   }
 
+  bool BlackHole::configureT6ImageForHostComms(T6Image & t6i) {
+    // NO: ALREADY DONE: (1) CONFIGURE HOSTCOMMS
+
+    // (2) CONFIGURE T6IMAGE
+    return mOurTLBs.configureT6ImageForHostComms(t6i);
+  }
+  
   BlackHole::~BlackHole() {
     BHLog & bhl = BHLog::getTheBHLog();
     Eprintf("BH DTORRRRR (%u) IN\n",bhl.getThrId());

@@ -85,6 +85,10 @@ namespace MFM {
     typedef BaseCar<LogBlock> LogCar;
     static constexpr u32 CAR_COUNT = 16u;
     LogCar mLogCars[CAR_COUNT];
+    LogCar & getLogCar(u32 carnum) {
+      MFM_API_ASSERT(carnum < CAR_COUNT,ILLEGAL_ARGUMENT);
+      return mLogCars[carnum];
+    }
   };
   extern LogCarStorage theLogCarStorage[1];
   

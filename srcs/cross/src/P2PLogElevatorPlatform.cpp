@@ -71,13 +71,13 @@ DIEWAY();
     extern HostBlock theHostBlock;
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::TRYING; 
 
-SHOWADDR(mCarMetadata);
+//SHOWADDRDOIT(mCarMetadata);
     bool ret = false;
 DIEWAY();
     for (u32 c = 0u; c < mCarCount; ++c) {
       LogCar& car = mCars[c];
       BaseCarMetadata & carmeta = mCarMetadata[c];
-SHOWADDR(mCarMetadata[c]);
+      //SHOWADDRDOIT(mCarMetadata[c]);
       CarState cs = car.getCarState();
 DIEWAY();
 
@@ -106,7 +106,7 @@ DIEWAY();
 DIEWAY();
         if (isArriving(cs)) {   // You Have Arrived
           carmeta.mArrivalTime = millisElapsed(); // note the time
-SHOWADDR(carmeta.mArrivalTime);
+//SHOWADDRDOIT(carmeta.mArrivalTime);
 DIEWAY();
 
           CarSig sig = car.getHeader();

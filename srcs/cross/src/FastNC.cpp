@@ -2,6 +2,7 @@
 #include "FastLocal.h"
 #include "TransportBlock.h"
 #include "CellBlock.h"
+#include "T6Grid.h"
 #include "Printf.h"
 //#include "NoCs.h"
 #include "S8C.h"

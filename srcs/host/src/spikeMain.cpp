@@ -62,9 +62,9 @@ int spikeMain() {
          ourTLBs.hostRAMNocAddr());
 
   MFM::Eprintf("PHASE-------Init host transport platforms\n");
-  MFM::LogCarStorage::LogCar *c1 = ourTLBs.getLogCarHost(20,0);
-  MFM::u32 t6addr = ourTLBs.getLogCarT6(20,0);
-  MFM::Eprintf("  logcar(20,1) is at %p remote %d/0x%08x\n",c1,20,t6addr);
+  MFM::LogCarStorage::LogCar & c1 = ourTLBs.getLogCarHost(20,0);
+  MFM::u32 t6addr = ourTLBs.getLogCarT6L1(20,0);
+  MFM::Eprintf("  logcar(20,1) is at %p remote %d/0x%08x\n",&c1,20,t6addr);
 
   bool quitTransport = false;
   auto wtf = std::thread([&ourTLBs,&quitTransport]() {

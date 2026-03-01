@@ -10,11 +10,14 @@ target_sources(MFMx PRIVATE
     src/BlackHole.cpp
     src/C4I.cpp
     src/CodeManager.cpp
+    src/CommsModule.cpp
     src/EWControl.cpp
     src/FATAL.cpp
     src/FailStrings.cpp
+    src/HostCommsMap.cpp
     src/HostUtils.cpp
     src/ImageManager.cpp
+    src/Layout.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
     src/S32C.cpp

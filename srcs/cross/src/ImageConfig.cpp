@@ -1,3 +1,4 @@
+#include "AllImageBlockDecls.h"
 #include "ImageConfig.h"
 
 namespace MFM {

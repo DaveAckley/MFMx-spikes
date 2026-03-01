@@ -16,6 +16,7 @@ namespace MFM {
 
     void reset() { x = y = 0u; }
 
+    u32 length() const { return x + y; }
     u32 manhattanDistance(const U8C & other) const {
       return
         ((x < other.x) ? other.x - x : x - other.x) +

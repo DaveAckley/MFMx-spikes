@@ -7,8 +7,8 @@
 #include "S8C.h"
 
 namespace MFM {
-  static constexpr u32 NOMINAL_GRID_WIDTH = 1920u*2u/3u;
-  static constexpr u32 NOMINAL_GRID_HEIGHT = 1080u*2u/3u;
+  static constexpr u32 NOMINAL_GRID_WIDTH = 1920u/* *2u/3u */;
+  static constexpr u32 NOMINAL_GRID_HEIGHT = 1080u/* *2u/3u */;
 
   static constexpr u32 BLACKHOLE_T6_WIDTH = 14u;
   static constexpr u32 BLACKHOLE_T6_HEIGHT = 10u;
@@ -77,5 +77,5 @@ namespace MFM {
     }
   };
 
-  extern T6Grid theT6Grid;
+  extern T6Grid theT6Grid[1];
 }

@@ -7,6 +7,7 @@
 #include "FastT2.h" // for create
 #include "T6Grid.h"
 
+
 #define LOGP
 
 #ifdef LOGP
@@ -88,7 +89,7 @@ namespace MFM {
   }
 
   bool NRI3::blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
-                            u32 wordcount, u32 * destaddr) { //< creams NRI3!
+                            u32 wordcount, u32 * destaddr) const { //< creams NRI3!
     const u32 MAXWORDS = 16u;
     if (wordcount > MAXWORDS) return false;
     
@@ -98,6 +99,7 @@ namespace MFM {
       /* ASSUMING THE WORMHOLEB0 RESTRICTIONS APPLY TO BLACKHOLEA0, SINCE
          https://github.com/tenstorrent/tt-isa-documentation/blob/main/BlackholeA0/NoC/Alignment.md
          IS A FUCKING 404 ON Wed Jan 28 11:08:17 2026 
+         AND IS STILL 404 ON Sun Feb 22 15:36:47 2026 
       */
 
       u32 sm16 = l1readaddr % 16;
@@ -163,5 +165,41 @@ namespace MFM {
     }
     return true;
   }
+
+  ImageBlockHeader NRI3::blockingReadImageBlockHeader(U8C usnoc, S8C ct6off) const {
+    ImageBlockHeader ret;       // uninit -> INVALID
+    U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
+    if (!U8C::onBoardCT6Coord(usct6)) return ret;
+
+    U8C themct6 = usct6 + ct6off;
+    if (!U8C::onBoardCT6Coord(themct6)) return ret;
+
+    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+
+    blockingL1Read(usct6, themct6,
+                   (u32) ibux14,
+                   sizeof(ImageBlockHeader)>>2u,
+                   (u32*) &ret);
+    return ret; //< whether read succeeded (then us too) or not (then us neither)
+  }
+
+  ImageBlockAddr NRI3::blockingReadImageBlockAddr(U8C usnoc, S8C ct6off, u32 ibaIndex) const {
+    ImageBlockAddr ret;       // uninit -> INVALID
+    U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
+    if (!U8C::onBoardCT6Coord(usct6)) return ret;
+
+    U8C themct6 = usct6 + ct6off;
+    if (!U8C::onBoardCT6Coord(themct6)) return ret;
+
+    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    const u32 *iba = ibux14 + 1u + ibaIndex*(sizeof(ImageBlockAddr)>>2u);
+
+    blockingL1Read(usct6, themct6,
+                   (u32) iba,
+                   sizeof(ImageBlockAddr)>>2u,
+                   (u32*) &ret);
+    return ret; //< whether read succeeded (then us too) or not (then us neither)
+  }
+
 }
 

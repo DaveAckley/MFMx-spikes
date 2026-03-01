@@ -13,6 +13,7 @@
 #include "Constants.h"
 #include "HostUtils.h"
 #include "BHLog.h"
+#include "T6Grid.h"
 
 namespace MFM {
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
@@ -323,6 +324,25 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     }
 #endif
     return -1;
+  }
+
+  s32 CodeManager::scanHubGrids() {
+    s32 ret = 0;
+    for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
+         tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
+         ++tlbi) {
+
+      OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
+      u32 t6gridaddr = info.mT6GridStart;
+
+      if (t6gridaddr == 0u) continue; // no t6grid in this one
+
+      T6Grid t6g;
+      mOurTLBs.readFromWords(tlbi, t6gridaddr, (u32*) &t6g, sizeof(t6g)>>2);
+      HNprintf(200,"SCANHUB %u %p (0x%x)\n", tlbi, &t6g, t6gridaddr);
+      ++ret;
+    }
+    return ret;
   }
 
   s32 CodeManager::slowScanHostBlocks() {

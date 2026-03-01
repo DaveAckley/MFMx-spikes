@@ -23,7 +23,8 @@ namespace MFM {
   XX(LOGCARS,LogCarStorage)                  \
   XX(EWCARS,EWCarStorage)                    \
   XX(CELLBLOCK,CellBlock)                    \
-  XX(EWHUB,EWHub[8])
+  XX(EWHUB,EWCarStorage[8])                  \
+  XX(T6GRID,T6Grid)
 
 #define XX(NAME,TYPE) \
   BC_##NAME,
@@ -36,6 +37,7 @@ namespace MFM {
 
 #undef XX
 
+  u32 getSizeFromBlockCode(BlockCode b) ;
   const char * getNameFromBlockCode(BlockCode b) ;
   BlockCode getBlockCodeFromName(const char * n) ;
 }

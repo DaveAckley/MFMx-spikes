@@ -108,7 +108,7 @@ namespace MFM {
     return false; // NOT REACHED
   }
 
-  //  T6Grid theT6Grid;
+  T6Grid theT6Grid;
 
   u32 findHubEWAddress(HostBlock & hb, T6CellO & cello) {
     FAIL(INCOMPLETE_CODE);
@@ -119,30 +119,86 @@ namespace MFM {
   }
 
   int liveB(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
 
     if (!fB.mCello.init())
       FAIL(ILLEGAL_STATE);
-    u32 ourewpindex = fB.mCello.mImageTypeIndex;
+    
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
+    if (false) {
+      for (s8 y = -1; y <= 1; ++y) 
+        for (s8 x = -1; x <= 1; ++x) {
+          S8C offc(x,y);
+          if (offc.length() == 0) continue;
+          ImageBlockHeader ibh = fB.mNRI3.blockingReadImageBlockHeader(hb.mPos, offc);
+          DP.printf("(%u,%u) EWPIBH\n",hb.mPos.x,hb.mPos.y);
+          if (ibh.isValid()) {
+            for (u32 e = 0u; e < ibh.mEntries; ++e) {
+              DP.printf("(%u,%u) EWPIBAT#%d\n",hb.mPos.x,hb.mPos.y,e);
+              ImageBlockAddr iba = fB.mNRI3.blockingReadImageBlockAddr(hb.mPos,offc,e);
+              DP.printf("(%u,%u) EWPIBAR=%d 0x%08x 0x%08x\n",hb.mPos.x,hb.mPos.y,
+                        iba.isValid(),
+                        ((u32*) &iba)[0],
+                        ((u32*) &iba)[1]);
+              if (iba.isValid())
+                DP.printf("(%u,%u) EWPIBHC(%d,%d)#%d -> 0x%08x\n",
+                          hb.mPos.x, hb.mPos.y,
+                          offc.x, offc.y, e,
+                          *(u32*) &iba);
+            }
+          }
+        }
+    }
     {
       U8C hubct6 = fB.mCello.getXYofImage(ImageCode::IC_HUB); // intra-cell pos
       U8C hubnoc = fB.mCello.getNoC0ofXY(hubct6);             // full NoC0 of our hub
-
+      DP.printf("EWPT6CO"
+                //" a=0x%x"
+                " u6=(%u,%u)"
+                " c#=(%u,%u)"
+                " uc=(%u,%u)"
+                " hc=(%u,%u)"
+                " u0=(%u,%u)"
+                " h0=(%u,%u)"
+                " ix=%u"
+                "\n",
+                //cello.mCellBlockAddr,
+                fB.mCello.mUsCT6.x, fB.mCello.mUsCT6.y,
+                fB.mCello.mCellNum.x, fB.mCello.mCellNum.y,
+                fB.mCello.mUsCellPos.x, fB.mCello.mUsCellPos.y,
+                hubct6.x, hubct6.y,
+                hb.mPos.x,hb.mPos.y,
+                hubnoc.x,hubnoc.y,
+                fB.mCello.mImageTypeIndex
+                );
       //// TRY TO ACCESS HUB'S EWHUB
       if (U8C::onBoardNoC0Coord(hubnoc)) { // if hub actually exists
         T6Neighbor hubngb;
         S8C tohub = S8C(hubct6) - fB.mCello.mUsCT6; //from ewp,us to hub,them
         hubngb.init(hb.mPos,tohub);
         ImageBlockAddr iba = hubngb.findIBAIfAny(fB.mNRI3, BlockCode::BC_EWHUB);
-        if (iba.isValid()) {
-          if (ourewpindex >= iba.getArrayLength()) FAIL(OUT_OF_RESOURCES);
-          u32 ourhubaddr = iba.getBlockAddr() + ourewpindex*sizeof(EWCarStorage);
-          DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d IX=%u AD=0x%x\n",
-                    iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
-                    iba.getHostChunkOffsetOpt(), iba.getArrayLength(),
-                    ourewpindex, ourhubaddr);
+        DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d\n",
+                  iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
+                  iba.getHostChunkOffsetOpt(), iba.getArrayLength());
+#if 0        
+        DP.printf("[%u,%u] T6NGBINFO val=%d, nct=(%d,%d), usn0=(%u,%u), ngbn0=(%u,%u)\n",
+                  hb.mPos.x,hb.mPos.y,
+                  hubngb.isValid(),
+                  hubngb.mUsToNgbCT6Offset.x, hubngb.mUsToNgbCT6Offset.y,
+                  hubngb.mNoC0Us.x, hubngb.mNoC0Us.y,
+                  hubngb.mNoC0Ngb.x, hubngb.mNoC0Ngb.y);
+        ImageBlockHeader hubibh = fB.mNRI3.blockingReadImageBlockHeader(hb.mPos,tohub);
+        if (hubibh.isValid()) {
+          for (u32 e = 0u; e < hubibh.mEntries; ++e) {
+            ImageBlockAddr iba = fB.mNRI3.blockingReadImageBlockAddr(hb.mPos,tohub,e);
+            if (iba.isValid() && iba.getBlockCode() == BlockCode::BC_EWHUB) {
+              DP.printf("(%u,%u) FEWHUB#%d = 0x%x\n",hb.mPos.x,hb.mPos.y,e,iba.getBlockAddr());
+            }
+          }
         }
+#endif
       } else DP.printf("[%u,%u] T6NGBINFO HUBOFF\n", hb.mPos.x,hb.mPos.y);
     }
 

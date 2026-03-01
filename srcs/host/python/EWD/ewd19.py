@@ -34,11 +34,12 @@ def sign(num):
   if num > 0: return 1
   return 0
 
-def clearcb():
-  MFMx.BHLog.clearLogCallback()
+# does this run too late and generate bogus log filenames?
+# def clearcb():
+#   MFMx.BHLog.clearLogCallback()
 
-import atexit
-atexit.register(clearcb)
+# import atexit
+# atexit.register(clearcb)
 
 import sys
 argType = None
@@ -93,6 +94,8 @@ def logcb(key,text):
   global ewd
   if ewd:
     ewd.logkt(key,text)
+  else:
+    print(key,text)
 
 #class EWD(App[None]):
 class EWD(App):
@@ -168,14 +171,16 @@ class EWD(App):
     if False and ewd and (rlist := ewd.query("#richlog")):
       rlist.first().write(msg)     # write to onscreen log
 
-    MFMx.BHLog.log(msg)  # alt/2nd dest
+    #MFMx.BHLog.log(msg)  # alt/2nd dest DEADLOCKY
+    print(msg)                  # FOGIT
 
   def configureImageManager(self):
+    print("START configureImageManager",self)
     self.config.load()
     im = self.imageManager
     modict = self.config.hash.get('module',{})
     for k,v in modict.items():
-      hm = im.makeHostModule(k)
+      hm = im.makeCommsModule(k)
       for b in v.get('blocks',[]):
         hm.requireCommBlockNamed(b)
         print("REBONGO",hm,b)
@@ -245,16 +250,37 @@ class EWD(App):
           c = 255 if c == 'all' else int(c)
           print("CD",c,cellname)
           lay.addCell(c, cellname)
-      modules = l.get('hostModules',[])
-      print("MODS",modules)
-      for hmname in modules:
-        hm = im.getHostModule(hmname) # or bang
-        lay.addHostModule(hm)
-        print("HMLAYMO",lay,hm)
-          
+
     cfgdict = self.config.hash['Config']
     act = cfgdict['activeLayout']
+    modules = layoutdict[act].get('hostModules',[])
+    print("MODS",modules,"FOR",act,layoutdict[act])
     im.setActiveLayout(act)
+
+    print("HAVEO activelayout",act,im)
+    al = im.getActiveLayout()
+    activeCardNums = al.getActiveBHCards();
+    self.bhs = [ MFMx.BlackHole(i) for i in activeCardNums ]
+    print("LAYTBEEATCHES",al,self.bhs)
+
+    # Get far enough along that we can configure modules..
+    for bh in self.bhs:
+      bh.setPhase(MFMx.Phase.HAS_ALLOCATED_TLBS)
+
+    for bh in self.bhs:
+      print("BHWCOMMSMODULES",modules)
+      for hmname in modules:
+        hm = im.getCommsModule(hmname) # or bang
+        bh.addCommsModule(hm)
+        print("BHaddcommsmodule",bh,hm)
+
+      print("BHWCOMMS",bh)
+
+      #bh.setHostMemoryBaseAddress()    # comms module config is done
+      # ..but BH::allocateHostRAM() hasn't happened yet
+      # ..so let's do setHost.. in allocateHost.. instead
+    print("LAYDACT",al)
+
     print("CDFGIDC",act)
     for k in keys:
       img = im.getT6Image(k)
@@ -264,9 +290,11 @@ class EWD(App):
       self.logkt("ZEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
 
   def run(self):
-    self.mfmxVersion = MFMx.getVersion()
+    # RESET CARDS EAAAAARRLY
     import subprocess
     subprocess.run(["/opt/tenstorrent/pipx/bin/tt-smi","-r"])
+
+    self.mfmxVersion = MFMx.getVersion()
     self.im = MFMx.ImageManager()
     al = self.im.getActiveLayout()
     bhcards =  al.getActiveBHCards()
@@ -276,11 +304,11 @@ class EWD(App):
     dumper.dump(self.config)
 
     #dumper.dump(self)
-    self.bhs = [ MFMx.BlackHole(i) for i in bhcards ]
     self.ewc = MFMx.EWControl.getEWControl()
-    print(self.ewc)
+    print("EWCONGA",self.ewc)
     MFMx.BHLog.setLogCallback(logcb)
 
+    print("UPTOSUPER",super())
     super().run()
 
   def compose(self) -> ComposeResult:
@@ -393,17 +421,21 @@ class EWD(App):
     self.runEvents()
 
   def reset(self):
+    print("NOBODILUBME?")
+    #exit(91)
+
     global argType
     for bh in self.bhs:
       #bh.setMFMxDefaultCodePath("../../../../build_cross/bin/ewp.bin")
-      bh.close()
+      #bh.close() can't close now we're already foggen configured doh
       if argType:
         bh.setStartDecayType(int(argType))
-      bh.layoutImages()
+      #bh.layoutImages() let c++ do this during genesis
 
   def start(self):
     for bh in self.bhs:
       bh.startEWProcessing()
+      print("ZONG",bh.getCardNumber())
 
   def stop(self):
     for bh in self.bhs:
@@ -476,7 +508,9 @@ class EWD(App):
 
 if __name__ == "__main__":
   c = Config.Config(__file__,"config/mpmd18.dtoml")
-  dumper.dump(c)
+  #dumper.dump(c)
   app = EWD(c)
+  print("GOINDGINKTORUN",app)
   app.run()
+  print("HIEMBAK!",app)
 

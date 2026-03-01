@@ -6,6 +6,8 @@
 #include "U8C.h"
 
 namespace MFM {
+  static constexpr u8 HOST_COMMS_MAP_CHUNK_SIZE = 64u;
+
   struct HostBlock {
     static const u32 HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
     static const u32 HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..

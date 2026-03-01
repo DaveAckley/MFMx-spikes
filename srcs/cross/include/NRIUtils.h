@@ -7,6 +7,7 @@
 #include "Printf.h"
 #include "EventWindow.h"
 #include "CornerState.h"
+#include "ImageBlock.h"
 
 namespace MFM {
 
@@ -79,7 +80,14 @@ namespace MFM {
 
     bool initiateWrite() ;
 
-    bool blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) ; 
+    /** Read up to 16 words from ngb's L1. Note that destaddr MAY
+        point to fast local memory, because the NoC read result is
+        copied there from a private internal L1 buffer anyway.
+     */
+    bool blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) const ; 
+
+    ImageBlockHeader blockingReadImageBlockHeader(U8C ournoc0, S8C ct6off) const ;
+    ImageBlockAddr blockingReadImageBlockAddr(U8C ournoc0, S8C ct6off, u32 ibaIndex) const ;
 
   private:
     u32 getNIUBaseAddress() const { return funcGetNIUBaseAddress(mNoC); }

@@ -10,10 +10,11 @@
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [layout.std3x3]
-  bhcards = [1,2]
+  bhcards = [2]
+  #bhcards = [0]          #was [1,2]
   defaultImage = EWP
   fill = C3X3
-  hostModules = [AcceptLogging,OriginateEWs]
+  hostModules = [ AcceptLogging, OriginateEWs ]
 
 [module.AcceptLogging]
   blocks = [BC_LOGCARS]
@@ -25,21 +26,25 @@
   bhcards = [2]
   defaultImage = EWP
   card.all = C2X2               #alias: fill = C2X2
+  hostModules = [ AcceptLogging ]
 
 [layout.hub11]
   bhcards = [1,3]
   defaultImage = EWP
   fill = C7X2
+  hostModules = [ AcceptLogging ]
   
 [layout.zot10]
   bhcards = [2]
   defaultImage = EWP
   fill = C3X3Z
+  hostModules = [ AcceptLogging ]
   
 [layout.allone]
   bhcards = [2]
   defaultImage = ZOT
   cell.all = C1X1_ONE
+  hostModules = [ AcceptLogging ]
 
 [cell.C1X1_ONE]
   size = [1,1]

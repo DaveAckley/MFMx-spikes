@@ -2,7 +2,7 @@
 #include "FastB.h"
 #include "LiveB.h"
 #include "Printf.h"
-#include "ImageBlock.h"
+#include "T6ImageBlock.h"
 #include "BlockCode.h"
 #include "T6CellO.h"
 
@@ -37,7 +37,7 @@ namespace MFM {
                   " h0=(%u,%u)"
                   " ix=%u"
                   "\n",
-                  //cello.mCellBlockAddr,
+                  //cello.mOurCellBlockAddr,
                   cello.mUsCT6.x,cello.mUsCT6.y,
                   cello.mCellNum.x,cello.mCellNum.y,
                   cello.mUsCellPos.x,cello.mUsCellPos.y,
@@ -48,7 +48,7 @@ namespace MFM {
         DP.printf("T6CONO\n");
       }
     }
-    {
+    if (false) {
       extern ImageBlockHeader theImageBlock;
       //      ImageBlockHeader & ibh = *(ImageBlockHeader*) (u32*) &theImageBlock;
       ImageBlockHeader & ibh = theImageBlock;

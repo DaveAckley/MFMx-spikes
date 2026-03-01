@@ -6,6 +6,8 @@
 #include "EventWindow.h"
 #include "T6Grid.h"
 #include "NRIUtils.h" // for NRI3
+
+#include "AllImageBlockDecls.h"
 #include "ImageConfig.h"        // for theImageBlock
 
 #include "T6STVL.h" // XXX TESTING
@@ -13,6 +15,8 @@
 namespace MFM {
 
   extern int liveB(HostBlock & hb) __attribute__ ((optimize("O2")));
+
+  T6Grid theT6Grid[1] __attribute__ ((section(".crossrodata")));
 
   struct FastB {
     EventWindow mFastEW;
@@ -98,17 +102,28 @@ namespace MFM {
     return false; // NOT REACHED
   }
 
-  T6Grid theT6Grid;
   EWCarStorage theEWHub[8];
 
   int liveB(HostBlock & hb) {
-    DP.printf("HUBSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
-    DP.printf("EWHUBSZ(%u) of %u\n", sizeof(theEWHub), sizeof(EWCarStorage));
+    {
+      P4Atom & a = theT6Grid[0].getAtom({1,1});
+      a = P4Atom::makeAtom(P4Atom::START_TYPE);
+      DP.printf("(%d,%d) HUBSZ6G(%ux%u)->%u, %04x:%04x-%08x-%08x\n",
+                hb.mPos.x,hb.mPos.y,
+                T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid),
+                a.mParityAndType,a.mData0,
+                a.mStg[0],a.mStg[1]
+                );
+    }
+    
+    DP.printf("(%d,%d) EWHUBSZ(%u) of %u\n",
+              hb.mPos.x, hb.mPos.y,
+              sizeof(theEWHub), sizeof(EWCarStorage));
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     preloadT2Mailbox();
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
- if (false) { // TEST BLOCKING L1 READS
+ if (true) { // TEST BLOCKING L1 READS
       DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
 
       U8C usnoc = hb.mPos;
@@ -133,12 +148,21 @@ namespace MFM {
                       &ibu[1],ibu[1],
                       &ibu[2],ibu[2]);
           }
+          ImageBlockHeader tibh;
           bool ret = nri3.blockingL1Read(usct6, themct6,
                                          (u32) &theImageBlock,
-                                         sizeof(themibh)>>2u, themibh);
+                                         sizeof(tibh)>>2u, (u32*) &tibh);
+
           DP.printf("BLIRD! %d (%u,%u)<-(%u,%u)==0x%08x\n",
-                    ret, us2.x, us2.y, themct6.x, themct6.y, themibh[0]);
+                    ret, us2.x, us2.y, themct6.x, themct6.y, *(u32*) &tibh);
+          if (ret) {
+
+            for (u32 e = 0u; e < tibh.mEntries; ++e) {
+              
+            }
+          }
         }
+          
       }
     }
 

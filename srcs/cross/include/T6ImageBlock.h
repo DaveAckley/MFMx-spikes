@@ -5,32 +5,9 @@
 #include "MDist.h"
 #include "U8C.h"
 #include "S8C.h"
+#include "T6Neighbor.h"
 
 namespace MFM {
-
-  struct T6Neighbor {
-    T6Neighbor() { }
-
-    bool init (U8C ournoc0c, S8C ngbc) {
-      mNoC0Ngb.reset();         // Assume blown
-      mNgbCellCoord = ngbc;
-      mNoC0Us = ournoc0c;
-      U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(ournoc0c);
-      if (!U8C::onBoardCT6Coord(usct6)) return false;
-      U8C ngbct6 = usct6 + ngbc;
-      if (!U8C::onBoardCT6Coord(ngbct6)) return false;
-      mNoC0Ngb = U8C::makeNoC0CoordFromCT6Coord(ngbct6);
-      return true;
-    }
-
-    bool isValid() const {
-      return U8C::isNoC0CoordAT6(mNoC0Ngb);
-    }
-
-    S8C mNgbCellCoord;
-    U8C mNoC0Us;
-    U8C mNoC0Ngb;
-  };
 
   struct T6ImageBlock {
     static constexpr u32 IMAGE_BLOCK_ADDRESS = 0x14;

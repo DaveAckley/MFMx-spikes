@@ -7,8 +7,9 @@
 #include "U16C.h"
 #include "TTKMDStuff.h"
 #include "TransportBlock.h"
-#include "BHTag.h"
 #include "T6Image.h"
+#include "HostCommsMap.h"
+#include "CommsModule.h"
 
 #include <pybind11/functional.h> // for std::function?
 
@@ -26,18 +27,39 @@ namespace MFM {
     static const u32 AHAX_TLBI_DEBUG_MULTI = (AHAX_TLBI_L1_MULTI + 1);
 
     OurTLBs() ;
-    LogCarStorage::LogCar * getLogCarHost(u32 tlbi, u32 carnum) ;
+
+    // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
+    LogCarStorage & getLogCarStorageHost(u32 tlbi) const ;
+    LogCarStorage::LogCar & getLogCarHost(u32 tlbi, u32 carnum) const ;
+
+    // ACCESS FAKE MMAP'D ADDRS (TO R/W REMOTE T6s)
+    u32 getLogCarT6L1(u32 tlbi, u32 carnum) ;
+
     bool updateTransports(bool includeEWs) ;
     void updateLogCars(unsigned tlbi) ;
     void updateEWCars(unsigned tlbi) ;
-    u32 getLogCarT6(u32 tlbi, u32 carnum) ;
 
     void setDeviceInfo(u32 cardNum, s32 devfd) {
       mDevCardNum = cardNum;
       mDevFD = devfd;
+      mHostCommsMap.init("OurBH#"+std::to_string(mDevCardNum));
     }
 
-    void allocateHostRAM(size_t bufferSize) ;
+    const HostCommsMap & getHostCommsMap() const { return mHostCommsMap; }
+
+    void addCommsModule(CommsModule & cm) {
+      mHostCommsMap.addCommsModule(cm);
+    }
+
+    void setHostMemoryBaseAddress() {
+      void * base = hostRAMPtr();
+      MFM_API_ASSERT_NONNULL(base);
+      mHostCommsMap.setHostMemoryBaseAddress(base);
+    }
+    
+    void allocateHostRAM(size_t bufferSize) ;  // also setHostMemoryBaseAddress
+    void doHostRAMAllocation(size_t sizePerT6) ;
+
     void deallocateHostRAM() ;
     void stopPretendingHostRAMisDeallocated() ;
 
@@ -80,9 +102,18 @@ namespace MFM {
     void * hostRAMPtr() const { return mPinnedHostBuf.host_ptr; }
     u64 hostRAMNocAddr() const { return mPinnedHostBuf.noc_addr; }
 
+    u32 hostRAMSizePerT6() const { return mT6HostBufferSize; }
+
+    void * hostRAMPtrForTLBI(u32 tlbi) const {
+      char * all = (char*) hostRAMPtr();
+      if (!all || tlbi > AHAX_TLBI_L1_LAST_UNI) return 0;
+      return (void*) (all + tlbi * hostRAMSizePerT6());
+    }
+
     struct TLBInfo {
       struct tenstorrent_allocate_tlb_out mAllocOut;
-      const T6Image *  mDeployedImage;
+      const T6Image * mDeployedImage;
+      u32 mT6GridStart;         //< if image has a T6Grid block
       u32 mLogTransportBlockStart;
       //u32 mLogCars;
       u32 mEWTransportBlockStart;
@@ -106,6 +137,10 @@ namespace MFM {
     };
     TLBInfo & getTLBInfo(u32 tlbi) ;
 
+    bool configureT6ImageForHostComms(T6Image & t6i) {
+      return mHostCommsMap.configureT6ImageForHostComms(t6i);
+    }
+    
   private:
     static const u32 AHAX_TLB2M_COUNT = (AHAX_TLBI_DEBUG_MULTI + 1);
     static const u32 AHAX_MMAP_SIZE = (AHAX_CONSTANT2M * AHAX_TLB2M_COUNT);
@@ -117,11 +152,12 @@ namespace MFM {
 
     // data
     TLBInfo mTLBInfos[AHAX_TLB2M_COUNT];
-    pinned_host_buffer_t mPinnedHostBuf;
+    pinned_host_buffer_t mPinnedHostBuf; 
     u32 mDevCardNum;
     s32 mDevFD;
-    void * mMapAll;
-    size_t mT6BufferSize;
+    HostCommsMap mHostCommsMap;
+    void * mMapAllT6L1;         //< start of ~140*2M addrs for host to R/W T6 L1
+    size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 
     bool mDMABufferPretendDeleted;
     u64 mEWsShipped, mEWsReturned, mEWsCommitted;
   };
