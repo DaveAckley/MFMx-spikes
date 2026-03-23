@@ -5,27 +5,27 @@ pybind11_add_module(MFMx src/mfmx_wrapper.cpp)
 
 target_sources(MFMx PRIVATE
     src/BGRImage.cpp
+    # src/C4I.cpp
+    src/EWControl.cpp
+    src/Layout.cpp
+    src/S32C.cpp
+    src/STVL.cpp
+    src/StringBlock.cpp
     src/BHLog.cpp
     src/BHTag.cpp
     src/BlackHole.cpp
-    src/C4I.cpp
     src/CodeManager.cpp
     src/CommsModule.cpp
-    src/EWControl.cpp
     src/FATAL.cpp
     src/FailStrings.cpp
     src/HostCommsMap.cpp
     src/HostUtils.cpp
     src/ImageManager.cpp
-    src/Layout.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
-    src/S32C.cpp
-    src/STVL.cpp
-    src/StringBlock.cpp
     src/T6Image.cpp
+    src/TimeDefs.cpp
     src/XUtilsHost.cpp
-    src/spikeMain.cpp
     ${SHARED_SOURCES}
 )
 
@@ -45,6 +45,10 @@ target_compile_options(MFMx PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/host/include
     ${SHARED_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/srcs/generated_headers
+  )
+
+  target_compile_definitions(MFMx PRIVATE
+    BUILD_HOST   # add -DBUILD_HOST to gcc lines
   )
 
   target_link_libraries(MFMx PRIVATE pybind11::headers)

@@ -1,6 +1,7 @@
 #include "FastT2.h"
 #include "Printf.h"
 #include "CrossUtils.h"
+#include "AtomicLock.h"
 
 namespace MFM {
 
@@ -40,67 +41,141 @@ namespace MFM {
   FAST_LOCAL(FastT2,fT2,t2);
 
   static volatile bool mT2Serving = false; 
-  static AtomicLock t2ServingLock;
+  //  static AtomicLock t2ServingLock;
 
-  static bool randomServerReady() {
-    AtomicScopeLock guard(t2ServingLock);
+  static bool isRandomServerReady() {
+    //    AtomicScopeLock guard(t2ServingLock);
     return mT2Serving;
-  }
-
-  static void markServerReady() {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    {
-      AtomicScopeLock guard(t2ServingLock);
-      mT2Serving = true;
-    }
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
   }
 
   static void primePump() {
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
     *((volatile u32 *) (MAILBOX_BASE_T2)) = 1u; // write to T2 (from any but NC)
+
+    {
+      extern HostBlock theHostBlock;
+      theHostBlock.addBytes('m',hartChar(fAll.mHartNum));
+    }
+
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
-#if 0
-    //DP.printf("&fT2=0x%08x+%d\n",&fT2,sizeof(fT2));
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    return; /// XXXXXXXDEBUG
-#endif
-
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
-    while (!randomServerReady()) { }
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2); // T2 does, but doesn't use this code
 
-    primePump();
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-  }
-  
-  static void initT2() {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
-    u32 addr = MAILBOX_BASE;
-    bool canread;
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
-      //DP.printf("IT2:%u[%s] @0x%08x\n",hartnum,hartName(hartnum),addr);
-      while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
-        u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
+    {
+      static u32 count = 0;
+      if (count < 5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('P',hartChar(fAll.mHartNum));
+        ++count;
       }
     }
-    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    //sleepCycles(1'000);
-    markServerReady(); // sets mT2Serving;
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+    while (!isRandomServerReady()) {
+      if (false) {
+        static u32 count = 0;
+        if (count < 5) {
+          extern HostBlock theHostBlock;
+          theHostBlock.addBytes('w',hartChar(fAll.mHartNum));
+          ++count;
+        }
+      }
+    }
+
+    {
+      static u32 count = 0;
+      if (count < 5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('Q',hartChar(fAll.mHartNum));
+        ++count;
+      }
+    }
+
+    primePump();
+
+    {
+      static u32 count = 0;
+      if (count < 5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('R',hartChar(fAll.mHartNum));
+        ++count;
+      }
+    }
+  }
+  
+  static void initT2(HostBlock & hb) {
+
+    {
+    {
+      static u32 count = 0;
+      if (count < 5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes(';',hartChar(fAll.mHartNum));
+        ++count;
+      }
+    }
+
+
+      // grab the lock for the whole init seq
+    //      AtomicScopeLock guard(t2ServingLock);
+
+    {
+      static u32 count = 0;
+      if (count < 5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('!',hartChar(fAll.mHartNum));
+        ++count;
+      }
+    }
+      u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
+      fT2.mRandom.seedMT_MFM(seed);
+
+      {
+        static u32 count = 0;
+        if (count < 5) {
+          extern HostBlock theHostBlock;
+          theHostBlock.addBytes('i',hartChar(fAll.mHartNum));
+          ++count;
+        }
+      }
+
+      /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
+      u32 addr = MAILBOX_BASE;
+      bool canread;
+
+      for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
+        //DP.printf("IT2:%u[%s] @0x%08x\n",hartnum,hartName(hartnum),addr);
+        while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
+          u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
+        }
+      }
+
+      {
+        static bool once = false;
+        if (!once) {
+          extern HostBlock theHostBlock;
+          theHostBlock.addBytes('j',hartChar(fAll.mHartNum));
+          once = true;
+        }
+      }
+
+      mT2Serving = true;
+      {
+        static bool once = false;
+        if (!once) {
+          extern HostBlock theHostBlock;
+          theHostBlock.addBytes('T',hartChar(fAll.mHartNum));
+          once = true;
+        }
+      }
+    }
+
   }
 
-  //  static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
+  static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveT2(HostBlock & hb) {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
     // SERVE BUFFERED RANDOM #s TO B,T0,T1,T2:
     // THEORY: If they send us a msg, eat it and send back a PRNG#
@@ -131,7 +206,7 @@ namespace MFM {
     // did a read from us, which freed up one of our outgoing slots,
     // so we can safely push once and not block.)
 
-    initT2();
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
     u32 spin = 0u;
     while (true) {
@@ -153,29 +228,18 @@ namespace MFM {
 
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
+    mT2Serving = false; // should be unnecessary, and harmless
+    
+    initT2(hb);
+
+    hb.addBytes('&',hartChar(fAll.mHartNum));
+
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
     
-    //    DP.printf("+T2+\n");
-    u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
-    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    fT2.mRandom.seedMT_MFM(seed);
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.hartbeat(fAll.mHartNum);
-    //DP.printf("T2 HI2 %d\n",hb.mPerHartWatchdog[fAll.mHartNum]);
 
-    LOG.printf("%s:GO LIVE MAXSTAX %d\n",hartName(fAll.mHartNum),estimateStackUsage());
+    hb.addBytes('#',hartChar(fAll.mHartNum));
 
-    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-
-#if 0
-    for (u32 i = 0u; true; ++i) { // DEBUG NO LIVEXXX AT ALL FOR ANYBODY
-      if ((i & 0xfffff)==0) {
-        XXX_DEBUG_FUNC(__FILE__,__LINE__);
-        hb.hartbeat(fAll.mHartNum);
-      }
-    }
-#endif
-    
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

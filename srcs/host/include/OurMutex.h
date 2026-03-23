@@ -18,6 +18,14 @@ namespace MFM {
 
     void print(FILE * file) ;
 
+    bool tryLock() {
+      if (mStdMutex.try_lock()) {
+        mThreadLockerId = gettid();
+        return true;
+      }
+      return false;
+    }
+
     void lock() {
       mStdMutex.lock();
       mThreadLockerId = gettid();
@@ -27,18 +35,10 @@ namespace MFM {
       mThreadLockerId = 0u;
       mStdMutex.unlock();
     }
-  };
-  
-  struct OurScopeLock {
-    OurScopeLock(OurMutex & mut)
-      : mOurMutex(mut)
-    {
-      mOurMutex.lock();
+
+    bool peekLock() const {
+      return mThreadLockerId != 0u;
     }
-    ~OurScopeLock() {
-      mOurMutex.unlock();
-    }
-    OurMutex & mOurMutex;
   };
 }
 

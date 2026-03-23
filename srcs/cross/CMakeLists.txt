@@ -22,9 +22,6 @@ set(CROSS_COMPILER_OPTIONS
 add_library(crosslib STATIC)
   
 target_sources(crosslib PUBLIC
-  src/AtomicLock.cpp
-  src/CornerState.cpp
-  src/CrossEP.cpp
   src/CrossUtils.cpp
   src/FATAL.cpp
   src/FastB.cpp
@@ -33,15 +30,7 @@ target_sources(crosslib PUBLIC
   src/FastT0.cpp
   src/FastT1.cpp
   src/FastT2.cpp
-  src/NRIUtils.cpp
-  src/P2PEWElevatorPlatform.cpp
-  src/P2PLogElevatorPlatform.cpp
   src/Printf.cpp
-  src/T6CellO.cpp
-  src/T6ImageBlock.cpp
-  src/T6Neighbor.cpp
-  src/T6RingO.cpp
-  src/Wrap8.cpp
   src/formatSymbols.pl
   src/t6main.cpp
 )
@@ -76,6 +65,9 @@ add_custom_target(${GENERATED_LDSCRIPT_TARGET_NAME}
   COMMENT "Preprocessing linker script ${GENERATED_LDSCRIPT}"
   BYPRODUCTS ${GENERATED_LDSCRIPT} # Tell CMake this target produces this file
 )
+
+# make crosslib depend on the loader script
+add_dependencies(crosslib ${GENERATED_LDSCRIPT_TARGET_NAME})
 
 # our hackogack objdump parser
 set(PERL_FORMATTER_PATH "${CMAKE_SOURCE_DIR}/srcs/cross/src/formatSymbols.pl")

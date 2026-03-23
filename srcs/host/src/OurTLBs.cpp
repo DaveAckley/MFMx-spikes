@@ -1,6 +1,6 @@
 #include "OurTLBs.h"
 #include <cstring>
-#include "BaseCar.h"
+//#include "BaseCar.h"
 #include "TC.h"
 #include "BHLog.h"
 
@@ -10,7 +10,7 @@
 #include <errno.h>
 #include "Constants.h"
 #include "HostUtils.h"
-#include "EWControl.h"
+//#include "EWControl.h"
 #include "ImageManager.h"
 #include "HostBlock.h" // for HOST_COMMS_MAP_CHUNK_SIZE
 #include "BlockCode.h"
@@ -190,6 +190,7 @@ namespace MFM {
     }
   }
   
+#if 0
   LogCarStorage & OurTLBs::getLogCarStorageHost(u32 tlbi) const {
     void * t6blockbase = mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_LOGCARS);
     MFM_API_ASSERT_NONNULL(t6blockbase);
@@ -200,6 +201,7 @@ namespace MFM {
     LogCarStorage & lcs = getLogCarStorageHost(tlbi);
     return lcs.getLogCar(carnum);
   }
+#endif
 
   char * OurTLBs::getL1HostAddressForTLBI(u32 tlbi) {
     MFM_API_ASSERT_NONNULL(mMapAllT6L1);
@@ -208,12 +210,14 @@ namespace MFM {
     return tlbistart;
   }
 
+  /*
   u32 OurTLBs::getLogCarT6L1(u32 tlbi, u32 carnum) {
     const TLBInfo & info = getTLBInfo(tlbi);
     u32 base = info.mLogTransportBlockStart; // WAS: MFM::T6::transportblock_log_start;
     u32 logcarsize = sizeof(MFM::LogCarStorage::LogCar);
     return base+carnum*logcarsize;
-  }
+    }
+*/
     
   void OurTLBs::allocateTLBs() {
 
@@ -359,6 +363,7 @@ namespace MFM {
 
   void OurTLBs::TLBInfo::setDeployedImage(const T6Image & img) {
     mDeployedImage = &img;
+#if 0
     {
       ImageBlockAddr * ibap = img.getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_T6GRID);
       if (ibap && ibap->isValid()) {
@@ -383,6 +388,7 @@ namespace MFM {
         mEWTransportBlockStart = 0u;
       }
     }
+#endif
   }
   
   void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
@@ -423,6 +429,7 @@ namespace MFM {
   }
 
   void OurTLBs::updateLogCars(unsigned tlbi) {
+#if 0
     //    HostCommsMap & hcm = mHostCommsMap;
 
     TLBInfo & tin = getTLBInfo(tlbi);
@@ -485,6 +492,7 @@ namespace MFM {
       }
       tin.advanceLogCarIndex(); // check next car
     }
+#endif
   }
 
   void OurTLBs::updateEWCars(unsigned tlbi) {
@@ -506,7 +514,7 @@ namespace MFM {
       return;
     }
 
-    void * hostewblock = hcm.getHostBlockAddress(tlbi, BlockCode::BC_EWCARS);
+    //    void * hostewblock = hcm.getHostBlockAddress(tlbi, BlockCode::BC_EWCARS);
     /*
     pinned_host_buffer_t& buf = mPinnedHostBuf;
     void * hostmem = buf.host_ptr;
@@ -525,6 +533,7 @@ namespace MFM {
     */
     //    HTprintf("HOSTEW %u %p\n", tlbi, hostewblock);
 
+#if 0
     EWCarStorage & stg = *(EWCarStorage*) hostewblock;
     EWControl & ewc = EWControl::getTheEWControl();
     
@@ -650,6 +659,7 @@ namespace MFM {
       LOGprintf(mDevCardNum,"<BlackHole:%d> WHAT TYPE? %d @ %d (%d,%d)!\n",
                 mDevCardNum, ec.getCarState(), tlbi, addr.x, addr.y);
     }
+#endif
   }
 
   bool OurTLBs::updateTransports(bool includeEWs) {

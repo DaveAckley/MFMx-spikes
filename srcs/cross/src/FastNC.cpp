@@ -2,7 +2,7 @@
 #include "FastLocal.h"
 #include "TC.h"
 #include "CellBlock.h"
-#include "T6Grid.h"
+//#include "T6Grid.h"
 #include "Printf.h"
 #include "CrossUtils.h"
 //#include "NoCs.h"
@@ -12,10 +12,10 @@
 namespace MFM {
   //  T6ElevatorTransport theT6ElevatorTransport;
 
+#if 0
   LogCarStorage theLogCarStorage[1] __attribute__ ((section(".transportblocklog")));
   EWCarStorage theEWCarStorage __attribute__ ((section(".transportblockew")));
 
-#if 0
   TransportBlock theTransportBlock __attribute__ ((section(".transportblock"))) = {
     .mLogCarStorageT6Ptr = (u32) &theLogCarStorage,
     .mEWCarStorageT6Ptr = (u32) &theEWCarStorage,
@@ -32,25 +32,18 @@ namespace MFM {
   //static int liveNC(HostBlock & hb) __attribute__ ((optimize("O2")));
 
   int liveNC(HostBlock & hb) {
-    DIEWAY();
+    hb.addByte('N');
     u16 spin = 0u;
     while (true) {
-      DIEWAY();
       if (++spin == 0) {
-        DIEWAY();
         hb.hartbeat(fAll.mHartNum);
-        DIEWAY();
       }
 
-      DIEWAY();
       //theT6ElevatorTransport.updateTransportBlock();
-      DIEWAY();
     
       hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
-      DIEWAY();
       sleepCycles(1'000u);
     }
-    DIEWAY();
     return 0;
   }
 
@@ -77,7 +70,7 @@ namespace MFM {
                 );
     */
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
     return liveNC(hb);
 
     return 0; /* NOT REACHED */

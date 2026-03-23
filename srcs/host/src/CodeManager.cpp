@@ -13,7 +13,7 @@
 #include "Constants.h"
 #include "HostUtils.h"
 #include "BHLog.h"
-#include "T6Grid.h"
+//#include "T6Grid.h"
 
 namespace MFM {
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
@@ -35,23 +35,22 @@ namespace MFM {
     ///// FIND/UPDATE HOSTBLOCK AT END OF CODE
     u32 hostblockt6addr = rvsize-sizeof(HostBlock);
     HostBlock *hb = (HostBlock*) (rvcode+hostblockt6addr);
+
     LOGprintf(mCardNum," HB0 %u/0x%x %lu T6HBA:0x%08x\n   hb %p hr %p hn 0x%lx MC 0x%x CM 0x%x\n",
            rvsize, rvsize, sizeof(HostBlock), hostblockt6addr,
            hb, mOurTLBs.hostRAMPtr(),
            mOurTLBs.hostRAMNocAddr(),
            hb->mHBMagic, hb->mHBCigam);
-    //Sat Sep 27 15:19:02 2025     u64 hostBufferBase = (u64) (uintptr_t) mOurTLBs.hostRAMPtr();
+
+    memset_s(hb,'\0',sizeof(*hb)); // Clear all
     u64 hostBufferBase = mOurTLBs.hostRAMNocAddr();
     hb->mHostBaseAddrLo = (u32) (hostBufferBase & 0xffffffff);
     hb->mHostBaseAddrHi = (u32) ((hostBufferBase>>32) & 0xffffffff);
     hb->mAIClockFrequency = (u32) 800'000'000u; // XXX ASSUME 'IDLE' CLOCK SPEED FOR NOW
-    //    hb->mHBMagic = 0xacab8645;  // setup hb magic ourselves
-    //    hb->mHBCigam = 0x5468baca;
     hb->mCommonArgs[0] = time(0); // per-run nonce
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
-    hb->mHBMagic;
-    hb->mHBCigam;
-    hb->mPos.y = 99;             // but pre-blow ypos
+    hb->mHBMagic = HostBlock::HBMAGIC;
+    hb->mHBCigam = HostBlock::HBCIGAM;
     LOGprintf(mCardNum," HB1 0x%08x 0x%08x\n",
            hb->mHostBaseAddrHi,
            hb->mHostBaseAddrLo);
@@ -240,7 +239,7 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
       if (true) {
         HostBlock::LogBuffer & lb = hb.mLogBuffer;
         const u32 BUF_SIZE = 1000u;
-        u8 buf[BUF_SIZE+1u];
+        u16 buf[BUF_SIZE+1u];
         u32 idx = 0u;
         while (!lb.isEmpty()) {
           lb.remove(buf[idx]);
@@ -455,7 +454,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     {
       HostBlock::LogBuffer & lb = hb.mLogBuffer;
       const u32 BUF_SIZE = sizeof(HostBlock::LogBuffer);
-      u8 buf[BUF_SIZE+1u];
+      u16 buf[BUF_SIZE+1u];
       u32 idx = 0u;
       while (!lb.isEmpty()) {
         lb.remove(buf[idx]);

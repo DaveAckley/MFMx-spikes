@@ -1,0 +1,28 @@
+# -*- mode: conf-toml; -*-
+# Thu Feb 12 12:23:10 2026 Consider adding multimage host config here
+# Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
+# Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
+
+[Config]
+ activeLayout=allone
+ bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
+
+[module.AcceptLogging]
+#  blocks = [BC_LOGCARS]
+
+[module.OriginateEWs]
+#  blocks = [BC_EWCARS]
+
+[layout.allone]
+  bhcards = [2]
+  defaultImage = ZOT
+  cell.all = C1X1_ONE
+  #hostModules = [ AcceptLogging ]
+
+[cell.C1X1_ONE]
+  size = [1,1]
+  image.all.all = ZOT
+
+[image.ZOT]
+  binfile="zot.bin"
+  code=5

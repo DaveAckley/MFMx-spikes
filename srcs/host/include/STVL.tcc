@@ -14,7 +14,7 @@ template<s32 XMIN, s32 YMIN, s32 XMAX, s32 YMAX, u32 LOCK_RADIUS, u32 LOCK_USEC>
 bool STVL<XMIN,YMIN,XMAX,YMAX,LOCK_RADIUS,LOCK_USEC>::tryLock(S32C center, Entry & token) {
   BucketIndex bi;
   if (getCenterBucketIndex(center,bi)) {
-    OurScopeLock guard(mSTVLMutex);
+    AtomicScopeLock guard(mSTVLMutex);
     TimeStamp now = std::chrono::steady_clock::now();
     TimeStamp expiration = now - TimeDurationMicros(LOCK_USEC);
     for (s32 dy = -1; dy <= +1; ++dy) {
@@ -68,7 +68,7 @@ template<s32 XMIN, s32 YMIN, s32 XMAX, s32 YMAX, u32 LOCK_RADIUS, u32 LOCK_USEC>
 bool STVL<XMIN,YMIN,XMAX,YMAX,LOCK_RADIUS,LOCK_USEC>::unlock(Entry token) {
   BucketIndex bi;
   if (getCenterBucketIndex(token.mPosition,bi)) {
-    OurScopeLock guard(mSTVLMutex);
+    AtomicScopeLock guard(mSTVLMutex);
     Bucket & bkt = mBuckets[bi.first][bi.second];
     for (u32 i = 0u; i < bkt.mInUse; ++i) {
       Entry & e = bkt.mEntries[i];

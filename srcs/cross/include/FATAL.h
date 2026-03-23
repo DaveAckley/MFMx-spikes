@@ -2,6 +2,7 @@
 #include "itype.h"
 #include "utils.h"
 #include "Fail.h"
+#include "dev_mem_map.h" // for MEM_L1_SIZE
 
 #define HOST_FATAL(...) do { } while (0)
 
@@ -12,6 +13,9 @@
 #define MFM_API_ASSERT_NONZERO(expr) MFM_API_ASSERT((expr)!=0,ZERO)
 #define MFM_API_ASSERT_ARG(expr) MFM_API_ASSERT(expr,ILLEGAL_ARGUMENT)
 #define MFM_API_ASSERT_STATE(expr) MFM_API_ASSERT(expr,ILLEGAL_STATE)
+
+////EXTRA T6 ONLY ASSERTS:
+#define MFM_API_ASSERT_L1_ADDRESS(expr) MFM_API_ASSERT(((u32)(expr)) < MEM_L1_SIZE,OUT_OF_BOUNDS)
 
 #define FATAL(code) \
   FATAL_AT(code,__FILE__,__LINE__)

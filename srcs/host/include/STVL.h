@@ -2,7 +2,7 @@
 
 #include "itype.h"
 #include "S32C.h"
-#include "OurMutex.h"
+#include "AtomicLock.h"
 #include "TimeDefs.h"
 #include "HostUtils.h"
 
@@ -72,7 +72,7 @@ private:
     return true;
   }
 
-  OurMutex mSTVLMutex;
+  AtomicLock mSTVLMutex;
   u64 mFailed;                  //< #ran out of room in bucket
   u64 mRejected;                //< #centers already locked
   u64 mAllocated;               //< #centers locked successfully

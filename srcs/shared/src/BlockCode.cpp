@@ -36,7 +36,7 @@ namespace MFM {
 
   const char * getNameFromBlockCode(BlockCode b) {
 
-#define XX(NAME,TYPE)                           \
+#define XX(NAME,SIZE,TYPE,BLOCKS)               \
   case BC_##NAME: return "BC_"#NAME;
 
     switch (b) {
@@ -52,7 +52,7 @@ namespace MFM {
 
   BlockCode getBlockCodeFromName(const char * n) {
 
-#define XX(NAME,TYPE)                           \
+#define XX(NAME,SIZE,TYPE,BLOCKS)                       \
   if (!strcmp_s(n,"BC_"#NAME)) return BC_##NAME;
     
   BLOCKCODE_LIST()
@@ -64,7 +64,7 @@ namespace MFM {
 
   static const u32 blockCodeSizes[] = {
     0u,
-#define XX(NAME,TYPE) sizeof(TYPE),
+#define XX(NAME,SIZE,TYPE,BLOCKS) (SIZE), // Note we're NOT doing sizeof(TYPE)!
     BLOCKCODE_LIST()
 #undef XX
   };

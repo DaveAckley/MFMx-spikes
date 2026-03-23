@@ -30,6 +30,8 @@ namespace MFM {
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;
 
+  u32 millisElapsed() { return totalMillisElapsed; }
+
   static int liveT0(HostBlock & hb) /*__attribute__ ((optimize("O2")))*/;
 
   u32 lastMillisChange;
@@ -100,7 +102,7 @@ namespace MFM {
       //u32 ticksElapsed = (u32) (cycles>>26u); // 200MHz-> ~3Hz, 800MHz-> ~12Hz, 1235MHZ-> ~18Hz
       if (hb.mAIClockFrequency != 0u)
         totalMillisElapsed = (u32) ((1000 * cycles) / hb.mAIClockFrequency);
-      { static u32 once = 0;
+      if (false) { static u32 once = 0;
         if (once < 60) {
           if (true && totalMillisElapsed >= 10000*once) {
             DP.printf("%d T0#%d %uMHz %us %u ticks\n",
@@ -111,8 +113,9 @@ namespace MFM {
       }
       if (fT0.debugTicksElapsed != ticksElapsed) {
         if (ticksElapsed % 1000u == 0) { // ~8s -> ~5.5s
-          LOG.printf("%s:KT %u.%03u\n",
-                     hartName(fAll.mHartNum),ticksElapsed/1000,ticksElapsed%1000);
+          hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
+          /*LOG.printf("%s:KT %u.%03u\n",
+            hartName(fAll.mHartNum),ticksElapsed/1000,ticksElapsed%1000);*/
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors
@@ -124,12 +127,9 @@ namespace MFM {
   }
 
   int hartMainT0(HostBlock & hb) {
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
     preloadT2Mailbox();
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return liveT0(hb);          // go do your hart t0 thing you
   }
 }

@@ -6,7 +6,7 @@
 #include "CodeManager.h"
 #include "BHTag.h"
 #include "BHLog.h"
-#include "OurMutex.h"
+#include "AtomicLock.h"
 #include "ImageManager.h"
 #include "CommsModule.h"
 
@@ -147,7 +147,7 @@ namespace MFM {
     void _stopTransportThread();
     std::unique_ptr<std::thread> mTransportThreadPtr;
     std::atomic<bool> mQuitTransportThread;
-    OurMutex mTransportThreadMutex;
+    AtomicLock mTransportThreadMutex;
 
     std::string mMFMxCodePath;
 

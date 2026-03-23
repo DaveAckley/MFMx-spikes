@@ -11,7 +11,7 @@ namespace MFM {
     {
       //Eprintf("handle11 (%u) %u PRE lock(pycb) %s\n",getThrId(),bytecount,myGILState());
       //      std::lock_guard<std::mutex> lock(mPythonCallbackMutex);
-      OurScopeLock guard(mPythonCallbackMutex);
+      AtomicScopeLock guard(mPythonCallbackMutex);
       //Eprintf("handle11a (%u) %u POST lock(pycb) %s\n",getThrId(),bytecount,myGILState());
       if (mLogCallback != 0) {
         //Eprintf("handle12 (%u) %u PRE stringview %s\n",getThrId(), bytecount,myGILState());
@@ -68,7 +68,7 @@ namespace MFM {
     FILE * tofile = getHostLog();
     const char * pytstatus = myGILState();
     BHLog & bhl = BHLog::getTheBHLog();
-    OurMutex & om = bhl.mPythonCallbackMutex;
+    OurMutex & om = bhl.mPythonCallbackMutex.getMutex();
     const char * pcb = om.mMutexName;
     u32 pcbwho = om.mThreadLockerId;
 

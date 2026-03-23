@@ -8,6 +8,7 @@
 */
 
 #include "itype.h"
+#include "CellBlock.h" // everybody needs CellBlock
 
 namespace MFM {
 #define IMAGECODE_LIST()                     \
@@ -28,7 +29,7 @@ namespace MFM {
   const char * getNameFromImageCode(ImageCode b) ;
   ImageCode getImageCodeFromName(const char * n) ;
 
-#define BLOCKCODE_LIST()                     \
+#define BLOCKCODE_LIST_HOLD()                     \
   XX(LOGCARS,LogCarStorage)                  \
   XX(EWCARS,EWCarStorage)                    \
   XX(CELLBLOCK,CellBlock)                    \
@@ -36,7 +37,17 @@ namespace MFM {
   XX(EWPCARS,EWCarStorage)                   \
   XX(T6GRID,T6Grid)
 
-#define XX(NAME,TYPE) \
+#define BLOCKCODE_LIST()                       \
+  XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u) \
+  XX(ZOTBLOCK,160,ZotBlockStg,2u)              \
+
+
+#define XX(NAME,SIZE,TYPE,BLOCKS)               \
+  static constexpr u32 SIZE_BC_##NAME = (SIZE);
+    BLOCKCODE_LIST()
+#undef XX
+
+#define XX(NAME,SIZE,TYPE,BLOCKS)               \
   BC_##NAME,
   
   enum BlockCode {

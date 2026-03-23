@@ -305,7 +305,7 @@ namespace MFM {
     Eprintf("startTransportThread 10 (%u) PRE transmute\n",bhl.getThrId());
 
     // hold thread lock before fucking with the transport thread
-    OurScopeLock guard(mTransportThreadMutex);
+    AtomicScopeLock guard(mTransportThreadMutex);
 
     Eprintf("startTransportThread 11 (%u) HAVE transmute\n",bhl.getThrId());
     if (mTransportThreadPtr) // already have a transport thread?
@@ -362,7 +362,7 @@ namespace MFM {
 
     // Get thread lock before fucking with transport thread
     //std::unique_lock<std::mutex> threadLock(mTransportThreadMutex);
-    OurScopeLock guard(mTransportThreadMutex);
+    AtomicScopeLock guard(mTransportThreadMutex);
 
     Eprintf("stopTransportThread 11 (%u) %p\n",bhl.getThrId(),mTransportThreadPtr.get());
     if (mTransportThreadPtr && mTransportThreadPtr->joinable()) {

@@ -1,5 +1,7 @@
 #pragma once                  // -*- C++ -*-
 #include "itype.h"
+#include "Fail.h"
+#include "ShLock.h"
 
 namespace MFM {
 
@@ -41,11 +43,19 @@ namespace MFM {
         );
   }
   
-  class AtomicLock {
+  class AtomicLock : public ShLock {
   public:
+    // ShLock API
+    void lock() override { acquireLock(); }
+    void unlock() override { releaseLock(); }
+    bool peekLock() const override { return mLock != 0u; }
+
+    //
     AtomicLock()
       : mLock(0)
-    { }
+    {
+      MFM_API_ASSERT_L1_ADDRESS(this);
+    }
     
     bool tryLock() {
       return tryLockASM(&mLock);
@@ -63,6 +73,7 @@ namespace MFM {
     u32 mLock;
   };
 
+#if 0
   struct AtomicScopeLock {
     AtomicScopeLock(AtomicLock & lock)
       : mAtomicLock(lock)
@@ -74,4 +85,5 @@ namespace MFM {
     }
     AtomicLock & mAtomicLock;
   };
+#endif
 }

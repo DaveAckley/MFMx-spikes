@@ -39,9 +39,24 @@ b_init:
         addi t1, t1, 4
         j 1b
 2:      ## OTHER FIVE-BABIES-LEVEL SETUP?
-	
+
         la a0, __hostblock_start  # arg 1 is struct HOSTBLOCK *
-	call t6setup            # Do other t6 level setup on hartb only
+	call t6inithostblock      # Customize the host block on hartb only 
+
+	j 4f ## DEBUG - SKIP CTORS 
+	
+        ## RUN C++ STATIC CTORS!
+        la a0, __init_array_start /* Load start address of .init_array */
+        la a1, __init_array_end   /* Load end address of .init_array */
+        beq a0, a1, 4f            /* Skip loop if none */
+3:      
+        lw t0, (a0)        /* Load function pointer from .init_array */
+        jalr t0            /* Call the constructor function */
+        addi a0, a0, 4     /* Increment pointer to next constructor */
+        blt a0, a1, 3b
+4:      
+	la a0, __hostblock_start  # arg 1 is struct HOSTBLOCK *
+	call t6otherinits      # Run any other one-time inits, on hartb only
 
         ## ANY IMAGEBLOCK SETUP NEEDED?
         # XXX
@@ -98,9 +113,9 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value
 	addi t1,sp,-1024        # down 1K
- 3: 	sw t2,(t1)              # you get a canary
+1: 	sw t2,(t1)              # you get a canary
         addi t1, t1, 4          # and YOU get a canary
-        bne t1,sp,3b            # AND
+        bne t1,sp,1b            # AND
         ## FALL THROUGH	
 	
 runmain:        

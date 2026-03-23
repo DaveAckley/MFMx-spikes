@@ -1,12 +1,12 @@
 #include "LiveB.h"
 #include "ExtraConstants.h"
+#include "FastT0.h" // for millisElapsed
 #include "FastT2.h" // for preloadT2Mailbox
-#include "Printf.h"
+#include "EP.h"
 #include "TC.h"
+#include "AtomicLock.h"
 #include "EventWindow.h"
-#include "T6Grid.h"
-
-#include "T6STVL.h" // XXX TESTING
+#include "ZotBlock.h"
 
 namespace MFM {
 
@@ -17,11 +17,53 @@ namespace MFM {
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
+    ZotEP mMyZotEPIN;
+    ZotEP mMyZotEPOUT;
   };
   FAST_LOCAL(FastB,fB,b);
 
-  typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
-  T6EWLocker theT6EWLocker;
+  ZotBlockStg theZotBlockCarsIO[2];
+
+  AtomicLock theZotBlockIOLock[2];
+
+  void initZotBlocks() {
+    {
+      static u32 once;
+      if (once<5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('z',hartChar(fAll.mHartNum));
+        once++;
+      }
+    }
+
+    fB.mMyZotEPIN.init(true,theZotBlockCarsIO[0],theZotBlockIOLock[0]);
+    fB.mMyZotEPOUT.init(false,theZotBlockCarsIO[1],theZotBlockIOLock[1]);
+    {
+      static u32 once;
+      if (once<5) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('Z',hartChar(fAll.mHartNum));
+        once++;
+      }
+    }
+  }
+
+  void updateZotBlocks() {
+
+    fB.mMyZotEPIN.updateOps();
+    fB.mMyZotEPOUT.updateOps();
+    {
+      static bool once = false;
+      if (!once) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('!',hartChar(fAll.mHartNum));
+        once = true;
+      }
+    }
+  }
+
+  //typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
+  //T6EWLocker theT6EWLocker;
 
   static constexpr u32 PHY_DREG = 2u;
   static constexpr u32 PHY_RES = 3u;
@@ -43,7 +85,7 @@ namespace MFM {
     case P4Atom::INACCESSIBLE_TYPE: return false;
 
     case P4Atom::START_TYPE: {
-      DP.printf("IAMI P4Atom::START_TYPE@0x%x\n",(u32) &ca);
+      //DP.printf("IAMI P4Atom::START_TYPE@0x%x\n",(u32) &ca);
       if (hb.mCommonArgs[1] != U16_MAX)
         ca = P4Atom::makeAtom((u16) hb.mCommonArgs[1]);
       else 
@@ -102,99 +144,27 @@ namespace MFM {
 
   int liveB(HostBlock & hb) {
     if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-    DIEWAY();
+    hb.addBytes('L',hartChar(fAll.mHartNum));
     preloadT2Mailbox();
-    DIEWAY();
+    hb.addBytes('B',hartChar(fAll.mHartNum));
 
-    P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
-    DP.printf("EWP @ 0x%08x\n",(u32) &ewp);
-    typedef P2PEWElevatorPlatform::EWCar EWCar;
+    initZotBlocks();
+    hb.addBytes('C',hartChar(fAll.mHartNum));
+
+    //P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
+    //DP.printf("EWP @ 0x%08x\n",(u32) &ewp);
+    //typedef P2PEWElevatorPlatform::EWCar EWCar;
     const u32 LCR = 1'000'000u;
 
     u32 spin = 0u;
-    if (false) {
-      // XXX TEST EWLOCKER
-      T6EWLocker::Entry lentry;
-      bool b = theT6EWLocker.tryLock(U8C(20,10),lentry);
-      DP.printf("STVL %d (%u,%u) 0x%08x %c\n",
-                b,
-                lentry.mPosition.x,
-                lentry.mPosition.y,
-                lentry.mWhenAllocated,
-                '.');
-    }
-
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
+    hb.addBytes('5',hartChar(fAll.mHartNum));
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      DIEWAY();
       if ((++spin & 0xfffff) == 0) {
         hb.hartbeat(fAll.mHartNum);
-        if (false) DP.printf("zothBRND IoH %d CrBu %08x > %02x (atm%d)\n",
-                  fAll.mInspirationOnHand,
-                  fAll.mCreativityBuffer,
-                  createBits(8),
-                  fB.mEWsAttempted);
       }
-      DIEWAY();
-      EWCar * ewc = ewp.getCurrentCarIfAny();
-      DIEWAY();
-      if (ewc) {
-        DIEWAY();
-        if (ewc->getCarState() != CarState::OPEN) {
-          DIEWAY();
-          DIEWAY();
-          DIEWAY();
-          ewp.advanceToNextCar();
-          DIEWAY();
-          DIEWAY();
-          DIEWAY();
-          continue;
-        }
-        DIEWAY();
-        if (fB.mEWsAttempted%1000u == 0u) {
-          DP.printf("%s:EWs %d (+ %d, - %d) #%d\n",hartName(fAll.mHartNum),
-                    fB.mEWsAttempted,
-                    fB.mEWsSucceeded,
-                    fB.mEWsFailed,
-                    ewp.getCurrentCarIndex());
-        }
-        DIEWAY();
-
-        EWBlock & ewb = ewc->getContent();
-        ++fB.mEWsAttempted;
-        DIEWAY();
-        memcpy(&fB.mFastEW,&ewb.mOld,sizeof(EventWindow));
-        DIEWAY();
-        if (!updateFastEW(hb)) ++fB.mEWsFailed;
-        else {
-          DIEWAY();
-          ++fB.mEWsSucceeded;
-          { static u32 once;
-            if (once < 2) {
-              DP.printf("(%u,%u)EWSUC! %d  %d/%d/%d #%d\n",
-                        fAll.mPos.x, fAll.mPos.y,
-                        once++,
-                        fB.mEWsAttempted,
-                        fB.mEWsSucceeded,
-                        fB.mEWsFailed,
-                        ewp.getCurrentCarIndex());
-            }
-          }
-          memcpy(&ewb.mNew,&fB.mFastEW,sizeof(EventWindow));
-          {
-            AtomicScopeLock guard(ewp.getPlatformLock()); 
-            ewc->setCarState(CarState::CLOSED, CarType::STANDARD); // let god sort it out
-            { static u32 once;
-              if (once < 2) {
-                DP.printf("%d EWCLOSD #%d\n",
-                          once++,
-                          ewp.getCurrentCarIndex());
-              }
-            }
-          }
-        }
-        DIEWAY();
-      }
+      updateZotBlocks();
     }
     return 0;
   }

@@ -6,8 +6,6 @@
 
 #include "ImageBlock.h"
 
-namespace MFM {
-
   /////
   /// BEGIN: COUNT ENTRIES
 #define XIC_START_IMAGE_BLOCK(IMAGE_NAME) static constexpr u32 IMAGE_NAME##Entries = 
@@ -22,6 +20,7 @@ namespace MFM {
   /// END: COUNT ENTRIES
   /////
 
+#if 0
   /////
   /// BEGIN: DECLARE EXTERNS
 #define XIC_START_IMAGE_BLOCK(IMAGE_NAME) 
@@ -36,7 +35,7 @@ namespace MFM {
 #undef XIC_END_IMAGE_BLOCK
   /// END: DECLARE EXTERNS
   /////
-  
+#endif // 0
   /////
   /// BEGIN: DECLARE SUBCLASS
 #define XIC_START_IMAGE_BLOCK(IMAGE_NAME) struct IMAGE_NAME##ImageBlock : public ImageBlockHeader {
@@ -51,5 +50,3 @@ namespace MFM {
 #undef XIC_END_IMAGE_BLOCK
   /// END: DECLARE SUBCLASS
   /////
-
-}

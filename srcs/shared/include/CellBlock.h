@@ -4,6 +4,7 @@
 #include <string>
 #include "U8C.h"
 #include "S8C.h"
+#include "XUtils.h" // for memset_s
 
 namespace MFM {
   struct CellBlock {

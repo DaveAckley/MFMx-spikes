@@ -8,6 +8,7 @@ set(SHARED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/srcs/shared)
 set(SHARED_SOURCES_LIST
   ${SHARED_DIR}/src/BlockCode.cpp
   ${SHARED_DIR}/src/Dirs.cpp
+  ${SHARED_DIR}/src/EP.cpp
   ${SHARED_DIR}/src/FailCodes.cpp
   ${SHARED_DIR}/src/MDist.cpp
   ${SHARED_DIR}/src/P4Atom.cpp

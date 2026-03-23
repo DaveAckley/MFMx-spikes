@@ -5,6 +5,7 @@ add_executable(zot)
 target_sources(zot PRIVATE
   src/ImageConfig.cpp
   images/zot/src/LiveB.cpp
+  images/zot/src/ZotBlock.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 target_link_libraries(zot PRIVATE crosslib)

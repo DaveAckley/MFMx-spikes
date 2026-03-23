@@ -7,7 +7,7 @@
 #include "Random.h"
 #include "TC.h"
 #include "BHTag.h"
-#include "OurMutex.h"
+#include "AtomicLock.h"
 #include "S32C.h"
 #include "S8C.h"
 #include "U8C.h"
@@ -57,7 +57,7 @@ namespace MFM {
 
     std::unique_ptr<std::thread> mEWRunnerThreadPtr;
     std::atomic<bool> mEWRunnerThreadAlive;
-    OurMutex mEWRunnerThreadMutex;
+    AtomicLock mEWRunnerThreadMutex;
 
     S32C mMin, mMax;                // current sampling bounds
 
@@ -147,15 +147,17 @@ namespace MFM {
 
     void fillEW(S32C center, EventWindow & ew) ;
 
-    bool tryLoadEWCar(EWCarStorage::EWCar & ec) ;
+    //    bool tryLoadEWCar(EWCarStorage::EWCar & ec) ;
 
     void printActiveGrid() ;
     
+    /*
     s32 tryCommitEWCar(BHTag tag, EWCarStorage::EWCar & ec) {
       EWBlock & eb = ec.getContent();
       S32C center(eb.mHiddenXPos,eb.mHiddenYPos);
       return commitEWIfPossible(tag, center, eb.mSTVLTime, eb.mOld, eb.mNew);
     }
+    */
 
     s32 commitEWIfPossible(BHTag tag, S32C center, TimeStamp when, EventWindow & oldew, EventWindow & newew) ;
 

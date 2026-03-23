@@ -1,6 +1,6 @@
 #include "Printf.h"
 #include "Fail.h"
-//#include "T6ElevatorTransport.h"
+#include "AtomicLock.h"
 #include "FastLocal.h"
 
 #if 1
@@ -21,8 +21,8 @@
 namespace MFM {
   extern HostBlock theHostBlock;
 
-  Printer DEVNULL;
-  AtomicLock DevNullLock; // seriously? mustn't race to do nothing?
+  XPrinter DEVNULL;
+  AtomicLock DevNullLock; // seriously? must take turns to do nothing?
   static void devnullPrintPutc(int c, void * ctx /*Printer*/) { /* empty */ }
 
   Printer DP;
@@ -45,22 +45,20 @@ namespace MFM {
 
   void t6InitPrinters(HostBlock & hb) {
     u64 hostaddr = hb.getHostNocAddr();
-    DP.init(DPLock,0,debugPrintPutc,hostaddr);
+    //    DP.init(DPLock,0,debugPrintPutc,hostaddr);
     debugPrintPutc('!',0);      // Flag debug initted
-    DP.printf("^");             // test DP.printfing
+    debugPrintPutc('*',0);      // Flag debug initted
+    //DP.printf("^");             // test DP.printfing
+    debugPrintPutc('?',0);      // Flag debug initted
     //LOG.init(t6et.mP2PLogTransport.getPlatformLock(),&t6et.mP2PLogTransport,logPrintPutc,hostaddr);
-    DEVNULL.init(DevNullLock,0,devnullPrintPutc,0);
-  }
-
-  P2PLogElevatorPlatform & Printer::getPlatform() {
-    MFM_API_ASSERT_NONNULL(mPlatformPtr);
-    return *mPlatformPtr;
+    //    DEVNULL.init(DevNullLock,0,devnullPrintPutc,0);
   }
 
   u32 Printer::vprintf(const char * format, va_list ap) {
     MFM_API_ASSERT_NONNULL(mPutc);
     MFM_API_ASSERT_NONNULL(mPrintLockPtr);
     void * contextIsPrinter = this;
+    //    ScopeShLock guard(*mPrintLockPtr);
     AtomicScopeLock guard(*mPrintLockPtr);
     u32 ret = npf_vpprintf(mPutc,contextIsPrinter,format,ap);
     return ret;

@@ -12,12 +12,7 @@
 #include "FastNC.h"  // for hartMainNC
 
 namespace MFM {
-  HostBlock theHostBlock __attribute__ ((section(".hostblock"))) = {
-    .mHBMagic = HostBlock::HBMAGIC,
-    .mPos = { U8_MAX, U8_MAX-1u },  // bad init to overwrite
-    .mTLBI = U8_MAX-2u,             //  "
-    .mHBCigam = HostBlock::HBCIGAM
-  };
+  HostBlock theHostBlock __attribute__ ((section(".hostblock")));
 #if 0
   //  ImageBlock theImageBlock __attribute__ ((section(".imageblock"))) = {
 #define DECLARE_THE_IMAGE_BLOCK(IMAGECODE,ENTRIES)                      \
@@ -31,25 +26,31 @@ namespace MFM {
   DECLARE_THE_IMAGE_BLOCK(0xea,18);
 #endif
 
-  int t6setup(HostBlock &hb) { // RUNS ON HARTB ONLY
+  int t6inithostblock(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
-    //    hb.mPos.x = 8;
-    //    hb.mPos[y = 7;
     hb.mPos.x = ((node_id >> 0) & 0x3f);
     hb.mPos.y = ((node_id >> 6) & 0x3f);
+    //    hb.mPos.x = 8;
+    //    hb.mPos.y = 7;
     /*
     if (theImageBlock.mImageCode[0]=='I') {
       theImageBlock.mImageMajVer = (u8) (u32) &theImageBlock;
       hb.mPos.x = 0x3f;
       }*/
     hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mPos.x,hb.mPos.y});
+    hb.addBytes('t','6');
+    return 0;
+  }
+  int t6otherinits(HostBlock &hb) { // RUNS ON HARTB ONLY
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    hb.addBytes('o','i');
     t6InitPrinters(hb);
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return 0;
   }
 
   int t6main(HostBlock& hb) {
+    hb.addBytes('m','n');
     switch (fAll.mHartNum) {
     case 0u: return hartMainB(hb);
     case 1u: return hartMainT0(hb);
@@ -62,6 +63,7 @@ namespace MFM {
 }
 
 extern "C" {
-  int t6setup(MFM::HostBlock *hb) { return MFM::t6setup(*hb); }
+  int t6inithostblock(MFM::HostBlock *hb) { return MFM::t6inithostblock(*hb); }
+  int t6otherinits(MFM::HostBlock *hb) { return MFM::t6otherinits(*hb); }
   int t6main(MFM::HostBlock* hb) { return MFM::t6main(*hb); }
 }

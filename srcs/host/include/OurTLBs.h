@@ -29,13 +29,13 @@ namespace MFM {
     OurTLBs() ;
 
     // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
-    LogCarStorage & getLogCarStorageHost(u32 tlbi) const ;
-    LogCarStorage::LogCar & getLogCarHost(u32 tlbi, u32 carnum) const ;
+    //LogCarStorage & getLogCarStorageHost(u32 tlbi) const ;
+    //LogCarStorage::LogCar & getLogCarHost(u32 tlbi, u32 carnum) const ;
 
     // ACCESS FAKE MMAP'D ADDRS (TO R/W REMOTE T6s)
     char * getL1HostAddressForTLBI(u32 tlbi) ; //< host-mapped address of L1 addr 0 for T6 tlbi
 
-    u32 getLogCarT6L1(u32 tlbi, u32 carnum) ;
+    //    u32 getLogCarT6L1(u32 tlbi, u32 carnum) ;
 
     bool updateTransports(bool includeEWs) ;
     void updateLogCars(unsigned tlbi) ;
@@ -130,12 +130,14 @@ namespace MFM {
       const T6Image * getDeployedImageIfAny() const {
         return mDeployedImage;
       }
+#if 0      
       u32 getLogCarIndex() const { return mNextLogCarIndex; }
       u32 advanceLogCarIndex() {
         if (++mNextLogCarIndex >= LogCarStorage::CAR_COUNT)
           mNextLogCarIndex = 0u;
         return mNextLogCarIndex;
       }
+#endif      
     };
     TLBInfo & getTLBInfo(u32 tlbi) ;
 

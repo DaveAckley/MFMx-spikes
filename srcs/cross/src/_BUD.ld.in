@@ -138,6 +138,26 @@ SECTIONS
 
     } > L1
 
+  /* --- NEW: C++ Static Constructor/Destructor Arrays --- */
+  .init_array :
+  {
+    . = ALIGN(4);
+    __init_array_start = .;
+    KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+    KEEP(*(.init_array))
+    __init_array_end = .;
+  } > L1
+
+  .fini_array :
+  {
+    . = ALIGN(4);
+    __fini_array_start = .;
+    KEEP(*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
+    KEEP(*(.fini_array))
+    __fini_array_end = .;
+  } > L1
+
+#if 0
   .empty.ctors.dtors :
   {
     /* We don't use .ctors/.dtors either (this still isn't the '90s), make sure there aren't any.  */
@@ -152,6 +172,7 @@ SECTIONS
     KEEP (*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
     KEEP (*(.fini_array))
   } :data
+#endif
 
     /* .bss section: Contains uninitialized global and static variables.
      * These variables are typically zero-initialized by startup code.
@@ -168,6 +189,7 @@ SECTIONS
       PROVIDE(__bss_end = .);
     } > L1
 
+/*
     .transportblock :
     {
       . = ALIGN(16);
@@ -198,7 +220,6 @@ SECTIONS
       __transportblock_ew_size = ABSOLUTE(__transportblock_ew_end - __transportblock_ew_start);
     } > L1
 
-/*
     .imageblock :
     {
       . = ALIGN(16);

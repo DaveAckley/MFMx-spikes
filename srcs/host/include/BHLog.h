@@ -4,7 +4,7 @@
 #include "BHTag.h"
 #include "Fail.h"
 #include "HostUtils.h"
-#include "OurMutex.h"
+#include "AtomicLock.h"
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -32,7 +32,7 @@ namespace MFM {
 
     void logLockStates() ;
 
-    OurMutex mPythonCallbackMutex;
+    AtomicLock mPythonCallbackMutex;
     LogCallback mLogCallback;
     BHLogDest mDefaultLogDest;
     u32 mBaseThreadId;
@@ -85,7 +85,7 @@ namespace MFM {
       Eprintf("setLogCallbackNoGIL (%u) 10 : %d\n",getThrId(),cb != 0);
       // Acquire C++ mutex to protect mLogCallback
       //      std::lock_guard<std::mutex> lock(mPythonCallbackMutex);
-      OurScopeLock guard(mPythonCallbackMutex);
+      AtomicScopeLock guard(mPythonCallbackMutex);
       Eprintf("setLogCallbackNoGIL (%u) 11\n",getThrId());
       mLogCallback = cb;
       Eprintf("setLogCallbackNoGIL (%u) 12 : %d \n",getThrId(),mLogCallback != 0);

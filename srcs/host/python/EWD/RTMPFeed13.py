@@ -117,13 +117,13 @@ class RTMPFeed:
         self.fontCodeDateSize = 25
         self.fontCodeTimeSize = 22
         self.fontCodeLiveSize = 16
-        self.fontCodeDate = self.fontCache.getFontCode(f"{basedir}/fonts/NK57 Monospace Cd Rg.otf",
+        self.fontCodeDate = self.fontCache.getFontCode(f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf",
                                                        self.fontCodeDateSize,
                                                        (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
-        self.fontCodeTime = self.fontCache.getFontCode(f"{basedir}/fonts/NK57 Monospace Cd Rg.otf",
+        self.fontCodeTime = self.fontCache.getFontCode(f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf",
                                                        self.fontCodeTimeSize,
                                                        (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
-        self.fontCodeLive = self.fontCache.getFontCode(f"{basedir}/fonts/NK57 Monospace Cd Rg.otf",
+        self.fontCodeLive = self.fontCache.getFontCode(f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf",
                                                        self.fontCodeLiveSize,
                                                        (0xef,0x2f,0x04), (0x12,0x14,0x12), preload=False)
 

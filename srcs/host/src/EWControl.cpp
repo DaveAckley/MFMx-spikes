@@ -24,7 +24,7 @@ namespace MFM {
     mStartTime = std::chrono::steady_clock::now();
     initGrid();
     {
-      OurScopeLock guard(mEWRunnerThreadMutex);
+      AtomicScopeLock guard(mEWRunnerThreadMutex);
       mEWRunnerThreadPtr = std::make_unique<std::thread>(&EWControl::runEWThread,&theEWControl);
       mEWRunnerThreadAlive.store(true);
     }
@@ -52,7 +52,7 @@ namespace MFM {
 
   EWControl::~EWControl() {
     {
-      OurScopeLock guard(mEWRunnerThreadMutex);
+      AtomicScopeLock guard(mEWRunnerThreadMutex);
       setActive(false);
       mEWRunnerThreadAlive.store(false);
     }
@@ -200,6 +200,7 @@ namespace MFM {
     }
   }
 
+#if 0
   bool EWControl::tryLoadEWCar(EWCarStorage::EWCar & ec) {
     S32C ctr;
     EWLocker::Entry token;
@@ -219,6 +220,7 @@ namespace MFM {
     eb.mNew.reset();
     return true;
   }
+#endif
 
   static u8 charForType(u32 type) {
     if (type == P4Atom::EMPTY_TYPE) return ' ';

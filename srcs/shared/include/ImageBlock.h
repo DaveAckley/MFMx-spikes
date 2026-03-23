@@ -2,14 +2,13 @@
 #define IMAGEBLOCK_H
 
 #include "itype.h"
-#include <string>
+#include "XUtils.h"
 #include "S8C.h"
 
 #include "HostBlock.h"
 #include "BlockCode.h"
 
 namespace MFM {
-  extern void memset_s(void*, u8, u32) ;
 
   struct ImageBlockAddr {
     static constexpr u8 IBA_MAGIC = 0xba;

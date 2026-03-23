@@ -26,7 +26,7 @@ namespace MFM {
 
     u32 mAIClockFrequency;
 
-    typedef RingBuffer<u8,12u> LogBuffer;
+    typedef RingBuffer<u16,11u> LogBuffer;
     LogBuffer mLogBuffer;
 
     u32 mHBCigam;         // MUST BE LAST u32
@@ -43,16 +43,29 @@ namespace MFM {
     }
     void resetLog() { mLogBuffer.reset(); }
 
-    bool addByte(u8 byte) { return mLogBuffer.add(byte); }
+    bool addU16(u16 ch) { return mLogBuffer.add(ch); }
+
+    bool addBytes(u8 b1, u8 b2) { return addU16((((u16)b2)<<8)|b1); }
+
+    bool addByte(u8 byte) { return addBytes(' ',byte); }
 
     bool addString(const char * st) {
       u8 byte;
-      do { } while ((byte = *st++) && mLogBuffer.add(byte));
+      do { } while ((byte = *st++) && addByte(byte));
       return byte!=0u;
     }
 
+    bool removeBytes(u8 & b1, u8 &b2) {
+      u16 ch;
+      if (mLogBuffer.remove(ch)) {
+        b1 = (ch>>8);
+        b2 = ch&0xff;
+        return true;
+      }
+      return false;
+    }
     s32 removeByte() {
-      u8 ch;
+      u16 ch;
       if (mLogBuffer.remove(ch)) return (s32) ch;
       return -1;
     }

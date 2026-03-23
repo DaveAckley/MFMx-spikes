@@ -48,6 +48,12 @@ namespace MFM {
       "h??"; 
   }
 
+  inline char hartChar(u32 hartnum) {
+    if (hartnum > HARTNUM_NC+1u)
+      hartnum = HARTNUM_NC+1u;
+    return "b012n?"[hartnum];
+  }
+
   template <const bool mustBeTrue>
   inline void COMPILATION_REQUIREMENT()
   {
