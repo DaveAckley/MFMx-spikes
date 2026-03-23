@@ -148,13 +148,15 @@ namespace MFM {
             dateTimeStamp().c_str(),
             tag.to_string().c_str());
     va_list args;
-    va_start(args, fmt);
-    vfprintf(logfile,fmt, args);
-    va_end(args);
-
-    va_start(args, fmt);
-    BHLog::getTheBHLog().vprintf(tag,fmt,args);
-    va_end(args);
+    if (false) {
+      va_start(args, fmt);
+      vfprintf(logfile,fmt, args);
+      va_end(args);
+    } else {
+      va_start(args, fmt);
+      BHLog::getTheBHLog().vprintf(tag,fmt,args);
+      va_end(args);
+    }
   }
   
 }

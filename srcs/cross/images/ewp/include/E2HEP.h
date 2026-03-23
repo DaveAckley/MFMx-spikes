@@ -12,7 +12,11 @@ namespace MFM {
   public:
     typedef BaseCar<EWBlock> EWCar;
     E2HEP() ;
-    void initCars(EWCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) ;
+    void initCars(u32 ourewpindex,
+                  U8C ournoc0,
+                  EWCar * stg, BaseCarMetadata * meta, u32 count,
+                  U8C hubnoc0, u32 hubewhubblockaddr,
+                  bool isIn) ;
     bool update() ; // TAKES PLATFORM LOCK
     bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
 
@@ -42,10 +46,14 @@ namespace MFM {
   private:
     AtomicLock mPlatformLock;
 
-    u64 computeCarDestination(u32 carnum) const {
-      return mRemoteBaseAddress + carnum*sizeof(EWCar);
+    u32 computeCarDestination(u32 carnum) const {
+      return mEWCarStorage + carnum * sizeof(EWCar);
     }
-    u64 mRemoteBaseAddress;     // of far mCars
+    u32 mOurEWPIndex;
+    u32 mEWHUBAddress;          // remote L1 addr of EWCarStorage[8]
+    u32 mEWCarStorage;          // remote L1 addr of EWCarStorage[mOurEWPIndex]
+    U8C mOurNoC0;
+    U8C mHubNoC0;
     EWCar *mCars;              // [0..mCarCount - 1]
     BaseCarMetadata * mCarMetadata; // ditto
     u32 mCarCount;

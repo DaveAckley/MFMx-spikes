@@ -426,7 +426,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     HostBlock hb;
     memset_s(&hb,0,sizeof(hb));
     mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
-    //    mOurTLBs.readFromBytes(tlbi, hostblockaddr, (u8*) &hb, sizeof(hb));
+
     if (hb.mHBMagic != HostBlock::HBMAGIC) {
       bhl.printf(tag,"  BAD MAGIC 0x%08x @ 0x%08x\n",hb.mHBMagic, hostblockaddr);
       return -1;
@@ -463,12 +463,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           break;
       }
       if (idx != 0u) {
+        // UPDATE FLUSHED HostBlock!
+        mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
+
         buf[idx] = 0;
         Eprintf("%.03f BH%d:(%u,%u)HOBU<<%s>>UBOH\n",
                 runTimeSeconds(),
                 mCardNum,hb.mPos.x,hb.mPos.y,buf);
-        // UPDATE FLUSHED HostBlock!
-        mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
       }
     }
     return 0;

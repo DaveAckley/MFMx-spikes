@@ -26,7 +26,7 @@ namespace MFM {
 
     u32 mAIClockFrequency;
 
-    typedef RingBuffer<u8,11u> LogBuffer;
+    typedef RingBuffer<u8,12u> LogBuffer;
     LogBuffer mLogBuffer;
 
     u32 mHBCigam;         // MUST BE LAST u32

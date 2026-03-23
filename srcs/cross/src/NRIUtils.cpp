@@ -1,12 +1,10 @@
 #include "NRIUtils.h"
 #include "Fail.h"
-#include "CrossUtils.h"
 #include "Printf.h"
 #include "FastLocal.h" // for FAll
 #include "FastT0.h" // for millisElapsed
 #include "FastT2.h" // for create
 #include "T6Grid.h"
-
 
 #define LOGP
 
@@ -175,5 +173,57 @@ namespace MFM {
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
+  s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
+    MFM_API_ASSERT((wordCount*4u)<=(1u<<14),OUT_OF_RESOURCES); // packets don't go over 16KB for this code
+    MFM_API_ASSERT(isInL1(sourcedata),ILLEGAL_STATE);
+    MFM_API_ASSERT(isInL1(destaddr), ILLEGAL_ARGUMENT);
+    MFM_API_ASSERT((destaddr % 16) == (((u32)sourcedata) % 16), BAD_ALIGNMENT); // rule for small packets L1->L1
+    u32 usenoc = 0u; // should be useNoC(usnoc0, noc0) when that exists
+    C9printf("iW2T6 noc%d %u,%u:0x%p+%u -> %u,%u:0x%p\n",
+             usenoc,
+             sourcenoc0.x,sourcenoc0.y,
+             sourcedata,
+             wordCount*4,
+             destnoc0.x,destnoc0.y,
+             destaddr);
+
+    waitTilNRIClear(usenoc);
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(sourcenoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_LO, destaddr);   // 32 bit address of dest
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destnoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE, wordCount<<2u); // bytecount to write
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
+    return 1;
+  }
+
+  void NRI3::waitTilNRIClear(u8 noc) {
+    u32 count = 0u;
+    while (isNRIBusy(noc)) {
+      if (++count == 0u) FAIL(IO_ERROR);
+    }
+  }
+
+  const char * NRI3::getCarStateName(CarState cs) {
+    switch (cs) {
+    case CarState::UNUSED: return "Un";
+    case CarState::OPEN: return "Op";
+    case CarState::CLOSED: return "Cl";
+    case CarState::INBOUND_DEPARTED: return "ID";
+    case CarState::OUTBOUND_DEPARTED: return "OD";
+    }
+    return "??";
+  }
+  
 }
 

@@ -42,7 +42,7 @@ namespace MFM {
       theImageBlock.mImageMajVer = (u8) (u32) &theImageBlock;
       hb.mPos.x = 0x3f;
       }*/
-    hb.mTLBI = U16C::makeTLBIFromNocCoord({hb.mPos.x,hb.mPos.y});
+    hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mPos.x,hb.mPos.y});
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     t6InitPrinters(hb,theT6ElevatorTransport);
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);

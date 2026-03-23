@@ -91,6 +91,7 @@ class AsciiAnimation(Widget):
 ewd = None
 
 def logcb(key,text):
+  return # DO NOTHING DAMMIT
   global ewd
   if ewd:
     ewd.logkt(key,text)
@@ -172,7 +173,7 @@ class EWD(App):
       rlist.first().write(msg)     # write to onscreen log
 
     #MFMx.BHLog.log(msg)  # alt/2nd dest DEADLOCKY
-    print(msg)                  # FOGIT
+    print(msg,file=sys.stderr)                  # FOGIT
 
   def configureImageManager(self):
     print("START configureImageManager",self)
@@ -205,6 +206,7 @@ class EWD(App):
           self.logkt("KEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
           keys.append(k)
     for k in keys:
+      print("ZING",k)
       img = im.getT6Image(k)
       print("ZANG",k,img,img.getImageCode(),img.getBinFileSize(),img.getBinFilePath())
     celldict = self.config.hash['cell']
@@ -387,7 +389,7 @@ class EWD(App):
     animation_widget.refreshCount += 1
     #self.doRTMPFrame()
     self.doRTMPGraphicsFrame(elapsedns)
-    if animation_widget.refreshCount % 25 == 0:
+    if animation_widget.refreshCount % 50 == 0:
       count = 100
       #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
       self.slowScan(count)

@@ -101,6 +101,7 @@ namespace MFM {
     bool readyToClose(BaseCarMetadata & meta, u32 msnow) { return mContent.readyToClose(meta,msnow); }
     CarSig getHeader() const { return mHeader; }
     CarSig getStandardFooter() const { return mFooter; }
+    CarType getCarType() const { return (CarType) mHeader.mCarType; }
     CarState getCarState() const { return (CarState) mHeader.mCarState; }
     const CONTENT & getContent() const { return mContent; }
     CONTENT & getContent() { return mContent; }

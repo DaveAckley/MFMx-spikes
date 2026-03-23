@@ -133,7 +133,7 @@ namespace MFM {
           carmeta.mArrivalTime = millisElapsed(); // note the time
     {
       static u32 once = 0u;
-      if (once < 3u) {
+      if (false && once < 3u) {
         et.notice("P2PEWARR 0x%08x %d @ %u\n",&car,c,carmeta.mArrivalTime);
         ++once;
       }
@@ -151,7 +151,7 @@ namespace MFM {
     DIEWAY();
         {
           static u8 once;
-          if (once < 5) {
+          if (false && once < 5) {
             et.notice("EWLOPN(%d)\n",c);
             ++once;
           }
@@ -162,7 +162,7 @@ namespace MFM {
     DIEWAY();
         {
           static u8 once;
-          if (once < 5) {
+          if (false && once < 5) {
             et.notice("EWCLSR(%d)\n",c);
             ++once;
           }

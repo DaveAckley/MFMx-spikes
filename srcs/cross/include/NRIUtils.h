@@ -8,6 +8,8 @@
 #include "EventWindow.h"
 #include "CornerState.h"
 #include "ImageBlock.h"
+#include "CrossUtils.h"
+#include "BaseCar.h"
 
 namespace MFM {
 
@@ -33,6 +35,10 @@ namespace MFM {
   static constexpr u32 NRI_NOC_AT_DATA = 0x28;
 
   static constexpr u32 NRI_NOC_CMD_CTRL = 0x40;
+
+  inline u32 useNoC(U8C sourceNoC0, U8C destNoC0) { // return 0 or 1 for noc with least hops s->d
+    FAIL(INCOMPLETE_CODE);
+  }
 
   inline u32 funcGetNIUBaseAddress(u32 noc) { return noc == 0u ? NIU_BASE_NOC0 : NIU_BASE_NOC1; }
   inline volatile u32 * funcGetNIUAddress(u32 noc, u32 byteoffset) {
@@ -73,6 +79,12 @@ namespace MFM {
 
     constexpr u8 NRI3_BLOCKING_TRANSACTION_ID = 0xe;
 
+    /** Initiate an inter-T6 packet write. sourcedata and destaddr
+        should both be L1 addresses, and they at least need to be
+        equal to each other mod 64, and should probably both just be
+        equal to 0 mod 64. */
+    s32 initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) ;
+    
     /** Read up to 16 words from ngb's L1. Note that destaddr MAY
         point to fast local memory, because the NoC read result is
         copied there from a private internal L1 buffer anyway.
@@ -90,6 +102,8 @@ namespace MFM {
 
     inline bool isNRIBusy(u8 noc) { return funcReadNRIAddress(noc,3,NRI_NOC_CMD_CTRL) & 1; }
     void waitTilNRIClear(u8 noc) ;
+
+    const char * getCarStateName(CarState cs) ;
 
   };
 }

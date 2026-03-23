@@ -38,7 +38,7 @@ namespace MFM {
 
   u8 T6CellO::getImageCodeAtCellP(U8C cp) const {
     const CellBlock & cb = getOurCB();
-    return cb.getCellPos(cp, 0u);
+    return cb.getImageAtCellPos(cp, 0u);
   }
 
   U8C T6CellO::getCellPofImage(ImageCode ic) const {

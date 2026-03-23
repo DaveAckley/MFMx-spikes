@@ -1,6 +1,7 @@
 #pragma once /* -*- C++ -*- */
 
 #include "itype.h"
+#include "dev_mem_map.h"
 
 #define C9printf(...) CNprintf(9, __VA_ARGS__)
 
@@ -37,6 +38,9 @@
 #define XXX_DEBUG_FUNC(...) /* XXX_DEBUG_FUNC_DOIT(__FILE__,__LINE__) */
 
 namespace MFM {
+  inline bool isInL1(u32 addr) { return /*addr >= MEM_L1_BASE &&*/ addr < MEM_L1_SIZE; }
+  inline bool isInL1(u32 * addr) { return isInL1((u32) addr); }
+
   void memset_s(void* addr, u8 byte, u32 count) ;
 
   int strcmp_s(const char *s1, const char *s2) ;
@@ -51,4 +55,5 @@ namespace MFM {
   void XXX_MAYBE_DIE_FUNC(const char * file, u32 line, u32& count);
 
   const char * stripDirs(const char * path, u32 dircount = 2u);
+
 }

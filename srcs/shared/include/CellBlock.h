@@ -62,7 +62,7 @@ namespace MFM {
       return &mImageMap[cellpos.y * mCellSize.x + cellpos.x];
     }
 
-    u8 getCellPos(U8C cellpos, u8 missingval = 0xff) const {
+    u8 getImageAtCellPos(U8C cellpos, u8 missingval = 0xff) const {
       const u8 * p = getImageAddress(cellpos);
       return p ? *p :  missingval;
     }

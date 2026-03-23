@@ -15,7 +15,7 @@ namespace MFM {
     typedef BaseCar<EWBlock> EWCar;
     H2EEP() { }
     void init() ;
-    void initCars(EWCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) ;
+    void initCars(U8C ournoc0, u8 ewpidx, U8C ewpnoc0, EWCar * stg, BaseCarMetadata * meta, u32 count, u32 remoteL1Addr, bool isIn) ;
     bool update() ; // TAKES PLATFORM LOCK
     bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
 
@@ -41,13 +41,20 @@ namespace MFM {
 
     Printer & to_repr(Printer& to) const ;
 
+    BaseCarMetadata * getBaseCarMetadata() const { return mCarMetadata; }
+
   private:
     AtomicLock mPlatformLock;
 
-    u64 computeCarDestination(u32 carnum) const {
+    u32 computeCarDestination(u32 carnum) const {
       return mRemoteBaseAddress + carnum*sizeof(EWCar);
     }
-    u64 mRemoteBaseAddress;     // of far mCars
+    static constexpr u32 MAX_CELL_INDICES = 14u;
+    //    U8C mNoC0sByEWPTypeIndex[MAX_CELL_INDICES];
+    U8C mOurNoC0;
+    u8 mEWPIdx;
+    U8C mEWPNoC0;
+    u32 mRemoteBaseAddress;     // of far mCars
     EWCar *mCars;              // [0..mCarCount - 1]
     BaseCarMetadata * mCarMetadata; // ditto
     u32 mCarCount;

@@ -16,6 +16,10 @@ namespace MFM {
     U8C mCellNum;       //< our whole Cell's position (in Cell size units)
     u8 mImageTypeIndex; //< in raster order (and pretending the cell is complete!), which count of our ImageType are we?
     bool init() ;
+    U8C getCellOriginCT6() const { //< get CT6 of cell {0,0}
+      const CellBlock & cb = getOurCB();
+      return mCellNum * cb.mCellStride + cb.mLayoutOffset; // XX + or - ?
+    } 
     U8C getUsCT6() const { return mUsCT6; }//< get our CT6 pos
     u8 getImageCodeAtCellP(U8C cp) const ;    //< get ImageCode at intra-cell position cp
     U8C getCellPofImage(ImageCode ic) const ; //< get intra-cell pos of first-found ic, or (255,255)

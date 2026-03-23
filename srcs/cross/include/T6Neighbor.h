@@ -39,7 +39,9 @@ namespace MFM {
       reset();
       if (!mT6Ngb.init(ournoc0c, ngbct6off)) return false;
       ImageBlockAddr iba = mT6Ngb.findIBAIfAny(bc);
-      DP.printf("T6NT u0(%u,%u) n6(%d,%d) v%d viba%d vngb%d(%u,%u) AL%d\n",
+      /*
+      DP.printf("T6NT bc%u u0(%u,%u) n6(%d,%d) v%d viba%d vngb%d(%u,%u) AL%d\n",
+                bc,
                 ournoc0c.x, ournoc0c.y,
                 ngbct6off.x, ngbct6off.y,
                 mT6Ngb.isValid(),
@@ -49,6 +51,7 @@ namespace MFM {
                 mT6Ngb.mNoC0Ngb.y,
                 iba.getArrayLength()
                 );
+      */
       if (!iba.isValid()) return false;
       mBaseAddress = iba.mBlockAddr;
       mItemSize = getSizeFromBlockCode(bc);
