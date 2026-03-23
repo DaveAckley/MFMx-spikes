@@ -3,6 +3,7 @@
 #include "ExtraConstants.h"
 #include "FastT2.h" // for preloadT2Mailbox
 #include "Printf.h"
+#include "CrossUtils.h"
 
 namespace MFM {
   static const volatile u32 * RISCV_DEBUG_REG_WALL_CLOCK_LO = (volatile u32 *) 0xffb1'21f0u;

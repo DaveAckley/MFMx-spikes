@@ -2,7 +2,7 @@
 #include "ExtraConstants.h"
 #include "FastT2.h" // for preloadT2Mailbox
 #include "Printf.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "EventWindow.h"
 #include "T6Grid.h"
 #include "T6CellO.h"
@@ -24,7 +24,7 @@ namespace MFM {
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
-    BaseCarMetadata mEWP2HUBMeta[EWCarStorage::CAR_COUNT];
+    CarOpsTimers mEWP2HUBCarOpsTimers[EWCarStorage::CAR_COUNT];
   };
   FAST_LOCAL(FastB,fB,b);
 
@@ -161,11 +161,9 @@ namespace MFM {
     theE2HEP.initCars(ourewpindex,
                       hb.mPos,
                       &theE2HCarStorage.mEWCars[0],
-                      &fB.mEWP2HUBMeta[0],
-                      EWCarStorage::CAR_COUNT,
+                      &fB.mEWP2HUBCarOpsTimers[0],
                       hubnoc0,
-                      ewhubaddr,
-                      false);
+                      ewhubaddr);
     //cello.to_repr(DP);
     //theE2HEP.to_repr(DP);
   }
@@ -176,7 +174,7 @@ namespace MFM {
     theE2HEP.update();
   }
 
-  typedef P2PEWElevatorPlatform::EWCar EWCar;
+  //typedef P2PEWElevatorPlatform::EWCar EWCar;
 
   bool processEWCar(HostBlock & hb, P2PEWElevatorPlatform & ewp) {
     EWCar * ewc = ewp.getCurrentCarIfAny();

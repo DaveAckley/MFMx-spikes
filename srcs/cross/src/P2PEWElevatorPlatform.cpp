@@ -1,5 +1,5 @@
 #include "P2PEWElevatorPlatform.h"
-#include "T6ElevatorTransport.h"
+//#include "T6ElevatorTransport.h"
 #include "CrossUtils.h"         // for memset_s
 #include "FastT0.h" // for millisElapsed
 
@@ -8,32 +8,20 @@
 namespace MFM {
   extern HostBlock theHostBlock;
 
-  P2PEWElevatorPlatform::P2PEWElevatorPlatform()
+  P2PEWElevatorPlatform::P2PEWElevatorPlatform(EWCar * cars, CarOpsTimers * ctms)
     : mRemoteBaseAddress(0u)
-    , mCars(0)
-    , mCarCount(0u)
-    , mCurrentCarIdx(0u)
-    , mIsIn(false)
-  { }
-
-  void P2PEWElevatorPlatform::initCars(EWCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) {
-    MFM_API_ASSERT_NONNULL(stg);
-    MFM_API_ASSERT_NONNULL(meta);
-    AtomicScopeLock guard(getPlatformLock());
-    MFM_API_ASSERT_ARG(count == 0u || stg != 0);
-    mCars = stg;
-    mCarMetadata = meta;
-    mCarCount = count;
-    mCurrentCarIdx = 0u;
-    mRemoteBaseAddress = remoteaddr;
-    mIsIn = isIn;
-    memset_s(mCars,0u,count*sizeof(EWCar));
-    memset_s(mCarMetadata,0u,count*sizeof(BaseCarMetadata));
+    , mCars(cars)
+    , mCarOpsTimers(ctms)
+  {
+    MFM_API_ASSERT_NONNULL(cars);
+    MFM_API_ASSERT_NONNULL(ctms);
+    memset_s(mCars,0u,CAR_STORAGE_SIZE);
+    memset_s(mCarOpsTimers,0u,CAR_OPS_TIMERS_SIZE);
   }
 
+#if 0    
   bool P2PEWElevatorPlatform::sendCar() {
     FAIL(INCOMPLETE_CODE);
-#if 0    
     for (u32 tries = 0u; tries < mCarCount; ++tries) {
       EWCarStorage::EWCar * lcp = getCurrentCarIfAny();
       if (!lcp) FAIL(INCOMPLETE_CODE);
@@ -48,19 +36,12 @@ namespace MFM {
       lcp->setCarState(CarState::CLOSED,CarType::STANDARD); 
       advanceToNextCar();       // and hope for rooom in the next one
     }
-#endif
+
     return false; // we're blown.
   }
 
-  P2PEWElevatorPlatform::EWCar * P2PEWElevatorPlatform::getCurrentCarIfAny() {
-    DIEWAY();
-    if (mCurrentCarIdx >= mCarCount) return 0;
-    DIEWAY();
-    return &mCars[mCurrentCarIdx];
-  }
-
   bool P2PEWElevatorPlatform::update(T6ElevatorTransport & et) {
-    MFM_API_ASSERT_NONNULL(mCarMetadata);
+    MFM_API_ASSERT_NONNULL(mCarOpsTimers);
     DIEWAY();
 
     AtomicScopeLock guard(getPlatformLock());
@@ -81,7 +62,7 @@ namespace MFM {
     for (u32 c = 0u; c < mCarCount; ++c) {
 
       EWCar& car = mCars[c];
-      BaseCarMetadata & carmeta = mCarMetadata[c];
+      CarOpsTimers & ctms = mCarOpsTimers[c];
       CarState cs = car.getCarState();
     DIEWAY();
       if (cs == CarState::UNUSED) {
@@ -106,7 +87,8 @@ namespace MFM {
           {
             static u32 spin;
             if ((spin++ & 0xfff) == 0u)
-              et.notice("(%d,%d)BADCAR#%d h:%02x%02x.%02x%02x f:%02x%02x.%02x%02x %u\n",
+              et.notice("%s(%d,%d)BADCAR#%d h:%02x%02x.%02x%02x f:%02x%02x.%02x%02x %u\n",
+                        getName(),
                         fAll.mPos.x,fAll.mPos.y, c,
                         hdr.mCarMagic, hdr.mCarNonce, hdr.mCarState, hdr.mCarType,
                         fut.mCarMagic, fut.mCarNonce, fut.mCarState, fut.mCarType,
@@ -130,11 +112,11 @@ namespace MFM {
     DIEWAY();
         if (isArriving(cs)) {   // You Have Arrived
     DIEWAY();
-          carmeta.mArrivalTime = millisElapsed(); // note the time
+          ctms.mArrivalTime = millisElapsed(); // note the time
     {
       static u32 once = 0u;
       if (false && once < 3u) {
-        et.notice("P2PEWARR 0x%08x %d @ %u\n",&car,c,carmeta.mArrivalTime);
+        et.notice("P2PEWARR 0x%08x %d @ %u\n",&car,c,ctms.mArrivalTime);
         ++once;
       }
     }
@@ -158,7 +140,7 @@ namespace MFM {
         }
     DIEWAY();
 
-        if (car.readyToClose(carmeta,millisElapsed())) {
+        if (car.readyToClose(ctms,millisElapsed())) {
     DIEWAY();
         {
           static u8 once;
@@ -187,5 +169,7 @@ namespace MFM {
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return ret;
   }
+
+#endif  
 }
 

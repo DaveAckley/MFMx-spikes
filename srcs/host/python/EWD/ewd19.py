@@ -205,6 +205,8 @@ class EWD(App):
           self.logkt("KEYK","BINP2S "+k+" "+str(hex(img.getBinWord(6))))
           self.logkt("KEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
           keys.append(k)
+        else:
+          print("NOT FOUND FOR",k,"->",maybebinfile)
     for k in keys:
       print("ZING",k)
       img = im.getT6Image(k)
@@ -229,6 +231,7 @@ class EWD(App):
           x = 255 if x == 'all' else int(x)
           y = 255 if y == 'all' else int(y)
           print("IM",x,y,val)
+          print("ZING",k,val)
           img = im.getT6Image(val)
           cell.addImage(MFMx.U8C(x,y),val)
       print("CELLDONE",cell)

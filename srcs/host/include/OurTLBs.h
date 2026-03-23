@@ -6,7 +6,7 @@
 #include "FATAL.h"
 #include "U16C.h"
 #include "TTKMDStuff.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "T6Image.h"
 #include "HostCommsMap.h"
 #include "CommsModule.h"

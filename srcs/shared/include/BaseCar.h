@@ -23,7 +23,7 @@ namespace MFM {
   };
 
   struct CarSig {
-    static constexpr u8 CARSIG_MAGIC = 0xCA;
+    static constexpr u8 CARSIG_MAGIC = 0xC5;
     u8 mCarMagic;
     u8 mCarNonce;
     u8 mCarState;
@@ -67,7 +67,7 @@ namespace MFM {
     }
   };
 
-  struct BaseCarMetadata {
+  struct CarOpsTimers {
     u32 mArrivalTime;           // in whatever units host vs cross
     u32 mOccupiedTime;          // ditto
   };
@@ -98,7 +98,7 @@ namespace MFM {
       return false; // NOT REACHED
     }
     bool isEmpty() { return mContent.isEmpty(); }
-    bool readyToClose(BaseCarMetadata & meta, u32 msnow) { return mContent.readyToClose(meta,msnow); }
+    bool readyToClose(CarOpsTimers & tms, u32 msnow) { return mContent.readyToClose(tms,msnow); }
     CarSig getHeader() const { return mHeader; }
     CarSig getStandardFooter() const { return mFooter; }
     CarType getCarType() const { return (CarType) mHeader.mCarType; }

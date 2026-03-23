@@ -12,20 +12,20 @@ namespace MFM {
   }
 
   Printer & H2EEP::to_repr(Printer & p) const {
-    p.printf("<H2EL: ix=%u rba=0x%x cp=0x%p cm=0x%p c#=%u cci=%u in=%d>\n",
+    p.printf("<H2EL: ix=%u rba=0x%x cp=0x%p co=0x%p c#=%u cci=%u in=%d>\n",
              mEWPIdx,
              mRemoteBaseAddress,
              mCars,
-             mCarMetadata,
+             mCarOpsTimers,
              mCarCount,
              mCurrentCarIdx,
              mIsIn);
     return p;
   }
 
-  void H2EEP::initCars(U8C ournoc0, u8 ewpidx, U8C ewpnoc0, EWCar * stg, BaseCarMetadata * meta, u32 count, u32 remoteL1Addr, bool isIn) {
+  void H2EEP::initCars(U8C ournoc0, u8 ewpidx, U8C ewpnoc0, EWCar * stg, CarOpsTimers * ctms, u32 count, u32 remoteL1Addr, bool isIn) {
     MFM_API_ASSERT_NONNULL(stg);
-    MFM_API_ASSERT_NONNULL(meta);
+    MFM_API_ASSERT_NONNULL(ctms);
     //P.printf("H2EL10\n");
     //    AtomicScopeLock guard(getPlatformLock());
     //P.printf("H2EL11\n");
@@ -34,14 +34,14 @@ namespace MFM {
     mEWPIdx = ewpidx;
     mEWPNoC0 = ewpnoc0;
     mCars = stg;
-    mCarMetadata = meta;
+    mCarOpsTimers = ctms;
     mCarCount = count;
     mCurrentCarIdx = 0u;
     mRemoteBaseAddress = remoteL1Addr;
     mIsIn = isIn;
     memset_s(mCars,0u,count*sizeof(EWCar));
-    memset_s(mCarMetadata,0u,count*sizeof(BaseCarMetadata));
-    if (false) P.printf("H2EL12 %d cm0x%x+%u\n",ewpidx,mCarMetadata,count*sizeof(BaseCarMetadata));
+    memset_s(mCarOpsTimers,0u,count*sizeof(CarOpsTimers));
+    if (false) P.printf("H2EL12 %d cm0x%x+%u\n",ewpidx,mCarOpsTimers,count*sizeof(CarOpsTimers));
   }
 
   bool H2EEP::sendCar() {
@@ -60,7 +60,7 @@ namespace MFM {
     static u32 spin = 0u;
     bool report = (++spin % 100'000'000u) == 0;
     if (report) C9printf("REPH2UPS %u %d\n",spin,mEWPIdx);
-    MFM_API_ASSERT_NONNULL(mCarMetadata);
+    MFM_API_ASSERT_NONNULL(mCarOpsTimers);
     //AtomicScopeLock guard(getPlatformLock());
 
     //////
@@ -80,7 +80,7 @@ namespace MFM {
                 mEWPNoC0.x,mEWPNoC0.y);
       for (u32 c = 0u; c < mCarCount; ++c) {
         EWCar& car = mCars[c];
-        BaseCarMetadata & carmeta = mCarMetadata[c];
+        //CarOpsTimers & ctms = mCarOpsTimers[c];
         CarState cs = car.getCarState();
         if (oldstates[mEWPIdx][c] != cs) {
           P.printf(" %u:%s",c, NRI3::getCarStateName(oldstates[mEWPIdx][c]));
@@ -96,7 +96,7 @@ namespace MFM {
     for (u32 c = 0u; c < mCarCount; ++c) {
 
       EWCar& car = mCars[c];
-      BaseCarMetadata & carmeta = mCarMetadata[c];
+      CarOpsTimers & ctms = mCarOpsTimers[c];
       CarState cs = car.getCarState();
 
       if (cs == CarState::UNUSED) {
@@ -141,13 +141,13 @@ namespace MFM {
       case CarState::INBOUND_DEPARTED:
       case CarState::OUTBOUND_DEPARTED:
         if (isArriving(cs)) {   // You Have Arrived
-          carmeta.mArrivalTime = millisElapsed(); // note the time
+          ctms.mArrivalTime = millisElapsed(); // note the time
           P.printf("H2ELAR %u:%u,%u 0x%08x #%u s%u t%u @ %u\n",
                     mEWPIdx,
                     mEWPNoC0.x,mEWPNoC0.y,
                     &car, c,
                     car.getCarState(), car.getCarType(),
-                    carmeta.mArrivalTime);
+                    ctms.mArrivalTime);
           car.setCarState(CarState::OPEN,CarType::STANDARD); // now itz open for bidniss
         } 
         // if isDeparting, wait for external developments
@@ -157,7 +157,7 @@ namespace MFM {
         //C9printf("H2EUO(%d)\n",c);
         
         // JUST CLOSE EM DAMMIT LET'S SEE SHIPPPPPPING
-        if (true || car.readyToClose(carmeta,millisElapsed())) {
+        if (true || car.readyToClose(ctms,millisElapsed())) {
           //C9printf("H2EUC(%d)\n",c);
           car.setCarState(CarState::CLOSED,CarType::STANDARD); // Please Buckle Up
         }

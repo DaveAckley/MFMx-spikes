@@ -1,52 +1,40 @@
 #pragma once /* -*- C++ -*- */
 
+#include "EP.h"
 #include "BaseCar.h"
 #include "AtomicLock.h"
-#include "TransportBlock.h"
+#include "TC.h"
 
 namespace MFM {
   class T6ElevatorTransport; // FORWARD
   
-  class P2PEWElevatorPlatform {
+  class P2PEWElevatorPlatform : public EP<P2PEWElevatorPlatform,EWBlock> {
   public:
-    typedef BaseCar<EWBlock> EWCar;
-    P2PEWElevatorPlatform() ;
-    void initCars(EWCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) ;
-    bool update(T6ElevatorTransport & et) ; // TAKES PLATFORM LOCK
-    bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
+    typedef CARTYPE EWCar;
+    static constexpr u32 CAR_COUNT = EWCarStorage::CAR_COUNT;
+    static constexpr u32 CAR_STORAGE_SIZE = CAR_COUNT*sizeof(EWCar);
+    static constexpr u32 CAR_OPS_TIMERS_SIZE = CAR_COUNT*sizeof(CarOpsTimers);
 
-    u32 getCurrentCarIndex() const { return mCurrentCarIdx; }
-    u32 nextCarIndex() {
-      u32 ret = mCurrentCarIdx+1u;
-      if (ret >= mCarCount) ret = 0u;
-      return ret;
-    }
-    void advanceToNextCar() { mCurrentCarIdx = nextCarIndex(); }
-    u64 getCarRemoteAddress() const { return computeCarDestination(mCurrentCarIdx); }
+    // EP IMPL
+    const char * getNameEPI() const { return "P2PEW"; }
+    u32 getCarCountEPI() const { return CAR_COUNT; }
+    bool isInEPI() const { return true; }
+    CARTYPE * getCarStgEPI() const ;
+    CarOpsTimers * getCarOpsTimersEPI() const ;
+    bool shipEPI(CARTYPE & car, u32 carnum) ;
 
-    AtomicLock & getPlatformLock() { return mPlatformLock; }
-    EWCar * getCurrentCarIfAny() ;
-    CarState departingState() const {
-      return mIsIn ? CarState::OUTBOUND_DEPARTED : CarState::INBOUND_DEPARTED;
-    }
-    CarState arrivingState() const {
-      return mIsIn ? CarState::INBOUND_DEPARTED : CarState::OUTBOUND_DEPARTED;
-    }
-    bool isArriving(CarState cs) const { return cs == arrivingState(); }
-    bool isDeparting(CarState cs) const { return cs == departingState(); }
-    
+    P2PEWElevatorPlatform(EWCar * stg, CarOpsTimers * tms) ;
+
+    //    bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
+
   private:
-    AtomicLock mPlatformLock;
 
     u64 computeCarDestination(u32 carnum) const {
       return mRemoteBaseAddress + carnum*sizeof(EWCar);
     }
     u64 mRemoteBaseAddress;     // of far mCars
     EWCar *mCars;              // [0..mCarCount - 1]
-    BaseCarMetadata * mCarMetadata; // ditto
-    u32 mCarCount;
-    u32 mCurrentCarIdx;
-    bool mIsIn;                 // true if host, false if t6
+    CarOpsTimers * mCarOpsTimers; // ditto
   };
 }
 

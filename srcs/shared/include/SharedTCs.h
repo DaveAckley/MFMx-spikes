@@ -1,37 +1,16 @@
-/* -*- C++ -*- */
-#pragma once
-
+#pragma once  /* -*- C++ -*- */
 #include "itype.h"
-
-#include <cstring>
-#include "BaseCar.h"
-#include "Fail.h"
-#include "EventWindow.h"
-#include "TimeDefs.h"
-
-//#include "CrossUtils.h"
+#include "TC.h"
 
 namespace MFM {
-
-  template<class CONTENT>
-  struct TransportableContent {
-    bool readyToClose(BaseCarMetadata & meta,u32 msnow) const {
-      return static_cast<const CONTENT*>(this)->readyToClose(meta,msnow);
-    }
-    bool isEmpty() { return static_cast<const CONTENT*>(this)->isEmpty(); }
-    void reset() { static_cast<const CONTENT*>(this)->reset(); }
-  protected:
-    TransportableContent() = default; // don't make these
-  };
-
-  struct LogBlock : public TransportableContent<LogBlock> {
+  struct LogBlock : public TC<LogBlock> {
     static constexpr u8 MAX_LEN = U8_MAX-9u;
     u8 mLength;
     u8 mData[MAX_LEN];
 
-    bool readyToClose(BaseCarMetadata & meta,u32 msnow) const {
+    bool readyToClose(CarOpsTimers & tms,u32 msnow) const {
       u32 left = spaceRemaining();
-      if (mLength > 0u && (msnow - meta.mOccupiedTime) >= 2000)
+      if (mLength > 0u && (msnow - tms.mOccupiedTime) >= 2000)
         return true; // don't sit occupied more than 2 seconds
       bool ret =
         (left < MAX_LEN/10) ||
@@ -59,9 +38,9 @@ namespace MFM {
     }
   };
 
-  class EWBlock : public TransportableContent<EWBlock> {
+  class EWBlock : public TC<EWBlock> {
   public:
-    bool readyToClose(BaseCarMetadata & meta,u32 msnow) const { // Closing (to be) handled by ew processing
+    bool readyToClose(CarOpsTimers & tms,u32 msnow) const { // Closing (to be) handled by ew processing
       return false;
     }
     bool isEmpty() const {
@@ -97,7 +76,7 @@ namespace MFM {
       memset_s(&mLogData,0u,sizeof(mLogData));
     }
     static constexpr u32 CAR_COUNT = LogCarStorage::CAR_COUNT;
-    BaseCarMetadata mLogData[CAR_COUNT];
+    CarOpsTimers mLogData[CAR_COUNT];
   };
 
   struct EWCarStorage {
@@ -111,10 +90,10 @@ namespace MFM {
       memset_s(&mEWData,0u,sizeof(mEWData));
     }
     static constexpr u32 CAR_COUNT = EWCarStorage::CAR_COUNT;
-    BaseCarMetadata mEWData[CAR_COUNT];
+    CarOpsTimers mEWData[CAR_COUNT];
   };
 
-  struct TransportBlock {
+  struct TransportBlockOBSOLETE {
     u32 mLogCarStorageT6Ptr;
     u32 mEWCarStorageT6Ptr;
   };

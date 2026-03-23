@@ -1,23 +1,26 @@
 #include "FastNC.h"
 #include "FastLocal.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "CellBlock.h"
 #include "T6Grid.h"
 #include "Printf.h"
+#include "CrossUtils.h"
 //#include "NoCs.h"
 #include "S8C.h"
 //#include "FastT2.h" // REMEMBER: NO createByMail on HART NC!
 
 namespace MFM {
-  T6ElevatorTransport theT6ElevatorTransport;
+  //  T6ElevatorTransport theT6ElevatorTransport;
 
   LogCarStorage theLogCarStorage[1] __attribute__ ((section(".transportblocklog")));
   EWCarStorage theEWCarStorage __attribute__ ((section(".transportblockew")));
 
+#if 0
   TransportBlock theTransportBlock __attribute__ ((section(".transportblock"))) = {
     .mLogCarStorageT6Ptr = (u32) &theLogCarStorage,
     .mEWCarStorageT6Ptr = (u32) &theEWCarStorage,
   };
+#endif
   CellBlock theCellBlock[1] __attribute__ ((section(".crossrodata")));
 
   struct FastNC {
@@ -40,7 +43,7 @@ namespace MFM {
       }
 
       DIEWAY();
-      theT6ElevatorTransport.updateTransportBlock();
+      //theT6ElevatorTransport.updateTransportBlock();
       DIEWAY();
     
       hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
@@ -53,7 +56,7 @@ namespace MFM {
 
   int hartMainNC(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    theT6ElevatorTransport.init(hb,theTransportBlock);
+    //theT6ElevatorTransport.init(hb,theTransportBlock);
     fNC.init(); // ctors don't run for objects in our fast RAMs!
     /*
     NoCHop h;

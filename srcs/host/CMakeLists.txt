@@ -24,6 +24,7 @@ target_sources(MFMx PRIVATE
     src/STVL.cpp
     src/StringBlock.cpp
     src/T6Image.cpp
+    src/XUtilsHost.cpp
     src/spikeMain.cpp
     ${SHARED_SOURCES}
 )

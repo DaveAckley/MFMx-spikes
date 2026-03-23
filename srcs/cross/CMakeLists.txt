@@ -24,6 +24,7 @@ add_library(crosslib STATIC)
 target_sources(crosslib PUBLIC
   src/AtomicLock.cpp
   src/CornerState.cpp
+  src/CrossEP.cpp
   src/CrossUtils.cpp
   src/FATAL.cpp
   src/FastB.cpp
@@ -37,7 +38,6 @@ target_sources(crosslib PUBLIC
   src/P2PLogElevatorPlatform.cpp
   src/Printf.cpp
   src/T6CellO.cpp
-  src/T6ElevatorTransport.cpp
   src/T6ImageBlock.cpp
   src/T6Neighbor.cpp
   src/T6RingO.cpp

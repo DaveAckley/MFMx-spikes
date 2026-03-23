@@ -3,13 +3,24 @@
 #include "itype.h"
 #include "HostBlock.h"
 #include "AtomicLock.h"
-#include "P2PLogElevatorPlatform.h"
-#include "T6ElevatorTransport.h"
+#include "TC.h"
+//#include "P2PLogElevatorPlatform.h"
+//#include "T6ElevatorTransport.h"
 #include "BaseCar.h"
+#include "XUtils.h"
+#include "Fail.h"
 
 namespace MFM {
-  class Printer {
+  struct P2PLogElevatorPlatform; // FORWARD
+  
+  class Printer : public XPrinter {
   public:
+    /// XPrinter API
+    Putchar * getPutcharFnPtr() {
+      MFM_API_ASSERT_NONNULL(mPutc);
+      return mPutc;
+    }
+
     typedef void Putchar(int c, void * ctx /*Printer*/) ;
     void init(AtomicLock & lockWeNeed, P2PLogElevatorPlatform * platform, Putchar *fp, u64 hostaddr) {
       mPrintLockPtr = &lockWeNeed; // Non-zero
@@ -38,7 +49,8 @@ namespace MFM {
   };
 
   extern s32 snprintf(char * buf, u32 siz, const char * format, ...) ;
-  extern void t6InitPrinters(HostBlock & hb, T6ElevatorTransport & t6t) ;
+  extern void t6InitPrinters(HostBlock & hb) ;
   extern Printer DP;
   extern Printer LOG;
+  extern Printer DEVNULL;
 }

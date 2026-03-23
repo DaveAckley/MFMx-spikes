@@ -1,5 +1,6 @@
 #include "FastT2.h"
 #include "Printf.h"
+#include "CrossUtils.h"
 
 namespace MFM {
 

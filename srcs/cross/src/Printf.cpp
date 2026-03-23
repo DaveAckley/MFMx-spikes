@@ -1,6 +1,6 @@
 #include "Printf.h"
 #include "Fail.h"
-#include "T6ElevatorTransport.h"
+//#include "T6ElevatorTransport.h"
 #include "FastLocal.h"
 
 #if 1
@@ -21,6 +21,10 @@
 namespace MFM {
   extern HostBlock theHostBlock;
 
+  Printer DEVNULL;
+  AtomicLock DevNullLock; // seriously? mustn't race to do nothing?
+  static void devnullPrintPutc(int c, void * ctx /*Printer*/) { /* empty */ }
+
   Printer DP;
   AtomicLock DPLock; // for debug printfing to hostblock
 
@@ -32,18 +36,20 @@ namespace MFM {
   static void logPrintPutc(int c, void * ctx /*Printer*/) {
     MFM_API_ASSERT_NONNULL(ctx);
     Printer & prt = *(Printer*) ctx;
-    P2PLogElevatorPlatform & mgr = prt.getPlatform();
-    bool worked = mgr.sendByte(c);
+    FAIL(INCOMPLETE_CODE);
+    //    P2PLogElevatorPlatform & mgr = prt.getPlatform();
+    //    bool worked = mgr.sendByte(c);
     //    if (!worked) FAIL(OUT_OF_ROOM);
   }
 
 
-  void t6InitPrinters(HostBlock & hb, T6ElevatorTransport & t6et) {
+  void t6InitPrinters(HostBlock & hb) {
     u64 hostaddr = hb.getHostNocAddr();
     DP.init(DPLock,0,debugPrintPutc,hostaddr);
     debugPrintPutc('!',0);      // Flag debug initted
     DP.printf("^");             // test DP.printfing
-    LOG.init(t6et.mP2PLogTransport.getPlatformLock(),&t6et.mP2PLogTransport,logPrintPutc,hostaddr);
+    //LOG.init(t6et.mP2PLogTransport.getPlatformLock(),&t6et.mP2PLogTransport,logPrintPutc,hostaddr);
+    DEVNULL.init(DevNullLock,0,devnullPrintPutc,0);
   }
 
   P2PLogElevatorPlatform & Printer::getPlatform() {

@@ -1,50 +1,39 @@
 #pragma once /* -*- C++ -*- */
 
-#include "BaseCar.h"
-#include "AtomicLock.h"
-#include "TransportBlock.h"
+#include "CrossEP.h"
 #include "Printf.h"
 
 namespace MFM {
   class T6ElevatorTransport; // FORWARD
   
-  class E2HEP {
+  class E2HEP : public CrossEP<E2HEP, EWBlock> {
   public:
-    typedef BaseCar<EWBlock> EWCar;
+    typedef CARTYPE EWCar;
+
+    //// EP API
+    const char * getNameEPI() const { return "E2HEP"; }
+    u32 getCarCountEPI() const { return EWCarStorage::CAR_COUNT; }
+    bool isInEPI() const { return false; } // we are not the 'in' end
+    CARTYPE * getCarStgEPI() const { return mCars; }
+
+    s32 updateEPI() {
+      return update() ? 0 : -1;
+    }
+
     E2HEP() ;
+    bool update() ;
+
     void initCars(u32 ourewpindex,
                   U8C ournoc0,
-                  EWCar * stg, BaseCarMetadata * meta, u32 count,
-                  U8C hubnoc0, u32 hubewhubblockaddr,
-                  bool isIn) ;
-    bool update() ; // TAKES PLATFORM LOCK
-    bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
+                  EWCar * stg, CarOpsTimers * tms,
+                  U8C hubnoc0, u32 hubewhubblockaddr) ;
 
-    u32 getCurrentCarIndex() const { return mCurrentCarIdx; }
-    u32 nextCarIndex() {
-      u32 ret = mCurrentCarIdx+1u;
-      if (ret >= mCarCount) ret = 0u;
-      return ret;
-    }
-    void advanceToNextCar() { mCurrentCarIdx = nextCarIndex(); }
     u64 getCarRemoteAddress() const { return computeCarDestination(mCurrentCarIdx); }
 
-    AtomicLock & getPlatformLock() { return mPlatformLock; }
-    EWCar * getCurrentCarIfAny() ;
-    CarState departingState() const {
-      return mIsIn ? CarState::OUTBOUND_DEPARTED : CarState::INBOUND_DEPARTED;
-    }
-    CarState arrivingState() const {
-      return mIsIn ? CarState::INBOUND_DEPARTED : CarState::OUTBOUND_DEPARTED;
-    }
-    bool isArriving(CarState cs) const { return cs == arrivingState(); }
-    bool isDeparting(CarState cs) const { return cs == departingState(); }
-
-    Printer & to_repr(Printer& to) const ;
-    Printer & print(Printer& to, BaseCar<EWBlock> & bc) const ;
+    //    Printer & to_repr(Printer& to) const ;
+    // Printer & print(Printer& to, BaseCar<EWBlock> & bc) const ;
 
   private:
-    AtomicLock mPlatformLock;
 
     u32 computeCarDestination(u32 carnum) const {
       return mEWCarStorage + carnum * sizeof(EWCar);
@@ -54,11 +43,9 @@ namespace MFM {
     u32 mEWCarStorage;          // remote L1 addr of EWCarStorage[mOurEWPIndex]
     U8C mOurNoC0;
     U8C mHubNoC0;
-    EWCar *mCars;              // [0..mCarCount - 1]
-    BaseCarMetadata * mCarMetadata; // ditto
-    u32 mCarCount;
+    CARTYPE *mCars;              // [0..mCarCount - 1]
+    CarOpsTimers * mCarOpsTimers; // ditto
     u32 mCurrentCarIdx;
-    bool mIsIn;                 // true if host, false if t6
   };
 }
 

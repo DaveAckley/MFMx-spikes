@@ -44,7 +44,7 @@ namespace MFM {
       }*/
     hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mPos.x,hb.mPos.y});
     //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
-    t6InitPrinters(hb,theT6ElevatorTransport);
+    t6InitPrinters(hb);
     //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return 0;
   }

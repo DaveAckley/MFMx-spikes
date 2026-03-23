@@ -5,7 +5,7 @@
 #include "HostUtils.h"
 #include "P4Atom.h"
 #include "Random.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "BHTag.h"
 #include "OurMutex.h"
 #include "S32C.h"

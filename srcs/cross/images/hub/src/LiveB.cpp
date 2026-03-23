@@ -2,7 +2,7 @@
 #include "ExtraConstants.h"
 #include "FastT2.h" // for preloadT2Mailbox
 #include "Printf.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "EventWindow.h"
 #include "T6Grid.h"
 #include "T6CellO.h"
@@ -153,11 +153,11 @@ namespace MFM {
 
     for (u32 i = 0u; i < EWSLOTS; ++i) {
       initHubForEWPs(i,hb,fB.mCellO,theMinions.getNoC0OfEWP(i),theMinions.getBaseL1AddressOfEWP(i));
-      if (false) P.printf("XLB0  %u/%p\n",i,fB.mH2EEPs[i].getBaseCarMetadata());
+      if (false) P.printf("XLB0  %u/%p\n",i,fB.mH2EEPs[i].getCarOpsTimers());
     }
 
     if (false) for (u32 i = 0u; i < EWSLOTS; ++i)
-      P.printf("XLB10 %u/%p\n",i,fB.mH2EEPs[i].getBaseCarMetadata());
+      P.printf("XLB10 %u/%p\n",i,fB.mH2EEPs[i].getCarOpsTimers());
 
     {
       P4Atom a = P4Atom::makeAtom(P4Atom::START_TYPE);
@@ -179,7 +179,7 @@ namespace MFM {
 
     u32 spin = 0;
     if (false) for (u32 i = 0; i < EWSLOTS; ++i)
-      P.printf("XLB11 %u/%p\n",i,fB.mH2EEPs[i].getBaseCarMetadata());
+      P.printf("XLB11 %u/%p\n",i,fB.mH2EEPs[i].getCarOpsTimers());
     while (true) {
       if ((++spin & 0x1ffff) == 0) {
         hb.hartbeat(fAll.mHartNum);

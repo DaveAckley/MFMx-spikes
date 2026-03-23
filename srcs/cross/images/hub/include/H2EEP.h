@@ -4,7 +4,7 @@
 
 #include "BaseCar.h"
 #include "AtomicLock.h"
-#include "TransportBlock.h"
+#include "TC.h"
 #include "Printf.h"
 
 namespace MFM {
@@ -15,7 +15,7 @@ namespace MFM {
     typedef BaseCar<EWBlock> EWCar;
     H2EEP() { }
     void init() ;
-    void initCars(U8C ournoc0, u8 ewpidx, U8C ewpnoc0, EWCar * stg, BaseCarMetadata * meta, u32 count, u32 remoteL1Addr, bool isIn) ;
+    void initCars(U8C ournoc0, u8 ewpidx, U8C ewpnoc0, EWCar * stg, CarOpsTimers * tms, u32 count, u32 remoteL1Addr, bool isIn) ;
     bool update() ; // TAKES PLATFORM LOCK
     bool sendCar() ;            // ASSUMES PLATFORM LOCK IS HELD
 
@@ -41,7 +41,7 @@ namespace MFM {
 
     Printer & to_repr(Printer& to) const ;
 
-    BaseCarMetadata * getBaseCarMetadata() const { return mCarMetadata; }
+    CarOpsTimers * getCarOpsTimers() const { return mCarOpsTimers; }
 
   private:
     AtomicLock mPlatformLock;
@@ -56,7 +56,7 @@ namespace MFM {
     U8C mEWPNoC0;
     u32 mRemoteBaseAddress;     // of far mCars
     EWCar *mCars;              // [0..mCarCount - 1]
-    BaseCarMetadata * mCarMetadata; // ditto
+    CarOpsTimers * mCarOpsTimers; // ditto
     u32 mCarCount;
     u32 mCurrentCarIdx;
     bool mIsIn;                 // true if host, false if t6

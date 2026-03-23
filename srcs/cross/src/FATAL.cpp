@@ -3,6 +3,7 @@
 #include "itype.h"
 #include "Printf.h"
 #include "FastLocal.h"
+#include "CrossUtils.h"
 
 void DieHereNow(signed code,const char * file,unsigned line) {
   file = MFM::stripDirs(file);

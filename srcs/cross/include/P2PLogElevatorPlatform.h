@@ -8,17 +8,19 @@
 #include "FATAL.h"
 #include "AtomicLock.h"
 #include "CrossUtils.h"
-#include "TransportBlock.h"
+#include "TC.h"
+#include "CrossEP.h"
 
 namespace MFM {
 
   class T6ElevatorTransport; // FORWARD
 
-  class P2PLogElevatorPlatform {
+  typedef BaseCar<LogBlock> LogCar;
+
+  class P2PLogElevatorPlatform : public CrossEP<P2PLogElevatorPlatform,LogCar> {
   public:
-    typedef BaseCar<LogBlock> LogCar;
     P2PLogElevatorPlatform() ;
-    void initCars(LogCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) ;
+    void initCars(LogCar * stg, CarOpsTimers * tms, u32 count, u64 remoteaddr, bool isIn) ;
     bool update(T6ElevatorTransport & et) ; // TAKES PLATFORM LOCK
     bool sendByte(u8 byte) ;                // ASSUMES PLATFORM LOCK IS HELD
     //    void sendLastByteOrDie(u8 byte) ;       // ASSUMES PLATFORM LOCK IS HELD
@@ -50,7 +52,7 @@ namespace MFM {
     }
     u64 mRemoteBaseAddress;     // of far mCars
     LogCar *mCars;              // [0..mCarCount - 1]
-    BaseCarMetadata * mCarMetadata; // ditto
+    CarOpsTimers * mCarOpsTimers; // ditto
     u32 mCarCount;
     u32 mCurrentCarIdx;
     bool mIsIn;                 // true if host, false if t6

@@ -8,6 +8,9 @@
 
 namespace MFM {
   struct CommsModule {
+    // EP INTERFACE
+    const char * getNameImpl() { return mName.c_str(); }
+    
     std::string mName;
     bool mBlocksRequired[BlockCode::BC_BLOCKCODE_COUNT];
     std::string getName() const { return mName; }

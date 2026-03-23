@@ -320,7 +320,7 @@ class RTMPFeed:
             mantras = ("living == trying",
                        "same picture",
                        "trying == living",
-                        "means to try")
+                       "means to try")
             man = mantras[self.magicNum]
             self.drawTextOnImage(bgrimage,man,
                                  (dickWidth,self.height-richardBaseheight-self.fontCodeLiveSize-2),
