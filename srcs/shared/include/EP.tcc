@@ -1,122 +1,41 @@
+/* -*- C++ -*- */
+
 namespace MFM {
 
   template<class SUBEP, class SUBTC>
   void EP<SUBEP,SUBTC>::init(BlockCode bc, u8 blkIdx, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn) {
-      reset();
-      mLockPtr = &lock;
-      mDestBlockCode = bc;
-      mDestBlockCodeIndex = blkIdx;
-#ifndef BUILD_HOST
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('e',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-      AtomicScopeLock guard(getPlatformLock());
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('p',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-      mCarCount = carCount;
-      mIsIn = isIn;
+    reset();
+    mLockPtr = &lock;
+    mDestBlockCode = bc;
+    mDestBlockCodeIndex = blkIdx;
+    AtomicScopeLock guard(getPlatformLock());
 
-      // here/gone inits identical on in and out:
-      mOldestHere = U8_MAX;
-      mHereCount = 0u;
-      mOldestGone = 0u;
-      mGoneCount = mCarCount;
+    mCarCount = carCount;
 
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('f',hartChar(fAll.mHartNum));
-        once++;
-      }
+    mIsIn = isIn;
+
+    // here/gone inits identical on in and out:
+    mOldestHere = U8_MAX;
+    mHereCount = 0u;
+    mOldestGone = 0u;
+    mGoneCount = mCarCount;
+
+    for (u32 c = 0u; c < mCarCount; ++c) {
+      SUBTC * carp = getCarPtr(c);
+      MFM_API_ASSERT_NONNULL(carp);
+      MFM_API_ASSERT(((uintptr_t)carp)%16 == 0, BAD_ALIGNMENT);
+
+      SUBTC & car = *carp;
+      car.reset();
+
+      TCMarker & hdr = car.getHeader();
+      hdr.init(2u*c+1u); // spread the nonces a little
+
+      bool carshere = mIsIn == carsIn;
+      hdr.mTCMState = carshere ? arrivingState() : departingState();
+
+      car.getFooter() = hdr;
     }
-#endif
-      for (u32 c = 0u; c < mCarCount; ++c) {
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('r',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-
-        SUBTC * carp = getCarPtr(c);
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('n',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-        MFM_API_ASSERT_NONNULL(carp);
-        SUBTC & car = *carp;
-        TCMarker & hdr = car.getHeader();
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('c',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-
-        hdr.init(2u*c+1u);
-
-        bool carshere = mIsIn == carsIn;
-        hdr.mTCMState = carshere ? arrivingState() : departingState();
-
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-
-        theHostBlock.addBytes('#','0'+c);
-        theHostBlock.addBytes('C','0'+carshere);
-        theHostBlock.addBytes('S','0'+mIsIn);
-        theHostBlock.addBytes('T','0'+hdr.mTCMState);
-        once++;
-      }
-    }
-#endif
-
-        car.getFooter() = hdr;
-      }
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (true) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes(':',hartChar(fAll.mHartNum));
-        theHostBlock.packString(getName());
-        once++;
-      }
-    }
-#endif
-      
   }
 
   template<class SUBEP, class SUBTC>

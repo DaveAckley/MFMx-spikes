@@ -14,6 +14,8 @@ project(
   mfmx
   LANGUAGES CXX ASM)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
 # --- Define PRIMARY_CMAKE_RUNNING cache variable ---
 # It defaults to OFF if not passed via -DPRIMARY_CMAKE_RUNNING=1
 if(NOT DEFINED PRIMARY_CMAKE_RUNNING)

@@ -12,10 +12,16 @@ namespace MFM {
   static bool manageZotzNC(bool doInit) {
     bool ret = false;
 #ifndef BUILD_HOST      
-    if (false) {
+    if (true) {
+      static u32 once = 0;
+      if (++once < 4) {
       extern HostBlock theHostBlock;
       char buf[100];
-      npf_snprintf(buf,100," zung 0x%p 0x%p 0x%p / 0x%p 0x%p 0x%p.",
+      npf_snprintf(buf,100," #%lu c%u s%u t%u zung 0x%p 0x%p 0x%p / 0x%p 0x%p 0x%p.",
+                   once,
+                   sizeof(theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0)),
+                   sizeof(ZotBlockStg),
+                   sizeof(ZotBlock),
                    &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX],
                    &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0),
                    &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(1),
@@ -24,11 +30,27 @@ namespace MFM {
                    &theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX].getTC(1));
       theHostBlock.packString(buf);
     }
+    }
 #endif
     if (unlikely(doInit)) {
       memset_s(&theZotBlockCarsIO[0],'\0',sizeof(theZotBlockCarsIO));
       memset_s(&theZotBlockIOLock[0],'\0',sizeof(theZotBlockIOLock));
       memset_s(&theZotBlockIdxs[0],'\0',sizeof(theZotBlockIdxs));
+
+#ifndef BUILD_HOST      
+    if (true) {
+      static u32 once = 0;
+      if (++once < 4) {
+      extern HostBlock theHostBlock;
+      char buf[100];
+      npf_snprintf(buf,100," #%lu c%u c0 %lu c1 %lu zang.",
+                   once, 0, 
+                   theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0).payload().mCounts[0],
+                   theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0).payload().mCounts[1]);
+      theHostBlock.packString(buf);
+    }
+    }
+#endif
 
       myZotEPIN.init(BC_ZOTBLOCK, ZOTBLOCKS_OUT_IDX, true, // note 2nd arg reversed! it's the dest!
                         theZotBlockCarsIO[ZOTBLOCKS_IN_IDX],

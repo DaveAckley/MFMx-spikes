@@ -8,7 +8,7 @@
 namespace MFM {
 
   template<class SUBSUBTC, u32 MAX_PAYLOAD_BYTES>
-  struct TC : public TCBase<SUBSUBTC> {
+  struct alignas(16) TC : public TCBase<SUBSUBTC> {
     static constexpr u32 MAX_PAYLOAD_SIZE = MAX_PAYLOAD_BYTES;
 
     using Self = TC<SUBSUBTC,MAX_PAYLOAD_SIZE>; 

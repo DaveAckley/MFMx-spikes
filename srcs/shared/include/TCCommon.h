@@ -24,32 +24,40 @@ namespace MFM {
     struct TCMarker {
       static constexpr u8 TCM_MAGIC = 0x2C;
 
+      static constexpr u32 ceilDiv(u32 num, u32 den) {
+        return num/den + ((num%den) != 0);
+      }
       static constexpr u8 encodePayloadBytesToTCMSize(u32 payb) {
-        if (payb > 52u) return (payb+12u)/64u + 3u;
-        if (payb > 20u) return 3u; // packet size 64 h+21..52+a+f
-        if (payb > 8u) return 2u;  // packet size 32 h+9..20+a+f
-        if (payb > 0u) return 1u;  // packet size 16 h+1..8+f
-        return 0u;                 // packet size 8 h+f
+        if (payb <= 8u) return 0u;    // packet size 16 h+1..8+f
+        if (payb <= 24u) return 1u;   // packet size 32 h+9..24+f
+        if (payb <= 40u) return 2u;   // packet size 64 h+25..40+a+f+3p
+        
+        return ceilDiv((payb-40),64) + 2u;
       }
 
       static constexpr u32 decodeTCMSizeToPayloadCapacityBytes(u8 tcms) {
         switch (tcms) {
-        case 0u: return 0u;
-        case 1u: return 8u;
-        case 2u: return 20u;
-        case 3u: return 52u;
+        case 0u: return 8u;
+        case 1u: return 24u;
+        case 2u: return 40u;
         }
-        return (tcms-2u)*64u-12u; // NB: not tcms-3u
+        return (tcms-2u)*64u+40u;
       }
 
-      static constexpr u32 getPacketHeaderSizeForPayloadBytes(u32 payb) {
-        if (payb <= 8) return 8u; // h+f
-        return 12u;               // h+a+f
+      static constexpr u32 getPacketOverheadBytesForTCMSize(u8 tcms) {
+        if (tcms <= 1u) return 8u; // h=4B + f=4B
+        return 24u;                // h=4B + a=4B + last segment padding=12B + f=4B
+      }
+
+      static constexpr u32 getPacketOverheadBytesForPayloadSize(u32 payb) {
+        u8 tcms = encodePayloadBytesToTCMSize(payb);
+        return getPacketOverheadBytesForTCMSize(tcms);
       }
 
       static constexpr u32 decodeTCMSizeToPacketSizeBytes(u8 tcms) {
         u32 paycap = decodeTCMSizeToPayloadCapacityBytes(tcms);
-        return paycap + getPacketHeaderSizeForPayloadBytes(paycap);
+        u32 overhead =  getPacketOverheadBytesForTCMSize(tcms);
+        return paycap + overhead;
       }
 
       static constexpr u32 getPacketWordsFromTCMSize(u8 tcms) {
@@ -62,28 +70,26 @@ namespace MFM {
         return decodeTCMSizeToPacketSizeBytes(tcms);
       }
 
-      static constexpr u8 getTCMSizeFromPacketSize(u32 pktb) {
-        if (pktb <= 16) return encodePayloadBytesToTCMSize(pktb - 8u); // tcm 0 or 1
-        return encodePayloadBytesToTCMSize(pktb - 12u); // tcm 2+
-      }
-
+#if 0      
       static constexpr u8 getTCMSizeFromPayloadSize(u32 payb) {
         return encodePayloadBytesToTCMSize(payb);
       }
+#endif
 
       static constexpr u32 getFooterWordIndex(u8 tcmsize) {
-        return getPacketWordsFromTCMSize(tcmsize) - 1u;
+        return getPacketWordsFromTCMSize(tcmsize) - 1u; // always last word of packet
       }
 
-      static constexpr bool hasAnkle(u8 tcmsize) { return tcmsize != 0u; }
+      static constexpr bool hasAnkle(u8 tcmsize) { return tcmsize >= 2u; }
 
       static constexpr u32 getAnkleWordIndex(u8 tcmsize) {
         if (!hasAnkle(tcmsize) == 0u) return 0u; // no ankle, return header word index
-        return getPacketWordsFromTCMSize(tcmsize) - 2u;
+        return getPacketWordsFromTCMSize(tcmsize) - 5u; // always 5w back to get on other stream
       }
 
-      static constexpr u8 getPacketBytesFromPayloadSize(u32 payb) {
-        return getPacketBytesFromTCMSize(getTCMSizeFromPayloadSize(payb));
+      static constexpr u32 getPacketBytesFromPayloadSize(u32 payb) {
+        u8 tcms = encodePayloadBytesToTCMSize(payb);
+        return getPacketBytesFromTCMSize(tcms);
       }
 
       u32 getPacketBytes() const { return getPacketBytesFromTCMSize(mTCMSize); }
@@ -99,7 +105,7 @@ namespace MFM {
       void reinit(u32 payloadBytes, TCState state) {
         mTCMMagic = TCM_MAGIC;
         mTCMNonce++;
-        mTCMSize = getTCMSizeFromPayloadSize(payloadBytes);
+        mTCMSize = encodePayloadBytesToTCMSize(payloadBytes);
         mTCMState = state;
       }
 
@@ -111,7 +117,7 @@ namespace MFM {
       constexpr TCMarker(u16 payloadBytes = 0u) 
         : mTCMMagic(TCM_MAGIC)
         , mTCMNonce(0u)
-        , mTCMSize(getTCMSizeFromPayloadSize(payloadBytes))
+        , mTCMSize(encodePayloadBytesToTCMSize(payloadBytes))
         , mTCMState(TCState::UNUSED)
       { }
       constexpr TCMarker(const TCMarker& other) 

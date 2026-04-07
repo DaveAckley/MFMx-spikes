@@ -17,6 +17,7 @@ namespace MFM {
     u32 mGAMZB;
 
     void init(u32 data, bool bongo) {
+      memset_s(this,'\0',sizeof(*this));
       mZBMAG = 0x5b10cdef;
       mData = data;
       mBongo = bongo;
@@ -62,7 +63,6 @@ namespace MFM {
 
     void init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) ;
   };
-
   
   static constexpr u32 ZOTBLOCKS_IN_IDX = 0u;
   static constexpr u32 ZOTBLOCKS_OUT_IDX = 1u;

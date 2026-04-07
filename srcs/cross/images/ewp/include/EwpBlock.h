@@ -10,7 +10,7 @@
 
 namespace MFM {
 
-#if 0
+#if 1
   struct EwpBlockStg : TCBlock<EwpBlock,2> { // umm this struct could have been a typedef
     typedef TCBlock<EwpBlock,2> Super;
   };

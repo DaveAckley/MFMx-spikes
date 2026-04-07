@@ -119,7 +119,9 @@ namespace MFM {
       return getWordAt(fi).mMarker;
     }
 
-    bool isEmpty() { return getHeader().mTCMSize == TCMarker::getTCMSizeFromPayloadSize(0u); }
+    /* TEST DEIMPLEMENTATION
+    bool isEmpty() { return getHeader().mTCMSize == TCMarker::encodePayloadBytesToTCMSize(0u); }
+    */
 
     bool isComplete() const {
       TCMarker h = getHeader();

@@ -33,7 +33,7 @@ namespace MFM {
   XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u)  \
   XX(ZOTBLOCK,512,ZotBlockStg,2u)               \
   XX(EWHUB,80,EwpBlockStg,8u)                   \
-  XX(EWPCARS,400,EwpBlockStg,1u)                \
+  XX(EWPCARS,2048,EwpBlockStg,1u)               \
   //END OF BLOCK_CODE_LIST
 
 #define XX(NAME,SIZE,TYPE,BLOCKS)               \
