@@ -23,6 +23,7 @@ add_library(crosslib STATIC)
   
 target_sources(crosslib PUBLIC
   src/CrossUtils.cpp
+  src/DefaultLives.cpp
   src/FATAL.cpp
   src/FastB.cpp
   src/FastLocal.cpp
@@ -30,7 +31,9 @@ target_sources(crosslib PUBLIC
   src/FastT0.cpp
   src/FastT1.cpp
   src/FastT2.cpp
+  src/NRIUtils.cpp
   src/Printf.cpp
+  src/T6EPs.cpp
   src/formatSymbols.pl
   src/t6main.cpp
 )

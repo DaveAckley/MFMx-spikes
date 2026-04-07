@@ -1,4 +1,4 @@
-#include "LiveB.h"
+#include "DefaultLives.h" // for liveB
 #include "ExtraConstants.h"
 #include "FastT0.h" // for millisElapsed
 #include "FastT2.h" // for preloadT2Mailbox
@@ -10,57 +10,15 @@
 
 namespace MFM {
 
-  extern int liveB(HostBlock & hb) /*__attribute__ ((optimize("O2")))*/;
-
   struct FastB {
     EventWindow mFastEW;
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
-    ZotEP mMyZotEPIN;
-    ZotEP mMyZotEPOUT;
   };
   FAST_LOCAL(FastB,fB,b);
 
-  ZotBlockStg theZotBlockCarsIO[2];
 
-  AtomicLock theZotBlockIOLock[2];
-
-  void initZotBlocks() {
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('z',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-
-    fB.mMyZotEPIN.init(true,theZotBlockCarsIO[0],theZotBlockIOLock[0]);
-    fB.mMyZotEPOUT.init(false,theZotBlockCarsIO[1],theZotBlockIOLock[1]);
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('Z',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-  }
-
-  void updateZotBlocks() {
-
-    fB.mMyZotEPIN.updateOps();
-    fB.mMyZotEPOUT.updateOps();
-    {
-      static bool once = false;
-      if (!once) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('!',hartChar(fAll.mHartNum));
-        once = true;
-      }
-    }
-  }
 
   //typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
   //T6EWLocker theT6EWLocker;
@@ -142,33 +100,71 @@ namespace MFM {
 
   //  T6Grid theT6Grid;
 
+  bool processZotCars(HostBlock & hb,bool inside) {
+
+    const u32 DIR_IDX = inside ? ZOTBLOCKS_IN_IDX : ZOTBLOCKS_OUT_IDX;
+    extern ZotEP::CarIdxs theZotBlockIdxs[2];
+    ZotEP::CarIdxRB & crb = theZotBlockIdxs[DIR_IDX].mIdxs[ZotEP::TC2EP];
+    memoryFence();
+#ifndef BUILD_HOST      
+    if (false) {
+      static u32 once = 0;
+      static u8 fu = U8_MAX;
+      static u8 ff = U8_MAX;
+      if ((fu != crb.mFirstUsedIdx || ff != crb.mFirstFreeIdx) && ++once < 100) {
+        extern HostBlock theHostBlock;
+        theHostBlock.addBytes('{',"IO"[DIR_IDX]);
+        theHostBlock.addBytes('0'+crb.mFirstUsedIdx,'0'+crb.mFirstFreeIdx);
+        theHostBlock.addBytes('}','\n');
+        fu = crb.mFirstUsedIdx;
+        ff = crb.mFirstFreeIdx;
+      }
+    }
+#endif
+
+    u8 carindex;
+    if (!crb.remove(carindex)) return false;
+    if (false) hb.addBytes('|','0'+carindex);
+
+    ZotBlockStg & cars = theZotBlockCarsIO[DIR_IDX];
+    MFM_API_ASSERT(carindex < cars.getCarCount(),ARRAY_INDEX_OUT_OF_BOUNDS);
+    ZotBlock & car = cars.getTC(carindex);
+    MFM_API_ASSERT(car.getTCState() == TCCommon::TCState::OPEN,ILLEGAL_STATE); 
+    ZotPayload & pay = car.payload();
+    pay.update(inside); // kilroy was here
+
+#ifndef BUILD_HOST      
+    {
+      extern HostBlock theHostBlock;
+      char buf[100];
+      npf_snprintf(buf,100," EW%s #%u 0x%p = %lu/%lu\n",inside?"I":"O",carindex,&car,pay.mCounts[0],pay.mCounts[1]);
+      theHostBlock.packString(buf);
+    }
+#endif
+
+    car.setTCState(TCCommon::TCState::CLOSED,sizeof(pay)); // ready to go
+
+    return true;
+  }
+
   int liveB(HostBlock & hb) {
     if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-    hb.addBytes('L',hartChar(fAll.mHartNum));
+    //hb.addBytes('L',hartChar(fAll.mHartNum));
     preloadT2Mailbox();
-    hb.addBytes('B',hartChar(fAll.mHartNum));
-
-    initZotBlocks();
-    hb.addBytes('C',hartChar(fAll.mHartNum));
-
-    //P2PEWElevatorPlatform & ewp = theT6ElevatorTransport.mP2PEWTransport;
-    //DP.printf("EWP @ 0x%08x\n",(u32) &ewp);
-    //typedef P2PEWElevatorPlatform::EWCar EWCar;
-    const u32 LCR = 1'000'000u;
+    //hb.addBytes('B',hartChar(fAll.mHartNum));
 
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
-    hb.addBytes('5',hartChar(fAll.mHartNum));
+
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      if ((++spin & 0xfffff) == 0) {
+      if ((++spin & 0xfff) == 0) {
         hb.hartbeat(fAll.mHartNum);
       }
-      updateZotBlocks();
+      if (!processZotCars(hb,true) && !processZotCars(hb,false))
+        breathe();
+      
     }
     return 0;
   }
-
-  
-
 }

@@ -21,6 +21,11 @@
 #define Eprintf(...) EEprintf(__FILE__,__LINE__, __VA_ARGS__)
 #define Evprintf(...) EEvprintf(__FILE__,__LINE__, __VA_ARGS__)
 namespace MFM {
+  inline void memoryFence() { /* empty */ }
+  inline void writeCommit32L1(u32* address, u32 newvalue) { *address = newvalue; }
+  inline void writeCommit16L1(u16* address, u16 newvalue) { *address = newvalue; }
+  inline void writeCommit8BL1(u8* address, u8 newvalue) { *address = newvalue; }
+
   static constexpr BHTag BH_HOST_TAG(TagType::HOSTCT, 0u);
   inline void memset_s(void* addr, u8 byte, u32 count) {
     if (byte == 0u) explicit_bzero(addr,count);

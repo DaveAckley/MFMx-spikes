@@ -141,18 +141,51 @@ namespace MFM {
     
   };
 
+  template <class SUBTC>
   struct TCBase : public TCCommon {
-    // API
+    using TCCommon::TCMarker;
+    using TCCommon::TCWord;
+    // self(): access this by subtype
+    SUBTC& self() { return static_cast<SUBTC&>(*this); }
+    SUBTC const & self() const { return static_cast<SUBTC const&>(*this); }
 
-    virtual u32 getMaxPacketSize() const = 0;
-
-    virtual TCWord getWordAt(u32 word) const = 0;
-    virtual TCWord & getWordAt(u32 word) = 0;
-
-    virtual bool readyToClose(TCOpsData & tms, u32 msnow) const = 0;
-    virtual void reset() = 0;
+    // "API": SUBTC must implement all of these!
+    u32 getMaxPayloadSize() const { return self().getMaxPayloadSize(); }
+    u32 getMaxPacketSize() const { return self().getMaxPacketSize(); }
+    TCWord getWordAt(u32 word) const { return self().getWordAt(word); }
+    TCWord & getWordAt(u32 word) { return self().getWordAt(word); }
+    bool readyToClose(TCOpsData & tms, u32 msnow) const { return self().readyToClose(tms,msnow); }
+    void reset() { return self().reset(); }
 
     // SERVICES
+    TCState getTCState() const { return getHeader().getTCState(); }
+
+    void writeMarkers(TCMarker m) {
+      getHeader() = m;          // write header
+      if (TCMarker::hasAnkle(m.mTCMSize)) // if this size has an ankle
+        getAnkle() = m;         // write it too
+      getFooter() = m;          // finally, write footer
+    }
+
+    u32 getPacketWords() const {
+      return getHeader().getPacketWords();
+    }
+
+    bool setTCStateOnly(TCState newtcs) { // update state without changing size or nonce
+      TCMarker h = getHeader();
+      if (newtcs == h.mTCMState) return false; // if no change, bail
+      h.mTCMState = newtcs;                  // change state
+      writeMarkers(h);
+      return true;
+    }
+
+    void setTCState(TCState newtcs, u32 payb) {
+      MFM_API_ASSERT(payb <= getMaxPayloadSize(), ILLEGAL_ARGUMENT);
+      TCMarker h = getHeader();
+      h.reinit(payb, newtcs);   // set everything except just increment the nonce
+      writeMarkers(h);
+    }
+
     u32 getMaxWordSize() const { return getMaxPacketSize()/4u; }
 
     TCMarker getMarkerAt(u32 word) const { return getWordAt(word).mMarker; }
@@ -208,11 +241,33 @@ namespace MFM {
       return true;
     }
     
-    TCState getTCState() const { return getHeader().getTCState(); }
-
   protected:
     TCBase() = default; // don't make these
     ~TCBase() = default; 
 
   };
+
+  template <class CART,u32 CARS>
+  struct alignas(16) TCBlock {
+    using CAR_TYPE = CART;
+    static constexpr u32 CAR_COUNT = CARS;
+    static bool validIndex(u32 idx) { return idx < CAR_COUNT; }
+
+    u32 getCarSize() const { return sizeof(CART); }
+    u32 getCarCount() const { return CAR_COUNT; }
+
+    CAR_TYPE& getTC(u32 idx) {
+      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
+      return mTCs[idx];
+    }
+    CAR_TYPE const & getTC(u32 idx) const {
+      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
+      return mTCs[idx];
+    }
+
+  private:
+    CAR_TYPE mTCs[CAR_COUNT];
+  };
+
+
 }

@@ -5,6 +5,7 @@ add_executable(zot)
 target_sources(zot PRIVATE
   src/ImageConfig.cpp
   images/zot/src/LiveB.cpp
+  images/zot/src/LiveNC.cpp
   images/zot/src/ZotBlock.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
@@ -14,9 +15,12 @@ target_include_directories(zot PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${SHARED_INCLUDE_DIRS})
 target_compile_options(zot PRIVATE ${CROSS_COMPILER_OPTIONS})
+
 # --- Link with the GENERATED custom linker script ---
 target_link_options(zot PRIVATE
   -T${GENERATED_LDSCRIPT}
+  -nostartfiles
+  -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/zot.map
 )
 
 # --- Linker Libraries (Order matters for these!) ---

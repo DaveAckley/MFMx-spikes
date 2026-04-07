@@ -2,6 +2,10 @@
 #define RINGBUFFER_H
 #include "itype.h"
 
+#ifndef BUILD_HOST
+#include "CrossUtils.h"
+#endif
+
 namespace MFM {
   template <class T,u32 BITS> struct RingBuffer {
     static const u32 RING_BUFFER_BITS = BITS;
@@ -25,13 +29,25 @@ namespace MFM {
 
     bool add(T item) {
       if (isFull()) return false;
+#ifndef BUILD_HOST
+      // ensure new item store is complete
+      writeCommitL1(&mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK], item);
+      ++mFirstFreeIdx;          // before incrementing the pointer
+#else      
       mRingBuffer[mFirstFreeIdx++ & RING_BUFFER_MASK] = item;
+#endif
       return true;
     }
 
     bool remove(T& dest) {
       if (isEmpty()) return false;
+#ifndef BUILD_HOST
+      // ensure dest store is complete
+      writeCommitL1(&dest, mRingBuffer[mFirstUsedIdx & RING_BUFFER_MASK]);
+      ++mFirstUsedIdx;          // before incrementing the pointer
+#else      
       dest = mRingBuffer[mFirstUsedIdx++ & RING_BUFFER_MASK];
+#endif
       return true;
     }
   };

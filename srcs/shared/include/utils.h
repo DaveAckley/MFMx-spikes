@@ -183,12 +183,12 @@ namespace MFM {
      _getLogBase2(8)==3.
    */
 #if 1
-  inline u32 _getLogBase2(u32 v) {
+  constexpr u32 _getLogBase2(u32 v) {
     if (v==0) return 0;
     return 31 - __builtin_clz(v);
   }
 
-  inline u32 _getLogBase2Long(u64 v) {
+  constexpr u32 _getLogBase2Long(u64 v) {
     if (v==0) return 0;
     return 63 - __builtin_clzll(v);
   }

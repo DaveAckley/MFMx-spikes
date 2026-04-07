@@ -1,14 +1,16 @@
 #pragma once /* -*- C++ -*- */
 #include "TC.h"
-#include "EP.h"
+#include "T6EPs.h"
 #include "HostBlock.h"
 #include "FastLocal.h"
 #include "AtomicLock.h"
+#include "BlockCode.h"
 
 namespace MFM {
   struct ZotPayload {
     u32 mZBMAG;
     u32 mData;
+    u32 mCounts[2];
     bool mBongo;
     u32 mGAMZB;
 
@@ -18,82 +20,51 @@ namespace MFM {
       mBongo = bongo;
       mGAMZB = 0xfedc01b5;
     }
+    void update(bool isin) {
+      ++mCounts[ isin ? 0 : 1 ];
+    }
   };
 
   struct ZotBlock : public TC<sizeof(ZotPayload)> {
     //// TC API
-    void reset() { payload().init(0,false); }
     bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }
     
     ZotPayload & payload() { return *(ZotPayload*) getDataStart(); }
     void init(u32 data, bool bongo) {
+      TC::reset();
       payload().init(data,bongo);
-    }
-    ZotBlock() {
-      memset_s(this, '\0', sizeof(*this));
     }
   };
 
-  struct ZotBlockStg; // FORWARD
+  struct ZotBlockStg : TCBlock<ZotBlock,2> { // umm this struct could have been a typedef
+    typedef TCBlock<ZotBlock,2> Super;
+  };
 
-  struct ZotEP : public EP {
-    static u8 constexpr CAR_COUNT = 2u;
+
+  struct ZotEP : public T6ToT6EP<ZotEP,ZotBlockStg> {
+    using Super = T6ToT6EP<ZotEP,ZotBlockStg>;
 
     //// EP API
-    const char * getName() const override { return isIn() ? "ZEPI" : "ZEPO"; }
+    const char * getName() const { return isIn() ? "ZEPI" : "ZEPO"; }
     u32 getCarSize() const { return sizeof(ZotBlock); }
-    TCBase * getCarPtrIfAny(u8 carindex) const ;
-    TCOpsData & getOpsData(u8 carindex) override {
+    ZotBlock * getCarPtrIfAny(u8 carindex) const ;
+    TCOpsData & getOpsData(u8 carindex) {
       MFM_API_ASSERT_NONNULL(carindex < CAR_COUNT);
       return mOpsDataStg[carindex];
     }
-    bool recvTC(TCBase & car, u8 carindex) { FAIL(INCOMPLETE_CODE); }
-    bool shipTC(TCBase & car, u8 carindex) { FAIL(INCOMPLETE_CODE); }
+    bool recvTC(ZotBlock & car, u8 carindex) ;
+    //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6ToT6EP
 
-    void init(bool isin, ZotBlockStg & cars, AtomicLock & al) {
-      mCarStgPtr = &cars;       // set up BEFORE calling EP::init doh
-      {
-        static u32 once;
-        if (once < 5) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes(isin?'I':'O',hartChar(fAll.mHartNum));
-          ++once;
-        }
-      }
-      EP::init(al, isin, CAR_COUNT, false);
-      {
-        static u32 once;
-        if (once < 5) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes(isin?'i':'o',hartChar(fAll.mHartNum));
-          ++once;
-        }
-      }
-    }
-    ZotBlockStg * mCarStgPtr;
-    TCOpsData mOpsDataStg[CAR_COUNT];
+    void init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) ;
   };
 
-  struct ZotBlockStg : EPStg<ZotBlockStg> {
-    u32 getCarSize() const { return sizeof(ZotBlock); }
-    u32 getCarCount() const { return ZotEP::CAR_COUNT; }
-    TCBase * getCarPtr(u32 index) {
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('s',hartChar(fAll.mHartNum));
-        theHostBlock.addBytes('0'+index,hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-      MFM_API_ASSERT(index<ZotEP::CAR_COUNT,ILLEGAL_ARGUMENT);
-      return &mZotBlocks[index];
-    }
-    ZotBlock mZotBlocks[ZotEP::CAR_COUNT];
-  };
+  
+  static constexpr u32 ZOTBLOCKS_IN_IDX = 0u;
+  static constexpr u32 ZOTBLOCKS_OUT_IDX = 1u;
+  static constexpr u32 ZOTBLOCKS_DEMO_COUNT = 2u;
+  extern ZotBlockStg theZotBlockCarsIO[ZOTBLOCKS_DEMO_COUNT];
 
-  extern ZotBlockStg theZotBlockCarsIO[2];
+  
 
 }
 

@@ -55,6 +55,18 @@ namespace MFM {
       return byte!=0u;
     }
 
+    bool packString(const char *st) {
+      u8 b1 = 0, b2 = 0;
+      while ((b1 = *st)) {
+        ++st;
+        if ((b2 = *st)) ++st;
+        else b2 = '_';
+        addBytes(b1,b2);
+        b1 = b2 = 0;
+      }
+      return true;
+    }
+
     bool removeBytes(u8 & b1, u8 &b2) {
       u16 ch;
       if (mLogBuffer.remove(ch)) {

@@ -5,6 +5,7 @@
 #include "TCCommon.h"
 #include "AtomicLock.h"
 #include "XUtils.h"
+#include "BlockCode.h"
 
 #ifndef BUILD_HOST
 #include "HostBlock.h"
@@ -13,35 +14,29 @@
 
 namespace MFM {
 
-  template <class SUBEPSTG>
-  struct alignas(16) EPStg {
+  template<class SUBEP, class SUBTC>
+  struct EP : public TCCommon {
+    //    using TCCommon::TCMarker;
+    //    using TCCommon::TCWord;
 
     // self(): access this by subtype
-    SUBEPSTG& self() { return static_cast<SUBEPSTG&>(*this); }
-    SUBEPSTG const & self() const { return static_cast<SUBEPSTG const&>(*this); }
+    SUBEP& self() { return static_cast<SUBEP&>(*this); }
+    SUBEP const & self() const { return static_cast<SUBEP const&>(*this); }
 
-    // SERVICES
-    u32 getCarSizeBytes() const { return self().getCarSizeBytes(); }
-    u32 getCarCount() const { return self().getCarCount(); }
+    // "API": SUBEP must implement all of these!
+    u32 getCarSize() const { return self().getCarSize(); }
+    SUBTC * getCarPtrIfAny(u8 carindex) const { return self().getCarPtrIfAny(carindex); }
+    TCOpsData & getOpsData(u8 carindex) { return self().getOpsData(carindex); }
+    bool recvTC(SUBTC & car, u8 carindex) { return self().recvTC(car, carindex); }
+    //    bool turnTC(SUBTC & car, u8 carindex) { return self().turnTC(car, carindex); }
+    bool shipTC(SUBTC & car, u8 carindex) { return self().shipTC(car, carindex); }
+    //bool initTC(TCBase & car, u8 carindex) = 0;
 
-  };
-
-  struct EP : public TCCommon {
-
-    //// EP API: mandatory
-    virtual u32 getCarSize() const = 0;
-    virtual TCBase * getCarPtrIfAny(u8 carindex) const = 0;
-    virtual TCOpsData & getOpsData(u8 carindex) = 0;
-    virtual bool recvTC(TCBase & car, u8 carindex) = 0;
-    virtual bool shipTC(TCBase & car, u8 carindex) = 0;
-    //virtual bool initTC(TCBase & car, u8 carindex) = 0;
-
-    //// EP API: optional
-    virtual const char * getName() const { return "unnamed EP"; }
-    virtual XPrinter & getLogToPrinter() const { return DEVNULL; }
+    const char * getName() const { return self().getName(); }
+    //virtual XPrinter & getLogToPrinter() const { return DEVNULL; }
 
     //// SERVICES
-    TCBase * getCarPtr(u8 carindex) const {
+    SUBTC * getCarPtr(u8 carindex) const {
 #ifndef BUILD_HOST      
     {
       static u32 once;
@@ -53,7 +48,7 @@ namespace MFM {
       }
     }
 #endif
-      TCBase *ret = getCarPtrIfAny(carindex);
+    SUBTC *ret = getCarPtrIfAny(carindex);
 
 #ifndef BUILD_HOST      
     {
@@ -69,7 +64,7 @@ namespace MFM {
       return ret;
     }
 
-    void init(AtomicLock & lock, bool isIn, u32 carCount, bool carsIn = false) ;
+    void init(BlockCode bc, u8 blkIdx, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn = false) ;
 
     u8 getCarCount() const { return mCarCount; }
     bool isIn() const { return mIsIn; }
@@ -88,9 +83,9 @@ namespace MFM {
       return idx+1u;
     }
 
-    TCBase & getCar(u8 idx) const {
+    SUBTC & getCar(u8 idx) const {
       MFM_API_ASSERT(isValidIndex(idx),ILLEGAL_ARGUMENT);
-      TCBase * carp = getCarPtrIfAny(idx);
+      SUBTC * carp = getCarPtrIfAny(idx);
       MFM_API_ASSERT_NONNULL(carp);
       return *carp;
     }
@@ -105,18 +100,26 @@ namespace MFM {
     bool isDeparting(TCState cs) const { return cs == departingState(); }
 
     bool updateOps() ;
+    BlockCode getDestBlockCode() const { return mDestBlockCode; }
+    u8 getDestBlockCodeIndex() const { return mDestBlockCodeIndex; }
 
+    u8 getHereCount() const { return mHereCount; }
+    u8 getGoneCount() const { return mGoneCount; }
   protected:
     EP() = default;
     ~EP() = default;
     
+    
   private:
     AtomicLock * mLockPtr;
-    bool mIsIn;
+    BlockCode mDestBlockCode;
+    u8 mDestBlockCodeIndex;
     u8 mCarCount;
-    //    u8 mOldestArrived;         // index else 255 if none/unknown
-    //    u8 mOldestDeparted;        // index else 255 if none/unknown
+    bool mIsIn;
     u8 mOldestHere, mHereCount;
     u8 mOldestGone, mGoneCount;
   };
 }
+
+#include "EP.tcc"
+

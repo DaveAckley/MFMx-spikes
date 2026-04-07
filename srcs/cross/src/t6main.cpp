@@ -30,27 +30,18 @@ namespace MFM {
     u32 node_id = *NOC_NODE_ID0;
     hb.mPos.x = ((node_id >> 0) & 0x3f);
     hb.mPos.y = ((node_id >> 6) & 0x3f);
-    //    hb.mPos.x = 8;
-    //    hb.mPos.y = 7;
-    /*
-    if (theImageBlock.mImageCode[0]=='I') {
-      theImageBlock.mImageMajVer = (u8) (u32) &theImageBlock;
-      hb.mPos.x = 0x3f;
-      }*/
     hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mPos.x,hb.mPos.y});
     hb.addBytes('t','6');
     return 0;
   }
   int t6otherinits(HostBlock &hb) { // RUNS ON HARTB ONLY
-    //    XXX_DEBUG_FUNC(__FILE__,__LINE__);
     hb.addBytes('o','i');
     t6InitPrinters(hb);
-    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
     return 0;
   }
 
   int t6main(HostBlock& hb) {
-    hb.addBytes('m','n');
+    hb.addBytes('=',hartChar(fAll.mHartNum));
     switch (fAll.mHartNum) {
     case 0u: return hartMainB(hb);
     case 1u: return hartMainT0(hb);

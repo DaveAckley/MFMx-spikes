@@ -24,6 +24,8 @@ namespace MFM {
   };
 
   void sleepCycles(u32 cycles) ;
+  static constexpr u32 BREATH_DURATION = 8'000u; //< in fake 'cycles' which are some k/AIFreq with k > 1
+  inline void breathe() { sleepCycles(BREATH_DURATION); } //< about 1ms?
 
   extern FastAll fAll;
 }

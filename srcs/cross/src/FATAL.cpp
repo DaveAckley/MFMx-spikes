@@ -7,7 +7,7 @@
 
 void DieHereNow(signed code,const char * file,unsigned line) {
   file = MFM::stripDirs(file);
-  MFM::DP.printf("\n%s:%d:(%d,%d,%s) DIES %d\n",file,line,
+  if(false) MFM::DP.printf("\n%s:%d:(%d,%d,%s) DIES %d\n",file,line,
                  MFM::fAll.mPos.x,MFM::fAll.mPos.y,
                  MFM::hartName(MFM::fAll.mHartNum),code);    // try to leave a corpse in hostbuffer
   t6hang(code);

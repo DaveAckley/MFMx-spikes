@@ -7,8 +7,14 @@
 
 namespace MFM {
 
-  template <u32 MAX_PAYLOAD_SIZE>
-  struct TC : public TCBase {
+  template< u32 MAX_PAYLOAD_BYTES>
+  struct TC : public TCBase<TC<MAX_PAYLOAD_BYTES>> {
+    static constexpr u32 MAX_PAYLOAD_SIZE = MAX_PAYLOAD_BYTES;
+
+    using Super = TC<MAX_PAYLOAD_SIZE>; 
+    using typename TCBase<Super>::TCMarker;
+    using typename TCBase<Super>::TCWord;
+
     static constexpr u32 MAX_PACKET_SIZE = TCMarker::getPacketBytesFromPayloadSize(MAX_PAYLOAD_SIZE);
     static_assert(((MAX_PACKET_SIZE >= 8) &&
                    ((MAX_PACKET_SIZE%4) == 0)),
@@ -16,18 +22,22 @@ namespace MFM {
     static constexpr u32 MAX_PACKET_WORDS = MAX_PACKET_SIZE/4u;
 
     // TCBase API
-    //bool readyToClose(TCOpsData & tms, u32 msnow) const { return self().readyToCloseTC(tms,msnow); }
-    //void reset() { self().resetTC(); }
 
-    u32 getMaxPacketSize() const override { return sizeof(*this); }
-    TCWord getWordAt(u32 word) const override {
+    u32 getMaxPayloadSize() const { return MAX_PAYLOAD_SIZE; }
+    u32 getMaxPacketSize() const { return sizeof(*this); }
+    TCWord getWordAt(u32 word) const {
       if (word < MAX_PACKET_WORDS) return mWords[word];
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
     }
-    TCWord & getWordAt(u32 word) override {
+    TCWord & getWordAt(u32 word) {
       if (word < MAX_PACKET_WORDS) return mWords[word];
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
     }
+
+    void reset() { memset_s(this,'\0',sizeof(*this)); }
+
+    // SUBCLASS OF TC MUST IMPLEMENT:
+    //bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }
 
     void* getDataStart() { return (void*) &mWords[1]; }
 
