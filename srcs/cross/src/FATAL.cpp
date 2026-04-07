@@ -4,11 +4,19 @@
 #include "Printf.h"
 #include "FastLocal.h"
 #include "CrossUtils.h"
+#include "HostBlock.h"
 
-void DieHereNow(signed code,const char * file,unsigned line) {
-  file = MFM::stripDirs(file);
-  if(false) MFM::DP.printf("\n%s:%d:(%d,%d,%s) DIES %d\n",file,line,
-                 MFM::fAll.mPos.x,MFM::fAll.mPos.y,
-                 MFM::hartName(MFM::fAll.mHartNum),code);    // try to leave a corpse in hostbuffer
+namespace MFM {
+  static void reportFailureHostBlock(unsigned fileId, unsigned line) {
+    extern HostBlock theHostBlock;
+    HostBlock & hb = theHostBlock;
+    u8 hart = fAll.mHartNum;
+    hb.mPerHartFailFileID[hart] = (MFM::u16) fileId;
+    hb.mPerHartFailFileLine[hart] = (MFM::u16) line;
+  }
+}
+
+void DieHereNow(signed code, unsigned fileId, unsigned line) {
+  if (fileId != 0u) MFM::reportFailureHostBlock(fileId, line);
   t6hang(code);
 }

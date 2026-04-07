@@ -4,6 +4,11 @@
 #include "itype.h"
 #include "Fail.h"
 
+#ifndef BUILD_HOST      
+#include "HostBlock.h"
+#include "nanoprintf.h"
+#endif
+
 namespace MFM {
 
   struct TCCommon {
@@ -19,17 +24,51 @@ namespace MFM {
     struct TCMarker {
       static constexpr u8 TCM_MAGIC = 0x2C;
 
-      static constexpr u32 getPacketWordsFromTCMSize(u8 tcmsize) {
-        switch (tcmsize) {
-        case 0u: return 2u;   // 0:h, 1:f
-        case 1u: return 5u;   // 0:h, 1:p1 2:p2 3:a 4:f
-        case 2u: return 9u;   // 0:h, 1-6:ps 7:a 8:f
-        }
-        return 16u*(tcmsize-2u)+2u; // 0:h, pw-2:a pw-1:f
+      static constexpr u8 encodePayloadBytesToTCMSize(u32 payb) {
+        if (payb > 52u) return (payb+12u)/64u + 3u;
+        if (payb > 20u) return 3u; // packet size 64 h+21..52+a+f
+        if (payb > 8u) return 2u;  // packet size 32 h+9..20+a+f
+        if (payb > 0u) return 1u;  // packet size 16 h+1..8+f
+        return 0u;                 // packet size 8 h+f
       }
 
-      static constexpr u32 getPacketBytesFromTCMSize(u8 tcmsize) {
-        return 4u*getPacketWordsFromTCMSize(tcmsize);
+      static constexpr u32 decodeTCMSizeToPayloadCapacityBytes(u8 tcms) {
+        switch (tcms) {
+        case 0u: return 0u;
+        case 1u: return 8u;
+        case 2u: return 20u;
+        case 3u: return 52u;
+        }
+        return (tcms-2u)*64u-12u; // NB: not tcms-3u
+      }
+
+      static constexpr u32 getPacketHeaderSizeForPayloadBytes(u32 payb) {
+        if (payb <= 8) return 8u; // h+f
+        return 12u;               // h+a+f
+      }
+
+      static constexpr u32 decodeTCMSizeToPacketSizeBytes(u8 tcms) {
+        u32 paycap = decodeTCMSizeToPayloadCapacityBytes(tcms);
+        return paycap + getPacketHeaderSizeForPayloadBytes(paycap);
+      }
+
+      static constexpr u32 getPacketWordsFromTCMSize(u8 tcms) {
+        u32 pktbytes = decodeTCMSizeToPacketSizeBytes(tcms);
+        MFM_API_ASSERT((pktbytes%4) == 0,BAD_ALIGNMENT);
+        return pktbytes/4u;
+      }
+
+      static constexpr u32 getPacketBytesFromTCMSize(u8 tcms) {
+        return decodeTCMSizeToPacketSizeBytes(tcms);
+      }
+
+      static constexpr u8 getTCMSizeFromPacketSize(u32 pktb) {
+        if (pktb <= 16) return encodePayloadBytesToTCMSize(pktb - 8u); // tcm 0 or 1
+        return encodePayloadBytesToTCMSize(pktb - 12u); // tcm 2+
+      }
+
+      static constexpr u8 getTCMSizeFromPayloadSize(u32 payb) {
+        return encodePayloadBytesToTCMSize(payb);
       }
 
       static constexpr u32 getFooterWordIndex(u8 tcmsize) {
@@ -41,22 +80,6 @@ namespace MFM {
       static constexpr u32 getAnkleWordIndex(u8 tcmsize) {
         if (!hasAnkle(tcmsize) == 0u) return 0u; // no ankle, return header word index
         return getPacketWordsFromTCMSize(tcmsize) - 2u;
-      }
-
-      static u8 getTCMSizeFromPacketSize(u32 pktb) {
-        if (pktb >= 68) return (pktb-4u)/64u + 2u;
-        if (pktb >= 36u) return 2u;
-        if (pktb >= 20u) return 1u;
-        return 0u;
-      }
-
-      static constexpr u8 getTCMSizeFromPayloadSize(u32 payb) {
-        if (payb == 0u) return 0u;
-        if (payb <= 8u) return 1u;
-        if (payb <= 24u) return 2u;
-        u32 size = getTCMSizeFromPacketSize(payb + 12u);
-        if (size <= 255u) return (u8) size;
-        FAIL(ILLEGAL_ARGUMENT);
       }
 
       static constexpr u8 getPacketBytesFromPayloadSize(u32 payb) {
@@ -140,134 +163,5 @@ namespace MFM {
     };
     
   };
-
-  template <class SUBTC>
-  struct TCBase : public TCCommon {
-    using TCCommon::TCMarker;
-    using TCCommon::TCWord;
-    // self(): access this by subtype
-    SUBTC& self() { return static_cast<SUBTC&>(*this); }
-    SUBTC const & self() const { return static_cast<SUBTC const&>(*this); }
-
-    // "API": SUBTC must implement all of these!
-    u32 getMaxPayloadSize() const { return self().getMaxPayloadSize(); }
-    u32 getMaxPacketSize() const { return self().getMaxPacketSize(); }
-    TCWord getWordAt(u32 word) const { return self().getWordAt(word); }
-    TCWord & getWordAt(u32 word) { return self().getWordAt(word); }
-    bool readyToClose(TCOpsData & tms, u32 msnow) const { return self().readyToClose(tms,msnow); }
-    void reset() { return self().reset(); }
-
-    // SERVICES
-    TCState getTCState() const { return getHeader().getTCState(); }
-
-    void writeMarkers(TCMarker m) {
-      getHeader() = m;          // write header
-      if (TCMarker::hasAnkle(m.mTCMSize)) // if this size has an ankle
-        getAnkle() = m;         // write it too
-      getFooter() = m;          // finally, write footer
-    }
-
-    u32 getPacketWords() const {
-      return getHeader().getPacketWords();
-    }
-
-    bool setTCStateOnly(TCState newtcs) { // update state without changing size or nonce
-      TCMarker h = getHeader();
-      if (newtcs == h.mTCMState) return false; // if no change, bail
-      h.mTCMState = newtcs;                  // change state
-      writeMarkers(h);
-      return true;
-    }
-
-    void setTCState(TCState newtcs, u32 payb) {
-      MFM_API_ASSERT(payb <= getMaxPayloadSize(), ILLEGAL_ARGUMENT);
-      TCMarker h = getHeader();
-      h.reinit(payb, newtcs);   // set everything except just increment the nonce
-      writeMarkers(h);
-    }
-
-    u32 getMaxWordSize() const { return getMaxPacketSize()/4u; }
-
-    TCMarker getMarkerAt(u32 word) const { return getWordAt(word).mMarker; }
-    TCMarker & getMarkerAt(u32 word) { return getWordAt(word).mMarker; }
-
-    TCMarker getHeader() const { return getMarkerAt(0); }
-    TCMarker & getHeader() { return getMarkerAt(0); }
-
-    TCMarker getAnkle() const {
-      TCMarker h = getHeader();
-      u8 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); // will be 0u if no ankle
-      if (ai == 0u) return h;                          // and then return header
-      MFM_API_ASSERT(ai < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(ai).mMarker;
-    }
-
-    TCMarker & getAnkleOrDie() {
-      TCMarker h = getHeader();
-      u8 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); 
-      MFM_API_ASSERT(ai > 0u && ai < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS); // die if no ankle
-      return getWordAt(ai).mMarker;
-    }
-
-    TCMarker getFooter() const {
-      TCMarker h = getHeader();
-      u8 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
-      MFM_API_ASSERT(fi > 0u && fi < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(fi).mMarker;
-    }
-
-    TCMarker & getFooter() {
-      TCMarker h = getHeader();
-      u8 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
-      MFM_API_ASSERT(fi > 0u && fi < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(fi).mMarker;
-    }
-
-    bool isEmpty() { return getHeader().mTCMSize == TCMarker::getTCMSizeFromPayloadSize(0u); }
-
-    bool isComplete() const {
-      TCMarker h = getHeader();
-      if (!h.isValid()) return false;
-      u32 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
-      TCMarker f = getMarkerAt(fi);
-      if (!f.isValid()) return false;
-      if (h != f) return false;
-      if (h.mTCMSize > 0u) {
-        u32 ai = TCMarker::getAnkleWordIndex(h.mTCMSize);
-        TCMarker a = getMarkerAt(ai);
-        if (!a.isValid()) return false;
-        if (h != a) return false;
-      }
-      return true;
-    }
-    
-  protected:
-    TCBase() = default; // don't make these
-    ~TCBase() = default; 
-
-  };
-
-  template <class CART,u32 CARS>
-  struct alignas(16) TCBlock {
-    using CAR_TYPE = CART;
-    static constexpr u32 CAR_COUNT = CARS;
-    static bool validIndex(u32 idx) { return idx < CAR_COUNT; }
-
-    u32 getCarSize() const { return sizeof(CART); }
-    u32 getCarCount() const { return CAR_COUNT; }
-
-    CAR_TYPE& getTC(u32 idx) {
-      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
-      return mTCs[idx];
-    }
-    CAR_TYPE const & getTC(u32 idx) const {
-      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
-      return mTCs[idx];
-    }
-
-  private:
-    CAR_TYPE mTCs[CAR_COUNT];
-  };
-
 
 }

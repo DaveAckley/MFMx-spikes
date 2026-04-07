@@ -29,18 +29,12 @@ namespace MFM {
   const char * getNameFromImageCode(ImageCode b) ;
   ImageCode getImageCodeFromName(const char * n) ;
 
-#define BLOCKCODE_LIST_HOLD()                     \
-  XX(LOGCARS,LogCarStorage)                  \
-  XX(EWCARS,EWCarStorage)                    \
-  XX(CELLBLOCK,CellBlock)                    \
-  XX(EWHUB,EWCarStorage[8])                  \
-  XX(EWPCARS,EWCarStorage)                   \
-  XX(T6GRID,T6Grid)
-
-#define BLOCKCODE_LIST()                       \
-  XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u) \
-  XX(ZOTBLOCK,160,ZotBlockStg,2u)              \
-
+#define BLOCKCODE_LIST()                        \
+  XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u)  \
+  XX(ZOTBLOCK,512,ZotBlockStg,2u)               \
+  XX(EWHUB,80,EwpBlockStg,8u)                   \
+  XX(EWPCARS,400,EwpBlockStg,1u)                \
+  //END OF BLOCK_CODE_LIST
 
 #define XX(NAME,SIZE,TYPE,BLOCKS)               \
   static constexpr u32 SIZE_BC_##NAME = (SIZE);

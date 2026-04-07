@@ -4,7 +4,7 @@
 # Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
 
 [Config]
- activeLayout=allone
+ activeLayout=zotandewp
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [module.AcceptLogging]
@@ -19,10 +19,25 @@
   cell.all = C1X1_ONE
   #hostModules = [ AcceptLogging ]
 
+[layout.zotandewp]
+  bhcards = [1]
+  defaultImage = ZOT
+  cell.all = C1X2_TWO
+  #hostModules = [ AcceptLogging ]
+
 [cell.C1X1_ONE]
   size = [1,1]
   image.all.all = ZOT
 
+[cell.C1X2_TWO]
+  size = [1,2]
+  fill = ZOT
+  image.0.1 = EWP
+
 [image.ZOT]
   binfile="zot.bin"
   code=5
+
+[image.EWP]
+  binfile="ewp.bin"
+  code=1

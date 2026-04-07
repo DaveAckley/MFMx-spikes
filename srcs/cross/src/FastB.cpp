@@ -10,7 +10,6 @@ namespace MFM {
 
   int hartMainB(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
-    
     return liveB(hb);          // go do your hart B thing you
   }
 }

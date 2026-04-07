@@ -1,6 +1,62 @@
 #include "ZotBlock.h"
+#include "FastNC.h" // for EPFuncPtr
 
 namespace MFM {
+  ZotBlockStg theZotBlockCarsIO[2];
+  AtomicLock theZotBlockIOLock[2];
+  ZotEP::CarIdxs theZotBlockIdxs[2];
+
+  FAST_LOCAL(ZotEP,myZotEPIN,nc);
+  FAST_LOCAL(ZotEP,myZotEPOUT,nc);
+
+  static bool manageZotzNC(bool doInit) {
+    bool ret = false;
+#ifndef BUILD_HOST      
+    if (false) {
+      extern HostBlock theHostBlock;
+      char buf[100];
+      npf_snprintf(buf,100," zung 0x%p 0x%p 0x%p / 0x%p 0x%p 0x%p.",
+                   &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX],
+                   &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0),
+                   &theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(1),
+                   &theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX],
+                   &theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX].getTC(0),
+                   &theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX].getTC(1));
+      theHostBlock.packString(buf);
+    }
+#endif
+    if (unlikely(doInit)) {
+      memset_s(&theZotBlockCarsIO[0],'\0',sizeof(theZotBlockCarsIO));
+      memset_s(&theZotBlockIOLock[0],'\0',sizeof(theZotBlockIOLock));
+      memset_s(&theZotBlockIdxs[0],'\0',sizeof(theZotBlockIdxs));
+
+      myZotEPIN.init(BC_ZOTBLOCK, ZOTBLOCKS_OUT_IDX, true, // note 2nd arg reversed! it's the dest!
+                        theZotBlockCarsIO[ZOTBLOCKS_IN_IDX],
+                        theZotBlockIOLock[ZOTBLOCKS_IN_IDX],
+                        theZotBlockIdxs[ZOTBLOCKS_IN_IDX]);
+      myZotEPOUT.init(BC_ZOTBLOCK, ZOTBLOCKS_IN_IDX, false, // note 2nd arg reversed! it's the dest!
+                         theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX],
+                         theZotBlockIOLock[ZOTBLOCKS_OUT_IDX],
+                         theZotBlockIdxs[ZOTBLOCKS_OUT_IDX]);
+
+
+      ret = true;
+    } else {
+      extern HostBlock theHostBlock;
+      HostBlock & hb = theHostBlock;
+      //      hb.addBytes('A','A');
+
+      if (myZotEPIN.updateOps()) ret = true;
+      //      hb.addBytes('B','B');
+      if (myZotEPOUT.updateOps()) ret = true;
+      //      hb.addBytes('C','C');
+    }    
+    return ret;
+  }
+
+  __attribute__((section(".rodata_fp_table_nc")))
+  EPFuncPtr zotEPPtr = &manageZotzNC;
+
   void ZotEP::init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) {
     {
       static u32 once;
@@ -31,7 +87,10 @@ namespace MFM {
     {
       extern HostBlock theHostBlock;
       char buf[100];
-      npf_snprintf(buf,100," %s RCV #%u 0x%p %luB\n",this->getName(),carindex,&car,car.getPacketWords()*4);
+      npf_snprintf(buf,100," %s ZRCV #%u 0x%p chgp%luB\n",
+                   this->getName(),
+                   carindex,&car,
+                   car.getHeader().getPacketWords()*4);
       theHostBlock.packString(buf);
     }
 #endif

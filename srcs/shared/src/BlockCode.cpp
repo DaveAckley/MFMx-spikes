@@ -8,7 +8,7 @@ namespace MFM {
   const char * getNameFromImageCode(ImageCode ic) {
 
 #define XX(NAME)                                \
-  case IC_##NAME: return "IC_"#NAME;
+    case CONC(IC_,NAME): return XSTR_MACRO(CONC(IC_,NAME));
 
     switch (ic) {
     default: break;
@@ -24,7 +24,7 @@ namespace MFM {
   ImageCode getImageCodeFromName(const char * n) {
 
 #define XX(NAME)                                        \
-  if (!strcmp_s(n,"IC_"#NAME)) return IC_##NAME;
+  if (!strcmp_s(n,XSTR_MACRO(CONC(IC_,NAME)))) return CONC(IC_,NAME);
     
   IMAGECODE_LIST()
   return IC_RSRV_ILL;
@@ -37,7 +37,7 @@ namespace MFM {
   const char * getNameFromBlockCode(BlockCode b) {
 
 #define XX(NAME,SIZE,TYPE,BLOCKS)               \
-  case BC_##NAME: return "BC_"#NAME;
+  case CONC(BC_,NAME): return XSTR_MACRO(CONC(BC_,NAME));
 
     switch (b) {
     default: break;
@@ -53,7 +53,7 @@ namespace MFM {
   BlockCode getBlockCodeFromName(const char * n) {
 
 #define XX(NAME,SIZE,TYPE,BLOCKS)                       \
-  if (!strcmp_s(n,"BC_"#NAME)) return BC_##NAME;
+  if (!strcmp_s(n,XSTR_MACRO(CONC(BC_,NAME)))) return CONC(BC_,NAME);
     
   BLOCKCODE_LIST()
   return BC_RSRV_ILL;

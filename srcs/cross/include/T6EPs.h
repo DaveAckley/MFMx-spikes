@@ -7,7 +7,7 @@
 namespace MFM {
 
   template<class SUBEP, class SUBTCBLOCK>
-  struct T6ToT6EP : public EP<SUBEP,typename SUBTCBLOCK::CAR_TYPE> {
+  struct T6EP : public EP<SUBEP,typename SUBTCBLOCK::CAR_TYPE> {
     using Super = EP<SUBEP,typename SUBTCBLOCK::CAR_TYPE>;
     using SUBTC = typename SUBTCBLOCK::CAR_TYPE;
     static constexpr u32 TC_BLOCK_SIZE = sizeof(SUBTCBLOCK);

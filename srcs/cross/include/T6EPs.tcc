@@ -8,15 +8,7 @@
 
 namespace MFM {
   template <class SUBEP, class SUBTCBLOCK>
-  bool T6ToT6EP<SUBEP,SUBTCBLOCK>::shipTC(SUBTC & car, u8 carindex) {
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100,"test %u 0x%p %u %u.",carindex,&car,sizeof(car),sizeof(SUBTCBLOCK));
-      theHostBlock.packString(buf);
-    }
-#endif
+  bool T6EP<SUBEP,SUBTCBLOCK>::shipTC(SUBTC & car, u8 carindex) {
     /* OK. Now our goals here are to:
 
      - Use ImageBlock stuff to find the IBA for mDestBlockCode
@@ -31,13 +23,22 @@ namespace MFM {
 
      */
 
+    bool isremotehost = false;// this->isRemoteHost();
     BlockCode destbc = this->getDestBlockCode();
     u8 destbcindex = this->getDestBlockCodeIndex();
+
     ImageBlockHeader & ibh = *(ImageBlockHeader*) 0x14; //"WELL-KNOWN ADDRESS"
     ImageBlockAddr iba = ibh.findIBAIfAny(destbc);
     MFM_API_ASSERT(iba.isValid(),NO_MATCH);
     MFM_API_ASSERT(destbcindex < iba.getArrayLength(),ARRAY_INDEX_OUT_OF_BOUNDS);
-    u32 destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*destbcindex;
+    u32 destblockbaseaddr;
+    if (isremotehost) {
+      u32 hostchunkoffset = iba.getHostChunkOffsetOpt();
+      MFM_API_ASSERT(hostchunkoffset != U8_MAX,ILLEGAL_STATE);
+      FAIL(INCOMPLETE_CODE);
+    } else {                    // remote is t6
+      destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*destbcindex;
+    }
     u32 destcaraddr = destblockbaseaddr + CAR_SIZE*carindex;
 #ifndef BUILD_HOST      
     if (false) {
@@ -49,7 +50,7 @@ namespace MFM {
 #endif
 
     U8C ournoc0 = fAll.mPos;
-    u32 wordCount = car.getPacketWords();
+    u32 wordCount = car.getHeader().getPacketWords();
 #ifndef BUILD_HOST      
     if (false) {
       extern HostBlock theHostBlock;
@@ -75,7 +76,7 @@ namespace MFM {
   }
 
   template <class SUBEP, class SUBTCBLOCK>
-  void T6ToT6EP<SUBEP,SUBTCBLOCK>::init(BlockCode bc, u8 blkIdx, bool isin, SUBTCBLOCK & stgblk, AtomicLock & al, CarIdxs & caridxs) {
+  void T6EP<SUBEP,SUBTCBLOCK>::init(BlockCode bc, u8 blkIdx, bool isin, SUBTCBLOCK & stgblk, AtomicLock & al, CarIdxs & caridxs) {
     MFM_API_ASSERT_L1_ADDRESS(&stgblk);
     mCarStgPtr = &stgblk;
 

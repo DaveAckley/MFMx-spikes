@@ -124,11 +124,12 @@ namespace MFM {
 #ifndef BUILD_HOST      
     {
       static u32 once;
-      if (false) {
+      if (once<10) {
         extern HostBlock theHostBlock;
         theHostBlock.packString(getName());
         theHostBlock.addBytes('u',hartChar(fAll.mHartNum));
         once++;
+        theHostBlock.addBytes('L',mLockPtr ? '+' :'-');
       }
     }
 #endif

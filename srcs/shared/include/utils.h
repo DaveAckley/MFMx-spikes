@@ -395,4 +395,13 @@ namespace MFM {
     }
     return count;
   }
+
+  // Check if two constexpr strings are equal
+  constexpr bool EQUAL_STRINGS(const char * c1, const char * c2) {
+    return
+      ((*c1 == 0) && (*c2 == 0)) ? true :
+      ((*c1 == 0) || (*c2 == 0)) ? false : 
+      ((*c1 == *c2) && EQUAL_STRINGS(c1+1,c2+1));
+  }
+
 }

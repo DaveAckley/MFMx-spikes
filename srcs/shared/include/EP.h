@@ -16,8 +16,6 @@ namespace MFM {
 
   template<class SUBEP, class SUBTC>
   struct EP : public TCCommon {
-    //    using TCCommon::TCMarker;
-    //    using TCCommon::TCWord;
 
     // self(): access this by subtype
     SUBEP& self() { return static_cast<SUBEP&>(*this); }
@@ -28,9 +26,8 @@ namespace MFM {
     SUBTC * getCarPtrIfAny(u8 carindex) const { return self().getCarPtrIfAny(carindex); }
     TCOpsData & getOpsData(u8 carindex) { return self().getOpsData(carindex); }
     bool recvTC(SUBTC & car, u8 carindex) { return self().recvTC(car, carindex); }
-    //    bool turnTC(SUBTC & car, u8 carindex) { return self().turnTC(car, carindex); }
     bool shipTC(SUBTC & car, u8 carindex) { return self().shipTC(car, carindex); }
-    //bool initTC(TCBase & car, u8 carindex) = 0;
+    //unclear we want to go this way: bool isRemoteHost() const { return self().isRemoteHost(); }
 
     const char * getName() const { return self().getName(); }
     //virtual XPrinter & getLogToPrinter() const { return DEVNULL; }

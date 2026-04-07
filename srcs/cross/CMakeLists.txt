@@ -1,3 +1,4 @@
+# srcs/cross/CMakeLists.txt
 # Cross-compiled specific build
 set(S_FILES_LIST
   src/_BUD.S
@@ -20,7 +21,7 @@ set(CROSS_COMPILER_OPTIONS
 )
 
 add_library(crosslib STATIC)
-  
+
 target_sources(crosslib PUBLIC
   src/CrossUtils.cpp
   src/DefaultLives.cpp
@@ -38,6 +39,9 @@ target_sources(crosslib PUBLIC
   src/t6main.cpp
 )
 
+# Assign global file IDs to crosslib files
+#assign_file_ids(crosslib)
+  
 target_include_directories(crosslib PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${SHARED_INCLUDE_DIRS}
@@ -54,6 +58,7 @@ set(GENERATED_LDSCRIPT "${CMAKE_CURRENT_BINARY_DIR}/gen.ld")
 set(GENERATED_LDSCRIPT_TARGET_NAME "gen_ld") 
 
 # --- Create a custom target for generating the linker script ---
+message(STATUS "AHAX: got SHARED_INCLUDE_DIRS = ${SHARED_INCLUDE_DIRS}")
 add_custom_target(${GENERATED_LDSCRIPT_TARGET_NAME}
   COMMAND ${CMAKE_CXX_COMPILER} # Use the C++ compiler for preprocessing
   -E                     # Preprocess only

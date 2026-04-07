@@ -102,6 +102,14 @@ SECTIONS
        *(.text.*)             # All executable code from input files (e.g., from templates)
      } > L1
 
+    .rodata_fp_table_nc :
+    {
+       . = ALIGN(4);
+       __start_rodata_fp_table_nc = .;
+       KEEP(*(SORT(.rodata_fp_table_nc*)))
+       __end_rodata_fp_table_nc = .;
+    } > L1
+
     /* .rodata section: Contains read-only data (e.g., string literals, const variables).
      * Placed immediately after the .text section. */
     .rodata :

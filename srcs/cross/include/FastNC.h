@@ -5,5 +5,6 @@
 
 namespace MFM {
   extern int hartMainNC(HostBlock & hb);
-  //  extern T6ElevatorTransport theT6ElevatorTransport;
+
+  typedef bool (*EPFuncPtr)(bool doInit);
 }

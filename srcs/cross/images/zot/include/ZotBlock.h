@@ -2,6 +2,7 @@
 #include "TC.h"
 #include "T6EPs.h"
 #include "HostBlock.h"
+#include "TCBlock.h"
 #include "FastLocal.h"
 #include "AtomicLock.h"
 #include "BlockCode.h"
@@ -12,6 +13,7 @@ namespace MFM {
     u32 mData;
     u32 mCounts[2];
     bool mBongo;
+    u8 mTakeMoreSpace[73];
     u32 mGAMZB;
 
     void init(u32 data, bool bongo) {
@@ -25,13 +27,16 @@ namespace MFM {
     }
   };
 
-  struct ZotBlock : public TC<sizeof(ZotPayload)> {
+  struct ZotBlock : public TC<ZotBlock,sizeof(ZotPayload)> {
     //// TC API
+    const char * getName() const { return "ZotBlock"; }
+
     bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }
     
     ZotPayload & payload() { return *(ZotPayload*) getDataStart(); }
     void init(u32 data, bool bongo) {
       TC::reset();
+      setTCState(TCState::UNUSED,sizeof(ZotPayload));
       payload().init(data,bongo);
     }
   };
@@ -41,19 +46,19 @@ namespace MFM {
   };
 
 
-  struct ZotEP : public T6ToT6EP<ZotEP,ZotBlockStg> {
-    using Super = T6ToT6EP<ZotEP,ZotBlockStg>;
+  struct ZotEP : public T6EP<ZotEP,ZotBlockStg> {
+    using Super = T6EP<ZotEP,ZotBlockStg>;
 
     //// EP API
-    const char * getName() const { return isIn() ? "ZEPI" : "ZEPO"; }
+    const char * getName() const { return isIn() ? "ZotEP-i" : "ZotEP-o"; }
     u32 getCarSize() const { return sizeof(ZotBlock); }
     ZotBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      MFM_API_ASSERT_NONNULL(carindex < CAR_COUNT);
+      MFM_API_ASSERT(carindex < CAR_COUNT,ILLEGAL_ARGUMENT);
       return mOpsDataStg[carindex];
     }
     bool recvTC(ZotBlock & car, u8 carindex) ;
-    //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6ToT6EP
+    //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6EP
 
     void init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) ;
   };

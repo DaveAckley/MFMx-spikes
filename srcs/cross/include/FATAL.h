@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "Fail.h"
 #include "dev_mem_map.h" // for MEM_L1_SIZE
+#include "FileIDs.h" // for GET_FILE_ID
 
 #define HOST_FATAL(...) do { } while (0)
 
@@ -21,9 +22,9 @@
   FATAL_AT(code,__FILE__,__LINE__)
 
 #define FATAL_AT(code,file,line) \
-  DieHereNow(code,file,line)
+  DieHereNow(code,GET_FILE_ID(file),line)
 
-extern "C" void DieHereNow(signed code,const char * file,unsigned line) __attribute__((__noreturn__)) ;
+extern "C" void DieHereNow(signed code,unsigned fileId,unsigned line) __attribute__((__noreturn__)) ;
 
 extern "C" void t6hang(int code) __attribute__ ((__noreturn__)) ;
 

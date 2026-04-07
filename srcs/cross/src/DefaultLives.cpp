@@ -33,6 +33,6 @@ namespace MFM {
   int __attribute__((weak)) stepT0(HostBlock & hb) { return 0; }
   int __attribute__((weak)) stepT1(HostBlock & hb) { return 0; }
   int __attribute__((weak)) stepT2(HostBlock & hb) { return 0; }
-  int __attribute__((weak)) stepNC(HostBlock & hb) { return 0; }
+  int __attribute__((weak)) stepNC(HostBlock & hb) { return 0; } // NOTE FastNC.cpp has a strong stepNC
   
 }

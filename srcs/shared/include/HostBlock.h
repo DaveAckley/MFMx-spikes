@@ -29,6 +29,9 @@ namespace MFM {
     typedef RingBuffer<u16,11u> LogBuffer;
     LogBuffer mLogBuffer;
 
+    u16 mPerHartFailFileID[5];  
+    u16 mPerHartFailFileLine[5];
+
     u32 mHBCigam;         // MUST BE LAST u32
 
     //// METHODS

@@ -13,7 +13,7 @@
 #include "Constants.h"
 #include "HostUtils.h"
 #include "BHLog.h"
-//#include "T6Grid.h"
+#include "FileIDs.h" // for GET_PATH_FROM_FILE_ID
 
 namespace MFM {
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
@@ -438,12 +438,25 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     for (u32 hart = 0u; hart < 5u; ++hart) {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
         if (info.mStuckDog[hart]) {
-          Eprintf("BH%d:(%2u,%2u)%s STUCK? 0x%08x = FAIL%d:%s\n",
-                  mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
-                  hb.mPerHartWatchdog[hart],
-                  hb.mPerHartStatus[hart],
-                  getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
-                  );
+          if (hb.mPerHartFailFileID[hart] != 0) {
+            const char * path = GET_PATH_FROM_FILE_ID(hb.mPerHartFailFileID[hart]);
+            while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
+            Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK?\n%s:%u: %s\n",
+                    runTimeSeconds(),
+                    mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
+                    path,
+                    hb.mPerHartFailFileLine[hart],
+                    getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
+                    );
+          } else {
+            Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK? NOFID 0x%08x = FAIL%d:%s\n",
+                    runTimeSeconds(),
+                    mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
+                    hb.mPerHartWatchdog[hart],
+                    hb.mPerHartStatus[hart],
+                    getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
+                    );
+          }
         } else info.mStuckDog[hart] = true;
       } else {
         info.mLastWatchdog[hart] = hb.mPerHartWatchdog[hart];
@@ -466,7 +479,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
 
         buf[idx] = 0;
-        Eprintf("%.03f BH%d:(%u,%u)HOBU<<%s>>UBOH\n",
+        Eprintf("%.03f BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",
                 runTimeSeconds(),
                 mCardNum,hb.mPos.x,hb.mPos.y,buf);
       }

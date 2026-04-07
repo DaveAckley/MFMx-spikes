@@ -6,7 +6,7 @@
 #include "TC.h"
 #include "AtomicLock.h"
 #include "EventWindow.h"
-#include "ZotBlock.h"
+#include "EwpBlock.h"
 
 namespace MFM {
 
@@ -17,15 +17,6 @@ namespace MFM {
     u32 mEWsFailed;
   };
   FAST_LOCAL(FastB,fB,b);
-
-  /// ZOT SPECIFIC -- moved to ZotBlock.cpp
-  //ZotEP mMyZotEPIN;
-  //ZotEP mMyZotEPOUT;
-
-    
-
-  //typedef T6STVL<0,0,T6GRID_WIDTH,T6GRID_HEIGHT, 4, 1'000'000> T6EWLocker;
-  //T6EWLocker theT6EWLocker;
 
   static constexpr u32 PHY_DREG = 2u;
   static constexpr u32 PHY_RES = 3u;
@@ -104,48 +95,37 @@ namespace MFM {
 
   //  T6Grid theT6Grid;
 
-  bool processZotCars(HostBlock & hb,bool inside) {
+  bool processEwpCars(HostBlock & hb,bool inside) {
 
-    const u32 DIR_IDX = inside ? ZOTBLOCKS_IN_IDX : ZOTBLOCKS_OUT_IDX;
-    extern ZotEP::CarIdxs theZotBlockIdxs[2];
-    ZotEP::CarIdxRB & crb = theZotBlockIdxs[DIR_IDX].mIdxs[ZotEP::TC2EP];
+    extern EwpEP::CarIdxs theEwpBlockIdxs[1];
+    EwpEP::CarIdxRB & crb = theEwpBlockIdxs[0].mIdxs[EwpEP::TC2EP];
     memoryFence();
-#ifndef BUILD_HOST      
-    if (false) {
-      static u32 once = 0;
-      static u8 fu = U8_MAX;
-      static u8 ff = U8_MAX;
-      if ((fu != crb.mFirstUsedIdx || ff != crb.mFirstFreeIdx) && ++once < 100) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('{',"IO"[DIR_IDX]);
-        theHostBlock.addBytes('0'+crb.mFirstUsedIdx,'0'+crb.mFirstFreeIdx);
-        theHostBlock.addBytes('}','\n');
-        fu = crb.mFirstUsedIdx;
-        ff = crb.mFirstFreeIdx;
-      }
-    }
-#endif
 
     u8 carindex;
     if (!crb.remove(carindex)) return false;
-    if (true) hb.addBytes('"','0'+carindex);
+    if (true) hb.addBytes('|','0'+carindex);
 
-    ZotBlockStg & cars = theZotBlockCarsIO[DIR_IDX];
+    EwpBlockStg & cars = theEwpBlockCars[0];
     MFM_API_ASSERT(carindex < cars.getCarCount(),ARRAY_INDEX_OUT_OF_BOUNDS);
-    ZotBlock & car = cars.getTC(carindex);
+    EwpBlock & car = cars.getTC(carindex);
     MFM_API_ASSERT(car.getTCState() == TCCommon::TCState::OPEN,ILLEGAL_STATE); 
-    ZotPayload & pay = car.payload();
+    EwpPayload & pay = car.payload();
     pay.update(inside); // kilroy was here
 
 #ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," ZT%s #%u 0x%p = %lu/%lu\n",inside?"I":"O",carindex,&car,pay.mCounts[0],pay.mCounts[1]);
-      theHostBlock.packString(buf);
+    if (true) {
+      static u32 once = 0;
+      if (++once < 100) {
+        extern HostBlock theHostBlock;
+        char buf[100];
+        npf_snprintf(buf,100,"[%u] i%u stconly %s sz%u\n",
+                     __LINE__,inside,
+                     car.getName(),
+                     sizeof(pay));
+        theHostBlock.packString(buf);
+      }
     }
 #endif
-
     car.setTCState(TCCommon::TCState::CLOSED,sizeof(pay)); // ready to go
 
     return true;
@@ -165,7 +145,7 @@ namespace MFM {
       if ((++spin & 0xfff) == 0) {
         hb.hartbeat(fAll.mHartNum);
       }
-      if (!processZotCars(hb,true) && !processZotCars(hb,false))
+      if (!processEwpCars(hb,true) && !processEwpCars(hb,false))
         breathe();
       
     }

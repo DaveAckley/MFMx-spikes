@@ -5,10 +5,14 @@ add_executable(zot)
 target_sources(zot PRIVATE
   src/ImageConfig.cpp
   images/zot/src/LiveB.cpp
-  images/zot/src/LiveNC.cpp
+#  images/zot/src/LiveNC.cpp
   images/zot/src/ZotBlock.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
+
+# Assign global file IDs to crosslib files
+#assign_file_ids(zot)
+  
 target_link_libraries(zot PRIVATE crosslib)
 target_include_directories(zot PRIVATE
   images/zot/include

@@ -3,28 +3,32 @@
 
 #include "itype.h"
 #include "Fail.h"
-#include "TCCommon.h"
+#include "TCBase.h"
 
 namespace MFM {
 
-  template< u32 MAX_PAYLOAD_BYTES>
-  struct TC : public TCBase<TC<MAX_PAYLOAD_BYTES>> {
+  template<class SUBSUBTC, u32 MAX_PAYLOAD_BYTES>
+  struct TC : public TCBase<SUBSUBTC> {
     static constexpr u32 MAX_PAYLOAD_SIZE = MAX_PAYLOAD_BYTES;
 
-    using Super = TC<MAX_PAYLOAD_SIZE>; 
-    using typename TCBase<Super>::TCMarker;
-    using typename TCBase<Super>::TCWord;
+    using Self = TC<SUBSUBTC,MAX_PAYLOAD_SIZE>; 
+    using typename TCBase<SUBSUBTC>::TCMarker;
+    using typename TCBase<SUBSUBTC>::TCWord;
 
     static constexpr u32 MAX_PACKET_SIZE = TCMarker::getPacketBytesFromPayloadSize(MAX_PAYLOAD_SIZE);
-    static_assert(((MAX_PACKET_SIZE >= 8) &&
-                   ((MAX_PACKET_SIZE%4) == 0)),
-                  "Bad TC packet size");
+    static_assert((MAX_PACKET_SIZE >= MAX_PAYLOAD_SIZE),"NOT A REAL CLAIM JUST DEBUG");
+    static_assert((MAX_PACKET_SIZE >= 8),"MAX_PACKET_SIZE TOO SMALL");
+    static_assert((MAX_PACKET_SIZE%4 == 0),"MAX_PACKET_SIZE%4 != 0");
+
     static constexpr u32 MAX_PACKET_WORDS = MAX_PACKET_SIZE/4u;
 
     // TCBase API
 
     u32 getMaxPayloadSize() const { return MAX_PAYLOAD_SIZE; }
-    u32 getMaxPacketSize() const { return sizeof(*this); }
+    u32 getMaxPacketSize() const {
+      static_assert(sizeof(*this)==MAX_PACKET_SIZE,"BAX MAD");
+      return sizeof(*this);
+    }
     TCWord getWordAt(u32 word) const {
       if (word < MAX_PACKET_WORDS) return mWords[word];
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
