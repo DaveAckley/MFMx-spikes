@@ -2,16 +2,19 @@
 #include "FastNC.h" // for EPFuncPtr
 
 namespace MFM {
-  ZotBlockStg theZotBlockCarsIO[2];
-  AtomicLock theZotBlockIOLock[2];
-  ZotEP::CarIdxs theZotBlockIdxs[2];
+  T6EPL1Data<ZotBlockStg,2> theZotBlockL1Data;
 
-  FAST_LOCAL(ZotEP,myZotEPIN,nc);
-  FAST_LOCAL(ZotEP,myZotEPOUT,nc);
+  // ZotBlockStg theZotBlockCarsIO[2];
+  // AtomicLock theZotBlockIOLock[2];
+  // ZotEP::CarIdxs theZotBlockIdxs[2];
+
+  FAST_LOCAL(ZotEP,myZotEPIN,n);
+  FAST_LOCAL(ZotEP,myZotEPOUT,n);
 
   static bool manageZotzNC(bool doInit) {
     bool ret = false;
 #ifndef BUILD_HOST      
+#if 0
     if (true) {
       static u32 once = 0;
       if (++once < 4) {
@@ -32,35 +35,27 @@ namespace MFM {
     }
     }
 #endif
-    if (unlikely(doInit)) {
-      memset_s(&theZotBlockCarsIO[0],'\0',sizeof(theZotBlockCarsIO));
-      memset_s(&theZotBlockIOLock[0],'\0',sizeof(theZotBlockIOLock));
-      memset_s(&theZotBlockIdxs[0],'\0',sizeof(theZotBlockIdxs));
-
-#ifndef BUILD_HOST      
-    if (true) {
-      static u32 once = 0;
-      if (++once < 4) {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," #%lu c%u c0 %lu c1 %lu zang.",
-                   once, 0, 
-                   theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0).payload().mCounts[0],
-                   theZotBlockCarsIO[ZOTBLOCKS_IN_IDX].getTC(0).payload().mCounts[1]);
-      theHostBlock.packString(buf);
-    }
-    }
 #endif
+    if (unlikely(doInit)) {
+      theZotBlockL1Data.reset(); // zero all
+      
+      ZotBlockStg (&theZotBlockCarsIO)[2] = theZotBlockL1Data.mTheTCBlocks;
+      for (u32 i = 0; i < sizeof(theZotBlockCarsIO)/sizeof(theZotBlockCarsIO[0]); ++i) {
+        ZotBlockStg & zbs = theZotBlockCarsIO[i];
+        for (u32 c = 0; c < zbs.getCarCount(); ++c) {
+          ZotBlock & zb = zbs.getTC(c);
+          zb.init((i+1)*(c+1),true);
+        }
+      }
 
-      myZotEPIN.init(BC_ZOTBLOCK, ZOTBLOCKS_OUT_IDX, true, // note 2nd arg reversed! it's the dest!
-                        theZotBlockCarsIO[ZOTBLOCKS_IN_IDX],
-                        theZotBlockIOLock[ZOTBLOCKS_IN_IDX],
-                        theZotBlockIdxs[ZOTBLOCKS_IN_IDX]);
-      myZotEPOUT.init(BC_ZOTBLOCK, ZOTBLOCKS_IN_IDX, false, // note 2nd arg reversed! it's the dest!
-                         theZotBlockCarsIO[ZOTBLOCKS_OUT_IDX],
-                         theZotBlockIOLock[ZOTBLOCKS_OUT_IDX],
-                         theZotBlockIdxs[ZOTBLOCKS_OUT_IDX]);
+      myZotEPIN.initZotEP(BC_ZOTBLOCK, true, theZotBlockL1Data); 
+      myZotEPIN.configureDest(fAll.mNoC0,fAll.mNoC0,ZOTBLOCKS_OUT_IDX); // in -> out
 
+      myZotEPOUT.initZotEP(BC_ZOTBLOCK, false, theZotBlockL1Data); 
+      myZotEPOUT.configureDest(fAll.mNoC0,fAll.mNoC0,ZOTBLOCKS_IN_IDX); // out -> in
+
+      myZotEPIN.activate();
+      myZotEPOUT.activate();
 
       ret = true;
     } else {
@@ -79,7 +74,7 @@ namespace MFM {
   __attribute__((section(".rodata_fp_table_nc")))
   EPFuncPtr zotEPPtr = &manageZotzNC;
 
-  void ZotEP::init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) {
+  void ZotEP::initZotEP(BlockCode destbc, bool isin, Super::L1Data & l1data) {
     {
       static u32 once;
       if (once < 5) {
@@ -89,7 +84,7 @@ namespace MFM {
       }
     }
 
-    Super::init(destbc, destidx, isin, cars, al, caridxs);
+    Super::initT6EP(destbc, isin, l1data);
     {
       static u32 once;
       if (once < 5) {
@@ -101,36 +96,15 @@ namespace MFM {
   }
      
   bool ZotEP::recvTC(ZotBlock & car, u8 carindex) {
+    typename Super::L1Data::CarIdxRB & crb = this->getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+    if (crb.isFull()) return false; // bail if can't notify COMP??
 
-    CarIdxRB & crb = mCarIdxsPtr->mIdxs[TC2EP];
-    if (crb.isFull()) return false; // bail if can't notify??
+    HBNOTE("zot/ZRCV");
 
-#ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," %s ZRCV #%u 0x%p chgp%luB\n",
-                   this->getName(),
-                   carindex,&car,
-                   car.getHeader().getPacketWords()*4);
-      theHostBlock.packString(buf);
-    }
-#endif
-
-
-    // Open it up. (Assuming all full-size payloads here..)
-    car.setTCState(TCState::OPEN,ZotBlock::MAX_PAYLOAD_SIZE);
+    car.openTC();     // Open it up.
     crb.add(carindex); //notify hB
+    HBNOTE(getName());
     
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('(','(');
-      theHostBlock.addBytes('0'+carindex,hartChar(fAll.mHartNum));
-      theHostBlock.addBytes('0'+crb.mFirstUsedIdx,'0'+crb.mFirstFreeIdx);
-      theHostBlock.addBytes(')',')');
-    }
-#endif
     return true;
   }
 
@@ -147,7 +121,47 @@ namespace MFM {
     }
 #endif
     if (carindex >= CAR_COUNT) return 0;
-    MFM_API_ASSERT_NONNULL(mCarStgPtr);
-    return &mCarStgPtr->getTC(carindex);
+    return &this->getCarStg().getTC(carindex);
+  }
+
+  void ZotBlock::init(u32 data, bool bongo) {
+      TC::reset(); // 0's all, sets header only with maxpayloadsize and state 0==UNUSED
+      openTC();                   // set state open
+
+#ifndef BUILD_HOST      
+    if (true) {
+      static u32 once = 0;
+      if (++once < 4) {
+      extern HostBlock theHostBlock;
+      char buf[100];
+      npf_snprintf(buf,100," ZIN- 0x%p pay %luB 0c%lu 1c%lu\n",
+                   this,
+                   getHeader().getPayloadCapacity(),
+                   payload().mCounts[0],
+                   payload().mCounts[1]);
+      theHostBlock.packString(buf);
+    }
+    }
+#endif    
+
+    closeTC(sizeof(payload())); // and close it, zot cars are all full
+    setDepartingTC(TCState::OUTBOUND_DEPARTED); // init state is 'departed in'/'arrived out'
+
+#ifndef BUILD_HOST      
+    if (true) {
+      static u32 once = 0;
+      if (++once < 4) {
+      extern HostBlock theHostBlock;
+      char buf[100];
+      npf_snprintf(buf,100," ZIN+ 0x%p pay %luB 0c%lu 1c%lu\n",
+                   this,
+                   getHeader().getPayloadCapacity(),
+                   payload().mCounts[0],
+                   payload().mCounts[1]);
+      theHostBlock.packString(buf);
+    }
+    }
+#endif    
+
   }
 }

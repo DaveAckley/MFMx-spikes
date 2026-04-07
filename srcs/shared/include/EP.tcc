@@ -3,115 +3,50 @@
 namespace MFM {
 
   template<class SUBEP, class SUBTC>
-  void EP<SUBEP,SUBTC>::init(BlockCode bc, u8 blkIdx, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn) {
+  void EP<SUBEP,SUBTC>::initEP(BlockCode bc, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn) {
     reset();
-    mLockPtr = &lock;
-    mDestBlockCode = bc;
-    mDestBlockCodeIndex = blkIdx;
-    AtomicScopeLock guard(getPlatformLock());
+    HBMARK;
 
+    mLockPtr = &lock;           // set up the lock
+    AtomicScopeLock guard(getPlatformLock()); // then take it
+
+    mDestBlockCode = bc;
+    mDestBlockCodeIndex = U8_MAX;
     mCarCount = carCount;
 
     mIsIn = isIn;
+    mCarsStartIn = carsIn;
 
     // here/gone inits identical on in and out:
     mOldestHere = U8_MAX;
     mHereCount = 0u;
     mOldestGone = 0u;
     mGoneCount = mCarCount;
-
-    for (u32 c = 0u; c < mCarCount; ++c) {
-      SUBTC * carp = getCarPtr(c);
-      MFM_API_ASSERT_NONNULL(carp);
-      MFM_API_ASSERT(((uintptr_t)carp)%16 == 0, BAD_ALIGNMENT);
-
-      SUBTC & car = *carp;
-      car.reset();
-
-      TCMarker & hdr = car.getHeader();
-      hdr.init(2u*c+1u); // spread the nonces a little
-
-      bool carshere = mIsIn == carsIn;
-      hdr.mTCMState = carshere ? arrivingState() : departingState();
-
-      car.getFooter() = hdr;
-    }
+    this->setFastEPState(EPState::INITTED);
+    HBMARK;
   }
 
   template<class SUBEP, class SUBTC>
   bool EP<SUBEP,SUBTC>::updateOps() {
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (once<10) {
-        extern HostBlock theHostBlock;
-        theHostBlock.packString(getName());
-        theHostBlock.addBytes('u',hartChar(fAll.mHartNum));
-        once++;
-        theHostBlock.addBytes('L',mLockPtr ? '+' :'-');
-      }
-    }
-#endif
     AtomicScopeLock guard(getPlatformLock());
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (false) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('p',hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
     
     bool ret = false;
+    SNAP(2,HBMARK);
     /// TRY RECEIVING ARRIVALS
     while (mGoneCount > 0) {    // if we have gone cars
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('G','0'+mGoneCount);
-    }
-#endif
 
       SUBTC * carp = getCarPtr(mOldestGone); // oldest departed next to return
       MFM_API_ASSERT_NONNULL(carp);
 
-#ifndef BUILD_HOST      
-  if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('c','0'+mGoneCount);
-    }
-#endif
       SUBTC & car = *carp;
       if (!car.isComplete()) break;
 
       TCState cs = car.getTCState();
-#ifndef BUILD_HOST      
-   if (false)  {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('a','0'+(u8) cs);
-    }
-#endif
       if (!isArriving(cs)) break;
-
-#ifndef BUILD_HOST      
-  if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('w','0'+mGoneCount);
-    }
-#endif
-
+      
       // Welcome! Let's get you set up here.
       TCOpsData & data = getOpsData(mOldestGone);
       data.mArrivalTime = millisElapsed();
-
-#ifndef BUILD_HOST      
-      {
-        extern HostBlock theHostBlock;
-        //        theHostBlock.addBytes('R','0'+mGoneCount);
-      }
-#endif
 
       if (recvTC(car, mOldestGone)) {
         // successful recvTC MEANS:
@@ -119,12 +54,8 @@ namespace MFM {
         //  - one more here car
         //  - if this is the first here car,
         //    it is also the oldest here car
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('-','0'+mGoneCount);
-    }
-#endif
+        HBPVAL(mOldestGone);
+
         if (mHereCount == 0u) mOldestHere = mOldestGone;
         ++mHereCount;
     
@@ -132,70 +63,49 @@ namespace MFM {
         mGoneCount--;
       }
       else {
-#ifndef BUILD_HOST      
-   if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('=','0'+mGoneCount);
-    }
-#endif
-
         break;               // need to block the line b/c we're somehow unready to receive you
       }
     }
 
     /// TRY SHIPPING DEPARTURES
     while (mHereCount > 0u) { // if we have cars here
+      MFM_API_ASSERT(mHereCount <= mCarCount,ARRAY_INDEX_OUT_OF_BOUNDS);
 
-#ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      //      theHostBlock.addBytes('H','0'+mHereCount);
-    }
-#endif
-
-      SUBTC * carp = getCarPtr(mOldestHere); // oldest arrived next to depart
-      MFM_API_ASSERT_NONNULL(carp);
+      SNAP(2,HBMARK);
+      SUBTC * carp = getClosedTCPtrIfAny();
+      if (!carp) break; // nothing ready to go
       SUBTC & car = *carp;
+      HBPVAL(mHereCount);
 
-      if (!car.isComplete()) break; // might show as incomplete during loading
+      MFM_API_ASSERT(car.isComplete(),ILLEGAL_STATE);
       TCState cs = car.getTCState();
-#ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      //      theHostBlock.addBytes('A','0'+(u8) cs);
-    }
-#endif
+      HBPVAL(cs);
 
       // ADVANCE CLOSED TO DEPARTING
-    if (cs == TCState::CLOSED) {
-#ifndef BUILD_HOST      
-   if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('C','0'+mOldestHere);
-    }
-#endif
-      car.setTCStateOnly(departingState());
-    }
+      if (cs == TCState::CLOSED) {
+        cs = departingState();
+        HBPVAL(cs);
+        car.setDepartingTC(cs);
+      }
 
-    if (!isDeparting(cs)) break; // (still) not ready to go
-
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('B','0'+mHereCount);
-    }
-#endif
+      HBPVAL(cs);
+      if (!isDeparting(cs)) break; // (still) not ready to go
 
       // Bye now, come back soon!
       TCOpsData & data = getOpsData(mOldestHere);
       data.mDepartureTime = millisElapsed();
 
+      HBPVAL(data.mDepartureTime);
+
       if (shipTC(car,mOldestHere)) {        // SHIPT!
+
         if (mGoneCount == 0u) mOldestGone = mOldestHere;
         mGoneCount++;
-
+        HBPVAL(mGoneCount);
+      
         mOldestHere = incrementIndex(mOldestHere);
         mHereCount--;
+        HBPVAL(mHereCount);
       } else
         break;                  // try again later.
     }

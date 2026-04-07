@@ -7,6 +7,7 @@ target_sources(zot PRIVATE
   images/zot/src/LiveB.cpp
 #  images/zot/src/LiveNC.cpp
   images/zot/src/ZotBlock.cpp
+  images/zot/src/demo.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 

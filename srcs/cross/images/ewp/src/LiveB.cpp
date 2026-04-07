@@ -15,6 +15,7 @@ namespace MFM {
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
+    U8C mHubCP;
   };
   FAST_LOCAL(FastB,fB,b);
 
@@ -96,46 +97,48 @@ namespace MFM {
   //  T6Grid theT6Grid;
 
   bool processEwpCars(HostBlock & hb,bool inside) {
+    if (!theEwpL1Data.isActive(0)) {
+      HBNOTE("ePROCBLOC");
+      SNAP(5,HBPVAL(theEwpL1Data.getPublicEPState(0)));
+      return false;             // wait a bit
+    }
 
-    extern EwpEP::CarIdxs theEwpBlockIdxs[1];
-    EwpEP::CarIdxRB & crb = theEwpBlockIdxs[0].mIdxs[EwpEP::TC2EP];
+    using EwpData = T6EPL1Data<EwpBlockStg,1>;
+    EwpData::CarIdxs & idxs = theEwpL1Data.mTheCarIdxs[0];
+    EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
+    EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
+
+    SNAP(5,HBPVAL(&crbo));
     memoryFence();
 
     u8 carindex;
-    if (!crb.remove(carindex)) return false;
-    if (true) hb.addBytes('|','0'+carindex);
+    if (!crbi.remove(carindex)) return false; // no arriving cars
+    HBMARK;
 
-    EwpBlockStg & cars = theEwpBlockCars[0];
-    MFM_API_ASSERT(carindex < cars.getCarCount(),ARRAY_INDEX_OUT_OF_BOUNDS);
+    EwpBlockStg & cars = theEwpL1Data.mTheTCBlocks[0];
+    HBASSERT_LS(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
-    MFM_API_ASSERT(car.getTCState() == TCCommon::TCState::OPEN,ILLEGAL_STATE); 
+    HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
     EwpPayload & pay = car.payload();
     pay.update(inside); // kilroy was here
 
-#ifndef BUILD_HOST      
-    if (true) {
-      static u32 once = 0;
-      if (++once < 100) {
-        extern HostBlock theHostBlock;
-        char buf[100];
-        npf_snprintf(buf,100,"[%u] i%u stconly %s sz%u\n",
-                     __LINE__,inside,
-                     car.getName(),
-                     sizeof(pay));
-        theHostBlock.packString(buf);
-      }
-    }
-#endif
-    car.setTCState(TCCommon::TCState::CLOSED,sizeof(pay)); // ready to go
+    car.closeTC(sizeof(pay)); // ready to go
+    MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
+    HBPVAL(&crbo);
+    crbo.add(carindex);         // hand control back to comm
+    HBNOTE("AFTCLOS");
 
     return true;
   }
 
-  int liveB(HostBlock & hb) {
-    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-    //hb.addBytes('L',hartChar(fAll.mHartNum));
+  static void initB(HostBlock & hb) {
+    MFM_API_ASSERT(hb.goodMagic(),ILLEGAL_STATE);
     preloadT2Mailbox();
-    //hb.addBytes('B',hartChar(fAll.mHartNum));
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::TRYING;
+  }
+
+  int liveB(HostBlock & hb) {
+    initB(hb);
 
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
@@ -145,7 +148,7 @@ namespace MFM {
       if ((++spin & 0xfff) == 0) {
         hb.hartbeat(fAll.mHartNum);
       }
-      if (!processEwpCars(hb,true) && !processEwpCars(hb,false))
+      if (!processEwpCars(hb,false))
         breathe();
       
     }

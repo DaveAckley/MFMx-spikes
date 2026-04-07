@@ -71,7 +71,7 @@ namespace MFM {
       Eprintf("hbmagic+%d, mperhst[4]+%d, mpos+%d, mtlbi+%d, size+%d\n",
               offsetof(HostBlock, mHBMagic),
               offsetof(HostBlock, mPerHartStatus[4]),
-              offsetof(HostBlock, mPos),
+              offsetof(HostBlock, mNoC0),
               offsetof(HostBlock, mTLBI),
               sizeof(HostBlock));
       if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;

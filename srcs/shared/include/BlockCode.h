@@ -31,9 +31,10 @@ namespace MFM {
 
 #define BLOCKCODE_LIST()                        \
   XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u)  \
-  XX(ZOTBLOCK,512,ZotBlockStg,2u)               \
-  XX(EWHUB,80,EwpBlockStg,8u)                   \
-  XX(EWPCARS,2048,EwpBlockStg,1u)               \
+  XX(ZOTBLOCK,256*2,ZotBlockStg,2u)             \
+  XX(EWHUB,2048*8,EwpBlockStg,8u)               \
+  XX(EWPCARS,2048*1,EwpBlockStg,1u)             \
+  XX(INTERHUB,8320*4,InterHubStorage,4u)        \
   //END OF BLOCK_CODE_LIST
 
 #define XX(NAME,SIZE,TYPE,BLOCKS)               \

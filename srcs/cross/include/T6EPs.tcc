@@ -7,15 +7,68 @@
 #include "nanoprintf.h"
 
 namespace MFM {
-  template <class SUBEP, class SUBTCBLOCK>
-  bool T6EP<SUBEP,SUBTCBLOCK>::shipTC(SUBTC & car, u8 carindex) {
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::setPublicEPState(EPState newstate) { 
+    ASSERT_RIGHT_HART();
+    EPState & pubstate = getPublicEPState();
+    pubstate = newstate;
+  }
+
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::configureDest(U8C ournoc0, U8C destnoc0, u8 blockindex) {
+    ASSERT_RIGHT_HART();
+    mDestNoC0 = destnoc0;
+    this->setDestBlockCodeIndex(blockindex);
+
+    // Set up block address
+    ImageBlockAddr iba;
+    BlockCode bc = this->getDestBlockCode();
+    HBNOTE("CFDS");
+    HBPVAL(this->getName());
+    HBPVAL(bc);
+    bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, bc, iba);
+    HBPVAL(destnoc0);
+    HBPVAL(blockindex);
+    MFM_API_ASSERT(ret,NOT_FOUND);
+
+    HBPVAL(bc);
+    HBPVAL(iba.mArrayLength);
+    HBASSERT_LS(blockindex, iba.mArrayLength);
+    mDestBlockAddr = iba.mBlockAddr + blockindex * getSizeFromBlockCode(bc);
+  }
+
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  typename T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::SUBTC
+  * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::getClosedTCPtrIfAny() const { 
+    ASSERT_RIGHT_HART();
+    using CarIdxs = typename L1Data::CarIdxs;
+    CarIdxs & idxs = this->getCarIdxs();
+    SNAP(2,HBPVAL(&idxs));
+    u8 carindex;
+    if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
+      HBNOTE("GCDEP");
+      //HBPVAL(&mCarIdxsPtr->mIdxs[COMP2COMM]);
+      HBPVAL(carindex);
+      SUBTC* carp = this->getCarPtrIfAny(carindex);
+      if (!carp) HBNOTE("NULLGO?");
+      else HBASSERT_EQ(carp->getTCState(), TCState::CLOSED); 
+      return carp;
+    }
+    return 0;
+  }
+
+
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTC(SUBTC & car, u8 carindex) {
+    ASSERT_RIGHT_HART();
+    
     /* OK. Now our goals here are to:
 
-     - Use ImageBlock stuff to find the IBA for mDestBlockCode
-
-     - Ensure mDestBlockCodeIndex < iba.getArrayLength()
-
-     - compute u32 destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*mDestBlockCodeIndex
+     [Now done by configureDest, above:
+       - Use ImageBlock stuff to find the IBA for mDestBlockCode
+       - Ensure mDestBlockCodeIndex < iba.getArrayLength()
+       - compute u32 destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*mDestBlockCodeIndex
+     ]
 
      - compute u32 destcaraddr = destblockbaseaddr + CAR_SIZE*carindex
 
@@ -27,62 +80,51 @@ namespace MFM {
     BlockCode destbc = this->getDestBlockCode();
     u8 destbcindex = this->getDestBlockCodeIndex();
 
-    ImageBlockHeader & ibh = *(ImageBlockHeader*) 0x14; //"WELL-KNOWN ADDRESS"
-    ImageBlockAddr iba = ibh.findIBAIfAny(destbc);
-    MFM_API_ASSERT(iba.isValid(),NO_MATCH);
-    MFM_API_ASSERT(destbcindex < iba.getArrayLength(),ARRAY_INDEX_OUT_OF_BOUNDS);
-    u32 destblockbaseaddr;
+    HBPVAL(destbcindex);
+
     if (isremotehost) {
-      u32 hostchunkoffset = iba.getHostChunkOffsetOpt();
-      MFM_API_ASSERT(hostchunkoffset != U8_MAX,ILLEGAL_STATE);
+      //      u32 hostchunkoffset = iba.getHostChunkOffsetOpt();
+      //      MFM_API_ASSERT(hostchunkoffset != U8_MAX,ILLEGAL_STATE);
       FAIL(INCOMPLETE_CODE);
-    } else {                    // remote is t6
-      destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*destbcindex;
     }
-    u32 destcaraddr = destblockbaseaddr + CAR_SIZE*carindex;
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," bung 0x%p %u 0x%lx 0x%lx.",&car,sizeof(car),destcaraddr,destblockbaseaddr);
-      theHostBlock.packString(buf);
-    }
-#endif
+    u32 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
-    U8C ournoc0 = fAll.mPos;
+    U8C ournoc0 = fAll.mNoC0;
+    U8C destnoc0 = mDestNoC0;
+
+    if (!U8C::isNoC0CoordAT6(destnoc0)) {
+      HBNOTE("NODEST");
+      /// DEBUG PRETEND WE SHIPT TO LOCK UP THIS CAR
+      return true;
+    }
     u32 wordCount = car.getHeader().getPacketWords();
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.packString("ALGN");
-      const char * hex = "0123456789ABCDEF";
-      theHostBlock.addBytes(hex[((u32)((u32*)&car))%16],hex[destcaraddr%16]);
-      theHostBlock.addBytes(hex[iba.getBlockAddr()%16],hex[destblockbaseaddr%16]);
-    }
-#endif
 
-    s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, ournoc0, destcaraddr);
-#ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," %s SHP #%u(%u) s%u 0x%p %luB -> 0x%lx = %ld\n",
-                   this->getName(),carindex,this->getGoneCount(),car.getTCState(),&car,wordCount*4,destcaraddr,status);
-      theHostBlock.packString(buf);
-    }
-#endif
-
+    HBMARK;
+    HBNOTE("SHPTC");
+    HBPVAL(ournoc0);
+    HBPVAL((void*) &car);
+    HBPVAL(destnoc0);
+    HBPVAL((void*) destcaraddr);
+    s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, destcaraddr);
+    HBPVAL(status);
     return status > 0;
   }
+  
 
-  template <class SUBEP, class SUBTCBLOCK>
-  void T6EP<SUBEP,SUBTCBLOCK>::init(BlockCode bc, u8 blkIdx, bool isin, SUBTCBLOCK & stgblk, AtomicLock & al, CarIdxs & caridxs) {
-    MFM_API_ASSERT_L1_ADDRESS(&stgblk);
-    mCarStgPtr = &stgblk;
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>:: initT6EP(BlockCode bc,
+                                                                bool isin,
+                                                                L1Data & l1data) {
+    ASSERT_RIGHT_HART();
+    MFM_API_ASSERT_L1_ADDRESS(&l1data);
+    mL1Data = &l1data;
 
-    MFM_API_ASSERT_L1_ADDRESS(&caridxs);
-    mCarIdxsPtr = &caridxs;
-    
-    Super::init(bc, blkIdx, al, isin, CAR_COUNT, false);
+    mDestNoC0 = { U8_MAX, U8_MAX }; // init to illegal addr
+
+    //    HBMARK;
+
+    this->initEP(bc, this->getAtomicLock(), isin, CAR_COUNT, false);
+
+    HBMARK;
   }
 }

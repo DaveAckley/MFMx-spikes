@@ -21,7 +21,7 @@ namespace MFM {
     TagType mType;
     u8 mCard;
     u8 mTLBI;
-    U16C mPos;
+    U16C mNoC0;
 
     BHTag(u8 t, u8 c, u32 tlbi)
       : mType((TagType) t)
@@ -35,13 +35,13 @@ namespace MFM {
       : mType((TagType) t)
       , mCard(c)
       , mTLBI(0)
-      , mPos({0,0})
+      , mNoC0({0,0})
     { }
 
     BHTag(u8 t, u8 c, u8 x, u8 y)
       : mType((TagType) t)
       , mCard(c)
-      , mPos({x,y})
+      , mNoC0({x,y})
     {
       setTLBI();
     }
@@ -51,11 +51,11 @@ namespace MFM {
         mType == other.mType &&
         mCard == other.mCard &&
         mTLBI == other.mTLBI &&
-        mPos == other.mPos;
+        mNoC0 == other.mNoC0;
     }
 
-    void setTLBI() { mTLBI = U16C::makeTLBIFromNocCoord({mPos.x,mPos.y}); }
-    void setXY() { mPos = U16C::makeNocCoordFromTLBI(mTLBI); }
+    void setTLBI() { mTLBI = U16C::makeTLBIFromNocCoord({mNoC0.x,mNoC0.y}); }
+    void setXY() { mNoC0 = U16C::makeNocCoordFromTLBI(mTLBI); }
 
     std::string to_string() const {
       char buf[8];
@@ -69,16 +69,16 @@ namespace MFM {
       default: buf[0] = '#'; buf[1] = '#'; break; // try to break stuff in python/css
       }
       std::to_chars(buf+2,buf+3,mCard,10);
-      std::to_chars(buf+3,buf+4,mPos.x,36);
-      std::to_chars(buf+4,buf+5,mPos.y,36);
+      std::to_chars(buf+3,buf+4,mNoC0.x,36);
+      std::to_chars(buf+4,buf+5,mNoC0.y,36);
       return std::string(buf,5);
     }
 
     std::string to_repr() const {
       return "<T6:type="+std::to_string(mType)
         +",card="+ std::to_string(mCard)
-        +",x=" + std::to_string(mPos.x)
-        +",y=" + std::to_string(mPos.y)
+        +",x=" + std::to_string(mNoC0.x)
+        +",y=" + std::to_string(mNoC0.y)
         +",tlbi=" + std::to_string(mTLBI)
         +">";
     }
@@ -87,11 +87,11 @@ namespace MFM {
       t6.def(py::init<const u32,const u32,const u32,const u32>());
       t6.def_readwrite("card", &BHTag::mCard);
       t6.def_property("x",
-                      [](const BHTag& t6) { return t6.mPos.x; },
-                      [](BHTag& t6, u8 val) { t6.mPos.x = val; });
+                      [](const BHTag& t6) { return t6.mNoC0.x; },
+                      [](BHTag& t6, u8 val) { t6.mNoC0.x = val; });
       t6.def_property("y",
-                      [](const BHTag& t6) { return t6.mPos.y; },
-                      [](BHTag& t6, u8 val) { t6.mPos.y = val; });
+                      [](const BHTag& t6) { return t6.mNoC0.y; },
+                      [](BHTag& t6, u8 val) { t6.mNoC0.y = val; });
       t6.def_readonly("tlbi", &BHTag::mTLBI);
       t6.def("setTLBI",&BHTag::setTLBI);
       t6.def("__str__",&BHTag::to_string);
@@ -105,7 +105,7 @@ struct std::hash<MFM::BHTag> {
   std::size_t operator()(const MFM::BHTag & t) const {
     return
       (((((((t.mType << 1) + t.mCard) << 1) + t.mTLBI) << 1)
-        + t.mPos.x) << 1) + t.mPos.y;
+        + t.mNoC0.x) << 1) + t.mNoC0.y;
   }
 };
 

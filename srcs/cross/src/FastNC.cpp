@@ -138,7 +138,7 @@ namespace MFM {
     }
 
   };
-  FAST_LOCAL(FastNC,fNC,nc);
+  FAST_LOCAL(FastNC,fNC,n);
 
   int stepNC(HostBlock & hb) {
     fNC.runEPFuncsNC(false);

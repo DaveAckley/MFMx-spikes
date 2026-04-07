@@ -4,7 +4,9 @@
 # Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
 
 [Config]
- activeLayout=zotandewp
+# activeLayout=zotandewp
+ activeLayout=zotandewpandhub
+# activeLayout=ewpandhub
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [module.AcceptLogging]
@@ -15,24 +17,55 @@
 
 [layout.allone]
   bhcards = [2]
-  defaultImage = ZOT
+#  defaultImage = ZOT
+#  defaultImage = EWP
+  defaultImage = HUB
   cell.all = C1X1_ONE
+  #hostModules = [ AcceptLogging ]
+
+[layout.ewpandhub]
+  bhcards = [0]
+  defaultImage = EWP
+#  cell.all = C1X2_EWP_HUB
+  cell.all = C2X1_EWP_HUB
   #hostModules = [ AcceptLogging ]
 
 [layout.zotandewp]
   bhcards = [1]
   defaultImage = ZOT
-  cell.all = C1X2_TWO
+  cell.all = C1X2_ZOT
   #hostModules = [ AcceptLogging ]
+
+[layout.zotandewpandhub]
+  bhcards = [3]
+  defaultImage = EWP
+  cell.all = C2X2_ZEH
+  #hostModules = [ AcceptLogging ]
+
+[cell.C2X2_ZEH]
+  size = [2,2]
+  image.all.all = EWP
+  image.0.0 = ZOT
+  image.1.1 = HUB
 
 [cell.C1X1_ONE]
   size = [1,1]
-  image.all.all = ZOT
+  image.all.all = HUB
+#  image.all.all = EWP
 
-[cell.C1X2_TWO]
+[cell.C1X2_ZOT]
   size = [1,2]
   fill = ZOT
-  image.0.1 = EWP
+
+[cell.C1X2_EWP_HUB]
+  size = [1,2]
+  fill = EWP
+  image.0.1 = HUB
+
+[cell.C2X1_EWP_HUB]
+  size = [2,1]
+  fill = HUB
+  image.1.0 = EWP
 
 [image.ZOT]
   binfile="zot.bin"
@@ -41,3 +74,7 @@
 [image.EWP]
   binfile="ewp.bin"
   code=1
+
+[image.HUB]
+  binfile="hub.bin"
+  code=2

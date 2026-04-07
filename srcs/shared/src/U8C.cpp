@@ -7,6 +7,12 @@ namespace MFM {
     MFM_API_ASSERT(s.x >= U8_MIN && s.y >= U8_MIN, ILLEGAL_ARGUMENT);
   }
 
+  bool U8C::toS8C(S8C& s) {
+    if (x > S8_MAX || y > S8_MAX) return false;
+    s = *this;
+    return true;
+  }
+
   U8C U8C::operator+(const S8C & s8) const {
     s32 sx = x + s8.x;
     s32 sy = y + s8.y;

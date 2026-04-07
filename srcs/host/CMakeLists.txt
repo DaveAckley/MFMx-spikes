@@ -54,6 +54,7 @@ target_compile_options(MFMx PRIVATE
   target_link_libraries(MFMx PRIVATE pybind11::headers)
   install(TARGETS MFMx DESTINATION mfmx)
 
+  add_definitions(-DPROJECT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR})
 
 # If you need to link specific libraries for hostmain
 # target_link_libraries(hostmain PRIVATE

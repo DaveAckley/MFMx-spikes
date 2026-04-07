@@ -1,13 +1,13 @@
 #include "DefaultLives.h"
 #include "FastLocal.h"
+#include "Debug.h"
 
 namespace MFM {
   static int justLive(HostBlock & hb) {
-    hb.packString("JUSTLIVE");
+    HBMARK;
+
     u8 ch = hartChar(fAll.mHartNum);
-    hb.addBytes(':',ch);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
-  
     u16 spin = 0u;
     while (true) {
       if (spin++ == 0) hb.hartbeat(fAll.mHartNum);

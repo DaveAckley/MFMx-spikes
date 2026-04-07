@@ -75,13 +75,13 @@ namespace MFM {
       return true;
     }
 
-    u8 computeChecksum() const {
+    u8 computeChecksum() const { // lame-o 7bit checksum
       u32 sum = 0u;
       const u8 *b = (u8*) this;
       const u8 *p = b;
       const u8 *e = b + sizeof(CellBlock) - 1u; // don't sum the sum
-      while (p < e) sum = (sum<<1) + *p++;
-      return (u8) (1u + sum + (sum>>8) + (sum>>16) + (sum>>24)); // 1u: gtee all zeros fails
+      while (p < e) sum = (sum<<1) + *p++ + (sum>>31);
+      return ((u8) (sum + (sum>>8) + (sum>>16) + (sum>>24)))|1u; // 1u: gtee all zeros fails
     }
 
     void setChecksum() { mChecksum = computeChecksum(); }

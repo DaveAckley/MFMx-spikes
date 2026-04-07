@@ -35,11 +35,7 @@ namespace MFM {
     bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }
     
     ZotPayload & payload() { return *(ZotPayload*) getDataStart(); }
-    void init(u32 data, bool bongo) {
-      TC::reset();
-      setTCState(TCState::UNUSED,sizeof(ZotPayload));
-      payload().init(data,bongo);
-    }
+    void init(u32 data, bool bongo) ;
   };
 
   struct ZotBlockStg : TCBlock<ZotBlock,2> { // umm this struct could have been a typedef
@@ -47,29 +43,29 @@ namespace MFM {
   };
 
 
-  struct ZotEP : public T6EP<ZotEP,ZotBlockStg> {
-    using Super = T6EP<ZotEP,ZotBlockStg>;
+  struct ZotEP : public T6EP<ZotEP,ZotBlockStg,2,HARTNUM_NC> { // two zotblockstgs
+    using Super = T6EP<ZotEP,ZotBlockStg,2,HARTNUM_NC>;
 
     //// EP API
     const char * getName() const { return isIn() ? "ZotEP-i" : "ZotEP-o"; }
     u32 getCarSize() const { return sizeof(ZotBlock); }
     ZotBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      MFM_API_ASSERT(carindex < CAR_COUNT,ILLEGAL_ARGUMENT);
+      HBASSERT_LS(carindex, CAR_COUNT);
       return mOpsDataStg[carindex];
     }
     bool recvTC(ZotBlock & car, u8 carindex) ;
     //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6EP
 
-    void init(BlockCode destbc, u32 destidx, bool isin, ZotBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) ;
+    void initZotEP(BlockCode destbc, bool isin, Super::L1Data & l1data) ;
   };
   
   static constexpr u32 ZOTBLOCKS_IN_IDX = 0u;
   static constexpr u32 ZOTBLOCKS_OUT_IDX = 1u;
   static constexpr u32 ZOTBLOCKS_DEMO_COUNT = 2u;
-  extern ZotBlockStg theZotBlockCarsIO[ZOTBLOCKS_DEMO_COUNT];
+  // extern ZotBlockStg theZotBlockCarsIO[ZOTBLOCKS_DEMO_COUNT];
 
-  
+  extern T6EPL1Data<ZotBlockStg,ZOTBLOCKS_DEMO_COUNT> theZotBlockL1Data;
 
 }
 

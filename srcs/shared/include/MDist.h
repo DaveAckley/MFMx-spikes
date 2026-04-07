@@ -68,8 +68,9 @@ namespace MFM
     D4_E = 3,
   };
   
-  static Dir4 nextCCWDir(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
-  static Dir4 nextCWDir(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
+  static Dir4 nextCCWDir4(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
+  static Dir4 nextCWDir4(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
+  static Dir4 oppositeDir4(const Dir4 from) {  return (Dir4) ((from+2u)&0x3); }
 
   enum Dir8 {
     D8_NT = 0,

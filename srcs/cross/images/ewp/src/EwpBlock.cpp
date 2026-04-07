@@ -1,115 +1,88 @@
 #include "EwpBlock.h"
 #include "FastNC.h" // for EPFuncPtr
+#include "T6CellO.h"
 
 namespace MFM {
-  EwpBlockStg theEwpBlockCars[1];
-  AtomicLock theEwpBlockLock[1];
-  EwpEP::CarIdxs theEwpBlockIdxs[1];
+  T6EPL1Data<EwpBlockStg,1> theEwpL1Data;
 
-  FAST_LOCAL(EwpEP,myEwpEP,nc);
+  using EwpEP1 = EwpEP<1>;
+
+  //  EwpBlockStg theEwpBlockCars[1];
+  //  AtomicLock theEwpBlockLock[1];
+  //  EwpEP::CarIdxs theEwpBlockIdxs[1];
+
+  FAST_LOCAL(EwpEP1,myEwpEPNC,n);
+
+  struct CellOInfo {
+    T6CellO mCellO;
+    U8C mOurCP;
+    U8C mHubCP;
+    U8C mHubNoC0;
+  };
+  FAST_LOCAL(CellOInfo,fCOINC,n);
+
+  static void findHub() {
+    // find ourselves and set up
+    T6CellO & cello = fCOINC.mCellO;
+    if (!cello.init()) FAIL(NO_MATCH); // we need a hub and stuff, right? right?
+
+    //HBMARK;
+
+    // find our hub coords
+    fCOINC.mHubCP = cello.getCellPofImage(ImageCode::IC_HUB); // search cell for hub
+    HBPVAL(fCOINC.mHubCP);
+    MFM_API_ASSERT(cello.isValidCP(fCOINC.mHubCP),NOT_FOUND);
+    fCOINC.mHubNoC0 = cello.getNoC0ofCellP(fCOINC.mHubCP);
+
+    //    HBPVAL(fCOINC.mHubNoC0);
+    //    HBPVAL(fCOINC.mCellO.mImageTypeIndex);
+    
+    // OK. mCellO.mImageTypeIndex is our blockidx for HUB's BC_EWHUB
+  }
+
   static bool manageEwpNC(bool doInit) {
-    { static bool once;
-      extern HostBlock theHostBlock;
-      if (!once) theHostBlock.packString(" mngEwpNC\n");
-      once = true;
-    }
     bool ret = false;
     if (unlikely(doInit)) {
-      memset_s(&theEwpBlockCars[0],'\0',sizeof(theEwpBlockCars));
-      memset_s(&theEwpBlockLock[0],'\0',sizeof(theEwpBlockLock));
-      myEwpEP.init(BC_EWPCARS, 0u, false, theEwpBlockCars[0], theEwpBlockLock[0], theEwpBlockIdxs[0]);
-    { static bool once;
-      extern HostBlock theHostBlock;
-      if (!once) theHostBlock.packString(" mngEwpINNC\n");
-      once = true;
-    }
+      HBMARK;
+
+      theEwpL1Data.reset();     // zero all
+      auto & theEwpBlockCars = theEwpL1Data.mTheTCBlocks;
+
+      ///// BIRTH
+      findHub(); // find my feet find my face
+
+      // Set up cars
+      for (u32 i = 0; i < sizeof(theEwpBlockCars)/sizeof(theEwpBlockCars[0]); ++i) {
+        EwpBlockStg & ebs = theEwpBlockCars[i];
+        for (u32 c = 0; c < ebs.getCarCount(); ++c) {
+          EwpBlock & eb = ebs.getTC(c);
+          eb.init();
+        }
+      }
+      // Cars are now initted
+
+      // Set up our endpoint: Destination EWHUB[ourtypeidx]
+      myEwpEPNC.initEwpEP(BC_EWHUB, false, theEwpL1Data);
+      HBNOTE("ewCFD");
+      HBPVAL(fCOINC.mCellO.mImageTypeIndex);
+      myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, fCOINC.mCellO.mImageTypeIndex);
+      myEwpEPNC.activate();
       ret = true;
+      HBMARK;
+
     } else {
-    { static bool once;
-      extern HostBlock theHostBlock;
-      if (!once) theHostBlock.packString(" mngEwpUPNC\n");
-      once = true;
-    }
-      if (myEwpEP.updateOps()) ret = true;
+
+      //// LIFE
+      SNAP(5,HBMARK);
+      if (myEwpEPNC.updateOps()) {
+        ret = true;
+        HBMARK;
+      }
     }
     return ret;
   }
   
   __attribute__((section(".rodata_fp_table_nc")))
   EPFuncPtr ewpEPPtr = &manageEwpNC;
-      
 
-  void EwpEP::init(BlockCode destbc, u32 destidx, bool isin, EwpBlockStg & cars, AtomicLock & al, CarIdxs & caridxs) {
-    {
-      static u32 once;
-      if (once < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes(isin?'I':'O',hartChar(fAll.mHartNum));
-        ++once;
-      }
-    }
-
-    Super::init(destbc, destidx, isin, cars, al, caridxs);
-    {
-      static u32 once;
-      if (once < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes(isin?'i':'o',hartChar(fAll.mHartNum));
-        ++once;
-      }
-    }
-  }
-     
-  bool EwpEP::recvTC(EwpBlock & car, u8 carindex) {
-
-    CarIdxRB & crb = mCarIdxsPtr->mIdxs[TC2EP];
-    if (crb.isFull()) return false; // bail if can't notify??
-
-    // Open it up. (Assuming all full-size payloads here..)
-    car.setTCState(TCState::OPEN,EwpBlock::MAX_PAYLOAD_SIZE);
-
-#ifndef BUILD_HOST      
-    {
-      extern HostBlock theHostBlock;
-      char buf[100];
-      npf_snprintf(buf,100," %s ERCV #%u 0x%p sz%u %luW\n",
-                   this->getName(),carindex,&car,
-                   car.getHeader().mTCMSize,
-                   car.getHeader().getPacketWords());
-      theHostBlock.packString(buf);
-    }
-#endif
-
-
-    
-    crb.add(carindex); //notify hB
-    
-#ifndef BUILD_HOST      
-    if (false) {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('(','(');
-      theHostBlock.addBytes('0'+carindex,hartChar(fAll.mHartNum));
-      theHostBlock.addBytes('0'+crb.mFirstUsedIdx,'0'+crb.mFirstFreeIdx);
-      theHostBlock.addBytes(')',')');
-    }
-#endif
-    return true;
-  }
-
-  EwpBlock * EwpEP::getCarPtrIfAny(u8 carindex) const {
-#ifndef BUILD_HOST      
-    {
-      static u32 once;
-      if (once<5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes(':',hartChar(fAll.mHartNum));
-        theHostBlock.addBytes('0'+carindex,hartChar(fAll.mHartNum));
-        once++;
-      }
-    }
-#endif
-    if (carindex >= CAR_COUNT) return 0;
-    MFM_API_ASSERT_NONNULL(mCarStgPtr);
-    return &mCarStgPtr->getTC(carindex);
-  }
 }

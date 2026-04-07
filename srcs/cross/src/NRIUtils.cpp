@@ -5,6 +5,7 @@
 #include "FastT0.h" // for millisElapsed
 #include "FastT2.h" // for create
 #include "T6Grid.h"
+#include "Debug.h"
 
 #define LOGP
 
@@ -59,52 +60,60 @@ namespace MFM {
     *p = value;
   }
 
-  bool NRI3::blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
-                            u32 wordcount, u32 * destaddr) { 
+  bool NRI3::blockingL1ReadCT6(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
+                               u32 wordcount, u32 * destaddr) { 
+    U8C usnocc = U8C::makeNoC0CoordFromCT6Coord(ct6us);
+    U8C themnocc = U8C::makeNoC0CoordFromCT6Coord(ct6readfrom);
+    return blockingL1ReadNoC0(usnocc, themnocc, l1readaddr, wordcount, destaddr);
+  }
+
+  bool NRI3::blockingL1ReadNoC0(U8C usnoc0, U8C fromnoc0, u32 l1readaddr,
+                                u32 wordcount, u32 * destaddr) { 
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+
+    if (!U8C::onBoardNoC0Coord(usnoc0) ||
+        !U8C::onBoardNoC0Coord(fromnoc0))
+      return false;
+
+    //HBMARK;
     u32 useNoC = 0u;
     const u32 MAXWORDS = 16u;
     if (wordcount > MAXWORDS) return false;
     
-    volatile static u8 readBuffer[MAXWORDS*4u+16u+4u]; // In L1 For Sure
-    u32 baseaddr = (u32) &readBuffer[0];
+    volatile static u32 privateL1ReadBuffer[MAXWORDS+4u+1u]; // +4 for alignment +1 for fear
+    u32 baseaddr = (u32) &privateL1ReadBuffer[0];
+    //HBXVAL(baseaddr);
+    //HBXVAL(baseaddr+sizeof(privateL1ReadBuffer));
     {
       /* ASSUMING THE WORMHOLEB0 RESTRICTIONS APPLY TO BLACKHOLEA0, SINCE
          https://github.com/tenstorrent/tt-isa-documentation/blob/main/BlackholeA0/NoC/Alignment.md
-         IS A FUCKING 404 ON Wed Jan 28 11:08:17 2026 
+         IS A BLASTED 404 ON Wed Jan 28 11:08:17 2026 
          AND IS STILL 404 ON Sun Feb 22 15:36:47 2026 
+         AND IS STILL 404 ON Mon Apr  6 12:11:20 2026 
       */
 
       u32 sm16 = l1readaddr % 16;
       u32 dm16 = baseaddr % 16;
-      u32 adj = sm16 - dm16; // might underflow?
-      if (adj != 0u)
-        baseaddr += 16u + adj;
-      u32 fm16 = baseaddr % 16;
-      P.printf("BL1RS RVL1 s%u - d%u = %u, f%d [0x%08x] @ 0x%08x for 0x%x\n",
-               sm16, dm16, adj, fm16,
-               readBuffer,baseaddr,l1readaddr);
+      if (sm16 > dm16) baseaddr += sm16 - dm16;
+      else if (sm16 < dm16) baseaddr += 16u + sm16 - dm16;
+      //      HBXVAL(baseaddr);
+      HBASSERT_EQ(baseaddr % 16, sm16);
     }
     u32 spin = 0u;
     while (isNRIBusy(useNoC)) {  
       if ((++spin % 0xfffff) == 0u) {
-        P.printf("BL1R enter long block 0x%x\n",spin);
+        HBNOTE("OUST");
         return false;
       }
     }
 
-    U8C usnocc = U8C::makeNoC0CoordFromCT6Coord(ct6us);
-    U8C themnocc = U8C::makeNoC0CoordFromCT6Coord(ct6readfrom);
-    if (!U8C::onBoardNoC0Coord(usnocc) ||
-        !U8C::onBoardNoC0Coord(themnocc))
-      return false;
-
     writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_LO, l1readaddr); // 32 bit address of source
     writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(themnocc));
+    writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(fromnoc0));
 
     writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_LO, baseaddr); // return read value here
     writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits 
-    writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(usnocc));
+    writeNRIAddress(useNoC,NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(usnoc0));
 
     writeNRIAddress(useNoC,NRI_NOC_PACKET_TAG, NRI3_BLOCKING_TRANSACTION_ID<<10); // set transaction ID
     writeNRIAddress(useNoC,NRI_NOC_CTRL, (0u<<0));          // NOC_CMD_RD
@@ -116,46 +125,103 @@ namespace MFM {
     writeNRIAddress(useNoC,NRI_NOC_CMD_CTRL,1);             // initiate write
     readNRIAddress(useNoC,NRI_NOC_CMD_CTRL);                // read for memory ordering
 
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
     spin = 0u;
     while (readNIUReqsOutstanding(useNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) {
+      if (spin==0) HBNOTE("RQOTS");
       if ((++spin % 0xfffff) == 0u) {
-        P.printf("BL1R xaction long block 0x%x\n",spin);
-        return false;
+        HBPVAL(spin);
       }
     }
+    HBXVAL(l1readaddr);
 
-    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    // XXX_DEBUG_FUNC(__FILE__,__LINE__);
 
     u32 *data = (u32*) baseaddr;
-    P.printf("BL1RX RVL1 TO 0x%08x READ %uB (after %d)\n",
-             baseaddr, wordcount<<2u, spin);
+    //HBXVAL(data);
     for (u32 i = 0u; i < wordcount; ++i) {
       destaddr[i] = data[i];
-      P.printf("BL1RY %d:0x%08x\n", i, destaddr[i]);
+      //      HBXVAL(data[i]);
     }
     return true;
   }
 
-  ImageBlockHeader NRI3::blockingReadImageBlockHeader(U8C usnoc, S8C ct6off) {
+  bool NRI3::findBlockCodeInNoC0(U8C ournoc0, U8C theirnoc0, BlockCode bc, ImageBlockAddr & foundiba) {
+    //    HBNOTE("FBCN");
+    ImageBlockHeader ibh = NRI3::blockingReadImageBlockHeaderNoC0(ournoc0, theirnoc0);
+    HBPVAL(ibh.isValid());
+    HBPVAL(ournoc0);
+    HBPVAL(theirnoc0);
+    
+    //  SEARCH THEIR IBAS FOR BC (always on noc0, using a lot more packets & bandwidth than needed, but hey..)
+    for (u32 idx = 0u; idx < ibh.mEntries; ++idx) {
+      ImageBlockAddr iba = NRI3::blockingReadImageBlockAddrNoC0(ournoc0, theirnoc0, idx);
+
+      HBPVAL(iba.isValid());
+
+      if (iba.mBlockCode == bc) { //  IF FOUND,
+        //  SET FOUNDIBA AND RETURN TRUE
+        foundiba = iba;
+        return true;
+      }
+    }
+    return false; // NOT FOUND
+  }
+
+  ImageBlockHeader NRI3::blockingReadImageBlockHeaderNoC0(U8C usNoC0, U8C fromNoC0) {
+    //    HBNOTE("BRIBH0");
+
     ImageBlockHeader ret;       // uninit -> INVALID
+    U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usNoC0);
+    //HBPVAL(usct6);
+    if (!U8C::onBoardCT6Coord(usct6)) return ret;
+
+    U8C themct6 = U8C::makeCT6CoordFromNoC0Coord(fromNoC0);
+    //HBPVAL(themct6);
+    if (!U8C::onBoardCT6Coord(themct6)) return ret;
+
+    return blockingReadImageBlockHeaderCT6Offset(usNoC0,themct6-usct6);
+  }
+
+  ImageBlockHeader NRI3::blockingReadImageBlockHeaderCT6Offset(U8C usnoc, S8C ct6off) {
+    //HBNOTE("BRICT");
+    ImageBlockHeader ret;  
+    ret.reset();                // reset state -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
 
+    //HBPVAL(usct6);
     U8C themct6 = usct6 + ct6off;
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
 
+    //HBPVAL(themct6);
     const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
 
-    blockingL1Read(usct6, themct6,
-                   (u32) ibux14,
-                   sizeof(ImageBlockHeader)>>2u,
-                   (u32*) &ret);
+    blockingL1ReadCT6(usct6, themct6,
+                      (u32) ibux14,
+                      sizeof(ImageBlockHeader)>>2u,
+                      (u32*) &ret);
+    //HBPVAL(ret.isValid());
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
-  ImageBlockAddr NRI3::blockingReadImageBlockAddr(U8C usnoc, S8C ct6off, u32 ibaIndex) {
+  ImageBlockAddr NRI3::blockingReadImageBlockAddrNoC0(U8C usnoc, U8C fromnoc, u32 ibaindex) {
+    ImageBlockAddr ret;       // uninit -> INVALID
+    if (!U8C::isNoC0CoordAT6(usnoc)) return ret;
+    if (!U8C::isNoC0CoordAT6(fromnoc)) return ret;
+
+    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    const u32 *iba = ibux14 + 1u + ibaindex*(sizeof(ImageBlockAddr)>>2u);
+
+    blockingL1ReadNoC0(usnoc,fromnoc,
+                      (u32) iba,
+                      sizeof(ImageBlockAddr)>>2u,
+                      (u32*) &ret);
+    return ret; //< whether read succeeded (then us too) or not (then us neither)
+  }
+
+  ImageBlockAddr NRI3::blockingReadImageBlockAddrCT6Offset(U8C usnoc, S8C ct6off, u32 ibaIndex) {
     ImageBlockAddr ret;       // uninit -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
@@ -166,28 +232,22 @@ namespace MFM {
     const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
     const u32 *iba = ibux14 + 1u + ibaIndex*(sizeof(ImageBlockAddr)>>2u);
 
-    blockingL1Read(usct6, themct6,
-                   (u32) iba,
-                   sizeof(ImageBlockAddr)>>2u,
-                   (u32*) &ret);
+    blockingL1ReadCT6(usct6, themct6,
+                      (u32) iba,
+                      sizeof(ImageBlockAddr)>>2u,
+                      (u32*) &ret);
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
   s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+
     MFM_API_ASSERT((wordCount*4u)<=(1u<<14),OUT_OF_RESOURCES); // packets don't go over 16KB for this code
     MFM_API_ASSERT(isInL1(sourcedata),ILLEGAL_STATE);
     MFM_API_ASSERT(isInL1(destaddr), ILLEGAL_ARGUMENT);
     MFM_API_ASSERT((destaddr % 16) == (((u32)sourcedata) % 16), BAD_ALIGNMENT); // rule for small packets L1->L1
     u32 usenoc = 0u; // should be useNoC(usnoc0, noc0) when that exists
-    /*
-    C9printf("iW2T6 noc%d %u,%u:0x%p+%u -> %u,%u:0x%p\n",
-             usenoc,
-             sourcenoc0.x,sourcenoc0.y,
-             sourcedata,
-             wordCount*4,
-             destnoc0.x,destnoc0.y,
-             destaddr);
-    */
+
     waitTilNRIClear(usenoc);
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source
@@ -209,19 +269,20 @@ namespace MFM {
   }
 
   void NRI3::waitTilNRIClear(u8 noc) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
     u32 count = 0u;
     while (isNRIBusy(noc)) {
       if (++count == 0u) FAIL(IO_ERROR);
     }
   }
 
-  const char * NRI3::getCarStateName(TCCommon::TCState cs) {
+  const char * NRI3::getCarStateName(TCState cs) {
     switch (cs) {
-    case TCCommon::TCState::UNUSED: return "Un";
-    case TCCommon::TCState::OPEN: return "Op";
-    case TCCommon::TCState::CLOSED: return "Cl";
-    case TCCommon::TCState::INBOUND_DEPARTED: return "ID";
-    case TCCommon::TCState::OUTBOUND_DEPARTED: return "OD";
+    case TCState::UNUSED: return "Un";
+    case TCState::OPEN: return "Op";
+    case TCState::CLOSED: return "Cl";
+    case TCState::INBOUND_DEPARTED: return "ID";
+    case TCState::OUTBOUND_DEPARTED: return "OD";
     }
     return "??";
   }

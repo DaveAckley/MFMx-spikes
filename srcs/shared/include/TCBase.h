@@ -4,7 +4,7 @@
 namespace MFM {
 
   template <class SUBTC>
-  struct TCBase : public TCCommon {
+  struct TCBase {
 
 #ifndef BUILD_HOST      
     void checkSizeBlow(TCMarker h,u32 payb,const char * file, unsigned line) const { 
@@ -27,8 +27,6 @@ namespace MFM {
     void checkSizeBlow(TCMarker h,u32 payb,const char * file, unsigned line) const { }
 #endif
 
-    using TCCommon::TCMarker;
-    using TCCommon::TCWord;
     // self(): access this by subtype
     SUBTC& self() { return static_cast<SUBTC&>(*this); }
     SUBTC const & self() const { return static_cast<SUBTC const&>(*this); }
@@ -46,30 +44,72 @@ namespace MFM {
     TCState getTCState() const { return getHeader().getTCState(); }
 
     void writeMarkers(TCMarker m) {
-      getHeader() = m;          // write header
+#ifndef BUILD_HOST      
+      if (false) {
+        extern HostBlock theHostBlock;
+        char buf[100];
+        u8 tcms = m.mTCMSize;
+        u32 aidx = TCMarker::getAnkleWordIndex(tcms);
+        u32 fidx = TCMarker::getFooterWordIndex(tcms);
+        u32 av = getWordAt(aidx).mWord;
+        u32 fv = getWordAt(fidx).mWord;
+        npf_snprintf(buf,100,"wM- s%u pay %luB a[%lu]=0x%08lx f[%lu]=0x%08lx\n",
+                     tcms, m.getPayloadCapacity(), aidx, av, fidx, fv);
+        theHostBlock.packString(buf);
+      }
+#endif
+
+      getHeader() = m;                    // write header
       if (TCMarker::hasAnkle(m.mTCMSize)) // if this size has an ankle
-        getAnkle() = m;         // write it too
-      getFooter() = m;          // finally, write footer
+        getAnkleOrDie() = m;              // write it too
+      getFooter() = m;                    // finally, write footer
+
+#ifndef BUILD_HOST      
+      if (false) {
+        extern HostBlock theHostBlock;
+        char buf[100];
+        m = getHeader();
+        u8 tcms = m.mTCMSize;
+        u32 aidx = TCMarker::getAnkleWordIndex(tcms);
+        u32 fidx = TCMarker::getFooterWordIndex(tcms);
+        u32 av = getWordAt(aidx).mWord;
+        u32 fv = getWordAt(fidx).mWord;
+        npf_snprintf(buf,100,"wM+ s%u pay %luB a[%lu]=0x%08lx f[%lu]=0x%08lx\n",
+                     tcms, m.getPayloadCapacity(), aidx, av, fidx, fv);
+        theHostBlock.packString(buf);
+      }
+#endif
+    
     }
 
     //    u32 getPacketWords() const { return getHeader().getPacketWords(); }
     //    u32 getPacketBytes() const { return getHeader().getPacketBytes(); }
 
-    bool setTCStateOnly(TCState newtcs) { // update state without changing size or nonce
-      TCMarker h = getHeader();
-      if (newtcs == h.mTCMState) return false; // if no change, bail
-      h.mTCMState = newtcs;                  // change state
-      writeMarkers(h);
-      return true;
+    void resetTC() {
+      FAIL(INCOMPLETE_CODE);
     }
 
-    void setTCState(TCState newtcs, u32 payb) {
-      MFM_API_ASSERT(payb <= getMaxPayloadSize(), ILLEGAL_ARGUMENT);
-      TCMarker h = getHeader();
-      checkSizeBlow(h,payb,__FILE__,__LINE__);
-      h.reinit(payb, newtcs);   // set everything except just increment the nonce
+    void openTC() {
+      TCMarker & h = getHeader();
+      h.mTCMState = TCState::OPEN; // no bump nonce, no write markers
+    }
 
-      checkSizeBlow(h,payb,__FILE__,__LINE__);
+    void setDepartingTC(TCState departingState) {
+      TCMarker h = getHeader();
+      MFM_API_ASSERT(h.getTCState() == TCState::CLOSED, ILLEGAL_STATE);
+      // tcmSize was set at closing
+      h.mTCMNonce++;
+      h.mTCMState = departingState;
+      writeMarkers(h);
+    }
+
+    void closeTC(u32 finalPayloadBytes) {
+      MFM_API_ASSERT(finalPayloadBytes <= getMaxPayloadSize(), OUT_OF_ROOM);
+
+      TCMarker h = getHeader();
+      MFM_API_ASSERT(h.getTCState() == TCState::OPEN, ILLEGAL_ARGUMENT);
+
+      h.reinit(finalPayloadBytes, TCState::CLOSED); // sets tcmSize here
       writeMarkers(h);
     }
 

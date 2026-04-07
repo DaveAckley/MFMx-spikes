@@ -4,6 +4,7 @@
 #include "itype.h"
 #include "Fail.h"
 #include "TCBase.h"
+#include "TCMarker.h"
 
 namespace MFM {
 
@@ -12,11 +13,11 @@ namespace MFM {
     static constexpr u32 MAX_PAYLOAD_SIZE = MAX_PAYLOAD_BYTES;
 
     using Self = TC<SUBSUBTC,MAX_PAYLOAD_SIZE>; 
-    using typename TCBase<SUBSUBTC>::TCMarker;
-    using typename TCBase<SUBSUBTC>::TCWord;
+    //    using typename TCBase<SUBSUBTC>::TCMarker;
+    //    using typename TCBase<SUBSUBTC>::TCWord;
 
     static constexpr u32 MAX_PACKET_SIZE = TCMarker::getPacketBytesFromPayloadSize(MAX_PAYLOAD_SIZE);
-    static_assert((MAX_PACKET_SIZE >= MAX_PAYLOAD_SIZE),"NOT A REAL CLAIM JUST DEBUG");
+    //static_assert((MAX_PACKET_SIZE >= MAX_PAYLOAD_SIZE),"NOT A REAL CLAIM JUST DEBUG");
     static_assert((MAX_PACKET_SIZE >= 8),"MAX_PACKET_SIZE TOO SMALL");
     static_assert((MAX_PACKET_SIZE%4 == 0),"MAX_PACKET_SIZE%4 != 0");
 
@@ -38,7 +39,10 @@ namespace MFM {
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
     }
 
-    void reset() { memset_s(this,'\0',sizeof(*this)); }
+    void reset() {
+      memset_s(this,'\0',sizeof(*this));
+      this->getHeader() = TCMarker(getMaxPayloadSize());
+    }
 
     // SUBCLASS OF TC MUST IMPLEMENT:
     //bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }

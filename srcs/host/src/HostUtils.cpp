@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <cxxabi.h>             // for demangle ugh
 #include "BHLog.h"
-
+#include <string>
+#include <regex>
+#include "utils.h" // for XSTR_MACRO
 
 namespace MFM {
 
@@ -66,7 +68,18 @@ namespace MFM {
 
   void initHostLogging() {
     std::string dt = dateTimeStamp();
-    hostlogdir = "/tmp/MFMx-" + dt + "/";
+#ifndef PROJECT_SOURCE_DIR
+#error "Need PROJECT_SOURCE_DIR"
+#endif    
+    std::string path = XSTR_MACRO(PROJECT_SOURCE_DIR);
+    std::regex pat("/spikes/([^/]+)/");
+    std::smatch matches;
+    std::string spike = "";
+    if (std::regex_search(path, matches, pat)) {
+      spike = matches[1].str() + "-";
+    }
+    
+    hostlogdir = "/tmp/" + std::string(spike) + "MFMX-" + dt + "/";
     // create dir to hold all the rest.
     std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
     std::filesystem::create_directories(hostlogdir+"host/");  // for other BHTags

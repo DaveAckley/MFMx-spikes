@@ -57,7 +57,8 @@ namespace MFM {
 #pragma GCC diagnostic ignored "-Wformat"
       if (iba.goodMagic()) 
         snprintf(buf,BUF_SIZ,
-                 "<ImageBlockAddr:bc=%u,al=%u,hc=%u/0x%x,ad=0x%x>",
+                 "<ImageBlockAddr:bc=%s(%u),al=%u,hc=%u/0x%x,ad=0x%x>",
+                 getNameFromBlockCode((BlockCode) iba.getBlockCode()),
                  iba.getBlockCode(),
                  iba.getArrayLength(),
                  iba.getHostChunkOffsetOpt(),
@@ -78,8 +79,11 @@ namespace MFM {
 
   struct ImageBlockHeader {
     static const u8 IBMAGIC = 0x1b; // 
-    //    static const u8 IBCIGAM = 0xb2; //
 
+    void reset() {              // makes invalid
+      memset_s(this,'\0',sizeof(*this));
+    }
+    
     void init(const u32 * words) {
       init((const char *) words);
     }

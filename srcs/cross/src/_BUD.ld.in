@@ -51,10 +51,10 @@ SECTIONS
     /* stick fastram at the front of the private data! */
     .fastram_all (NOLOAD) : AT(ORIGIN(FAST_RAM_ALL)) { *(.fastram_all) } > FAST_RAM_ALL
     .fastram_b (NOLOAD) : AT(ORIGIN(FAST_RAM_B)) { *(.fastram_b) } > FAST_RAM_B
-    .fastram_t0 (NOLOAD) : AT(ORIGIN(FAST_RAM_T0)) { *(.fastram_t0) } > FAST_RAM_T0
-    .fastram_t1 (NOLOAD) : AT(ORIGIN(FAST_RAM_T1)) { *(.fastram_t1) } > FAST_RAM_T1
-    .fastram_t2 (NOLOAD) : AT(ORIGIN(FAST_RAM_T2)) { *(.fastram_t2) } > FAST_RAM_T2
-    .fastram_nc (NOLOAD) : AT(ORIGIN(FAST_RAM_NC)) { *(.fastram_nc) } > FAST_RAM_NC
+    .fastram_0 (NOLOAD) : AT(ORIGIN(FAST_RAM_T0)) { *(.fastram_0) } > FAST_RAM_T0
+    .fastram_1 (NOLOAD) : AT(ORIGIN(FAST_RAM_T1)) { *(.fastram_1) } > FAST_RAM_T1
+    .fastram_2 (NOLOAD) : AT(ORIGIN(FAST_RAM_T2)) { *(.fastram_2) } > FAST_RAM_T2
+    .fastram_n (NOLOAD) : AT(ORIGIN(FAST_RAM_NC)) { *(.fastram_n) } > FAST_RAM_NC
     
   /* BEGIN STUFF CARGO-CULTED FROM MAIN.LD */
   .empty.init.fini :

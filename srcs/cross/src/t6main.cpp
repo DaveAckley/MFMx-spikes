@@ -28,9 +28,9 @@ namespace MFM {
 
   int t6inithostblock(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
-    hb.mPos.x = ((node_id >> 0) & 0x3f);
-    hb.mPos.y = ((node_id >> 6) & 0x3f);
-    hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mPos.x,hb.mPos.y});
+    hb.mNoC0.x = ((node_id >> 0) & 0x3f);
+    hb.mNoC0.y = ((node_id >> 6) & 0x3f);
+    hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mNoC0.x,hb.mNoC0.y});
     hb.addBytes('t','6');
     return 0;
   }

@@ -107,8 +107,8 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	la t1, __fast_start     # get local ptr
 	la t2, __hostblock_start # get hb ptr
 	sb s0,(t1)              # set fast[0] 0..7 to hartnum
-        lhu t3,24(t2)           # get hb.mPos
-        sh t3,2(t1)             # stash in fALL.mPos
+        lhu t3,24(t2)           # get hb.mNoC0
+        sh t3,2(t1)             # stash in fALL.mNoC0
 
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value

@@ -3,9 +3,9 @@
 #include "itype.h"
 #include <string>
 #include "MDist.h"
+#include "S8C.h"
 
 namespace MFM {
-  struct S8C; // FORWARD
 
   struct U8C {
     u8 x, y;
@@ -13,6 +13,8 @@ namespace MFM {
     U8C() : x(0), y(0) { }
     U8C(u8 ax, u8 ay) : x(ax), y(ay) { }
     U8C(S8C s) ;
+
+    bool toS8C(S8C& s) ;
 
     void reset() { x = y = 0u; }
 
@@ -29,6 +31,7 @@ namespace MFM {
     U8C operator%(const U8C & other) const { return U8C(x % other.x, y % other.y); }
     U8C operator+(const U8C & other) const { return U8C(x + other.x, y + other.y); }
     U8C operator+(const S8C & s8) const ;
+    S8C operator-(const U8C & other) const { return S8C(((s32)x) - other.x, ((s32)y) - other.y); }
     bool addTo(const S8C & s8) ;
 
     std::string to_repr() const {

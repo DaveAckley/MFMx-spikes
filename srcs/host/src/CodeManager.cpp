@@ -130,7 +130,7 @@ namespace MFM {
         mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) & rbhb, sizeof(HostBlock)>>2u);
         u32 hbmagicpre = rbhb.mHBMagic;
         //printf("HostBlock magic %x\n", hbmagicpre);
-        //printf("HostBlock x %u y %u\n", rbhb.mPos.x, rbhb.mPos.y);
+        //printf("HostBlock x %u y %u\n", rbhb.mNoC0.x, rbhb.mNoC0.y);
         if (hbmagicpre != HostBlock::HBMAGIC)
           HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%0x\n",hbmagicpre);
         if (rbhb.mHBCigam != HostBlock::HBCIGAM)
@@ -218,7 +218,7 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
       if (false) {
         LOGprintf(mCardNum,"HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
                hb.mHBMagic,tlbi,hb.mTLBI,
-               hb.mPos.x,hb.mPos.y,
+               hb.mNoC0.x,hb.mNoC0.y,
                hb.mPerHartStatus[0],
                hb.mPerHartStatus[1],
                hb.mPerHartStatus[2],
@@ -230,9 +230,9 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
       if (hb.mHBCigam != HostBlock::HBCIGAM)
         HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
       U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
-      if (true && (hb.mPos.x != nocc.x || hb.mPos.y != nocc.y || hb.mTLBI != tlbi))
+      if (true && (hb.mNoC0.x != nocc.x || hb.mNoC0.y != nocc.y || hb.mTLBI != tlbi))
         HOST_FATAL(BAD_VALUE,"Bad NOC0 COORD (%u,%u) wanted (%u,%u) @ %u vs %u\n",
-                   hb.mPos.x,hb.mPos.y,
+                   hb.mNoC0.x,hb.mNoC0.y,
                    nocc.x, nocc.y,
                    tlbi, hb.mTLBI
                    );
@@ -248,7 +248,7 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
         }
         if (idx != 0u) {
           buf[idx] = 0;
-          LOGprintf(mCardNum,"(%u,%u)HB<%s>\n",hb.mPos.x,hb.mPos.y,buf);
+          LOGprintf(mCardNum,"(%u,%u)HB<%s>\n",hb.mNoC0.x,hb.mNoC0.y,buf);
         }
       }
     }
@@ -290,10 +290,10 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         }
 
         U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
-        if (hb.mPos.x != nocc.x || hb.mPos.y != nocc.y)
+        if (hb.mNoC0.x != nocc.x || hb.mNoC0.y != nocc.y)
           LOGprintf(mCardNum,"CROOD MIMSATCH %u (%u,%u) vs (%u,%u)\n",
                  tlbi, nocc.x, nocc.y,
-                 hb.mPos.x, hb.mPos.y);
+                 hb.mNoC0.x, hb.mNoC0.y);
         if (true && tries<3 && tlbi<10u)
           LOGprintf(mCardNum,"\n[%u] %d,%d,%d,%d,%d\n",
                  tlbi,
@@ -443,7 +443,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
             Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
+                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,hartName(hart),
                     path,
                     hb.mPerHartFailFileLine[hart],
                     getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
@@ -451,7 +451,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           } else {
             Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK? NOFID 0x%08x = FAIL%d:%s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mPos.x,hb.mPos.y,hartName(hart),
+                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,hartName(hart),
                     hb.mPerHartWatchdog[hart],
                     hb.mPerHartStatus[hart],
                     getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
@@ -481,7 +481,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         buf[idx] = 0;
         Eprintf("%.03f BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",
                 runTimeSeconds(),
-                mCardNum,hb.mPos.x,hb.mPos.y,buf);
+                mCardNum,hb.mNoC0.x,hb.mNoC0.y,buf);
       }
     }
     return 0;

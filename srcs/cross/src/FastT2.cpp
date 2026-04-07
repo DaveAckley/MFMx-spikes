@@ -38,7 +38,7 @@ namespace MFM {
       return ret;
     }
   };
-  FAST_LOCAL(FastT2,fT2,t2);
+  FAST_LOCAL(FastT2,fT2,2);
 
   static volatile bool mT2Serving = false; 
   //  static AtomicLock t2ServingLock;
@@ -128,7 +128,7 @@ namespace MFM {
         ++count;
       }
     }
-      u32 seed = hb.mCommonArgs[0] * (hb.mPos.x+1) + (hb.mPos.y);
+      u32 seed = hb.mCommonArgs[0] * (hb.mNoC0.x+1) + (hb.mNoC0.y);
       fT2.mRandom.seedMT_MFM(seed);
 
       {
@@ -145,7 +145,6 @@ namespace MFM {
       bool canread;
 
       for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
-        //DP.printf("IT2:%u[%s] @0x%08x\n",hartnum,hartName(hartnum),addr);
         while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
           u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
         }

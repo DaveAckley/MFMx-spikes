@@ -27,7 +27,7 @@ namespace MFM {
       return (((u64) hi1)<<32u)|lo;
     }
   };
-  FAST_LOCAL(FastT0,fT0,t0);
+  FAST_LOCAL(FastT0,fT0,0);
 
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;

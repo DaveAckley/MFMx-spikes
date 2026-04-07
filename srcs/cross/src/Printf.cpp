@@ -2,6 +2,7 @@
 #include "Fail.h"
 #include "AtomicLock.h"
 #include "FastLocal.h"
+#include "Debug.h"
 
 #if 1
 #define NANOPRINTF_USE_FIELD_WIDTH_FORMAT_SPECIFIERS 1
@@ -55,6 +56,10 @@ namespace MFM {
   }
 
   u32 Printer::vprintf(const char * format, va_list ap) {
+    if (!mPutc || !mPrintLockPtr) {
+      HBMARK;
+      HBNOTE(format);           // a hint before dying?
+    }
     MFM_API_ASSERT_NONNULL(mPutc);
     MFM_API_ASSERT_NONNULL(mPrintLockPtr);
     void * contextIsPrinter = this;
@@ -78,8 +83,8 @@ namespace MFM {
     u32 ret;
     /*
     if (false && this == &DP &&
-        (fAll.mPos.x < 3 || fAll.mPos.x > 5 ||
-         fAll.mPos.y < 3 || fAll.mPos.y > 5))
+        (fAll.mNoC0.x < 3 || fAll.mNoC0.x > 5 ||
+         fAll.mNoC0.y < 3 || fAll.mNoC0.y > 5))
       ret = 1u;
     else
     */

@@ -13,11 +13,19 @@ namespace MFM {
     S8C(const SPoint sp) : x(sp.GetX()), y(sp.GetY()) { }
     S8C(s32 sx, s32 sy) : x(sx), y(sy) { }
     S8C(U8C u) ;
-    
+
     s8 x, y;
 
     S8C operator+(const S8C other) const { return S8C(x+other.x,y+other.y); }
     S8C operator-(const S8C other) const { return S8C(x-other.x,y-other.y); }
+
+    bool operator==(const S8C & other) const { return x==other.x && y==other.y; }
+    bool operator!=(const S8C & other) const { return !(*this == other); }
+    S8C operator*(const S8C & other) const { return S8C(x * other.x, y * other.y); }
+    S8C operator/(const S8C & other) const { return S8C(x / other.x, y / other.y); }
+    S8C operator%(const S8C & other) const { return S8C(x % other.x, y % other.y); }
+
+    bool toU8C(U8C& u) ;
 
     u16 length() const {
       u16 l = 0;
@@ -41,13 +49,23 @@ namespace MFM {
     static S8C makeS8CFromDir8(Dir8 d8) {
       switch (d8) {
       case D8_NT: return S8C( 0,-1);
-      case D8_NW: return S8C( 1,-1);
-      case D8_WT: return S8C( 1, 0);
-      case D8_SW: return S8C( 1, 1);
+      case D8_NW: return S8C(-1,-1);
+      case D8_WT: return S8C(-1, 0);
+      case D8_SW: return S8C(-1, 1);
       case D8_ST: return S8C( 0, 1);
-      case D8_SE: return S8C(-1, 1);
-      case D8_ET: return S8C(-1, 0);
-      case D8_NE: return S8C(-1,-1);
+      case D8_SE: return S8C( 1, 1);
+      case D8_ET: return S8C( 1, 0);
+      case D8_NE: return S8C( 1,-1);
+      default: FAIL(ILLEGAL_ARGUMENT);
+      }
+    }
+
+    static S8C makeS8CFromDir4(Dir4 d4) {
+      switch (d4) {
+      case D4_N: return S8C( 0,-1);
+      case D4_W: return S8C(-1, 0);
+      case D4_S: return S8C( 0, 1);
+      case D4_E: return S8C( 1, 0);
       default: FAIL(ILLEGAL_ARGUMENT);
       }
     }

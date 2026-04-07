@@ -34,7 +34,12 @@ target_sources(crosslib PUBLIC
   src/FastT2.cpp
   src/NRIUtils.cpp
   src/Printf.cpp
+  src/SharedEPs.cpp
+  src/T6CellO.cpp
+  src/T6EPL1Data.cpp
   src/T6EPs.cpp
+  src/T6ImageBlock.cpp
+  src/T6Neighbor.cpp
   src/formatSymbols.pl
   src/t6main.cpp
 )

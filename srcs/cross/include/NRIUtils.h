@@ -9,7 +9,7 @@
 //#include "CornerState.h"
 #include "ImageBlock.h"
 #include "CrossUtils.h"
-#include "TCCommon.h"
+#include "TCState.h"
 
 namespace MFM {
 
@@ -89,10 +89,16 @@ namespace MFM {
         point to fast local memory, because the NoC read result is
         copied there from a private internal L1 buffer anyway.
      */
-    bool blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) ; 
+    bool blockingL1ReadCT6(U8C ct6us, U8C ct6readfrom, u32 l1readaddr, u32 wordcount, u32 * destaddr) ; 
+    bool blockingL1ReadNoC0(U8C usnoc0, U8C fromnoc0, u32 l1readaddr, u32 wordcount, u32 * destaddr) ; 
 
-    ImageBlockHeader blockingReadImageBlockHeader(U8C ournoc0, S8C ct6off) ;
-    ImageBlockAddr blockingReadImageBlockAddr(U8C ournoc0, S8C ct6off, u32 ibaIndex) ;
+    bool findBlockCodeInNoC0(U8C ournoc0, U8C theirnoc0, BlockCode bc, ImageBlockAddr & foundiba) ;
+
+    ImageBlockHeader blockingReadImageBlockHeaderNoC0(U8C ournoc0, U8C fromNoC0) ;
+    ImageBlockAddr blockingReadImageBlockAddrNoC0(U8C ournoc0, U8C fromNoC0, u32 ibaIndex) ;
+
+    ImageBlockHeader blockingReadImageBlockHeaderCT6Offset(U8C ournoc0, S8C ct6off) ;
+    ImageBlockAddr blockingReadImageBlockAddrCT6Offset(U8C ournoc0, S8C ct6off, u32 ibaIndex) ;
 
     //// NRI LEVEL
     inline u32 readNRIAddress(u32 noc, u32 byteOffset) { return funcReadNRIAddress(noc,3,byteOffset); }
@@ -103,7 +109,7 @@ namespace MFM {
     inline bool isNRIBusy(u8 noc) { return funcReadNRIAddress(noc,3,NRI_NOC_CMD_CTRL) & 1; }
     void waitTilNRIClear(u8 noc) ;
 
-    const char * getCarStateName(TCCommon::TCState cs) ;
+    const char * getCarStateName(TCState cs) ;
 
   };
 }

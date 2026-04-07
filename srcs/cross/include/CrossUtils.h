@@ -2,8 +2,17 @@
 
 #include "itype.h"
 #include "dev_mem_map.h"
+#include "U8C.h" // for U8C
+#include "S8C.h" 
+#include "S16C.h"
 
 namespace MFM {
+  void markHostBlock(u16 fileid, u16 lineno,const void * ptr) ;
+  void markHostBlock(u16 fileid, u16 lineno,const char * msg) ;
+  void markHostBlock(u16 fileid, u16 lineno,const int val) ;
+  void markHostBlock(u16 fileid, u16 lineno,const U8C c) ;
+  void markHostBlock(u16 fileid, u16 lineno,const S8C c) ;
+  void markHostBlock(u16 fileid, u16 lineno,const S16C c) ;
 
   inline void memoryFence() {
     asm volatile (
@@ -123,7 +132,7 @@ namespace MFM {
   DP.printf(                                    \
   "%s:%d:(%d,%d,%s)SHD:%s@0x%x=0x%x/%d\n",      \
     stripDirs(__FILE__),__LINE__,               \
-    fAll.mPos.x, fAll.mPos.y,                   \
+    fAll.mNoC0.x, fAll.mNoC0.y,                 \
     hartName(fAll.mHartNum),                    \
     #var, (u32) &(var),                         \
     *(u32*)&(var), *(u32*)&(var));              \
