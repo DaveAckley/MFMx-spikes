@@ -112,6 +112,16 @@ namespace MFM {
       return ibacb->mBlockAddr;
     }
 
+    bool hasCellBlock() const {
+      return 0!=getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_CELLBLOCK);
+    }
+
+    CellBlock copyCellBlockOrDie() const {
+      u32 cpa = getCellBlockBinFileAddrIfAny();
+      MFM_API_ASSERT(cpa!=0,NOT_FOUND);
+      return *(CellBlock*) getPointerIntoTheBinFile(cpa);
+    }
+
     CellBlock * getCellBlockInBinFileIfAny() {
       u32 cpa = getCellBlockBinFileAddrIfAny();
       if (cpa == 0) return 0; // no cellblock in binfile

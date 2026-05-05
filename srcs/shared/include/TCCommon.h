@@ -17,6 +17,7 @@ namespace MFM {
     u32 mDepartureTime;         // ditto
   };
 
+  /* CONSIDERED (TOO) HARMFUL 
   union TCWord {
     TCMarker mMarker;
     u32 mWord;
@@ -25,5 +26,6 @@ namespace MFM {
     TCWord() { mWord = 0u; }
     TCWord(const TCWord & other) { mWord = other.mWord; }
   };
+  */
 
 }

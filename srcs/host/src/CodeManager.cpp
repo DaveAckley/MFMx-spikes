@@ -14,6 +14,8 @@
 #include "HostUtils.h"
 #include "BHLog.h"
 #include "FileIDs.h" // for GET_PATH_FROM_FILE_ID
+#include "UxC.h"
+#include "HostRandom.h" // for hostPRNG
 
 namespace MFM {
   void CodeManager::dumpT6Image(const T6Image & image, u8 fromTLBI) {
@@ -25,11 +27,11 @@ namespace MFM {
     if (file) {
       file.write((const char*) bytes, rvsize);
       file.close();
-      LOGprintf(mCardNum," Wrote %uB of '%s' to '%s'\n",
+      LOGprintf(mChipNum," Wrote %uB of '%s' to '%s'\n",
                 rvsize, image.getName().c_str(),
                 path.c_str());
     } else {
-      LOGprintf(mCardNum," Couldn't write '%s'\n",path.c_str());
+      LOGprintf(mChipNum," Couldn't write '%s'\n",path.c_str());
     }
 
     delete [] bytes;
@@ -37,12 +39,12 @@ namespace MFM {
   }
 
   u8 * CodeManager::extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 fromTLBI) {
-    U8C fromnoc = U8C::makeU8CNoCCoordFromTLBI(fromTLBI);
+    U8C fromnoc = U8C::makeUxCNoCCoordFromTLBI(fromTLBI);
     if (!U8C::isNoC0CoordAT6(fromnoc)) return 0;
     
     BHLog & bhl = BHLog::getTheBHLog();
-    BHTag tag(TagType::T6TADR, mCardNum, fromTLBI);
-    LOGprintf(mCardNum," Extracting %uB of L1 starting at address 0x%x of TLBI%u noc(%u,%u)\n",
+    BHTag tag(TagType::T6TADR, mChipNum, fromTLBI);
+    LOGprintf(mChipNum," Extracting %uB of L1 starting at address 0x%x of TLBI%u noc(%u,%u)\n",
               rvsize, baseaddress, fromTLBI, fromnoc.x,fromnoc.y);
 
     u8 * rvcode = new u8[rvsize];
@@ -54,12 +56,12 @@ namespace MFM {
 
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
     BHLog & bhl = BHLog::getTheBHLog();
-    BHTag tag(TagType::T6TADR, mCardNum, toTLBI);
+    BHTag tag(TagType::T6TADR, mChipNum, toTLBI);
     u32 rvsize = image.getBinFileSize();
     const char * rvcode = image.getTheBinFile();
     u32 * codewords = (u32*) rvcode;
     u32 wordcount = rvsize >> 2u;
-    LOGprintf(mCardNum," LENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
+    LOGprintf(mChipNum," LENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
            rvsize,
            codewords[5],
            codewords[6],
@@ -72,28 +74,29 @@ namespace MFM {
     u32 hostblockt6addr = rvsize-sizeof(HostBlock);
     HostBlock *hb = (HostBlock*) (rvcode+hostblockt6addr);
 
-    LOGprintf(mCardNum," HB0 %u/0x%x %lu T6HBA:0x%08x\n   hb %p hr %p hn 0x%lx MC 0x%x CM 0x%x\n",
+    LOGprintf(mChipNum," HB0 %u/0x%x %lu T6HBA:0x%08x\n   hb %p hr %p hn 0x%lx MC 0x%x CM 0x%x\n",
            rvsize, rvsize, sizeof(HostBlock), hostblockt6addr,
            hb, mOurTLBs.hostRAMPtr(),
-           mOurTLBs.hostRAMNocAddr(),
+           mOurTLBs.hostRAMNoCAddr(),
            hb->mHBMagic, hb->mHBCigam);
 
     memset_s(hb,'\0',sizeof(*hb)); // Clear all
-    u64 hostBufferBase = mOurTLBs.hostRAMNocAddr();
+    u64 hostBufferBase = mOurTLBs.hostRAMNoCAddr();
     hb->mHostBaseAddrLo = (u32) (hostBufferBase & 0xffffffff);
     hb->mHostBaseAddrHi = (u32) ((hostBufferBase>>32) & 0xffffffff);
     hb->mAIClockFrequency = (u32) 800'000'000u; // XXX ASSUME 'IDLE' CLOCK SPEED FOR NOW
+    hb->mChipNum = mChipNum < U8_MAX ? mChipNum : U8_MAX;
     hb->mCommonArgs[0] = time(0); // per-run nonce
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
     hb->mHBMagic = HostBlock::HBMAGIC;
     hb->mHBCigam = HostBlock::HBCIGAM;
-    LOGprintf(mCardNum," HB1 0x%08x 0x%08x\n",
+    LOGprintf(mChipNum," HB1 0x%08x 0x%08x\n",
            hb->mHostBaseAddrHi,
            hb->mHostBaseAddrLo);
 
     if (toTLBI == U8_MAX) {
       // "Multicast all the code to the entire fleet"
-      LOGprintf(mCardNum," Multicasting image '%s' to the fleet\n",
+      LOGprintf(mChipNum," Multicasting image '%s' to the fleet\n",
                 image.getName().c_str());
       mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
       for (u32 i = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
@@ -101,8 +104,8 @@ namespace MFM {
         mOurTLBs.getTLBInfo(i).setDeployedImage(image);
     } else {
       U8C c = U8C::makeCT6CoordFromTLBI(toTLBI);
-      U8C nocc = U8C::makeU8CNoCCoordFromTLBI(toTLBI);
-      LOGprintf(mCardNum," Deploying '%s' to TLBI%u cell(%u,%u) noc(%u,%u)\n",
+      U8C nocc = U8C::makeUxCNoCCoordFromTLBI(toTLBI);
+      LOGprintf(mChipNum," Deploying '%s' to TLBI%u cell(%u,%u) noc(%u,%u)\n",
                 image.getName().c_str(),toTLBI,c.x,c.y,nocc.x,nocc.y);
       mOurTLBs.writeToWords(toTLBI, 0u, codewords, wordcount);
       mOurTLBs.getTLBInfo(toTLBI).setDeployedImage(image);
@@ -113,11 +116,44 @@ namespace MFM {
         if (t6gridaddr!=0) {
           char * l1base = mOurTLBs.getL1HostAddressForTLBI(toTLBI);
           T6Grid * t6gp = (T6Grid*) (l1base + t6gridaddr);
+          U8C noc0 = U8C::makeUxCNoCCoordFromTLBI(toTLBI);
           addHub(toTLBI,*t6gp);
-          Eprintf("HUBADDED %u at %p\n",toTLBI,t6gp); 
+
+          // XXXXX DEBUG
+          if (!image.hasCellBlock()) Eprintf("\nNO CELL BLOCK FOR %u??\n", toTLBI);
+          else {
+            CellBlock cb = image.copyCellBlockOrDie();
+            U8C stride = cb.mCellStride;
+            U16C c = DG::getChipOrigin(mChipNum); 
+            U16C o = c + DG::getTLBIOrigin(toTLBI,stride); 
+            U16C s = DG::getSingleT6GridSize();
+            U16C e = o+s;
+            std::string rep = s.to_string()+"@"+o.to_string()+"-"+e.to_string();
+            Eprintf("\nBH#%u/%u,HUBADDED at %p from 0x%08x noc[%u,%u] %s\n",
+                    mChipNum,toTLBI,t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
+            if (false) {
+              // MORE DEBUG
+              U16C globalsize = DG::getGlobalGridSize();
+              DG::Coord center(hostPRNG.Between(0,2),//globalsize.x-1),
+                               hostPRNG.Between(0,2));//globalsize.y-1));
+              DG::Address seedaddr = DG::mapCoordToAddress(center);
+              if (seedaddr.isValid()) {
+                Eprintf("HEWO QUIETBOX! %s\n",QuietBox::get().to_string().c_str());
+                bool q = QuietBox::get().storeP4Atom(center,P4Atom::makeStartAtom());
+                Eprintf("WANTED TO SEED (%u,%u) -> BH#%u cn<%u,%u> (%u,%u), AND %u\n",
+                        center.x,center.y,
+                        seedaddr.mChipNum,
+                        seedaddr.mCellNum.x, seedaddr.mCellNum.y,
+                        seedaddr.mT6GridC.x, seedaddr.mT6GridC.y,
+                        q);
+              } else {
+                Eprintf("WANT TO SEED (%u,%u) -> fail?\n",
+                        center.x,center.y);
+              }
+            }
+          }
         }
       }
-
     }
 
     // Waste Some Time OK
@@ -145,21 +181,21 @@ namespace MFM {
         const u32 MINWORD = 4u;
         const u32 MAXWORD = 9u;
         if (false && word >= MINWORD && word <= MAXWORD)
-          LOGprintf(mCardNum,"IMGBLOCKREREAD 0x%x:0x%08x\n",word<<2u,data);
+          LOGprintf(mChipNum,"IMGBLOCKREREAD 0x%x:0x%08x\n",word<<2u,data);
         if (codewords[word] != data) {
           ++misses;
-          LOGprintf(mCardNum,"{%d},%3d.   MISS %d @ 0x%x: got 0x%08x need 0x%08x\n",
-                    mCardNum, tlbi, misses, word<<2, data, codewords[word]);
+          LOGprintf(mChipNum,"{%d},%3d.   MISS %d @ 0x%x: got 0x%08x need 0x%08x\n",
+                    mChipNum, tlbi, misses, word<<2, data, codewords[word]);
         } else {
           ++hits;
           if (false && word >= MINWORD && word <= MAXWORD)
-            LOGprintf(mCardNum,"%3d. Hit %2d on 0x%x:0x%08x\n",tlbi, hits, word<<2, data);
+            LOGprintf(mChipNum,"%3d. Hit %2d on 0x%x:0x%08x\n",tlbi, hits, word<<2, data);
         }
       }
         
       // confirm certain addresses are in 'prerun' state
       u32 hostblockaddr = rvsize - sizeof(HostBlock); // ASSUMES HOSTBLOCK IS LAST IN IMAGE!
-      //LOGprintf(mCardNum,"SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
+      //LOGprintf(mChipNum,"SPOTCHECKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
       {
         HostBlock rbhb;
         memset_s(&rbhb,0,sizeof(rbhb));
@@ -181,7 +217,7 @@ namespace MFM {
           ++hits;
       }
     }
-    LOGprintf(mCardNum," REIMLENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
+    LOGprintf(mChipNum," REIMLENGTH=%d (0x%08x, 0x%08x, 0x%08x, 0x%08x)\n",
               rvsize,
               codewords[5],
               codewords[6],
@@ -189,17 +225,17 @@ namespace MFM {
               codewords[8]
               );
         
-    LOGprintf(mCardNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
+    LOGprintf(mChipNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
     return 0;
   }
 
   void CodeManager::releaseTheHounds() {
-    LOGprintf(mCardNum,"PHASE-------RELEASE THE HOUNDS\n");
+    LOGprintf(mChipNum,"PHASE-------RELEASE THE HOUNDS\n");
     mOurTLBs.write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,
                      RISCV_DEBUG_REG_SOFT_RESET_0,
                      SOFT_RESET_ALL_RISCV_EXCEPT_B);
     sleepUsec(1'000'000);
-    LOGprintf(mCardNum,"PHASE-------Check magic\n");
+    LOGprintf(mChipNum,"PHASE-------Check magic\n");
     assertGoodMagic();
   }
 
@@ -221,8 +257,8 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
       if (tlbinfo.mFailStatus != hb.mFails) {
         // if new fails, read whole thing
         mOurTLBs.readFromBytes(tlbi, hostblockaddr, (u8*) &hb, sizeof(hb)); 
-        U16C noc = U16C::makeNocCoordFromTLBI(tlbi);
-        BHTag tag(TagType::T6TADR, mCardNum, noc.x, noc.y);
+        U16C noc = U16C::makeNoCCoordFromTLBI(tlbi);
+        BHTag tag(TagType::T6TADR, mChipNum, noc.x, noc.y);
         cb(tag, hb, tlbinfo.mFailStatus, hb.mFails);
         tlbinfo.mFailStatus = hb.mFails;
         ++ret;
@@ -240,19 +276,19 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
       OurTLBs::TLBInfo & tinfo = mOurTLBs.getTLBInfo(tlbi);
       const T6Image * t6ip = tinfo.getDeployedImageIfAny();
       if (!t6ip) {
-        LOGprintf(mCardNum,"No image deployed to tlbi %u, skipping\n",tlbi);
+        LOGprintf(mChipNum,"No image deployed to tlbi %u, skipping\n",tlbi);
         continue;
       }
       const T6Image & t6i = *t6ip;
 
       u32 hostblockaddr = t6i.getBinFileSize() - sizeof(HostBlock);
-      LOGprintf(mCardNum,"GOODMAGICKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
+      LOGprintf(mChipNum,"GOODMAGICKING HB AT %u/%x\n",hostblockaddr,hostblockaddr);
       HostBlock hb;
       memset_s(&hb,0u,sizeof(hb)); //<< memset_s(,0,) uses explicit_bzero host side
 
       mOurTLBs.readFromWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
       if (false) {
-        LOGprintf(mCardNum,"HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
+        LOGprintf(mChipNum,"HBMAGIC 0x%08x @ %u vs %u (%u,%u)[%d,%d,%d,%d,%d]\n",
                hb.mHBMagic,tlbi,hb.mTLBI,
                hb.mNoC0.x,hb.mNoC0.y,
                hb.mPerHartStatus[0],
@@ -265,7 +301,7 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
         HOST_FATAL(BAD_VALUE,"Bad HBMAGIC 0x%08x @ %u\n",hb.mHBMagic,tlbi);
       if (hb.mHBCigam != HostBlock::HBCIGAM)
         HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
-      U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
+      U16C nocc = U16C::makeNoCCoordFromTLBI(tlbi);
       if (true && (hb.mNoC0.x != nocc.x || hb.mNoC0.y != nocc.y || hb.mTLBI != tlbi))
         HOST_FATAL(BAD_VALUE,"Bad NOC0 COORD (%u,%u) wanted (%u,%u) @ %u vs %u\n",
                    hb.mNoC0.x,hb.mNoC0.y,
@@ -284,11 +320,11 @@ XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
         }
         if (idx != 0u) {
           buf[idx] = 0;
-          LOGprintf(mCardNum,"(%u,%u)HB<%s>\n",hb.mNoC0.x,hb.mNoC0.y,buf);
+          LOGprintf(mChipNum,"(%u,%u)HB<%s>\n",hb.mNoC0.x,hb.mNoC0.y,buf);
         }
       }
     }
-    LOGprintf(mCardNum,"  ALL HBMAGIC+ IS GOOD\n");
+    LOGprintf(mChipNum,"  ALL HBMAGIC+ IS GOOD\n");
   }
 
   s32 CodeManager::awaitResults() {
@@ -299,7 +335,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       u32 stats[140] = { 0u };
       u32 living[140] = { 0u };
       u32 allDone = 0u;
-      LOGprintf(mCardNum,"PASS %d ",tries);
+      LOGprintf(mChipNum,"PASS %d ",tries);
       for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
            tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
         HostBlock hb;
@@ -325,13 +361,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             if (!first) Eprintf("%d HOSTBUF^^^^^\n",tlbi);
         }
 
-        U16C nocc = U16C::makeNocCoordFromTLBI(tlbi);
+        U16C nocc = U16C::makeNoCCoordFromTLBI(tlbi);
         if (hb.mNoC0.x != nocc.x || hb.mNoC0.y != nocc.y)
-          LOGprintf(mCardNum,"CROOD MIMSATCH %u (%u,%u) vs (%u,%u)\n",
+          LOGprintf(mChipNum,"CROOD MIMSATCH %u (%u,%u) vs (%u,%u)\n",
                  tlbi, nocc.x, nocc.y,
                  hb.mNoC0.x, hb.mNoC0.y);
         if (true && tries<3 && tlbi<10u)
-          LOGprintf(mCardNum,"\n[%u] %d,%d,%d,%d,%d\n",
+          LOGprintf(mChipNum,"\n[%u] %d,%d,%d,%d,%d\n",
                  tlbi,
                  hb.mPerHartStatus[0],
                  hb.mPerHartStatus[1],
@@ -345,7 +381,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             if (hb.mPerHartStatus[i] == FAILCode::LIVING)
               ++living[tlbi];
           } else if (hb.mPerHartStatus[i] != 0)
-            LOGprintf(mCardNum,"TLBI %u %s FAIL%d: %s\n",
+            LOGprintf(mCnipNum,"TLBI %u %s FAIL%d: %s\n",
                       tlbi,hartName(i),hb.mPerHartStatus[i],
                       getFailCodeString((FAILCode) hb.mPerHartStatus[i]));
         }
@@ -374,6 +410,119 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     return -1;
   }
 
+  u32 CodeManager::readT6GridTotalChanges(T6Grid& t6g, u32 tlbi) {
+    OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
+    u32 t6gridaddr = info.mT6GridStart;
+
+    if (t6gridaddr == 0u) return 0; // no t6grid in this one??
+
+    u32 readaddr = t6gridaddr + offsetof(T6Grid,mTotalChanges);
+    u32 count;
+    mOurTLBs.readFromWords(tlbi, readaddr, &count, sizeof(u32)>>2);
+    return count;
+  }
+
+  BGRImageHD & CodeManager::renderT6GridToImage(const T6Grid& t6g, const T6GridInfo & t6i) {
+    BGRImageHD & bgr = QuietBox::getT6GridImage();
+    U16C t6origin(t6i.mT6GridOrigin.x,t6i.mT6GridOrigin.y);
+    if (false)
+      Eprintf("RND6OR(%u,%u) aval %u BH#%u GC(%u,%u)\n",
+              t6origin.x,t6origin.y,
+              t6i.mDGAddress.isValid(),
+              t6i.mDGAddress.mChipNum,
+              t6i.mDGAddress.mT6GridC.x,t6i.mDGAddress.mT6GridC.y
+              );
+    RGBPix c;
+    U16C size = T6Grid::getGridSize();
+    for (u32 x = 0u; x < size.x; ++x) {
+      for (u32 y = 0u; y < size.y; ++y) {
+        U16C atomc(x,y);
+        c.set(15u,10u,5u); // assume blackish (empty)
+        //        c.set(0xee,0xaa,0x66); // DEBUG: something VISIBLE
+
+        P4Atom a = t6g.getAtom(atomc);
+        u16 t = a.getType();
+        switch (t) {
+        case P4Atom::EMPTY_TYPE:
+          break; // render all sites including empties, since we're not resetting the img..
+
+        case 2u: // (DReg)
+          c.set(250u,20u,30u);
+          break;
+
+        case 3u: // (Res)
+          c.set(220u,220u,20u);
+          break;
+
+        case 5u: // MAXFB
+          {
+            constexpr u32 slowBits = 1u;
+            u32 val = a.mStg[1]; // get hidden counter
+            u8 rd = (val>>0+slowBits)&0xf; rd = (rd-8)*(rd-8);
+            u8 gd = (val>>4+slowBits)&0xf; gd = (gd-8)*(gd-8);
+            u8 bd = (val>>8+slowBits)&0xf; bd = (bd-8)*(bd-8);
+            c.set(50u+3u*rd,50u+3u*gd,50+3u*bd);
+            if (false)
+              Eprintf("(%u,%u) fbrgb(%u,%u,%u)\n",
+                      atomc.x,atomc.y,
+                      c.mRGB[0],c.mRGB[1],c.mRGB[2]);
+            break;
+          }
+        case P4Atom::INACCESSIBLE_TYPE: c.set(0x30,0x40,0x50);
+          break;
+        default:
+          c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
+        }
+        {
+          U16C pixc = t6origin+atomc;
+          bgr.setPixel(pixc, c);
+          RGBPix reread = bgr.getPixel(pixc);
+          if (false)
+            Eprintf("RITE2(%u,%u) = 0x%02x%02x%02x\n",
+                    pixc.x,pixc.y,
+                    c.mRGB[0],c.mRGB[1],c.mRGB[2]);
+        }
+      }
+    }
+    return bgr;
+  }
+
+  void CodeManager::readAndDisplayT6Grid(T6Grid &t6g, u32 tlbi) {
+    OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
+    u32 t6gridaddr = info.mT6GridStart;
+
+    MFM_API_ASSERT(t6gridaddr != 0, ILLEGAL_STATE);
+    // Reread whole t6grid
+    T6Grid tmp;
+    mOurTLBs.readFromWords(tlbi, t6gridaddr, (u32*)&tmp, sizeof(t6g)>>2);
+    //    mOurTLBs.readFromWords(tlbi, t6gridaddr, (u32*)&t6g, sizeof(t6g)>>2);
+    QuietBox & qb = QuietBox::get();
+    const T6GridInfo & t6i = qb.getT6GridInfoByChipAndTLBI(mChipNum,tlbi);
+    Eprintf("BH#%u totalchanges %u %u HD(%u,%u) dga(%u,%u)\n",
+            mChipNum, tmp.mTotalChanges, t6i.mTLBI,
+            t6i.mT6GridOrigin.x, t6i.mT6GridOrigin.y,
+            t6i.mDGAddress.mT6GridC.x, t6i.mDGAddress.mT6GridC.y);
+    renderT6GridToImage(tmp,t6i);
+  }
+
+  s32 CodeManager::scanHubGrid() {
+    s32 ret = 0;
+    for (auto & item : mHubTLBIToT6Grid) {
+      HubTLBI tlbi = item.first;
+      ChangeCount ccnt = item.second.first;
+      T6Grid * tgp = item.second.second;
+
+      u32 tcnt = readT6GridTotalChanges(*tgp,tlbi);
+      if (ccnt != tcnt) {
+        item.second.first = tcnt;
+        readAndDisplayT6Grid(*tgp,tlbi);
+        ret++;
+      }
+    }
+    return ret;
+  }
+
+#if 0 // OLD  
   s32 CodeManager::scanHubGrids() {
     s32 ret = 0;
     for (auto & item : mHubTLBIToT6Grid) {
@@ -386,7 +535,6 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         HNprintf(1000,"SHGD %u %u->%u %p\n",tlbi, ccnt, tcnt, tgp);
       }
     }
-#if 0
     for (u32 tlbi = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
          tlbi <= OurTLBs::AHAX_TLBI_L1_LAST_UNI;
          ++tlbi) {
@@ -401,9 +549,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       HNprintf(200,"SCANHUB %u %p (0x%x)\n", tlbi, &t6g, t6gridaddr);
       ++ret;
     }
-#endif
     return ret;
   }
+#endif
 
   s32 CodeManager::slowScanHostBlocks() {
     if (mLastTLBISlowScanned >= OurTLBs::AHAX_TLBI_L1_LAST_UNI)
@@ -412,21 +560,21 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       ++mLastTLBISlowScanned;
 
     u32 tlbi = mLastTLBISlowScanned;
-    U8C nocc = U8C::makeU8CNoCCoordFromTLBI(tlbi);
+    U8C nocc = U8C::makeUxCNoCCoordFromTLBI(tlbi);
     OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
     const T6Image * t6ip = info.getDeployedImageIfAny();
     if (!t6ip) {
-      LOGprintf(mCardNum,"No image deployed to tlbi %u, skipping\n",tlbi);
+      LOGprintf(mChipNum,"No image deployed to tlbi %u, skipping\n",tlbi);
       return 0;
     }
     const T6Image & t6i = *t6ip;
     u32 hostblockaddr = t6i.getHostBlockAddr();
 
     BHLog & bhl = BHLog::getTheBHLog();
-    BHTag tag(TagType::T6TADR, mCardNum, tlbi);
+    BHTag tag(TagType::T6TADR, mChipNum, tlbi);
     //bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
     if (false) Eprintf("BH%d:(%u,%u) IMCO %s sz%d hb0x%08x\n",
-            mCardNum,nocc.x,nocc.y,
+            mChipNum,nocc.x,nocc.y,
             t6i.getName().c_str(),
             t6i.getBinFileSize(),
             hostblockaddr);
@@ -447,7 +595,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
               "%c0x%x:0x%08x"
               "%c0x%x:0x%08x"
               "\n",
-              mCardNum,nocc.x,nocc.y,
+              mChipNum,nocc.x,nocc.y,
               anyfail ? "IXFAIL" : "IXGOOD",
               t6i.getName().c_str(),
               flag[0], (0<<2)+0x14, word[0],
@@ -481,7 +629,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
             Eprintf("%.03f BH%d:(%2u,%2u)%s %s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,
+                    mChipNum,hb.mNoC0.x,hb.mNoC0.y,
                     t6i.getName().c_str(),
                     hartName(hart),
                     path,
@@ -491,7 +639,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           } else {
             Eprintf("%.03f BH%d:(%2u,%2u)%s %s NOFID? 0x%08x = FAIL%d:%s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,
+                    mChipNum,hb.mNoC0.x,hb.mNoC0.y,
                     t6i.getName().c_str(),
                     hartName(hart),
                     hb.mPerHartWatchdog[hart],
@@ -528,7 +676,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         buf[idx] = 0;
         Eprintf("%.03f BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",
                 runTimeSeconds(),
-                mCardNum,hb.mNoC0.x,hb.mNoC0.y,buf);
+                mChipNum,hb.mNoC0.x,hb.mNoC0.y,buf);
       }
     }
     return 0;

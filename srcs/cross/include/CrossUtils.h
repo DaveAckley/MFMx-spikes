@@ -2,7 +2,7 @@
 
 #include "itype.h"
 #include "dev_mem_map.h"
-#include "U8C.h" // for U8C
+#include "UxC.h" // for U8C
 #include "S8C.h" 
 #include "S16C.h"
 

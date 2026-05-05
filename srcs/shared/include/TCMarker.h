@@ -9,6 +9,7 @@ namespace MFM {
     static constexpr u32 ceilDiv(u32 num, u32 den) {
       return num/den + ((num%den) != 0);
     }
+
     static constexpr u8 encodePayloadBytesToTCMSize(u32 payb) {
       if (payb <= 8u) return 0u;    // packet size 16 h+1..8+f
       if (payb <= 24u) return 1u;   // packet size 32 h+9..24+f
@@ -100,7 +101,9 @@ namespace MFM {
       HBPTAG(payb,payloadBytes);
       HBPTAG(tcms,mTCMSize);
       HBPTAG(decp,decodeTCMSizeToPayloadCapacityBytes(mTCMSize));
+      */
       mTCMState = state;
+      /*
       HBPTAG(nc,(u32)mTCMNonce);
       HBPTAG(fi,getFooterWordIndex(mTCMSize));
       HBPTAG(ai,getAnkleWordIndex(mTCMSize));
@@ -146,6 +149,38 @@ namespace MFM {
 
     TCState getTCState() const { return (TCState) mTCMState; }
 
+    u8 getTCSizeCode() const { return (TCState) mTCMSize; }
+
+    u32 getU32BE() const {
+      u32 ret = mTCMMagic;
+      ret = (ret<<8)|mTCMNonce;
+      ret = (ret<<8)|mTCMSize;
+      ret = (ret<<8)|mTCMState;
+      return ret;
+    }
+
+    void setU32BE(u32 v) {
+      mTCMState = v&0xff; v >>= 8;
+      mTCMSize = v&0xff; v >>= 8;
+      mTCMNonce = v&0xff; v >>= 8;
+      mTCMMagic = v&0xff; v >>= 8;
+    }
+
+    u32 getU32() const {
+      u32 ret = mTCMState;
+      ret = (ret<<8)|mTCMSize;
+      ret = (ret<<8)|mTCMNonce;
+      ret = (ret<<8)|mTCMMagic;
+      return ret;
+    }
+
+    void setU32(u32 v) {
+      mTCMMagic = v&0xff; v >>= 8;
+      mTCMNonce = v&0xff; v >>= 8;
+      mTCMSize = v&0xff; v >>= 8;
+      mTCMState = v&0xff; v >>= 8;
+    }
+    
     u8 mTCMMagic;
     u8 mTCMNonce;
     u8 mTCMSize;

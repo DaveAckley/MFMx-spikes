@@ -1,6 +1,6 @@
 #pragma once /* -*- C++ -*- */
 #include "itype.h"
-#include "U8C.h"
+#include "UxC.h" // for U8C
 #include "S8C.h"
 #include "NRIUtils.h"
 #include "ImageBlock.h"

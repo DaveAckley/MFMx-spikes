@@ -141,8 +141,8 @@ namespace MFM {
     }
   };
 
-  inline void LOGprintf(u32 bhcard, const char * fmt, ...) {
-    BHTag tag(TagType::APPDBG,bhcard,0,0);
+  inline void LOGprintf(u32 bhchip, const char * fmt, ...) {
+    BHTag tag(TagType::APPDBG,bhchip,0,0);
     FILE * logfile = getHostLog();
     fprintf(logfile,"%s[[%s]]",
             dateTimeStamp().c_str(),

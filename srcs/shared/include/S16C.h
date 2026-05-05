@@ -6,15 +6,15 @@
 #include "Point.h" // for SPoint
 
 namespace MFM {
-  struct U16C; // FORWARD
+  //  struct U16C; // FORWARD
 
   struct S16C {
-    S16C() : x(0) , y(0) { }
+    S16C() = default;
     S16C(const SPoint sp) : x(sp.GetX()), y(sp.GetY()) { }
     S16C(s32 sx, s32 sy) : x(sx), y(sy) { }
     S16C(U16C u) ;
     
-    s8 x, y;
+    s16 x, y;
 
     S16C operator+(const S16C other) const { return S16C(x+other.x,y+other.y); }
     S16C operator-(const S16C other) const { return S16C(x-other.x,y-other.y); }
@@ -53,5 +53,15 @@ namespace MFM {
     }
 
   };
-
 }
+
+#include "UxC.h" // for U16C
+
+namespace MFM {
+  inline S16C::S16C(U16C u) {
+    MFM_API_ASSERT(u.x <= S16_MAX && u.y <= S16_MAX, ILLEGAL_ARGUMENT);
+    x = (s16) u.x;
+    y = (s16) u.y;
+  }
+}
+

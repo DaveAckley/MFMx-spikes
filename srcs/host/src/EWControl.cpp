@@ -3,11 +3,13 @@
 #include <time.h>     /* For time() */
 #include "MDist.h"
 #include "StringBlock.h"
-#include "U16C.h"
+#include "UxC.h" // for U16C
+#include "QuietBox.h"
+#include "DemoGlobal.h"
+#include "Blackhole.h"
 
 namespace MFM {
 
-  thread_local HostRandom myPRNG;
   thread_local StringBlock ewRenderBlock;
   thread_local BGRImageHD ewGraphicsRenderBlock;
   thread_local std::string statsLineBuffer;
@@ -36,8 +38,8 @@ namespace MFM {
           && isActive()) {
         // Do some? events
         // DEBUG: Try to allocate using STVL!
-        S32C center(myPRNG.Between(GRID_XMIN,GRID_XMAX),
-                    myPRNG.Between(GRID_YMIN,GRID_YMAX));
+        S32C center(hostPRNG.Between(GRID_XMIN,GRID_XMAX),
+                    hostPRNG.Between(GRID_YMIN,GRID_YMAX));
         EWLocker::Entry token;
         if (mEWLocker.tryLock(center,token)) 
           ++mEventCount;
@@ -71,20 +73,52 @@ namespace MFM {
   }
 
   S32C EWControl::randomCoordInBounds() {
-    s32 x = myPRNG.Between(mMin.x,mMax.x); // note with center in bounds,
-    s32 y = myPRNG.Between(mMin.y,mMax.y); // ew may reach beyond bounds
+    s32 x = hostPRNG.Between(mMin.x,mMax.x); // note with center in bounds,
+    s32 y = hostPRNG.Between(mMin.y,mMax.y); // ew may reach beyond bounds
     return { x, y };
   }
 
-  std::string EWControl::doSeed() {
-    S32C loc = randomCoordInBounds();
+  s32 EWControl::scanHubGrid(u32 cn) {
+    s32 ret = 0;
+
+    QuietBox & qb = QuietBox::get();
+    Blackhole * bh = qb.getBlackholeIfPresent(cn);
+    if (bh) ret += bh->scanHubGrid();
+
+    return ret;
+  }
+
+  std::string EWControl::doSeed(u32 atomType) {
+    U16C fullGridSize = DG::getGlobalGridSize();
+    U32C loc(hostPRNG.Between(0,fullGridSize.x-1),
+             hostPRNG.Between(0,fullGridSize.y-1));
+
+    /* SEED IN HOST
     setAtom(loc,P4Atom::makeStartAtom());
+    return "Seed@"+std::to_string(loc.x)+","+std::to_string(loc.y);
+    */
+    // SEED IN T6
+    QuietBox & qb = QuietBox::get();
+    DG::Coord dgc = loc;
+    DG::Address addr = DG::mapCoordToAddress(dgc);
+
+    Eprintf("TRYDOSEED (%d,%d) [%u]-> %u\n",
+            loc.x,loc.y,atomType,addr.isValid());
+
+    if (!addr.isValid())
+      return "BadSeed@"+std::to_string(loc.x)+","+std::to_string(loc.y);
+    bool worked = qb.storeP4Atom(dgc, P4Atom::makeAtom(atomType));
+    Eprintf("DOdoSeed %u (%d,%d)\n",
+            worked,
+            dgc.x,dgc.y);
+    if (!worked)
+      return "BadStore@"+std::to_string(loc.x)+","+std::to_string(loc.y);
     return "Seed@"+std::to_string(loc.x)+","+std::to_string(loc.y);
   }
 
   std::string EWControl::doNuke(bool large) {
     S32C loc = randomCoordInBounds();
-    s32 r = myPRNG.Create(large? 500 : 50) + 5;
+    s32 r = hostPRNG.Create(large? 500 : 50) + 5;
     s32 r2 = r*r;
     u32 nuked = 0u;
     for (s32 x = loc.x - r; x <= loc.x+r; ++x) {
@@ -123,9 +157,11 @@ namespace MFM {
           ++mEWCentersBySampling;
           occupied = c;
           ++mEventCentersPicked;
+#if 0          
           if (t == P4Atom::START_TYPE) {
             Eprintf("EWSTART (%s) %s\n",c.to_repr().c_str(),token.to_repr().c_str());
           }
+#endif
           return true;
         } else ++mEventCentersLockedOut;
       }
@@ -140,7 +176,7 @@ namespace MFM {
         if (t != P4Atom::EMPTY_TYPE &&
             t != P4Atom::INACCESSIBLE_TYPE &&
             mEWLocker.tryLock(c,token)) {
-          if (myPRNG.OneIn(++count)) occupied = c;
+          if (hostPRNG.OneIn(++count)) occupied = c;
           mEWLocker.unlock(token);
         }
       }
@@ -295,7 +331,7 @@ namespace MFM {
         S32C sgmax = sgcoord + ssize - 1;
 
         // (4) sample an atom inside sample box
-        //S32C acoord = sgcoord + S32C(myPRNG.Create(ssize.x),myPRNG.Create(ssize.y));
+        //S32C acoord = sgcoord + S32C(hostPRNG.Create(ssize.x),hostPRNG.Create(ssize.y));
         S32C acoord = sgcoord + ssize/2; // just take middle?
 
         if (false &&
@@ -364,8 +400,10 @@ namespace MFM {
   }
 
   BGRImageHD & EWControl::renderGraphicsGridWindowToImage() {
-    BGRImageHD & bgr = ewGraphicsRenderBlock;
+    //BGRImageHD & bgr = ewGraphicsRenderBlock;
+    BGRImageHD & bgr = QuietBox::getT6GridImage();
 
+#if 0
     U16C size = bgr.gridSize();
     bgr.reset();
     U16C idx;
@@ -394,6 +432,7 @@ namespace MFM {
         bgr.setPixel(idx, c);
       }
     }
+#endif
     return bgr;
   }  
 
@@ -430,10 +469,10 @@ namespace MFM {
         bgp.at({agx,agy});
 
         // have to resample y on every x for uniformity..
-        s32 ay = agy + myPRNG.Create(aside); // sample in y box
+        s32 ay = agy + hostPRNG.Create(aside); // sample in y box
         u32 syo = ay*ASPECT_RATIO.y;
 
-        s32 ax = agx + myPRNG.Create(aside); // sample in x box
+        s32 ax = agx + hostPRNG.Create(aside); // sample in x box
         u32 sxo = ax*ASPECT_RATIO.x;
 
         if (false) Eprintf("RNGD12 (%d,%d)ag (%d,%d)axy (%d,%d)sxyo\n",

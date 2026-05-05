@@ -13,10 +13,10 @@ set(SHARED_SOURCES_LIST
   ${SHARED_DIR}/src/MDist.cpp
   ${SHARED_DIR}/src/P4Atom.cpp
   ${SHARED_DIR}/src/Point.cpp
-  ${SHARED_DIR}/src/RandMT.cpp
   ${SHARED_DIR}/src/Random.cpp
   ${SHARED_DIR}/src/S8C.cpp
-  ${SHARED_DIR}/src/U8C.cpp
+  ${SHARED_DIR}/src/mt19937.cpp
+#  ${SHARED_DIR}/src/U8C.cpp eaten by the monster of UxC
   # Add any other shared .cpp files here
 )
 set(SHARED_SOURCES "${SHARED_SOURCES_LIST}")

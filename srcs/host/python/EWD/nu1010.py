@@ -43,9 +43,12 @@ def sign(num):
 
 import sys
 argType = None
-if len(sys.argv) == 2:
+altType = None
+if len(sys.argv) >= 2:
   argType = sys.argv[1]
-
+  if len(sys.argv) >= 3:
+    altType = sys.argv[2];
+    
 # try to debug uncaught exceptions? --
 def custom_exception_hook(type,value,tb):
   if False: # WAS: hasattr(sys,'ps1') or not sys.stderr.isatty():
@@ -66,6 +69,7 @@ class AsciiAnimation(Widget):
 
     def __init__(self,id):
         super().__init__(id=id)
+        self.lastChipDisplayed = 0
         self.atx = 0
         self.aty = 0
         self.display_zoom = 0
@@ -134,7 +138,8 @@ class EWD(App):
     ("right", "app.scrollGrid('rt')", "Scroll right"),
     ("n", "app.nuke(False)", "Small nuke"),
     ("N", "app.nuke(True)", "Large nuke"),
-    ("s", "app.seed(True)", "Add start seed"),
+    ("s", "app.seed(False)", "Add start seed"),
+    ("S", "app.seed(True)", "Add alt start seed"),
   ]
 
   ZOOM_BUTTONS = {
@@ -240,8 +245,8 @@ class EWD(App):
     for k,l in layoutdict.items():
       print("LAYS",k,l);
       lay = im.makeLayout(k,l['defaultImage'])
-      for bhc in l['bhcards']:
-        lay.addBlackHoleCard(int(bhc))
+      for bhc in l['bhchips']:
+        lay.addBlackholeChip(int(bhc))
       print("LAID",lay);
       defcell = l.get('fill')
       if defcell:
@@ -264,8 +269,8 @@ class EWD(App):
 
     print("HAVEO activelayout",act,im)
     al = im.getActiveLayout()
-    activeCardNums = al.getActiveBHCards();
-    self.bhs = [ MFMx.BlackHole(i) for i in activeCardNums ]
+    activeChipNums = al.getActiveBHChips();
+    self.bhs = [ MFMx.Blackhole(i) for i in activeChipNums ]
     print("LAYTBEEATCHES",al,self.bhs)
 
     # Get far enough along that we can configure modules..
@@ -295,15 +300,15 @@ class EWD(App):
       self.logkt("ZEYK","BINP3S "+k+" "+str(hex(img.getBinWord(7))))
 
   def run(self):
-    # RESET CARDS EAAAAARRLY
+    # RESET CHIPS EAAAAARRLY
     import subprocess
     subprocess.run(["/opt/tenstorrent/pipx/bin/tt-smi","-r"])
 
     self.mfmxVersion = MFMx.getVersion()
     self.im = MFMx.ImageManager()
     al = self.im.getActiveLayout()
-    bhcards =  al.getActiveBHCards()
-    print("ASKLSQALK",al,bhcards)
+    bhchips =  al.getActiveBHChips()
+    print("ASKLSQALK",al,bhchips)
 
     print("DUUUUMPPERCONFIG")
     dumper.dump(self.config)
@@ -364,9 +369,12 @@ class EWD(App):
     r = self.ewc.doNuke(big)
     self.logkt(l,r)
 
-  def action_seed(self):
+  def action_seed(self,doalt):
     l = "SEED"
-    r = self.ewc.doSeed()
+    if not doalt or altType is None:
+      r = self.ewc.doSeed(1)   # start type
+    else:
+      r = self.ewc.doSeed(int(altType))
     self.logkt(l,r)
 
   def action_scrollGrid(self,id):
@@ -393,7 +401,7 @@ class EWD(App):
     #self.doRTMPFrame()
     self.doRTMPGraphicsFrame(elapsedns)
     if animation_widget.refreshCount % 50 == 0:
-      count = 100
+      count = 25
       #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
       self.slowScan(count)
     if animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
@@ -441,7 +449,7 @@ class EWD(App):
   def start(self):
     for bh in self.bhs:
       bh.startEWProcessing()
-      print("ZONG",bh.getCardNumber())
+      print("ZONG",bh.getChipNumber())
 
   def stop(self):
     for bh in self.bhs:
@@ -506,6 +514,9 @@ class EWD(App):
 
   def doRTMPGraphicsFrame(self,simnanos):
     ewc = self.ewc
+    if self.animation_frame_count % 2 == 0:
+      chip = self.animation_frame_count//2 % 4
+      ewc.scanHubGrid(chip)
     img = ewc.renderGraphicsGridWindowToImage()
     frameNP = img.asNP()
     #frameNP[1080//2,:,:] = (255,0,0) # scribble on image

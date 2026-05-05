@@ -20,12 +20,24 @@ namespace MFM {
     return ret;
   }
   
-  inline void acquireLockASM(void* addr) {
+  inline void acquireLockASMOLD(void* addr) {
     asm volatile (
   "li t0, 1         # init swap value\n"
 "1:\tlw t1, (%0)    # get lock value\n\t"
   "bnez t1,1b       # spin until zero\n\t"
   "amoswap.w t1, t0, (%0)   # try for lock\n\t"
+  "bnez t1,1b       # spin until we grabbed it\n\t"
+  " # We hold the lock\n\t"
+        :                       // no output regs
+        : "r"(addr)             // input arg
+        : "t0", "t1"            // clobbered temps
+        );
+  }
+
+  inline void acquireLockASM(void* addr) {
+    asm volatile (
+  "li t0, 1         # init swap value\n"
+"1:\tamoswap.w t1, t0, (%0)   # try for lock\n\t"
   "bnez t1,1b       # spin until we grabbed it\n\t"
   " # We hold the lock\n\t"
         :                       // no output regs

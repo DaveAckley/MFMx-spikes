@@ -32,7 +32,7 @@ namespace MFM {
     u32 node_id = *NOC_NODE_ID0;
     hb.mNoC0.x = ((node_id >> 0) & 0x3f);
     hb.mNoC0.y = ((node_id >> 6) & 0x3f);
-    hb.mTLBI = U8C::makeTLBIFromNoC0Coord({hb.mNoC0.x,hb.mNoC0.y});
+    hb.mTLBI = U8C::makeTLBIFromNoCCoord({hb.mNoC0.x,hb.mNoC0.y});
     hb.addBytes('t','6');
     return 0;
   }

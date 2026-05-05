@@ -59,7 +59,7 @@ namespace MFM {
     bool usonbd = U8C::onBoardCT6Coord(usct6);
 
     if (!usonbd) return false;
-    U8C ngbct6 = usct6 + ngbct6off;
+    U8C ngbct6(usct6.x + ngbct6off.x,usct6.y + ngbct6off.y);
     bool nbonbd = U8C::onBoardCT6Coord(ngbct6);
 
     if (!nbonbd) return false;

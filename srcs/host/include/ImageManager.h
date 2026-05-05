@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "itype.h"
-#include "U8C.h"
+#include "UxC.h" // for U8C
 #include "T6Image.h"
 #include "CellBlock.h"
 #include "HostUtils.h"
@@ -143,21 +143,29 @@ namespace MFM {
   };
 #endif
 
-  struct BlackHole; // FORWARD
+  struct Blackhole; // FORWARD
 
   struct ImageManager {
     static ImageManager& getTheImageManager() ;
 
-    bool deployTo(BlackHole & bh) ; //< using the configured active layout..
-    bool runtimeConfigureT6Image(T6Image& t6i, BlackHole & bh) ; //< ditto + bh
+    bool deployTo(Blackhole & bh) ; //< using the configured active layout..
+    bool runtimeConfigureT6Image(T6Image& t6i, Blackhole & bh) ; //< ditto + bh
 
     T6Image& makeT6Image(std::string ikey, u8 imageCode, std::string path) ;
     T6Image& getT6Image(std::string ikey) ;
-    T6Image* getT6ImageIfAny(std::string ikey) ;
+    T6Image* getT6ImageIfAny(std::string ikey );
 
     typedef ItemFactory<T6Image> T6ImageMap;
     T6ImageMap mT6ImageMap;     //< std::string -> T6Image&
     T6ImageMap & getT6Images() { return mT6ImageMap; } 
+
+    using IKeyFromImageCode = std::unordered_map<u32,std::string>;
+    IKeyFromImageCode mIKeyFromImageCode;
+    std::string getIKeyIfAny(u32 ic) {
+      if (mIKeyFromImageCode.find(ic) == mIKeyFromImageCode.end())
+        return "";
+      return mIKeyFromImageCode[ic];
+    }
 
     typedef ItemFactory<Cell> CellMap;
     CellMap mCellMap;           //< std::string -> Cell&

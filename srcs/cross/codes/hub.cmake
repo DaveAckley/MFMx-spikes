@@ -5,6 +5,7 @@ add_executable(hub)
 target_sources(hub PRIVATE
   src/ImageConfig.cpp
   images/hub/src/EwpBlock.cpp
+  images/hub/src/Grid.cpp
   images/hub/src/InterHub.cpp
   images/hub/src/LiveB.cpp
   ${S_FILES_LIST}

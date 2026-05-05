@@ -1,6 +1,7 @@
 #pragma once /* -*- C++ -*- */
 
-#include <string>
+//#include <string>
+#include <cmath> // for abs?
 
 #include "itype.h"
 using namespace MFM;
@@ -10,11 +11,13 @@ struct S32C {
   constexpr S32C() : x(0) , y(0) { } 
   constexpr S32C(s32 mx, s32 my) : x(mx), y(my) { }
 
+#if 0
   std::string to_repr() const {
     return
       std::string("<S32c:x=") + std::to_string(x) +
       ",y=" + std::to_string(y) + ">";
   }
+#endif
 
   // EQUALITY
   bool operator==(const S32C & other) const { return x == other.x && y == other.y; }

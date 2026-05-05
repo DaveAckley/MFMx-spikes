@@ -1,4 +1,4 @@
-#include "BlackHole.h"
+#include "Blackhole.h"
 #include "HostCommsMap.h"
 #include "Fail.h"
 #include <fcntl.h>
@@ -10,7 +10,7 @@
 
 namespace MFM {
 
-  BlackHole::Phase BlackHole::changePhase(BlackHole::Phase newPhase) {
+  Blackhole::Phase Blackhole::changePhase(Blackhole::Phase newPhase) {
     BHLOGprintf("Elapsed %0.3f sec\n", millisElapsed()/1000.0);
     Phase ret = mCurrentPhase;
     while (mCurrentPhase < newPhase) phaseAdvance();
@@ -18,10 +18,11 @@ namespace MFM {
     return ret;
   }
 
-  s32 BlackHole::runSlowScans(u32 count) { //< return something after count HostBlock scans
-    {
-      s32 hackret = mCodeManager.scanHubGrids();
-      MFM_API_ASSERT(hackret==0,ILLEGAL_STATE);
+  s32 Blackhole::runSlowScans(u32 count) { //< return something after count HostBlock scans
+    if (false) {
+      s32 hackret = mCodeManager.scanHubGrid();
+      if (hackret != 0)
+        Eprintf("BH%d DISPLAYED SOMETHING?! (%d)\n",mChipNum,hackret);
     }
     if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
       return U32_MAX;
@@ -31,7 +32,7 @@ namespace MFM {
     return tot;
   }
 
-  u32 BlackHole::monitorFleet() {
+  u32 Blackhole::monitorFleet() {
     if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
       return U32_MAX;
     u32 newfails = mCodeManager.newFails([] (BHTag tag, HostBlock & hb, u8 oldf, u8 newf) -> void {
@@ -56,18 +57,18 @@ namespace MFM {
     return newfails;
   }
 
-  void BlackHole::phaseAdvance() {
+  void Blackhole::phaseAdvance() {
     BHLog & bhl = BHLog::getTheBHLog();
-    Eprintf("%d(%u) advancing from %s(%u)\n",mCardNum,bhl.getThrId(),
+    Eprintf("%d(%u) advancing from %s(%u)\n",mChipNum,bhl.getThrId(),
             nameOfCurrentPhase(),
             (u32) mCurrentPhase);
     bool worked;
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
 
-    case Phase::HAS_CARD_NUM: 
-      worked = openCard();
-      Eprintf("after opencard %u\n",(u32) worked);
+    case Phase::HAS_CHIP_NUM: 
+      worked = openChip();
+      Eprintf("after openchip %u\n",(u32) worked);
       Eprintf("hbmagic+%d, mperhst[4]+%d, mpos+%d, mtlbi+%d, size+%d\n",
               offsetof(HostBlock, mHBMagic),
               offsetof(HostBlock, mPerHartStatus[4]),
@@ -77,7 +78,7 @@ namespace MFM {
       if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
       Eprintf("before bhlog (%u)\n",bhl.getThrId());
-      BHLOGprintf("<BlackHole:%u> opened fd %d\n",mCardNum,mCardFD);
+      BHLOGprintf("<Blackhole:%u> opened fd %d\n",mChipNum,mChipFD);
       Eprintf("after bhlog (%u)\n",bhl.getThrId());
       break;
 
@@ -86,14 +87,14 @@ namespace MFM {
       Eprintf("after allocatetlbs (%u)\n",bhl.getThrId());
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_TLBS;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> allocated TLBs\n",mCardNum);
+      BHLOGprintf("<Blackhole:%u> allocated TLBs\n",mChipNum);
       break;
 
     case Phase::HAS_ALLOCATED_TLBS:
       worked = configureTLBs();
       if (worked) mCurrentPhase = Phase::HAS_CONFIGURED_TLBS;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> configured TLBs\n",mCardNum);
+      BHLOGprintf("<Blackhole:%u> configured TLBs\n",mChipNum);
       break;
 
     case Phase::HAS_CONFIGURED_TLBS:
@@ -101,21 +102,21 @@ namespace MFM {
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
 
-      BHLOGprintf("<BlackHole:%u> allocated %u (per T6) host RAM\n",
-                  mCardNum, HOST_RAM_PER_BH);
+      BHLOGprintf("<Blackhole:%u> allocated %u (per T6) host RAM\n",
+                  mChipNum, HOST_RAM_PER_BH);
       break;
 
     case Phase::HAS_ALLOCATED_HOST_RAM:
       worked = resetTheFleet();
       if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
-      BHLOGprintf("<BlackHole:%u> fleet holding at first positions\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> fleet holding at first positions\n", mChipNum);
       break;
 
     case Phase::HAS_T6_TILES_RESET:
       worked = layoutImages();
       if (worked) {
         mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED;
-        BHLOGprintf("<BlackHole:%u> code delivered to the fleet\n", mCardNum);
+        BHLOGprintf("<Blackhole:%u> code delivered to the fleet\n", mChipNum);
       } else
         HOST_FATAL(ILLEGAL_STATE,"Failed to deploy code");
       break;
@@ -124,21 +125,21 @@ namespace MFM {
       worked = startTransportThread();
       if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> started transport thread\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> started transport thread\n", mChipNum);
       break;
 
     case Phase::HAS_TRANSPORT_THREAD:
-      BHLOGprintf("<BlackHole:%u> transmitting the go code\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> transmitting the go code\n", mChipNum);
       worked = releaseTheHounds();
       if (worked) {
         mCurrentPhase = Phase::HAS_T6_CODE_RUNNING;
-        BHLOGprintf("<BlackHole:%u> the fleet is operational\n", mCardNum);
+        BHLOGprintf("<Blackhole:%u> the fleet is operational\n", mChipNum);
       } else
         HOST_FATAL(ILLEGAL_STATE,"Failed to release the fleet");
       break;
 
     case Phase::HAS_T6_CODE_RUNNING:
-      BHLOGprintf("<BlackHole:%u> event window processing begun\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> event window processing begun\n", mChipNum);
       mCurrentPhase = Phase::HAS_T6_EVENT_WINDOWS;
       break;
 
@@ -146,7 +147,7 @@ namespace MFM {
       {
         static bool once;
         if (!once) {
-          BHLOGprintf("<BlackHole:%u> event window processing begun\n", mCardNum);
+          BHLOGprintf("<Blackhole:%u> event window processing begun\n", mChipNum);
           once = true;
         }
       }
@@ -157,11 +158,11 @@ namespace MFM {
     }
   }
 
-  void BlackHole::phaseRetreat() {
+  void Blackhole::phaseRetreat() {
     BHLog & bhl = BHLog::getTheBHLog();
     if (mCurrentPhase >= Phase::HAS_T6_CODE_DEPLOYED &&
         monitorFleet() == 0u)
-      Eprintf("(%u) No fail changes detected #%d\n",bhl.getThrId(),mCardNum);
+      Eprintf("(%u) No fail changes detected #%d\n",bhl.getThrId(),mChipNum);
     Eprintf("(%u) retreating from %s (%u)\n",bhl.getThrId(),
             nameOfCurrentPhase(),
             (u32) mCurrentPhase);
@@ -169,15 +170,15 @@ namespace MFM {
     switch (mCurrentPhase) {
     case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
 
-    case Phase::HAS_CARD_NUM: break; // got no down genes
+    case Phase::HAS_CHIP_NUM: break; // got no down genes
 
     case Phase::HAS_OPEN_DEVICE:
       {
-        s32 fd = mCardFD;
-        worked = closeCard();
-        if (worked) mCurrentPhase = Phase::HAS_CARD_NUM;
+        s32 fd = mChipFD;
+        worked = closeChip();
+        if (worked) mCurrentPhase = Phase::HAS_CHIP_NUM;
         else FAIL(ILLEGAL_STATE);
-        BHLOGprintf("<BlackHole:%u> closed fd %d\n",mCardNum,fd);
+        BHLOGprintf("<Blackhole:%u> closed fd %d\n",mChipNum,fd);
       }
       break;
 
@@ -185,47 +186,47 @@ namespace MFM {
       worked = deallocateTLBs();
       if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> deallocated TLBs\n",mCardNum);
+      BHLOGprintf("<Blackhole:%u> deallocated TLBs\n",mChipNum);
       break;
 
     case Phase::HAS_CONFIGURED_TLBS:
       worked = unconfigureTLBs();
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_TLBS;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> unconfigured TLBs\n",mCardNum);
+      BHLOGprintf("<Blackhole:%u> unconfigured TLBs\n",mChipNum);
       break;
 
     case Phase::HAS_ALLOCATED_HOST_RAM:
       worked = deallocateHostRAM();
       if (worked) mCurrentPhase = Phase::HAS_CONFIGURED_TLBS;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> deallocated %u (per T6) host RAM\n", mCardNum, HOST_RAM_PER_BH);
+      BHLOGprintf("<Blackhole:%u> deallocated %u (per T6) host RAM\n", mChipNum, HOST_RAM_PER_BH);
       break;
 
     case Phase::HAS_T6_TILES_RESET:
       worked = true; // don't unreset?
       if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM; // WAS Phase::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> (left fleet at reset)\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> (left fleet at reset)\n", mChipNum);
       break;
 
     case Phase::HAS_T6_CODE_DEPLOYED:
       worked = resetTheFleet(); // reset as 'undeploy'
       if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> (fleet reset to undeploy code)\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> (fleet reset to undeploy code)\n", mChipNum);
       break;
 
     case Phase::HAS_TRANSPORT_THREAD:
       worked = stopTransportThread();
       if (worked) mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED; // WAS Phase::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> stopped transport thread\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> stopped transport thread\n", mChipNum);
       break;
 
     case Phase::HAS_T6_CODE_RUNNING:
       // We'd like retreating from state to mean 'debug pause', but
-      // the BlackHole doc for that appears to be so-far missing and
+      // the Blackhole doc for that appears to be so-far missing and
       // the wormhole doc has some not-encouraging stuff (e.g., can't
       // pause NC) that we'd rather not assume if we don't have to..
       // XXX no longer true: So just retreat here, for now, by bailing all the way back to reset.
@@ -233,12 +234,12 @@ namespace MFM {
       worked = resetTheFleet(); 
       if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
-      BHLOGprintf("<BlackHole:%u> (fleet reset to stop running code)\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> (fleet reset to stop running code)\n", mChipNum);
       break;
 
     case Phase::HAS_T6_EVENT_WINDOWS:
       mCurrentPhase = Phase::HAS_T6_CODE_RUNNING;
-      BHLOGprintf("<BlackHole:%u> event window processing ceased\n", mCardNum);
+      BHLOGprintf("<Blackhole:%u> event window processing ceased\n", mChipNum);
       break;
 
     default:
@@ -246,45 +247,45 @@ namespace MFM {
     }
   }
   
-  bool BlackHole::openCard() {
+  bool Blackhole::openChip() {
     char buf[100];
-    snprintf(buf,100,"/dev/tenstorrent/%u", mCardNum);
+    snprintf(buf,100,"/dev/tenstorrent/%u", mChipNum);
     int fd = open(buf, O_RDWR | O_CLOEXEC);
     if (fd < 0) return false;
-    mCardFD = fd;
+    mChipFD = fd;
     return true;
   }
 
-  bool BlackHole::closeCard() {
-    close(mCardFD);
-    mCardFD = -1;
+  bool Blackhole::closeChip() {
+    close(mChipFD);
+    mChipFD = -1;
     mOurTLBs.stopPretendingHostRAMisDeallocated();
     return true;
   }
 
-  bool BlackHole::allocateTLBs() {
-    mOurTLBs.setDeviceInfo(mCardNum,mCardFD);
+  bool Blackhole::allocateTLBs() {
+    mOurTLBs.setDeviceInfo(mChipNum,mChipFD);
     mOurTLBs.allocateTLBs();
     return true;
   }
 
-  bool BlackHole::deallocateTLBs() {
+  bool Blackhole::deallocateTLBs() {
     mOurTLBs.deallocateTLBs();
-    mOurTLBs.setDeviceInfo(mCardNum,-1);
+    mOurTLBs.setDeviceInfo(mChipNum,-1);
     return true;
   }
 
-  bool BlackHole::configureTLBs() {
+  bool Blackhole::configureTLBs() {
     mOurTLBs.configureTLBs();
     return true;
   }
 
-  bool BlackHole::unconfigureTLBs() {
+  bool Blackhole::unconfigureTLBs() {
     mOurTLBs.unconfigureTLBs();
     return true;
   }
 
-  bool BlackHole::allocateHostRAM() {
+  bool Blackhole::allocateHostRAM() {
     constexpr bool cTRANSPORTBLOCKFITS =
       HOST_RAM_PER_BH >= MIN_GTEED_HOST_RAM_PER_BH;
     COMPILATION_REQUIREMENT<cTRANSPORTBLOCKFITS>();
@@ -292,14 +293,14 @@ namespace MFM {
     return true;
   }
 
-  bool BlackHole::deallocateHostRAM() {
+  bool Blackhole::deallocateHostRAM() {
     mOurTLBs.deallocateHostRAM();
     return true;
   }
 
-  bool BlackHole::startTransportThread() {
+  bool Blackhole::startTransportThread() {
     mOurTLBs.resetTheFleet(); // XXX ARE WE SEEING FAILURE TO RESET?
-    BHLOGprintf("<BlackHole:%u> PRESET THE FLEET\n",mCardNum);
+    BHLOGprintf("<Blackhole:%u> PRESET THE FLEET\n",mChipNum);
 
     BHLog & bhl = BHLog::getTheBHLog();
     Eprintf("startTransportThread 10 (%u) PRE transmute\n",bhl.getThrId());
@@ -322,13 +323,13 @@ namespace MFM {
       // WE DO NOT HOLD THE GIL AT THIS POINT
       if (false)
         BHLOGprintf("\n\n %d (%u) YAMINDA RUNNING ON INTERNAL POWER %s\n",
-                    this->mCardNum,bhl.getThrId(),myGILState());
+                    this->mChipNum,bhl.getThrId(),myGILState());
                 
       for (MFM::u64 i = 0u; ++i != 0u; ) {
         if (this->mQuitTransportThread.load()) { // should we quit?
           Eprintf("TransportThread (%u) QUIT REQ\n",bhl.getThrId());
           if (false)
-            BHLOGprintf("\n\n %d (%u) YAMINDA EXTERNAL QUITZOS BAHT (%" PRIu64 ")\n",this->mCardNum,bhl.getThrId(),i);
+            BHLOGprintf("\n\n %d (%u) YAMINDA EXTERNAL QUITZOS BAHT (%" PRIu64 ")\n",this->mChipNum,bhl.getThrId(),i);
           break;
         }
         const MFM::u64 aMILLION = 1'000'000ul;
@@ -336,7 +337,7 @@ namespace MFM {
           Eprintf("TransportThread (%u) %u MILLION UPDATES\n",bhl.getThrId(),(MFM::u32) (i/aMILLION));
           if (false)
             BHLOGprintf("\n\n %d YAMINDA transport thread yo %uM %p\n",
-                        this->mCardNum,
+                        this->mChipNum,
                         (MFM::u32) (i/aMILLION),
                         &this->mOurTLBs);
         }
@@ -351,12 +352,12 @@ namespace MFM {
     return true;
   }
 
-  bool BlackHole::stopTransportThread() {
+  bool Blackhole::stopTransportThread() {
     _stopTransportThread();
     return true;
   }
 
-  void BlackHole::_stopTransportThread() {
+  void Blackhole::_stopTransportThread() {
     BHLog & bhl = BHLog::getTheBHLog();
     Eprintf("stopTransportThread 10 (%u)\n",bhl.getThrId());
 
@@ -387,27 +388,27 @@ namespace MFM {
     Eprintf("stopTransportThread 17 (%u) OUT\n",bhl.getThrId());
   }
 
-  bool BlackHole::resetTheFleet() {
+  bool Blackhole::resetTheFleet() {
     mOurTLBs.resetTheFleet();
     return true;
   }
 
-  bool BlackHole::layoutImages() {
-    BHLOGprintf("Trying to deploy to BH#%u",mCardNum);
+  bool Blackhole::layoutImages() {
+    BHLOGprintf("Trying to deploy to BH#%u",mChipNum);
     return mTheImageManager.deployTo(*this);
   }
 
-  s32 BlackHole::deployRISCVCodeFromImage(T6Image& img, u8 toTLBI) {
+  s32 Blackhole::deployRISCVCodeFromImage(T6Image& img, u8 toTLBI) {
     /*
     Eprintf("BH#%u multicasting image %s, size %u, to the fleet\n",
-            mCardNum,
+            mChipNum,
             img.getName().c_str(),
             img.getBinFileSize());
     */
     return mCodeManager.deployRISCVCodeFromImage(img, toTLBI);
   }
 
-  bool BlackHole::setMFMxDefaultCodePath(std::string path) {
+  bool Blackhole::setMFMxDefaultCodePath(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate); // Open in binary mode and at end
 
     if (!file.is_open()) {
@@ -419,19 +420,19 @@ namespace MFM {
     return true;
   }
 
-  bool BlackHole::releaseTheHounds() {
+  bool Blackhole::releaseTheHounds() {
     mCodeManager.releaseTheHounds();
     return true;
   }
 
-  bool BlackHole::configureT6ImageForHostComms(T6Image & t6i) {
+  bool Blackhole::configureT6ImageForHostComms(T6Image & t6i) {
     // NO: ALREADY DONE: (1) CONFIGURE HOSTCOMMS
 
     // (2) CONFIGURE T6IMAGE
     return mOurTLBs.configureT6ImageForHostComms(t6i);
   }
   
-  BlackHole::~BlackHole() {
+  Blackhole::~Blackhole() {
     BHLog & bhl = BHLog::getTheBHLog();
     Eprintf("BH DTORRRRR (%u) IN\n",bhl.getThrId());
     _stopTransportThread();

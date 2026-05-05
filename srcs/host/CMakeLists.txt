@@ -8,21 +8,23 @@ target_sources(MFMx PRIVATE
     # src/C4I.cpp
     src/EWControl.cpp
     src/Layout.cpp
-    src/S32C.cpp
+#    src/S32C.cpp
     src/STVL.cpp
     src/StringBlock.cpp
     src/BHLog.cpp
     src/BHTag.cpp
-    src/BlackHole.cpp
+    src/Blackhole.cpp
     src/CodeManager.cpp
     src/CommsModule.cpp
     src/FATAL.cpp
     src/FailStrings.cpp
     src/HostCommsMap.cpp
+    src/HostRandom.cpp
     src/HostUtils.cpp
     src/ImageManager.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
+    src/QuietBox.cpp
     src/T6Image.cpp
     src/TimeDefs.cpp
     src/XUtilsHost.cpp

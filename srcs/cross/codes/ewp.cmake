@@ -6,6 +6,7 @@ target_sources(ewp PRIVATE
   src/ImageConfig.cpp
   images/ewp/src/EwpBlock.cpp
   images/ewp/src/LiveB.cpp
+  images/ewp/src/Physics.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 

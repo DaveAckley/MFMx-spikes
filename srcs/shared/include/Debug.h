@@ -51,7 +51,7 @@ namespace MFM {
     HBPVAL(B);                                  \
   }                                             \
   MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
-  } while(0);                                   \
+  } while(0)
   
 #else
 
@@ -62,7 +62,9 @@ namespace MFM {
 #define HBXVAL(INTISHVAL) do { } while (0)
 #define HBPTAG(TAG,PRTABLEVAL) do { } while(0)
 #define HBXTAG(TAG,PRTABLEVAL) do { } while (0)
-#define HBASSERT_COMP(A,B,OP) do { } while (0)
+#define HBASSERT_COMP(A,B,OP) do {              \
+  MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
+ } while(0)
 
 #endif
 

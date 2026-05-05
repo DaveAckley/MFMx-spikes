@@ -6,6 +6,7 @@
 #include "FastT2.h" // for create
 #include "T6Grid.h"
 #include "Debug.h"
+#include "utils.h" // for PopCount
 
 #define LOGP
 
@@ -39,7 +40,7 @@ namespace MFM {
         |(NOC1_ROUTER_CFG_2)| |(NOC0_ROUTER_CFG_2)|
         |    0xffb3'010C    | |    0xffb2'010C    |
         +-------------------+ +-------------------+
-    NRI3| see struct NRI3   | | see struct NRI3   |
+    NRI3| see namespace NRI3| | see namespace NRI3|
         +-------------------+ +-------------------+
    */
 
@@ -52,6 +53,15 @@ namespace MFM {
   static constexpr u32 INBOUND_TO_SW = NOC0_ROUTER_CFG_4;
   static constexpr u32 INBOUND_TO_NW = NOC1_ROUTER_CFG_2;
   static constexpr u32 INBOUND_TO_NE = NOC1_ROUTER_CFG_4;
+
+  u32 preferNoC(U8C s0, U8C d0) { // return 0 or 1 for noc with least hops s->d
+    u8 dist0 = stepsE(s0,d0) + stepsS(s0,d0);
+    u8 dist1 = stepsW(s0,d0) + stepsN(s0,d0);
+    if (dist0 < dist1) return 0;
+    if (dist0 > dist1) return 1;
+    static u32 ties;
+    return PopCount(++ties)&1;  // vary choice on ==
+  }
 
   void funcWriteNRIAddress(u32 noc, u32 nri, u32 byteOffset, u32 value) {
     volatile u32 * p = funcGetNRIAddress(noc, nri, byteOffset);
@@ -215,7 +225,8 @@ namespace MFM {
     //HBPVAL(themct6);
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
 
-    return blockingReadImageBlockHeaderCT6Offset(usNoC0,themct6-usct6);
+    S8C diffct6(themct6.x-usct6.x,themct6.y-usct6.y);
+    return blockingReadImageBlockHeaderCT6Offset(usNoC0,diffct6);
   }
 
   ImageBlockHeader NRI3::blockingReadImageBlockHeaderCT6Offset(U8C usnoc, S8C ct6off, bool debug) {
@@ -226,7 +237,7 @@ namespace MFM {
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
 
     //if (debug) HBPVAL(usct6);
-    U8C themct6 = usct6 + ct6off;
+    U8C themct6(usct6.x + ct6off.x,usct6.y + ct6off.y);
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
 
     //if (debug) HBPVAL(themct6);
@@ -271,7 +282,7 @@ namespace MFM {
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
     //if (debug) HBPVAL(usct6);
 
-    U8C themct6 = usct6 + ct6off;
+    U8C themct6(usct6.x + ct6off.x,usct6.y + ct6off.y);
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
     //if (debug) HBPVAL(themct6);
 
@@ -292,7 +303,7 @@ namespace MFM {
   s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
 
-    HBXTAG(dsar,(u32) destaddr);
+    //    HBXTAG(dsar,(u32) destaddr);
     HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
     HBASSERT_LS(wordCount, 2000); // XXX don't be greedy
     HBASSERT_GT(wordCount, 0); // XXX but insist we're getting something..
@@ -301,8 +312,12 @@ namespace MFM {
     MFM_API_ASSERT(isInL1(sourcedata),ILLEGAL_STATE);
     MFM_API_ASSERT(isInL1(destaddr), ILLEGAL_ARGUMENT);
     MFM_API_ASSERT((destaddr % 16) == (((u32)sourcedata) % 16), BAD_ALIGNMENT); // rule for small packets L1->L1
-    u32 usenoc = 0u; // should be useNoC(usnoc0, noc0) when that exists
+    if ((destaddr % 16) != 0) 
+      HBPTAG(BHA0-ADDR-WARN,destaddr%16);
 
+    //    u32 usenoc = 0u; // should be useNoC(usnoc0, noc0) when that exists
+    u32 usenoc = preferNoC(sourcenoc0,destnoc0); // pick not longer route (all else equal)
+    SNAP(60,HBPTAG(**USENOC**,(u32) usenoc));
     waitTilNRIClear(usenoc);
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source

@@ -1,5 +1,5 @@
 #include "ImageManager.h"
-#include "BlackHole.h"
+#include "Blackhole.h"
 
 namespace MFM {
   ImageManager & ImageManager::getTheImageManager() {
@@ -7,8 +7,8 @@ namespace MFM {
     return theInstance;
   }
 
-  bool ImageManager::runtimeConfigureT6Image(T6Image& t6i, BlackHole & bh) {
-    u32 bhc = bh.getCardNumber();
+  bool ImageManager::runtimeConfigureT6Image(T6Image& t6i, Blackhole & bh) {
+    u32 bhc = bh.getChipNumber();
     Layout & l = getLayouts().getItem(mActiveLayout); // or bang
     bool ret = true;
 
@@ -18,7 +18,7 @@ namespace MFM {
       if (!cbp) { Eprintf("NO CELLBLOCK\n"); return false; }
       Eprintf("CellBlock: %s\n",cbp->reportCellBlock().c_str());
 
-      std::string cellname = l.mCellForBHCard[bhc];
+      std::string cellname = l.mCellForBHChip[bhc];
       Eprintf("BH#%u, Cell: %s\n", bhc, cellname.c_str());
 
       Cell & thecell = getCells().getItem(cellname);
@@ -40,8 +40,8 @@ namespace MFM {
     return ret;
   }
 
-  bool ImageManager::deployTo(BlackHole & bh) {
-    u32 bhc = bh.getCardNumber();
+  bool ImageManager::deployTo(Blackhole & bh) {
+    u32 bhc = bh.getChipNumber();
 
     Layout & l = getLayouts().getItem(mActiveLayout); // or bang
     Eprintf("IM: Deploying layout '%s' to BH#%u\n",
@@ -70,11 +70,11 @@ namespace MFM {
     }
     Eprintf("Default ImageBlock: %s\n",t6i->reportImageBlock().c_str());
 
-    runtimeConfigureT6Image(*t6i,bh); // configure default image for bhcard and comms
+    runtimeConfigureT6Image(*t6i,bh); // configure default image for bhchip and comms
 
     bh.deployRISCVCodeFromImage(*t6i,U8_MAX); // multicast away!
 
-    std::string theCellName = l.mCellForBHCard[bhc];
+    std::string theCellName = l.mCellForBHChip[bhc];
 
     if (theCellName.size() == 0u) {
       Eprintf("IM: Error: No cell found for BH%u in layout '%s'[\n%s\n]\n",
@@ -137,6 +137,13 @@ namespace MFM {
       bh.deployRISCVCodeFromImage(t6i,tlbi); // narrowcast
     }
     Eprintf("Overrode %u of %u with new orders\n",overrides,tot);
+
+    /// PROBABLY DOESN'T BELONG HERE BUT TOMORROW IS T2SDAY
+    {
+      QuietBox & qb = QuietBox::get();
+      qb.loadMaps(*this,bhc);
+    }
+    
     return true;
   }
 
@@ -160,6 +167,7 @@ namespace MFM {
     T6ImageMap & map = getT6Images();
     T6Image & ret = map.makeItem(ikey); //< bang if exists
     ret.init(ikey,imageCode,path);
+    mIKeyFromImageCode[imageCode] = ikey;
     Eprintf("IMAGEBLOCKO: %s\n",ret.reportImageBlock().c_str());
 
     return ret;

@@ -61,7 +61,7 @@ namespace MFM {
         if (epf) {
           if (forInit) HBPTAG(fncInit,i); 
           //if (forInit) HBPTAG(fncPtr,(void*) epf);
-          if (!forInit) HBPTAG(4STEPNC,i);
+          //if (!forInit) HBPTAG(4STEPNC,i);
           if ((*epf)(forInit)) {
             if (forInit) HBPTAG(true,(void*) epf);
             ret = true;

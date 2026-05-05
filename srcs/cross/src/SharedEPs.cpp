@@ -7,24 +7,24 @@ namespace MFM {
   }
      
   bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
-    HBPTAG(IHRTC,carindex);
+    //    HBPTAG(IHRTC,carindex);
 
     Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
     if (crbi.isFull()) return false; // bail if can't notify??
 
     // Open it up
     car.openTC();
-    HBPTAG(IHCV,carindex);    
-    HBPVAL(&crbi);
+    //    HBPTAG(IHCV,carindex);    
+    //    HBPVAL(&crbi);
     crbi.add(carindex); //notify hB
-    HBPTAG(IHB2HB,&crbi);
+    //    HBPTAG(IHB2HB,&crbi);
 
     return true;
   }
 
   InterHubBlock * InterHubEP::getCarPtrIfAny(u8 carindex) const {
-    SNAP(60,HBPTAG(IHGCP,&this->getCarStg()));
     if (carindex >= CAR_COUNT) return 0;
+    //HBPTAG(IHGotp,&this->getCarStg());
     return &this->getCarStg().getTC(carindex);
   }
 

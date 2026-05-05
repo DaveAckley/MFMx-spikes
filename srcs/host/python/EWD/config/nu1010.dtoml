@@ -1,12 +1,13 @@
 # -*- mode: conf-toml; -*-
+# Sat May  2 02:00:18 2026 Rename bhcard -> bhchip
 # Thu Feb 12 12:23:10 2026 Consider adding multimage host config here
 # Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
 # Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
 
 [Config]
 # activeLayout=zotandewp
- activeLayout=zotandewpandhub
-# activeLayout=ewpandhub
+# activeLayout=zotandewpandhub
+ activeLayout=ewpandhub
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [module.AcceptLogging]
@@ -16,7 +17,7 @@
 #  blocks = [BC_EWCARS]
 
 [layout.allone]
-  bhcards = [2]
+  bhchips = [2]
 #  defaultImage = ZOT
 #  defaultImage = EWP
   defaultImage = HUB
@@ -24,20 +25,21 @@
   #hostModules = [ AcceptLogging ]
 
 [layout.ewpandhub]
-  bhcards = [0]
+  bhchips = [0,1,2,3]
   defaultImage = EWP
 #  cell.all = C1X2_EWP_HUB
-  cell.all = C2X1_EWP_HUB
+#  cell.all = C2X1_EWP_HUB
+  cell.all = C2X2_EWP_HUB
   #hostModules = [ AcceptLogging ]
 
 [layout.zotandewp]
-  bhcards = [1]
+  bhchips = [1]
   defaultImage = ZOT
   cell.all = C1X2_ZOT
   #hostModules = [ AcceptLogging ]
 
 [layout.zotandewpandhub]
-  bhcards = [3]
+  bhchips = [3]
   defaultImage = EWP
   cell.all = C2X2_ZEH
   #hostModules = [ AcceptLogging ]
@@ -66,6 +68,11 @@
   size = [2,1]
   fill = HUB
   image.1.0 = EWP
+
+[cell.C2X2_EWP_HUB]
+  size = [2,2]
+  fill = EWP
+  image.1.1 = HUB
 
 [image.ZOT]
   binfile="zot.bin"

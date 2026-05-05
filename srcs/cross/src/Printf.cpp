@@ -45,7 +45,7 @@ namespace MFM {
 
 
   void t6InitPrinters(HostBlock & hb) {
-    u64 hostaddr = hb.getHostNocAddr();
+    u64 hostaddr = hb.getHostNoCAddr();
     //    DP.init(DPLock,0,debugPrintPutc,hostaddr);
     debugPrintPutc('!',0);      // Flag debug initted
     debugPrintPutc('*',0);      // Flag debug initted

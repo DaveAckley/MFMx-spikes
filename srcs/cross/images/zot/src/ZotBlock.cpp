@@ -91,7 +91,7 @@ namespace MFM {
 
     car.openTC();     // Open it up.
     crb.add(carindex); //notify hB
-    HBNOTE(getName());
+    HBPTAG(2comp,this->getName());
     
     return true;
   }

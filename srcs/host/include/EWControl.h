@@ -1,17 +1,16 @@
 #pragma once /* -*- C++ -*- */
 #include "itype.h"
-#include "U16C.h"
+#include "UxC.h" // for U16C
 #include "EventWindow.h"
 #include "HostUtils.h"
 #include "P4Atom.h"
-#include "Random.h"
+#include "HostRandom.h"
 #include "TC.h"
 #include "BHTag.h"
 #include "AtomicLock.h"
 #include "S32C.h"
 #include "S8C.h"
-#include "U8C.h"
-#include "U16C.h"
+#include "UxC.h" // for U8C, U16C
 #include "STVL.h"
 #include "BGRImage.h"
 
@@ -23,13 +22,6 @@ namespace py = pybind11;
 #include <charconv> // for to_chars
 
 namespace MFM {
-
-  struct HostRandom : public Random {
-    HostRandom()
-      : Random((u32) time(NULL))
-    { }
-  };
-  extern thread_local HostRandom myPRNG;
 
   struct EWControl {
     static EWControl & getTheEWControl() ;
@@ -108,7 +100,7 @@ namespace MFM {
 
     std::string doNuke(bool large) ;
 
-    std::string doSeed() ;
+    std::string doSeed(u32 atomType) ;
 
     S32C randomCoordInBounds() ;
 
@@ -142,6 +134,8 @@ namespace MFM {
     std::string_view renderGraphicsGridWindow(S32C pixelsize, s32 zoom) ;
 
     BGRImageHD & renderGraphicsGridWindowToImage() ;
+
+    s32 scanHubGrid(u32 chipnum) ;
 
     bool pickEWCenter(S32C & occupied, EWLocker::Entry & token) ;
 
@@ -180,7 +174,7 @@ namespace MFM {
       s32c.def(py::init<const s32,const s32>());
       s32c.def_readwrite("x", &S32C::x);
       s32c.def_readwrite("y", &S32C::y);
-      s32c.def("__repr__",&S32C::to_repr);
+      //      s32c.def("__repr__",&S32C::to_repr);
 
       py::class_<U8C> u8c(m,"U8C");
       u8c.def(py::init<>());
@@ -226,6 +220,7 @@ namespace MFM {
       ewc.def("__repr__",&EWControl::to_repr);
       ewc.def("getGridSize",&EWControl::getGridSize);
       ewc.def("randomCoordInBounds",&EWControl::randomCoordInBounds);
+      ewc.def("scanHubGrid",&EWControl::scanHubGrid);
       ewc.def("renderGridWindow",&EWControl::renderGridWindow);
       ewc.def("renderGraphicsGridWindowToImage",&EWControl::renderGraphicsGridWindowToImage, py::return_value_policy::reference);
       ewc.def("statsLine",&EWControl::statsLine);

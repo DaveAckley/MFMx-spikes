@@ -31,7 +31,7 @@ struct STVL {
     }
     std::string to_repr() const {
       std::string ret = "<Entry p=";
-      ret.append(mPosition.to_repr());
+      //      ret.append(mPosition.to_repr());
       ret.append(" ts=");
       TimeStamp nowts = std::chrono::steady_clock::now();
       double diff = secondsSinceStart(nowts);

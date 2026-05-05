@@ -25,7 +25,7 @@ namespace MFM {
       if (!cello.init()) FAIL(NO_MATCH);
       U8C ourct6 = cello.getUsCT6();
       U8C ournoc0 = U8C::makeNoC0CoordFromCT6Coord(ourct6);
-      u32 ourtlbi = U8C::makeTLBIFromNoC0Coord(ournoc0);
+      u32 ourtlbi = U8C::makeTLBIFromNoCCoord(ournoc0);
       
       // Enumerate the HUBs surrounding my (Platonic) cell
       const CellBlock & cb = cello.getOurCB();
@@ -55,12 +55,12 @@ namespace MFM {
               //HBNOTE("BNGI");
               //HBXVAL((u32) usiba.mIBAMagic);
               MFM_API_ASSERT(usiba.isValid(),ILLEGAL_STATE);
-              u32 theirtlbi = U8C::makeTLBIFromNoC0Coord(atnoc0);
+              u32 theirtlbi = U8C::makeTLBIFromNoCCoord(atnoc0);
               bool weAreIn = ourtlbi < theirtlbi;
 
               InterHubEP & ihep = myInterHubEP[d];
               //HBPTAG(IHEP-IHUO*,&ihep);
-              HBPTAG(IHEP-WEIN,weAreIn);
+              //HBPTAG(IHEP-WEIN,weAreIn);
               ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
               InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d];
               HBPTAG(ihepind,&ihstg);
@@ -86,17 +86,17 @@ namespace MFM {
       HBMARK;
 
     } else {
-      HBXTAG(IHLIV,0);
+      //      HBXTAG(IHLIV,0);
       //// LIVING
       for (u32 n = 0; n < 4; ++n) {
         InterHubEP & myIHEPNC = myInterHubEP[n];
-        HBPTAG(IHUO*,&myIHEPNC);
+        //        HBPTAG(IHUO*,&myIHEPNC);
         if (!myIHEPNC.isInitted()) continue;
 
-        HBPTAG(IHUO,n);
+        //        HBPTAG(IHUO,n);
         if (myIHEPNC.updateOps()) {
           ret = true;
-          HBMARK;
+          //          HBMARK;
         }
       }
     }

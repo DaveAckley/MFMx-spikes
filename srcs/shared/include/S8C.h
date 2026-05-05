@@ -6,7 +6,8 @@
 #include "Point.h" // for SPoint
 
 namespace MFM {
-  struct U8C; // FORWARD
+  template <class UCTYPE> struct UxC; // forward
+  using U8C = UxC<u8>;
 
   struct S8C {
     S8C() : x(0) , y(0) { }

@@ -96,9 +96,9 @@ nc_init:
         
 exit_setup:  ## ALL HARTS COME THROUGH HERE
 	
-	## NEXT TWO INSNS DISABLE L0 CACHE ON ALL HARTS
-	# li x1, 8                # DEBUG get bit 3 set
-        # csrrs x0, 0x7c0, x1     # DEBUG set DisLowCash to disable L0 data cache
+	## UNCOMMENT NEXT TWO INSNS TO DISABLE L0 CACHE ON ALL HARTS
+	li x1, 8                # DEBUG get bit 3 set
+        csrrs x0, 0x7c0, x1     # DEBUG set DisLowCash to disable L0 data cache
 
 	# Finally initialize global pointer (same for all harts)
 	lui gp,%hi(__global_pointer$)
@@ -152,8 +152,7 @@ runmain:
         addi t0,t0,16           # BLOW THE MAGIC
         sw t0,(s2)
 2:      fence
-done:  
-        j done
+done:   j done                  # "HALT"
         .cfi_endproc
 	
 	.global t6hang
@@ -171,7 +170,7 @@ t6hang:
 	lbu t0,23(t2)           # get mFails from hostblock+27
 	or t0,t0,t1             # include 1<<hartnum in mFails
         sb t0,23(t2)            # (we explicitly ignore races here)
-1:      j 1b                    # and hang 
+1:      j 1b                    # "HANG" 
         .cfi_endproc
 	
 	.global estimateStackUsage

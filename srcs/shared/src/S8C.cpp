@@ -1,5 +1,5 @@
 #include "S8C.h"
-#include "U8C.h"
+#include "UxC.h" // for U8C
 #include "Fail.h"
 
 namespace MFM {
@@ -9,7 +9,7 @@ namespace MFM {
 
   bool S8C::toU8C(U8C& u) {
     if (x < 0 || y < 0) return false;
-    u = *this;
+    u = U8C(x,y);
     return true;
   }
 

@@ -18,7 +18,8 @@ namespace MFM {
     bool init() ;
     U8C getCellOriginCT6() const { //< get CT6 of cell {0,0}
       const CellBlock & cb = getOurCB();
-      return mCellNum * cb.mCellStride + cb.mLayoutOffset; // XX + or - ?
+      U8C prod = mCellNum * cb.mCellStride;
+      return U8C(prod.x + cb.mLayoutOffset.x,prod.y + cb.mLayoutOffset.y);; // XX + or - ?
     } 
     bool isValidCP(U8C cp) const {
       const CellBlock & cb = getOurCB();

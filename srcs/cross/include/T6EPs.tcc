@@ -52,7 +52,7 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      HBPTAG(GCDEP,carindex);
+      //      HBPTAG(GCDEP,carindex);
       //HBPVAL(&mCarIdxsPtr->mIdxs[COMP2COMM]);
       SUBTC* carp = this->getCarPtrIfAny(carindex);
       if (!carp) HBNOTE("NULLGO?");
@@ -85,14 +85,14 @@ namespace MFM {
     BlockCode destbc = this->getDestBlockCode();
     u8 destbcindex = this->getDestBlockCodeIndex();
 
-    HBPTAG(dstbci,destbcindex);
+    //    HBPTAG(dstbci,destbcindex);
 
     if (isremotehost) {
       //      u32 hostchunkoffset = iba.getHostChunkOffsetOpt();
       //      MFM_API_ASSERT(hostchunkoffset != U8_MAX,ILLEGAL_STATE);
       FAIL(INCOMPLETE_CODE);
     }
-    HBXTAG(mDBA,mDestBlockAddr);
+    //    HBXTAG(mDBA,mDestBlockAddr);
     u32 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
     U8C ournoc0 = fAll.mNoC0;
@@ -107,15 +107,15 @@ namespace MFM {
 
     HOOKIT();
     //    HBMARK;
-    HBPTAG(SHPTC/us,ournoc0);
+    //    HBPTAG(SHPTC/us,ournoc0);
     //HBPTAG(ucar+,(void*) &car);
     //HBPTAG(ucar-,(void*)(((char*) &car)+4*wordCount));
-    HBPTAG(dst,destnoc0);
+    //    HBPTAG(dst,destnoc0);
     //HBPTAG(dcar+,(void*) destcaraddr);
     //HBPTAG(dcar-,(void*)(((char*) destcaraddr)+4*wordCount));
     s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, destcaraddr);
     HOOKIT();
-    HBPTAG(stat,status);
+    //    HBPTAG(stat,status);
     return status > 0;
   }
   

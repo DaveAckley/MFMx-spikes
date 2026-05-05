@@ -15,9 +15,9 @@ namespace MFM {
 
     // Open it up
     car.openTC();
-    HBPTAG(ERCV,this->getName());
+    //    HBPTAG(ERCV,this->getName());
     crbi.add(carindex); //notify hB
-    //HBPVAL(carindex);
+    //    HBPTAG(car#,carindex);
 
     return true;
   }

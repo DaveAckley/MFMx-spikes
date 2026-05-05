@@ -1,7 +1,7 @@
 #pragma once /* -*- C++ -*- */
 
 #include "itype.h"
-#include "U16C.h"
+#include "UxC.h" // for U16C
 #include <string_view>
 
 #include <pybind11/pybind11.h>

@@ -30,14 +30,16 @@ namespace MFM {
       static_assert(sizeof(*this)==MAX_PACKET_SIZE,"BAX MAD");
       return sizeof(*this);
     }
-    TCWord getWordAt(u32 word) const {
+    TCMarker getMarkerAt(u32 word) const {
       if (word < MAX_PACKET_WORDS) return mWords[word];
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
     }
-    TCWord & getWordAt(u32 word) {
+    TCMarker & getMarkerAt(u32 word) {
       if (word < MAX_PACKET_WORDS) return mWords[word];
       FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
     }
+
+    // TC SERVICES
 
     void reset() {
       memset_s(this,'\0',sizeof(*this));
@@ -52,7 +54,7 @@ namespace MFM {
   protected:
     // TC() = default; // don't make these
 
-    TCWord mWords[MAX_PACKET_WORDS]; // [0] is always marker; rest could also be data or unused
+    TCMarker mWords[MAX_PACKET_WORDS]; // [0] is always marker; rest could also be data or unused
   };
 
 }

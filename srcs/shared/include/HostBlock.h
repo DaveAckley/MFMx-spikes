@@ -3,7 +3,7 @@
 
 #include "itype.h"
 #include "RingBuffer.h"
-#include "U8C.h"
+#include "UxC.h" // for U8C
 
 namespace MFM {
   static constexpr u8 HOST_COMMS_MAP_CHUNK_SIZE = 64u;
@@ -18,7 +18,8 @@ namespace MFM {
     s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
     U8C mNoC0;                  // MUST BE BYTES 24..25
     u8 mTLBI, mFails;           // MUST BE BYTES 26..27
-    u32 mCommonArgs[3];         // MUST BE BYTES 28..39
+    u8 mChipNum, RSV1, RSV2, RSV3; // MUST BE BYTES 28..31
+    u32 mCommonArgs[2];         // MUST BE BYTES 32..39
 
     u32 mPerHartWatchdog[5];    // spin counter for liveness checks
     u32 mHostBaseAddrLo;
@@ -41,7 +42,7 @@ namespace MFM {
     inline void hartbeat(u32 hartnum) {
       if (hartnum < 5) ++mPerHartWatchdog[hartnum];
     }
-    u64 getHostNocAddr() const {
+    u64 getHostNoCAddr() const {
       return (((u64) mHostBaseAddrHi)<<32) + mHostBaseAddrLo;
     }
     void resetLog() { mLogBuffer.reset(); }

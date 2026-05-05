@@ -14,13 +14,21 @@ namespace MFM {
     const char * getName() const { return self().getName(); }
     u32 getMaxPayloadSize() const { return self().getMaxPayloadSize(); }
     u32 getMaxPacketSize() const { return self().getMaxPacketSize(); }
-    TCWord getWordAt(u32 word) const { return self().getWordAt(word); }
-    TCWord & getWordAt(u32 word) { return self().getWordAt(word); }
+    TCMarker getMarkerAt(u32 word) const { return self().getMarkerAt(word); }
+    TCMarker & getMarkerAt(u32 word) { return self().getMarkerAt(word); }
+
+    //TCWord getWordAt(u32 word) const { return self().getWordAt(word); }
+    //TCWord & getWordAt(u32 word) { return self().getWordAt(word); }
     bool readyToClose(TCOpsData & tms, u32 msnow) const { return self().readyToClose(tms,msnow); }
     void reset() { return self().reset(); }
 
     // SERVICES
     TCState getTCState() const { return getHeader().getTCState(); }
+
+    u32 currentTCSize() const {
+      return TCMarker::getPacketBytesFromTCMSize(getHeader().getTCSizeCode());
+    }
+
 
     void writeMarkers(TCMarker m) {
       getHeader() = m;                    // write header
@@ -52,26 +60,20 @@ namespace MFM {
 
       TCMarker h = getHeader();
       MFM_API_ASSERT(h.getTCState() == TCState::OPEN, ILLEGAL_ARGUMENT);
-
+      //      HBPTAG(clTCsz,finalPayloadBytes);
+      //      HBXTAG(hrepre,h.getU32());
       h.reinit(finalPayloadBytes, TCState::CLOSED); // sets tcmSize here
       if (false) {
-        TCWord w;
-        w.mMarker = h;
-        HBXTAG(hre,w.mWord);
+        HBXTAG(hreaft,h.getU32());
       }
       writeMarkers(h);
-      if (true) {
-        TCWord w;
-        w.mMarker = h;
-        HBXTAG(h2e,w.mWord);
-        w.mMarker = getHeader();
-        HBXTAG(fhh,w.mWord);
+      if (false) {
+        HBXTAG(h2e,h.getU32());
+        HBXTAG(fhh,getHeader().getU32());
         HBXTAG(*hd,&getHeader());
-        w.mMarker = getFooter();
-        HBXTAG(fft,w.mWord);
+        HBXTAG(fft,getFooter().getU32());
         HBXTAG(*ft,&getFooter());
-        w.mMarker = getAnkle();
-        HBXTAG(fak,w.mWord);
+        HBXTAG(fak,getAnkle().getU32());
         HBXTAG(*ak,&getAnkleOrDie());
         HBXTAG(TCBase::this,this);
       }
@@ -79,44 +81,46 @@ namespace MFM {
 
     u32 getMaxWordSize() const { return getMaxPacketSize()/4u; }
 
-    TCMarker getMarkerAt(u32 word) const { return getWordAt(word).mMarker; }
-    TCMarker & getMarkerAt(u32 word) { return getWordAt(word).mMarker; }
-
     TCMarker getHeader() const { return getMarkerAt(0); }
     TCMarker & getHeader() { return getMarkerAt(0); }
 
     TCMarker getAnkle() const {
       TCMarker h = getHeader();
 
-      u8 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); // will be 0u if no ankle
+      u32 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); // will be 0u if no ankle
       if (ai == 0u) return h;                          // and then return header
       MFM_API_ASSERT(ai < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(ai).mMarker;
+      return getMarkerAt(ai);
     }
 
     TCMarker & getAnkleOrDie() {
       TCMarker h = getHeader();
 
-      u8 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); 
+      //      HBPTAG(gAODz,(u32) h.mTCMSize);
+      //      HBPTAG(gAODw,TCMarker::getPacketWordsFromTCMSize(h.mTCMSize));
+      u32 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); 
       MFM_API_ASSERT(ai > 0u && ai < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS); // die if no ankle
-      return getWordAt(ai).mMarker;
+      //      HBXTAG(gAODh,h.getU32());
+      //      HBPTAG(gAODi,ai);
+      //      HBPTAG(gAODx,getMaxWordSize());
+      return getMarkerAt(ai);
     }
 
     TCMarker getFooter() const {
       TCMarker h = getHeader();
 
-      u8 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
+      u32 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
       MFM_API_ASSERT(fi > 0u && fi < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(fi).mMarker;
+      return getMarkerAt(fi);
     }
 
     TCMarker & getFooter() {
       TCMarker h = getHeader();
 
-      u8 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
+      u32 fi = TCMarker::getFooterWordIndex(h.mTCMSize);
         
       MFM_API_ASSERT(fi > 0u && fi < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
-      return getWordAt(fi).mMarker;
+      return getMarkerAt(fi);
     }
 
     bool isComplete() const {

@@ -4,12 +4,13 @@
 #include "HostUtils.h"
 
 #include "FATAL.h"
-#include "U16C.h"
+#include "UxC.h" // for U16C
 #include "TTKMDStuff.h"
 #include "TC.h"
 #include "T6Image.h"
 #include "HostCommsMap.h"
 #include "CommsModule.h"
+#include "P4Atom.h"
 
 #include <pybind11/functional.h> // for std::function?
 
@@ -41,10 +42,10 @@ namespace MFM {
     void updateLogCars(unsigned tlbi) ;
     void updateEWCars(unsigned tlbi) ;
 
-    void setDeviceInfo(u32 cardNum, s32 devfd) {
-      mDevCardNum = cardNum;
+    void setDeviceInfo(u32 chipNum, s32 devfd) {
+      mDevChipNum = chipNum;
       mDevFD = devfd;
-      mHostCommsMap.init("OurBH#"+std::to_string(mDevCardNum));
+      mHostCommsMap.init("OurBH#"+std::to_string(mDevChipNum));
     }
 
     const HostCommsMap & getHostCommsMap() const { return mHostCommsMap; }
@@ -85,6 +86,8 @@ namespace MFM {
     }
     void writeToWords(u32 tlbi, u32 destByteAddr, u32 * words, u32 wordCount) ;
 
+    //    bool writeP4Atom(U16C gridAddress,const P4Atom atom) ;
+
     u32 read32(u32 tlbi, u32 addr) {
       u32 ret;
       readFromWords(tlbi, addr, &ret, 1u);
@@ -102,7 +105,7 @@ namespace MFM {
     bool hasHostRAM() const { return mPinnedHostBuf.host_ptr != 0; }
     size_t hostRAMSize() const { return mPinnedHostBuf.size; }
     void * hostRAMPtr() const { return mPinnedHostBuf.host_ptr; }
-    u64 hostRAMNocAddr() const { return mPinnedHostBuf.noc_addr; }
+    u64 hostRAMNoCAddr() const { return mPinnedHostBuf.noc_addr; }
 
     u32 hostRAMSizePerT6() const { return mT6HostBufferSize; }
 
@@ -131,6 +134,11 @@ namespace MFM {
       const T6Image * getDeployedImageIfAny() const {
         return mDeployedImage;
       }
+
+      const T6Image & getDeployedImageOrDie() const {
+        MFM_API_ASSERT_NONNULL(mDeployedImage);
+        return *mDeployedImage;
+      }
 #if 0      
       u32 getLogCarIndex() const { return mNextLogCarIndex; }
       u32 advanceLogCarIndex() {
@@ -158,7 +166,7 @@ namespace MFM {
     // data
     TLBInfo mTLBInfos[AHAX_TLB2M_COUNT];
     pinned_host_buffer_t mPinnedHostBuf; 
-    u32 mDevCardNum;
+    u32 mDevChipNum;
     s32 mDevFD;
     HostCommsMap mHostCommsMap;
     void * mMapAllT6L1;         //< start of ~140*2M addrs for host to R/W T6 L1

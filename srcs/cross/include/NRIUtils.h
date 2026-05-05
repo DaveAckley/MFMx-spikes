@@ -1,6 +1,6 @@
 #pragma once /* -*- C++ -*- */
 #include "itype.h"
-#include "U8C.h"
+#include "UxC.h"
 #include "S8C.h"
 //#include "Wrap8.h"
 #include "ExtraConstants.h"
@@ -36,9 +36,12 @@ namespace MFM {
 
   static constexpr u32 NRI_NOC_CMD_CTRL = 0x40;
 
-  inline u32 useNoC(U8C sourceNoC0, U8C destNoC0) { // return 0 or 1 for noc with least hops s->d
-    FAIL(INCOMPLETE_CODE);
-  }
+  inline u8 stepsN(U8C s0, U8C d0) { return (s0.y >= d0.y) ? s0.y - d0.y : 12u - d0.y + s0.y; }
+  inline u8 stepsW(U8C s0, U8C d0) { return (s0.x >= d0.x) ? s0.x - d0.x : 16u - d0.y + s0.y; }
+  inline u8 stepsS(U8C s0, U8C d0) { return (s0.y <= d0.y) ? d0.y - s0.y : 12u - s0.y + d0.y; }
+  inline u8 stepsE(U8C s0, U8C d0) { return (s0.x <= d0.x) ? d0.x - s0.x : 12u - s0.x + d0.x; }
+
+  u32 preferNoC(U8C sourceNoC0, U8C destNoC0) ; // return 0 or 1 for noc with least hops s->d
 
   inline u32 funcGetNIUBaseAddress(u32 noc) { return noc == 0u ? NIU_BASE_NOC0 : NIU_BASE_NOC1; }
   inline volatile u32 * funcGetNIUAddress(u32 noc, u32 byteoffset) {

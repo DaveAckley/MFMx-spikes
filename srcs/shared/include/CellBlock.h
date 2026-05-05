@@ -2,7 +2,7 @@
 
 #include "itype.h"
 #include <string>
-#include "U8C.h"
+#include "UxC.h"
 #include "S8C.h"
 #include "XUtils.h" // for memset_s
 

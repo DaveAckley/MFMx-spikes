@@ -2,7 +2,7 @@
 #include "itype.h"
 #include "utils.h"
 #include "Fail.h"
-#include "U8C.h"
+#include "UxC.h" // for U8C
 #include "ImageBlock.h"
 
 // See cross/src/_BUD.ld.in for section defs and such
@@ -33,7 +33,7 @@ namespace MFM {
   };
 
   void sleepCycles(u32 cycles) ;
-  static constexpr u32 BREATH_DURATION = 4'000u; //< in fake 'cycles' which are some k/AIFreq with k > 1
+  static constexpr u32 BREATH_DURATION = 3'000u; //< in fake 'cycles' which are some k/AIFreq with k > 1
   inline void breathe() { sleepCycles(BREATH_DURATION); } //< ~<1ms?
 
   extern FastAll fAll;

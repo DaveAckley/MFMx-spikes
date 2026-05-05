@@ -3,7 +3,7 @@
 
 #include "ImageBlock.h"
 #include "MDist.h"
-#include "U8C.h"
+#include "UxC.h"  // for U8C
 #include "S8C.h"
 #include "T6Neighbor.h"
 

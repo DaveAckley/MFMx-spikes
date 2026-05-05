@@ -1,12 +1,13 @@
 #include <pybind11/pybind11.h>
 #include "BHTag.h" 
 #include "BHLog.h" 
-#include "BlackHole.h" 
+#include "Blackhole.h" 
 #include "EWControl.h" 
 #include "T6Image.h" 
 #include "HostUtils.h" 
 #include "ImageManager.h" 
 #include "BGRImage.h" 
+#include "QuietBox.h" 
 #include "t6-exports.h" // for getMFMxModuleVersion()
 
 namespace py = pybind11;
@@ -27,8 +28,8 @@ PYBIND11_MODULE(MFMx, m) {
   // Expose the BHLog class
   MFM::BHLog::pybindings(m);
 
-  // Expose the BlackHole class
-  MFM::BlackHole::pybindings(m);
+  // Expose the Blackhole class
+  MFM::Blackhole::pybindings(m);
 
   // Expose the EWControl class
   MFM::EWControl::pybindings(m);
@@ -47,4 +48,8 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the BGRImageHD class
   MFM::BGRImageHD::pybindings(m);
+
+  // Expose the QuietBox class
+  MFM::QuietBox::pybindings(m);
+  
 }

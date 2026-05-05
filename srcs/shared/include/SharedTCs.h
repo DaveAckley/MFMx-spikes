@@ -8,23 +8,142 @@
 
 namespace MFM {
 
-  struct InterHubPayload {
+#if 0
+  struct InterHubPayloadDEBUG {
+    struct Data {
+      static constexpr u32 DATA_COUNT = 238;
+      u32 mCount;
+      u32 mData[DATA_COUNT];
+      u32 mSum;
+      u32 sumIt() {
+        u32 ret = 0;
+        ret += mCount;
+        for (u32 i = 0; i < sizeof(mData)/sizeof(mData[0]); ++i) {
+          ret += mData[i];
+        }
+        return ret;
+      }
+      void setSum() { mSum = sumIt(); }
+      void init() {
+        mCount = 87;
+        for (u32 i = 0; i < sizeof(mData)/sizeof(mData[0]); ++i) {
+          mData[i] = i;
+        }
+        setSum();
+      }
+      static bool match(const Data &d1, const Data &d2) {
+        bool ret = true;
+        if (d1.mCount != d2.mCount)
+          ret = report(offsetof(Data,mCount),1000,d1.mCount,d2.mCount);
+        for (u32 i = 0; i < sizeof(mData)/sizeof(mData[0]); ++i) {
+          if (d1.mData[i] != d2.mData[i])
+            ret = report(offsetof(Data,mData)+4*i,i,d1.mData[i],d2.mData[i]);
+        }
+        if (d1.mSum != d2.mSum) ret = report(offsetof(Data,mSum),2000,d1.mSum,d2.mSum);
+        return ret;
+      }
+      static bool report(u32 offs, u32 idx, u32 v1, u32 v2) {
+        HBPTAG(D2DX,idx);
+        HBPTAG(DOFX,offs);
+        HBPTAG(DOFW,offs/4);
+        HBPTAG(IHSZ,sizeof(InterHubPayload));
+        HBXTAG(d1,v1);
+        HBXTAG(d2,v2);
+        return false;
+      }
+    };
+    u32 mMAGIC;
+    Data mData1;
+    //    u32 mWASTOID[721];
+    Data mData2;
+    u32 mCIGAM;
+    static constexpr u32 IHP_MAGIC = 0x49485f00;
+    static constexpr u32 IHP_CIGAM = 0x49485fff;
     void init() {
       memset_s(this,'\0',sizeof(*this));
+      mMAGIC = IHP_MAGIC;
+      mCIGAM = IHP_CIGAM;
+      mData1.init();
+      mData2.init();
+    }
+
+    bool checksCheck() const {
+      //      HBPTAG(chkAt,this);
+      bool ret = Data::match(mData1,mData2);
+      if (!ret) HBPTAG(chkFAIL,ret);
+      return ret;
     }
 
     bool update(bool inside) { 
-      HBNOTE(inside ? "IHBI" : "IHBO");
-      if (inside) {
-        ++mOrigin.x;
-        HBPVAL(mOrigin);
+      if (!isValid()) {
+        HBPTAG(ihpxx,this);
+        HBPTAG(ihpma,mMAGIC);
+        HBPTAG(ihpci,mCIGAM);
+        return false;
+      }
+      if (!checksCheck()) {
+        HBXTAG(DRXX,mMAGIC);
+        mData1.init();
+        mData2.init();
       } else {
-        ++mOrigin.y;
-        HBPVAL(mOrigin);
+        mData1.mCount++;
+        mData1.setSum();
+        mData2.mCount++;
+        mData2.setSum();
+        HBPTAG(@,this);
+        HBPTAG(DMA1,mData1.mCount);
+        //        HBPTAG(DMA2,mData2.mCount);
       }
       return true;
     }
 
+    bool isValid() const {
+      return
+        mMAGIC == IHP_MAGIC &&
+        mCIGAM == IHP_CIGAM;
+    }
+
+  };
+#endif
+
+  struct InterHubPayload {
+    static constexpr u32 IHP_MAGIC = 0x4948504d;
+    static constexpr u32 IHP_CIGAM = 0x49485043;
+    void init() {
+      memset_s(this,'\0',sizeof(*this));
+      mMAGIC = IHP_MAGIC;
+      mCIGAM = IHP_CIGAM;
+    }
+
+    bool update(bool inside) { 
+      if (!isValid()) {
+        HBPTAG(ihpxx,this);
+        HBPTAG(ihpma,mMAGIC);
+        HBPTAG(ihpci,mCIGAM);
+        return false;
+      }
+      //      HBPTAG(IHAT,this);
+      //      HBPTAG(ISIZ,sizeof(*this));
+      //      HBXTAG(IEND,(u32)(((char*)this)+sizeof(*this)));
+      ++mAtomInfoCount;
+      //      HBPTAG(mAIC,mAtomInfoCount);
+      if (inside) {
+        ++mOrigin.x;
+        //        HBPTAG(IHP-i,(u32) mOrigin.x);
+      } else {
+        ++mOrigin.y;
+        //        HBPTAG(IHP-o,(u32) mOrigin.y);
+      }
+      //      HBPTAG(IHP-a,mOrigin);
+      return true;
+    }
+
+    bool isValid() const {
+      return
+        mMAGIC == IHP_MAGIC &&
+        mCIGAM == IHP_CIGAM;
+    }
+    u32 mMAGIC;
     S16C mOrigin;               //< origin relative coord, updates on transits
     u16 mAtomInfoCount;
     struct AtomInfo {
@@ -33,6 +152,7 @@ namespace MFM {
     };
     static constexpr u32 MAX_ATOMS = ((1u<<12) - sizeof(mOrigin)) / sizeof(AtomInfo);
     AtomInfo mAtomInfos[MAX_ATOMS];
+    u32 mCIGAM;
   };
   
   class InterHubBlock : public TC<InterHubBlock,sizeof(InterHubPayload)> {
@@ -48,14 +168,18 @@ namespace MFM {
       TC::reset(); // sets state 0==UNUSED
       openTC();    // set state open
       payload().init();
+      //HBNOTE(preCloseTC);
+      //      payload().checksCheck();
       closeTC(sizeof(payload())); // and then close it, with a full load
+      //HBNOTE(postCloseTC);
+      //      payload().checksCheck();
+      //HBNOTE(postSetDepTC);
       setDepartingTC(TCState::OUTBOUND_DEPARTED); // init state is 'departed in'/'arrived out'
-      {
-        TCWord twctxx;
+      //      payload().checksCheck();
+      if (false) {
         TCMarker h = getHeader();
         HBPTAG(-?-,h.isValid());
-        twctxx.mMarker = h;
-        HBXTAG(huh,twctxx.mWord);
+        HBXTAG(huh,h.getU32());
         HBXTAG(hmg,(u32)h.mTCMMagic);
         HBXTAG(hnc,(u32)h.mTCMNonce);
         HBXTAG(hsz,(u32)h.mTCMSize);
@@ -63,12 +187,10 @@ namespace MFM {
         HBXTAG(*hh,&getHeader());
         HBPTAG(tcm,h.mTCMSize);
         HBXTAG(*ff,&getFooter());
-        twctxx.mMarker = getFooter();
-        HBXTAG(2ff,twctxx.mWord);
+        HBXTAG(2ff,getFooter().getU32());
         HBXTAG(this,this);
         HBXTAG(*ak,&getAnkleOrDie());
-        twctxx.mMarker = getAnkleOrDie();
-        HBXTAG(2aa,twctxx.mWord);
+        HBXTAG(2aa,getAnkleOrDie().getU32());
         HBPTAG(-f-,getFooter().isValid());
         HBPTAG(-a-,getAnkle().isValid());
         HBPTAG(-==,getFooter() == getHeader());
@@ -80,24 +202,43 @@ namespace MFM {
 
   typedef TCStorage<InterHubBlock,2> InterHubStorage;
 
+  enum EwpPayloadCode : u8 {
+    EWPC_UNINITTED = 0u,
+    EWPC_EMPTY,
+    EWPC_SOURCE_ONLY,
+    EWPC_SOURCE_AND_DEST
+  };
+
+  struct EwpPayloadState {
+    EwpPayloadCode mPayloadCode;
+  };
   struct EwpPayload {
-    EventWindow mOld, mNew;
+    EwpPayloadState mPayloadState;
     s32 mHiddenXPos, mHiddenYPos; // host side use only
+    EventWindow mOld, mNew;
     //TimeStamp mSTVLTime;          // host side use only
     void init() {
       mHiddenXPos = 0;
       mHiddenYPos = 0;
     }
-    bool update(bool inside) { 
-      HBNOTE(inside ? "EUPI" : "EUPO");
-      if (inside) {
-        ++mHiddenXPos;
-        HBPVAL(mHiddenXPos);
-      } else {
-        ++mHiddenYPos;
-        HBPVAL(mHiddenYPos);
+
+    static constexpr u32 payloadSizeFromCode(EwpPayloadCode plc) {
+      switch(plc) {
+      case EwpPayloadCode::EWPC_UNINITTED:
+      case EwpPayloadCode::EWPC_EMPTY:
+        return offsetof(EwpPayload,mHiddenXPos);
+
+      case EwpPayloadCode::EWPC_SOURCE_ONLY:
+        return offsetof(EwpPayload,mNew);
+
+      case EwpPayloadCode::EWPC_SOURCE_AND_DEST:
+        return sizeof(EwpPayload);
       }
-      return true;
+      return 0u;                // 'unreachable'
+    }
+
+    u32 currentPayloadSize() const {
+      return payloadSizeFromCode(mPayloadState.mPayloadCode);
     }
   };
 

@@ -2,6 +2,7 @@
 #include "itype.h"
 #include "P4Atom.h"
 #include "S32C.h"
+#include <string>
 
 namespace MFM {
   struct StringBlock {

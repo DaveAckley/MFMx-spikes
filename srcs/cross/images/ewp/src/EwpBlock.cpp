@@ -63,8 +63,7 @@ namespace MFM {
 
       // Set up our endpoint: Source { EWPCARS, 0 }
       myEwpEPNC.initEwpEP({ BC_EWPCARS, 0 }, false, theEwpL1Data);
-      HBNOTE("ewCFD");
-      HBPVAL(fCOINC.mCellO.mImageTypeIndex);
+      HBPTAG(ewCFD, fCOINC.mCellO.mImageTypeIndex);
 
       // Set up our endpoint: Destination { EWHUB, ourtypeidx }
       myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, { BC_EWHUB, fCOINC.mCellO.mImageTypeIndex });
@@ -78,7 +77,7 @@ namespace MFM {
       SNAP(5,HBMARK);
       if (myEwpEPNC.updateOps()) {
         ret = true;
-        HBMARK;
+        //        HBMARK;
       }
     }
     return ret;
