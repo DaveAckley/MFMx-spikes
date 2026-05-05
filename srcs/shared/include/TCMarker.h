@@ -1,5 +1,6 @@
 #pragma once   /* -*- C++ -*- */
 #include "TCState.h"
+#include "Debug.h"
 
 namespace MFM {
   struct TCMarker {
@@ -95,7 +96,15 @@ namespace MFM {
       mTCMMagic = TCM_MAGIC;
       mTCMNonce++;
       mTCMSize = encodePayloadBytesToTCMSize(payloadBytes);
+      /*
+      HBPTAG(payb,payloadBytes);
+      HBPTAG(tcms,mTCMSize);
+      HBPTAG(decp,decodeTCMSizeToPayloadCapacityBytes(mTCMSize));
       mTCMState = state;
+      HBPTAG(nc,(u32)mTCMNonce);
+      HBPTAG(fi,getFooterWordIndex(mTCMSize));
+      HBPTAG(ai,getAnkleWordIndex(mTCMSize));
+      */
     }
 
     bool isValid() const {

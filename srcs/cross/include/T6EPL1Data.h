@@ -21,6 +21,10 @@ namespace MFM {
 
     using SUBTCBLOCK = typename SUBTCBLOCKSTG::CAR_TYPE;
 
+    bool isUninitted(u8 blockindex) {
+      return getPublicEPState(blockindex) == EPState::UNINITTED;
+    }
+
     bool isActive(u8 blockindex) {
       return getPublicEPState(blockindex) == EPState::ACTIVE;
     }
@@ -31,7 +35,7 @@ namespace MFM {
 
     SUBTCBLOCKSTG & getCarStg(u8 blockindex) {
       HBASSERT_LS(blockindex,BLOCKCOUNT);
-      return mTheTCBlocks[blockindex];
+      return mTheTCStorages[blockindex];
     }
 
     AtomicLock & getAtomicLock(u8 blockindex) {
@@ -49,7 +53,7 @@ namespace MFM {
       return mThePublicEPState[blockindex];
     }
 
-    SUBTCBLOCKSTG mTheTCBlocks[BLOCKCOUNT];
+    SUBTCBLOCKSTG mTheTCStorages[BLOCKCOUNT];
     AtomicLock mTheLocks[BLOCKCOUNT];
     CarIdxs mTheCarIdxs[BLOCKCOUNT];
     EPState mThePublicEPState[BLOCKCOUNT];

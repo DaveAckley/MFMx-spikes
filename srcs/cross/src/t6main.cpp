@@ -2,6 +2,8 @@
 #include "HostBlock.h"
 #include "ImageBlock.h"
 #include "Printf.h" // for t6InitPrinters()
+#include "Debug.h" 
+#include "DefaultLives.h" 
 
 // Baby RV Service APIs 
 #include "FastLocal.h"
@@ -40,8 +42,51 @@ namespace MFM {
     return 0;
   }
 
+  static void ouriba0OK(u16 f, u16 l) {
+    //    constexpr u32 SLOTS = 100;
+    // constexpr u32 SLOTS = 3;
+    //    constexpr u32 SLOTS = 1;
+    //    constexpr u32 SLOTS = 7;
+    //constexpr u32 SLOTS = 6;
+    //    constexpr u32 SLOTS = 5;
+    //    constexpr u32 SLOTS = 4;
+    //    constexpr u32 SLOTS = 3;
+    constexpr u32 SLOTS = 2;
+    static u32 shadow[SLOTS];
+    static bool first;
+
+    //    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    //    const u32 *ibux14 = (u32*) 0x18;  // '= &theImageBlock+1;'
+    constexpr u32 OFFSET = 1;
+    const u32 *ibux14 = ((u32*) 0x14) + OFFSET;  // '= &theImageBlock+2;'
+
+    if (!first) {
+      for (u32 i = 0; i < SLOTS; ++i)
+        shadow[i] = ibux14[i];
+      first = true;
+    } else {
+      bool hit = false;
+      for (u32 i = 0; i < SLOTS; ++i) {
+        if (shadow[i] != ibux14[i]) {
+          FIDLPTAG(f,l,i=,&ibux14[i]);
+          FIDLXTAG(f,l,was,shadow[i]);
+          FIDLXTAG(f,l,now,ibux14[i]);
+          hit = true;
+        }
+      }
+      HBASSERT_EQ(hit,false);
+    }
+  }
+
   int t6main(HostBlock& hb) {
-    hb.addBytes('=',hartChar(fAll.mHartNum));
+    //HBPTAG(t6main,hartName(fAll.mHartNum));
+    //setGlobalDebugHook(ouriba0OK);
+    //HBPTAG(HOOKT,hartName(fAll.mHartNum));
+
+    doDefaultInit(hb);
+
+    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
+
     switch (fAll.mHartNum) {
     case 0u: return hartMainB(hb);
     case 1u: return hartMainT0(hb);

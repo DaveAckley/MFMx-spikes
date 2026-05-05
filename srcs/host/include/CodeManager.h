@@ -22,6 +22,9 @@ namespace MFM {
     void setStartDecayType(u16 val) { mStartDecayType = val; }
     s32 deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) ;
 
+    u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
+    void dumpT6Image(const T6Image & image, u8 fromTLBI) ;
+
     void releaseTheHounds() ;
 
     void assertGoodMagic() ;

@@ -3,8 +3,33 @@
 #include "Debug.h"
 
 namespace MFM {
-  static int justLive(HostBlock & hb) {
+  int doDefaultInit(HostBlock & hb) {
     HBMARK;
+
+    u8 ch = hartChar(fAll.mHartNum);
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::INITTING; 
+    switch (ch) {
+    case 'b': initB(); break;
+    case '0': initT0(); break;
+    case '1': initT1(); break;
+    case '2': initT2(); break;
+    case 'n': initNC(); break;
+    }
+
+    HBNOTE(GRAND);
+    u32 WAIT_ITERATIONS = 150u;
+    if (ch == 'n') WAIT_ITERATIONS = 1; // DEBUG: short circuit wait on HN
+    for (u32 w = WAIT_ITERATIONS; w > 0u; --w) {
+      //if ((w&0x1f) == 1u) HBPTAG(P:,w);
+      hb.hartbeat(fAll.mHartNum);
+      breathe();
+    }
+    HBNOTE("ENGAGE");
+    return 0;
+  }
+
+  static int justLive(HostBlock & hb) {
+    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
@@ -22,6 +47,17 @@ namespace MFM {
     // NOT REACHED
     return 0;
   }
+
+  static int weakInit() {
+    HBPTAG(weakInit,hartName(fAll.mHartNum));
+    return 0;
+  }
+
+  int __attribute__((weak)) initB() { return weakInit(); }
+  int __attribute__((weak)) initT0() { return weakInit(); }
+  int __attribute__((weak)) initT1() { return weakInit(); }
+  int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2
+  int __attribute__((weak)) initNC() { return weakInit(); }
 
   int __attribute__((weak)) liveB(HostBlock & hb) { return justLive(hb); }
   int __attribute__((weak)) liveT0(HostBlock & hb) { return justLive(hb); } // NOTE FastT0.cpp has a strong liveT0

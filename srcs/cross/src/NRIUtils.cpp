@@ -61,28 +61,42 @@ namespace MFM {
   }
 
   bool NRI3::blockingL1ReadCT6(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
-                               u32 wordcount, u32 * destaddr) { 
+                               u32 wordcount, u32 * destaddr, bool debug) { 
     U8C usnocc = U8C::makeNoC0CoordFromCT6Coord(ct6us);
     U8C themnocc = U8C::makeNoC0CoordFromCT6Coord(ct6readfrom);
-    return blockingL1ReadNoC0(usnocc, themnocc, l1readaddr, wordcount, destaddr);
+    //if (debug) HBPVAL(usnocc);
+    //if (debug) HBPVAL(themnocc);
+    return blockingL1ReadNoC0(usnocc, themnocc, l1readaddr, wordcount, destaddr, debug);
   }
 
-  bool NRI3::blockingL1ReadNoC0(U8C usnoc0, U8C fromnoc0, u32 l1readaddr,
-                                u32 wordcount, u32 * destaddr) { 
-    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+  const u32 PRIVRB_MAXWORDS = 16u;
+  volatile u32 privateL1ReadBuffer[PRIVRB_MAXWORDS+4u+1u]; // +4 for alignment +1 for fear
 
+  bool NRI3::blockingL1ReadNoC0(U8C usnoc0, U8C fromnoc0, u32 l1readaddr,
+                                u32 wordcount, u32 * destaddr, bool debug) { 
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+    //if (debug) HBNOTE("BLR0");
     if (!U8C::onBoardNoC0Coord(usnoc0) ||
         !U8C::onBoardNoC0Coord(fromnoc0))
       return false;
 
-    //HBMARK;
+    HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
+    HBASSERT_LS(wordcount, PRIVRB_MAXWORDS); // XXX don't be greedy
+    HBASSERT_GT(wordcount, 0); // XXX but insist we're getting something..
+
+    //if (debug) HBPVAL(fromnoc0);
     u32 useNoC = 0u;
-    const u32 MAXWORDS = 16u;
-    if (wordcount > MAXWORDS) return false;
+    if (wordcount > PRIVRB_MAXWORDS) return false;
     
-    volatile static u32 privateL1ReadBuffer[MAXWORDS+4u+1u]; // +4 for alignment +1 for fear
+    volatile u32 spin = 0u; // XXX superstitious?
+    constexpr u32 MAX_TOTAL_SPIN = 0x10000000;
+    while (readNIUReqsOutstanding(useNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) { // wait til idle
+      if (++spin > MAX_TOTAL_SPIN) FAIL(OPERATION_FAILED);
+    }
+    //if (debug && spin > 0) HBPVAL(spin);
+    
     u32 baseaddr = (u32) &privateL1ReadBuffer[0];
-    //HBXVAL(baseaddr);
+    //if (debug) HBXVAL(baseaddr);
     //HBXVAL(baseaddr+sizeof(privateL1ReadBuffer));
     {
       /* ASSUMING THE WORMHOLEB0 RESTRICTIONS APPLY TO BLACKHOLEA0, SINCE
@@ -94,18 +108,19 @@ namespace MFM {
 
       u32 sm16 = l1readaddr % 16;
       u32 dm16 = baseaddr % 16;
+      //if (debug) HBPVAL(sm16);
+      //if (debug) HBPVAL(dm16);
       if (sm16 > dm16) baseaddr += sm16 - dm16;
       else if (sm16 < dm16) baseaddr += 16u + sm16 - dm16;
-      //      HBXVAL(baseaddr);
+      //if (debug) HBXVAL(l1readaddr);
+      //if (debug) HBXVAL(baseaddr);
       HBASSERT_EQ(baseaddr % 16, sm16);
     }
-    u32 spin = 0u;
+
     while (isNRIBusy(useNoC)) {  
-      if ((++spin % 0xfffff) == 0u) {
-        HBNOTE("OUST");
-        return false;
-      }
+      if (++spin > MAX_TOTAL_SPIN) FAIL(OPERATION_FAILED);
     }
+    if (debug && spin > 0) HBPVAL(spin);
 
     writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_LO, l1readaddr); // 32 bit address of source
     writeNRIAddress(useNoC,NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits 
@@ -125,47 +140,66 @@ namespace MFM {
     writeNRIAddress(useNoC,NRI_NOC_CMD_CTRL,1);             // initiate write
     readNRIAddress(useNoC,NRI_NOC_CMD_CTRL);                // read for memory ordering
 
-    //XXX_DEBUG_FUNC(__FILE__,__LINE__);
-
-    spin = 0u;
     while (readNIUReqsOutstanding(useNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) {
-      if (spin==0) HBNOTE("RQOTS");
-      if ((++spin % 0xfffff) == 0u) {
-        HBPVAL(spin);
-      }
+      if (++spin > MAX_TOTAL_SPIN) FAIL(OPERATION_FAILED);
     }
-    HBXVAL(l1readaddr);
+    //if (debug) HBPVAL(spin);
 
-    // XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //HBXVAL(l1readaddr);
 
-    u32 *data = (u32*) baseaddr;
-    //HBXVAL(data);
+    HOOKIT();
+    volatile u32 *data = (u32*) baseaddr;
+
+    memoryFence();              // FLUSH L0 CACHE BEFORE READING DATA!
+
     for (u32 i = 0u; i < wordcount; ++i) {
+    HOOKIT();
       destaddr[i] = data[i];
-      //      HBXVAL(data[i]);
+    HOOKIT();
+      //if (debug) HBXVAL(data[i]);
     }
+    //if (debug) HBXVAL(data[0]);
     return true;
   }
 
   bool NRI3::findBlockCodeInNoC0(U8C ournoc0, U8C theirnoc0, BlockCode bc, ImageBlockAddr & foundiba) {
     //    HBNOTE("FBCN");
     ImageBlockHeader ibh = NRI3::blockingReadImageBlockHeaderNoC0(ournoc0, theirnoc0);
-    HBPVAL(ibh.isValid());
-    HBPVAL(ournoc0);
-    HBPVAL(theirnoc0);
+    HBASSERT_EQ(ibh.isValid(),true);
+    //HBPTAG(fBCin0,getNameFromImageCode((ImageCode) ibh.getImageCode()));
+
+    //HBPVAL(ournoc0);
+    //HBPVAL(theirnoc0);
     
     //  SEARCH THEIR IBAS FOR BC (always on noc0, using a lot more packets & bandwidth than needed, but hey..)
+    ImageBlockAddr iba;         // expose outside loop
     for (u32 idx = 0u; idx < ibh.mEntries; ++idx) {
-      ImageBlockAddr iba = NRI3::blockingReadImageBlockAddrNoC0(ournoc0, theirnoc0, idx);
-
-      HBPVAL(iba.isValid());
+      HOOKIT();
+      iba = NRI3::blockingReadImageBlockAddrNoC0(ournoc0, theirnoc0, idx);
+      if (!iba.isValid()) {
+        HBPVAL(ournoc0);
+        HBPVAL(theirnoc0);
+        HBXVAL((u32)iba.mIBAMagic);
+        HBXVAL((u32)iba.mBlockCode);
+        HBXVAL(&iba);
+        HBPVAL(idx);
+        HBXTAG(PRFVN,estimateStackUsage());
+      }
+      HOOKIT();
+      HBASSERT_EQ(iba.isValid(),true);
 
       if (iba.mBlockCode == bc) { //  IF FOUND,
         //  SET FOUNDIBA AND RETURN TRUE
         foundiba = iba;
         return true;
-      }
+      } //else HBXTAG(not,*(u32*)&iba);
     }
+    HBPTAG(NTFOD,ibh.isValid());
+    HBPVAL(ibh.mEntries);
+    HBPVAL(getNameFromBlockCode(bc));
+    HBPVAL(iba.isValid());
+    HBPVAL(ournoc0);
+    HBPVAL(theirnoc0);
     return false; // NOT FOUND
   }
 
@@ -184,25 +218,26 @@ namespace MFM {
     return blockingReadImageBlockHeaderCT6Offset(usNoC0,themct6-usct6);
   }
 
-  ImageBlockHeader NRI3::blockingReadImageBlockHeaderCT6Offset(U8C usnoc, S8C ct6off) {
-    //HBNOTE("BRICT");
+  ImageBlockHeader NRI3::blockingReadImageBlockHeaderCT6Offset(U8C usnoc, S8C ct6off, bool debug) {
+    //if (debug) HBNOTE("BRICT");
     ImageBlockHeader ret;  
     ret.reset();                // reset state -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
 
-    //HBPVAL(usct6);
+    //if (debug) HBPVAL(usct6);
     U8C themct6 = usct6 + ct6off;
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
 
-    //HBPVAL(themct6);
+    //if (debug) HBPVAL(themct6);
     const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
 
-    blockingL1ReadCT6(usct6, themct6,
-                      (u32) ibux14,
-                      sizeof(ImageBlockHeader)>>2u,
-                      (u32*) &ret);
-    //HBPVAL(ret.isValid());
+    bool ok = blockingL1ReadCT6(usct6, themct6,
+                                (u32) ibux14,
+                                sizeof(ImageBlockHeader)>>2u,
+                                (u32*) &ret);
+    HBASSERT_EQ(ok,true);
+    if (debug && !ret.isValid()) HBPVAL(ret.isValid());
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
@@ -213,34 +248,54 @@ namespace MFM {
 
     const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
     const u32 *iba = ibux14 + 1u + ibaindex*(sizeof(ImageBlockAddr)>>2u);
+    if (false && usnoc == fromnoc) { // XXX short circuit self comm as test
+      return *(ImageBlockAddr*) iba;
+      //      HBNOTE("NEFRI");
+      //      HBPVAL(ibaindex);
+      //      HBPVAL(iba);
+    }
 
-    blockingL1ReadNoC0(usnoc,fromnoc,
-                      (u32) iba,
-                      sizeof(ImageBlockAddr)>>2u,
-                      (u32*) &ret);
+    bool ok = blockingL1ReadNoC0(usnoc,fromnoc,
+                                 (u32) iba,
+                                 sizeof(ImageBlockAddr)>>2u,
+                                 (u32*) &ret/*,true*/);
+    HOOKIT();
+    HBASSERT_EQ(ok,true);
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
-  ImageBlockAddr NRI3::blockingReadImageBlockAddrCT6Offset(U8C usnoc, S8C ct6off, u32 ibaIndex) {
+  ImageBlockAddr NRI3::blockingReadImageBlockAddrCT6Offset(U8C usnoc, S8C ct6off, u32 ibaIndex, bool debug) {
+    //if (debug) HBNOTE("BR6O");
     ImageBlockAddr ret;       // uninit -> INVALID
     U8C usct6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
     if (!U8C::onBoardCT6Coord(usct6)) return ret;
+    //if (debug) HBPVAL(usct6);
 
     U8C themct6 = usct6 + ct6off;
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
+    //if (debug) HBPVAL(themct6);
 
     const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
     const u32 *iba = ibux14 + 1u + ibaIndex*(sizeof(ImageBlockAddr)>>2u);
 
-    blockingL1ReadCT6(usct6, themct6,
-                      (u32) iba,
-                      sizeof(ImageBlockAddr)>>2u,
-                      (u32*) &ret);
+    //    if (debug) HBPVAL(sizeof(ImageBlockAddr)>>2u);
+    //if (debug) HBPVAL(iba);
+    bool ok = blockingL1ReadCT6(usct6, themct6,
+                                (u32) iba,
+                                sizeof(ImageBlockAddr)>>2u,
+                                (u32*) &ret,
+                                debug);
+    HBASSERT_EQ(ok,true);
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
   s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+
+    HBXTAG(dsar,(u32) destaddr);
+    HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
+    HBASSERT_LS(wordCount, 2000); // XXX don't be greedy
+    HBASSERT_GT(wordCount, 0); // XXX but insist we're getting something..
 
     MFM_API_ASSERT((wordCount*4u)<=(1u<<14),OUT_OF_RESOURCES); // packets don't go over 16KB for this code
     MFM_API_ASSERT(isInL1(sourcedata),ILLEGAL_STATE);
@@ -265,6 +320,8 @@ namespace MFM {
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
+    volatile u32 superstition = funcReadNRIAddress(usenoc,3,NRI_NOC_CMD_CTRL); // read for memory ordering
+
     return 1;
   }
 
@@ -274,17 +331,6 @@ namespace MFM {
     while (isNRIBusy(noc)) {
       if (++count == 0u) FAIL(IO_ERROR);
     }
-  }
-
-  const char * NRI3::getCarStateName(TCState cs) {
-    switch (cs) {
-    case TCState::UNUSED: return "Un";
-    case TCState::OPEN: return "Op";
-    case TCState::CLOSED: return "Cl";
-    case TCState::INBOUND_DEPARTED: return "ID";
-    case TCState::OUTBOUND_DEPARTED: return "OD";
-    }
-    return "??";
   }
   
 }

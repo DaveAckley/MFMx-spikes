@@ -18,7 +18,7 @@ namespace MFM {
   XX(DEBUG)                                  \
   XX(ZOT)                                    \
 
-  enum ImageCode {
+  enum ImageCode : u8 {
     IC_RSRV_ILL = 0,
 
 #define XX(NAME) IC_##NAME,
@@ -31,21 +31,23 @@ namespace MFM {
 
 #define BLOCKCODE_LIST()                        \
   XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u)  \
-  XX(ZOTBLOCK,256*2,ZotBlockStg,2u)             \
-  XX(EWHUB,2048*8,EwpBlockStg,8u)               \
-  XX(EWPCARS,2048*1,EwpBlockStg,1u)             \
-  XX(INTERHUB,8320*4,InterHubStorage,4u)        \
+  XX(ZOTBLOCK,256,ZotBlockStg,2u)               \
+  XX(EWHUB,2048,EwpBlockStg,8u)                 \
+  XX(EWPCARS,2048,EwpBlockStg,1u)               \
+  XX(INTERHUB,8320,InterHubStorage,4u)          \
   //END OF BLOCK_CODE_LIST
 
-#define XX(NAME,SIZE,TYPE,BLOCKS)               \
-  static constexpr u32 SIZE_BC_##NAME = (SIZE);
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                        \
+  static constexpr u32 STORAGE_SIZE_BC_##NAME = (STORAGE_SIZE);         \
+  static constexpr u32 STORAGE_COUNT_BC_##NAME = (STORAGE_COUNT);       \
+  static constexpr u32 TOTAL_SIZE_BC_##NAME = STORAGE_SIZE_BC_##NAME * STORAGE_COUNT_BC_##NAME;
     BLOCKCODE_LIST()
 #undef XX
 
-#define XX(NAME,SIZE,TYPE,BLOCKS)               \
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)        \
   BC_##NAME,
   
-  enum BlockCode {
+  enum BlockCode : u8 {
     BC_RSRV_ILL = 0,
     BLOCKCODE_LIST()
     BC_BLOCKCODE_COUNT
@@ -53,7 +55,8 @@ namespace MFM {
 
 #undef XX
 
-  u32 getSizeFromBlockCode(BlockCode b) ;
+  u32 getStorageSizeFromBlockCode(BlockCode b) ;
+  u32 getStorageCountFromBlockCode(BlockCode b) ;
   const char * getNameFromBlockCode(BlockCode b) ;
   BlockCode getBlockCodeFromName(const char * n) ;
 }

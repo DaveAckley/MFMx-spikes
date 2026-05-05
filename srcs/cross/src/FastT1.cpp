@@ -4,8 +4,7 @@
 #include "FastT2.h" // for preloadT2Mailbox, createByMail
 #include "Printf.h"
 #include "Debug.h"
-//#include "T6RingO.h"
-//#include "T6Grid.h"
+#include "DefaultLives.h"
 
 namespace MFM {
   struct FastT1 {
@@ -14,7 +13,7 @@ namespace MFM {
 
   FAST_LOCAL(FastT1,fT1,1);
 
-  static int liveT1(HostBlock & hb) /*__attribute__ ((optimize("O2"))*/;
+  int liveT1(HostBlock & hb) /*__attribute__ ((optimize("O2"))*/;
 
   int liveT1(HostBlock & hb) {
     u64 spin = 0u;
@@ -27,14 +26,13 @@ namespace MFM {
     return 0;
   }
 
-  int hartMainT1(HostBlock & hb) {
-    //    HBMARK;
-
+  int initT1() {
     MFM_API_ASSERT_ON_HART(HARTNUM_T1);
     preloadT2Mailbox();
+    return 0;
+  }
 
-    HBMARK;
-
+  int hartMainT1(HostBlock & hb) {
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
     return liveT1(hb);          // go do your hart t1 thing you

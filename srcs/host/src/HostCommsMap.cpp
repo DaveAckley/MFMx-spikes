@@ -8,7 +8,7 @@ namespace MFM {
 
     MFM_API_ASSERT(mHostRAMChunkOffsets[b] == U8_MAX, DUPLICATE_ENTRY);
 
-    u32 size = getSizeFromBlockCode(b);
+    u32 size = getStorageSizeFromBlockCode(b);
     MFM_API_ASSERT(size <= U8_MAX * HOST_COMMS_MAP_CHUNK_SIZE, OUT_OF_RESOURCES);
 
     u32 thisChunks = (size + HOST_COMMS_MAP_CHUNK_SIZE - 1u)/HOST_COMMS_MAP_CHUNK_SIZE;

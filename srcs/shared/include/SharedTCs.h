@@ -3,10 +3,11 @@
 #include "TC.h"
 #include "EventWindow.h"
 #include "Debug.h"
-#include "TCBlock.h"
+#include "TCStorage.h"
 #include "S16C.h"
 
 namespace MFM {
+
   struct InterHubPayload {
     void init() {
       memset_s(this,'\0',sizeof(*this));
@@ -32,8 +33,6 @@ namespace MFM {
     };
     static constexpr u32 MAX_ATOMS = ((1u<<12) - sizeof(mOrigin)) / sizeof(AtomInfo);
     AtomInfo mAtomInfos[MAX_ATOMS];
-
-   
   };
   
   class InterHubBlock : public TC<InterHubBlock,sizeof(InterHubPayload)> {
@@ -45,16 +44,41 @@ namespace MFM {
     }
     InterHubPayload & payload() { return *(InterHubPayload*) getDataStart(); }
     void init() {
-      HBNOTE(getName());
+      //HBNOTE(getName());
       TC::reset(); // sets state 0==UNUSED
       openTC();    // set state open
       payload().init();
       closeTC(sizeof(payload())); // and then close it, with a full load
       setDepartingTC(TCState::OUTBOUND_DEPARTED); // init state is 'departed in'/'arrived out'
+      {
+        TCWord twctxx;
+        TCMarker h = getHeader();
+        HBPTAG(-?-,h.isValid());
+        twctxx.mMarker = h;
+        HBXTAG(huh,twctxx.mWord);
+        HBXTAG(hmg,(u32)h.mTCMMagic);
+        HBXTAG(hnc,(u32)h.mTCMNonce);
+        HBXTAG(hsz,(u32)h.mTCMSize);
+        HBXTAG(hst,(u32)h.mTCMState);
+        HBXTAG(*hh,&getHeader());
+        HBPTAG(tcm,h.mTCMSize);
+        HBXTAG(*ff,&getFooter());
+        twctxx.mMarker = getFooter();
+        HBXTAG(2ff,twctxx.mWord);
+        HBXTAG(this,this);
+        HBXTAG(*ak,&getAnkleOrDie());
+        twctxx.mMarker = getAnkleOrDie();
+        HBXTAG(2aa,twctxx.mWord);
+        HBPTAG(-f-,getFooter().isValid());
+        HBPTAG(-a-,getAnkle().isValid());
+        HBPTAG(-==,getFooter() == getHeader());
+        HBPTAG(-s-,h.mTCMSize);
+        HBPTAG(-O-,isComplete());
+      }
     }
   };
 
-  typedef TCBlock<InterHubBlock,2> InterHubStorage;
+  typedef TCStorage<InterHubBlock,2> InterHubStorage;
 
   struct EwpPayload {
     EventWindow mOld, mNew;

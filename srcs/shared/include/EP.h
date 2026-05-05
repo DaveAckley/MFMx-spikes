@@ -16,6 +16,11 @@
 
 namespace MFM {
 
+  struct EndPointAddress {
+    BlockCode mBlockCode;
+    u8 mBlockCodeIndex;
+  };
+
   template<class SUBEP, class SUBTC>
   struct EP {
 
@@ -43,29 +48,16 @@ namespace MFM {
       return ret;
     }
 
-    void initEP(BlockCode bc, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn = false) ;
-
-#if 0
-    bool launchAllCars() {
-      FAIL(DEPRECATED);
-      AtomicScopeLock guard(getPlatformLock());
-      if (mCarsStartIn == mIsIn) { // all cars here
-        MFM_API_ASSERT(mHereCount == 0u && mOldestHere == U8_MAX,ILLEGAL_STATE);
-        mHereCount = mCarCount;
-        mOldestHere = 0u;
-        mGoneCount = 0u;
-        mOldestGone = U8_MAX;
-      } else {                  // all cars gone
-        mHereCount = 0;
-        mOldestHere = U8_MAX;
-        mGoneCount = mCarCount;
-        mOldestGone = 0u;
-      }
-      return true;
+    void initEP(EndPointAddress srcEPA, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn = false) ;
+    void setDestEPA(EndPointAddress destEPA) {
+      HBASSERT_EQ(getFastEPState(),EPState::INITTED);
+      mDestEPA = destEPA;
+      setFastEPState(EPState::CONFIGURED);
     }
-#endif
 
-    bool isInitted() const { return mLockPtr != 0; } // sufficient proxy?
+    bool isInitted() const { return this->getFastEPState() >= EPState::INITTED; }
+
+    bool isActive() const { return this->getFastEPState() >= EPState::ACTIVE; }
 
     u8 getCarCount() const { return mCarCount; }
     bool isIn() const { return mIsIn; }
@@ -103,20 +95,23 @@ namespace MFM {
     bool isDeparting(TCState cs) const { return cs == departingState(); }
 
     bool updateOps() ;
-    BlockCode getDestBlockCode() const { return mDestBlockCode; }
-    u8 getDestBlockCodeIndex() const { return mDestBlockCodeIndex; }
-    void setDestBlockCodeIndex(u8 blkidx) {
-      HBASSERT_EQ(getFastEPState(),EPState::INITTED);
-      mDestBlockCodeIndex = blkidx;
-      setFastEPState(EPState::CONFIGURED);
-    }
+
+    EndPointAddress getSrcEPA() const { return mSrcEPA; }
+    BlockCode getSrcBlockCode() const { return getSrcEPA().mBlockCode; }
+    u8 getSrcBlockCodeIndex() const { return getSrcEPA().mBlockCodeIndex; }
+
+    EndPointAddress getDestEPA() const { return mDestEPA; }
+    BlockCode getDestBlockCode() const { return getDestEPA().mBlockCode; }
+    u8 getDestBlockCodeIndex() const { return getDestEPA().mBlockCodeIndex; }
 
     u8 getHereCount() const { return mHereCount; }
     u8 getGoneCount() const { return mGoneCount; }
 
     void activate() {
-      HBNOTE("ATCIV");
-      HBPVAL((void*)this);
+      HBPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
+      HBPTAG(s,mSrcEPA.mBlockCodeIndex);
+      //HBPTAG(dest,getNameFromBlockCode(mDestEPA.mBlockCode));
+      HBPTAG(d,mDestEPA.mBlockCodeIndex);
       HBASSERT_EQ(getFastEPState(),EPState::CONFIGURED);
       setFastEPState(EPState::ACTIVE);
     }
@@ -126,18 +121,18 @@ namespace MFM {
     ~EP() = default;
     
   private:
+    EndPointAddress mSrcEPA; //< Local end
+    EndPointAddress mDestEPA;   //< Remote end
     EPState getFastEPState() const { return mFastEPState; }
     void setFastEPState(EPState newstate) {
       HBASSERT_NE(getFastEPState(),newstate);
       mFastEPState = newstate;
-      if (mFastEPState >= EPState::CONFIGURED)
+      if (mFastEPState >= EPState::CONFIGURED) 
         this->setPublicEPState(mFastEPState);
     }
 
     EPState mFastEPState;       //< shadowed in L1Data
     AtomicLock * mLockPtr;
-    BlockCode mDestBlockCode;
-    u8 mDestBlockCodeIndex;
     u8 mCarCount;
     bool mIsIn;
     bool mCarsStartIn;

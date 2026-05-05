@@ -3,7 +3,7 @@
 
 namespace MFM {
   template <class CART,u32 CARS>
-  struct alignas(16) TCBlock {
+  struct alignas(16) TCStorage {
     using CAR_TYPE = CART;
     static constexpr u32 CAR_COUNT = CARS;
     static bool validIndex(u32 idx) { return idx < CAR_COUNT; }

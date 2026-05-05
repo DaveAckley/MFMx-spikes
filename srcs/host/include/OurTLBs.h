@@ -124,6 +124,7 @@ namespace MFM {
       u8 mNextLogCarIndex;
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
+      bool mHasBeenDumped;
 
       void setDeployedImage(const T6Image & img) ;
 

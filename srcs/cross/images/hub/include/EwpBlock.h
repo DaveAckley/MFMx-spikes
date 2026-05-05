@@ -1,7 +1,7 @@
 #pragma once /* -*- C++ -*- */
 #include "TC.h"
 #include "T6EPs.h"
-#include "TCBlock.h"
+#include "TCStorage.h"
 #include "HostBlock.h"
 #include "FastLocal.h"
 #include "AtomicLock.h"

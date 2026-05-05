@@ -16,6 +16,42 @@
 #include "FileIDs.h" // for GET_PATH_FROM_FILE_ID
 
 namespace MFM {
+  void CodeManager::dumpT6Image(const T6Image & image, u8 fromTLBI) {
+    u32 rvsize = image.getBinFileSize();
+    u8 * bytes = extractRISCVCodeFromTLBI(0, rvsize, fromTLBI);
+    BHLog & bhl = BHLog::getTheBHLog();
+    std::string path = "/tmp/dumpity.dump";
+    std::ofstream file(path,std::ios::binary);
+    if (file) {
+      file.write((const char*) bytes, rvsize);
+      file.close();
+      LOGprintf(mCardNum," Wrote %uB of '%s' to '%s'\n",
+                rvsize, image.getName().c_str(),
+                path.c_str());
+    } else {
+      LOGprintf(mCardNum," Couldn't write '%s'\n",path.c_str());
+    }
+
+    delete [] bytes;
+    bytes = 0;
+  }
+
+  u8 * CodeManager::extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 fromTLBI) {
+    U8C fromnoc = U8C::makeU8CNoCCoordFromTLBI(fromTLBI);
+    if (!U8C::isNoC0CoordAT6(fromnoc)) return 0;
+    
+    BHLog & bhl = BHLog::getTheBHLog();
+    BHTag tag(TagType::T6TADR, mCardNum, fromTLBI);
+    LOGprintf(mCardNum," Extracting %uB of L1 starting at address 0x%x of TLBI%u noc(%u,%u)\n",
+              rvsize, baseaddress, fromTLBI, fromnoc.x,fromnoc.y);
+
+    u8 * rvcode = new u8[rvsize];
+    u32 * codewords = (u32*) rvcode;
+
+    mOurTLBs.readFromBytes(fromTLBI, baseaddress, rvcode, rvsize);
+    return rvcode;              // CALLER TAKES OWNERSHIP
+  }
+
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mCardNum, toTLBI);
@@ -435,23 +471,29 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       return -2;
     }
 
+    bool anystuck = false;
     for (u32 hart = 0u; hart < 5u; ++hart) {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
         if (info.mStuckDog[hart]) {
+          anystuck = true;
           if (hb.mPerHartFailFileID[hart] != 0) {
             const char * path = GET_PATH_FROM_FILE_ID(hb.mPerHartFailFileID[hart]);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
-            Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK?\n%s:%u: %s\n",
+            Eprintf("%.03f BH%d:(%2u,%2u)%s %s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,hartName(hart),
+                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,
+                    t6i.getName().c_str(),
+                    hartName(hart),
                     path,
                     hb.mPerHartFailFileLine[hart],
                     getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
                     );
           } else {
-            Eprintf("%.03f BH%d:(%2u,%2u)%s STUCK? NOFID 0x%08x = FAIL%d:%s\n",
+            Eprintf("%.03f BH%d:(%2u,%2u)%s %s NOFID? 0x%08x = FAIL%d:%s\n",
                     runTimeSeconds(),
-                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,hartName(hart),
+                    mCardNum,hb.mNoC0.x,hb.mNoC0.y,
+                    t6i.getName().c_str(),
+                    hartName(hart),
                     hb.mPerHartWatchdog[hart],
                     hb.mPerHartStatus[hart],
                     getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
@@ -462,6 +504,11 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         info.mLastWatchdog[hart] = hb.mPerHartWatchdog[hart];
         info.mStuckDog[hart] = false;
       }
+    }
+
+    if (anystuck && !info.mHasBeenDumped) {
+      dumpT6Image(t6i,tlbi);
+      info.mHasBeenDumped = true;
     }
 
     {

@@ -4,6 +4,7 @@
 #include "Printf.h"
 //#include "T6ImageBlock.h"
 #include "BlockCode.h"
+#include "DefaultLives.h"
 //#include "T6CellO.h"
 
 namespace MFM {

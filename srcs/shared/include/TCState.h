@@ -8,4 +8,15 @@ namespace MFM {
     INBOUND_DEPARTED,      // 3 left t6/ewp or arrived host/hub (MARKERS VALID)
     OUTBOUND_DEPARTED,     // 4 left host/hub or arrived t6/ewp (MARKERS VALID)
   };
+
+  inline const char * getCarStateName(TCState cs) {
+    switch (cs) {
+    case TCState::UNUSED: return "Un";
+    case TCState::OPEN: return "Op";
+    case TCState::CLOSED: return "Cl";
+    case TCState::INBOUND_DEPARTED: return "ID";
+    case TCState::OUTBOUND_DEPARTED: return "OD";
+    }
+    return "??";
+  }
 }

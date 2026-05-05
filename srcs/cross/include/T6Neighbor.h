@@ -16,7 +16,7 @@ namespace MFM {
       return U8C::isNoC0CoordAT6(mNoC0Ngb);
     }
 
-    ImageBlockAddr findIBAIfAny(BlockCode bc) const ;
+    ImageBlockAddr findIBAIfAny(BlockCode bc, bool debug = false) const ;
 
     S8C mUsToNgbCT6Offset; //< ngb's CT6 pos relative to us
     U8C mNoC0Us;       //< our NoC0 coord
@@ -26,8 +26,8 @@ namespace MFM {
   struct T6NgbL1Block {
     T6Neighbor mT6Ngb;
     u32 mBaseAddress;
-    u32 mItemSize;
-    u32 mArrayLength;
+    u32 mStorageSize;
+    u32 mStorageCount;
     u32 mBlockSize;
     void reset() {
       memset_s(this, '\0', sizeof(*this));
@@ -41,9 +41,9 @@ namespace MFM {
       ImageBlockAddr iba = mT6Ngb.findIBAIfAny(bc);
       if (!iba.isValid()) return false;
       mBaseAddress = iba.mBlockAddr;
-      mItemSize = getSizeFromBlockCode(bc);
-      mArrayLength = iba.getArrayLength();
-      mBlockSize = mItemSize * mArrayLength;
+      mStorageSize = getStorageSizeFromBlockCode(bc);
+      mStorageCount = iba.getStorageCount();
+      mBlockSize = mStorageSize * mStorageCount;
       return true;
     }
   };

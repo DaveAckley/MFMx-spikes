@@ -2,6 +2,7 @@
 #include "Printf.h"
 #include "CrossUtils.h"
 #include "AtomicLock.h"
+#include "Debug.h"
 
 namespace MFM {
 
@@ -52,124 +53,49 @@ namespace MFM {
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
     *((volatile u32 *) (MAILBOX_BASE_T2)) = 1u; // write to T2 (from any but NC)
 
-    {
-      extern HostBlock theHostBlock;
-      theHostBlock.addBytes('m',hartChar(fAll.mHartNum));
-    }
-
+    HBNOTE(PRIMD);
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC); // NC got no mailboxes
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2); // T2 does, but doesn't use this code
 
-    {
-      static u32 count = 0;
-      if (count < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('P',hartChar(fAll.mHartNum));
-        ++count;
-      }
-    }
+    //HBNOTE("PRELD");
 
-    while (!isRandomServerReady()) {
-      if (false) {
-        static u32 count = 0;
-        if (count < 5) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes('w',hartChar(fAll.mHartNum));
-          ++count;
-        }
-      }
-    }
+    while (!isRandomServerReady()) { }
 
-    {
-      static u32 count = 0;
-      if (count < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('Q',hartChar(fAll.mHartNum));
-        ++count;
-      }
-    }
-
+    HBNOTE(RDEE);
+    
     primePump();
 
-    {
-      static u32 count = 0;
-      if (count < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('R',hartChar(fAll.mHartNum));
-        ++count;
-      }
-    }
   }
   
-  static void initT2(HostBlock & hb) {
+  int initT2() {
+    HBNOTE("INIT2");
 
-    {
-    {
-      static u32 count = 0;
-      if (count < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes(';',hartChar(fAll.mHartNum));
-        ++count;
+    extern HostBlock theHostBlock;
+    HostBlock & hb = theHostBlock;
+    
+    u32 seed = hb.mCommonArgs[0] * (hb.mNoC0.x+1) + (hb.mNoC0.y);
+    HBXTAG(SEED,seed);
+
+    fT2.mRandom.seedMT_MFM(seed);
+
+    /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
+    u32 addr = MAILBOX_BASE;
+    bool canread;
+
+    for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
+      while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
+        u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
       }
     }
 
+    primePump(); // Note T2 doesn't call preloadT2Mailbox()
 
-      // grab the lock for the whole init seq
-    //      AtomicScopeLock guard(t2ServingLock);
-
-    {
-      static u32 count = 0;
-      if (count < 5) {
-        extern HostBlock theHostBlock;
-        theHostBlock.addBytes('!',hartChar(fAll.mHartNum));
-        ++count;
-      }
-    }
-      u32 seed = hb.mCommonArgs[0] * (hb.mNoC0.x+1) + (hb.mNoC0.y);
-      fT2.mRandom.seedMT_MFM(seed);
-
-      {
-        static u32 count = 0;
-        if (count < 5) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes('i',hartChar(fAll.mHartNum));
-          ++count;
-        }
-      }
-
-      /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
-      u32 addr = MAILBOX_BASE;
-      bool canread;
-
-      for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum, (addr += MAILBOX_INCR)) {
-        while ((canread = *((volatile u32 *) (addr+4u)))) { // TRYREAD
-          u32 toss = *((volatile u32 *) (addr+0u));         // READ, discard
-        }
-      }
-
-      {
-        static bool once = false;
-        if (!once) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes('j',hartChar(fAll.mHartNum));
-          once = true;
-        }
-      }
-
-      mT2Serving = true;
-      {
-        static bool once = false;
-        if (!once) {
-          extern HostBlock theHostBlock;
-          theHostBlock.addBytes('T',hartChar(fAll.mHartNum));
-          once = true;
-        }
-      }
-    }
-
+    HBNOTE(CREATIVITY UP);
+    mT2Serving = true;
+    return 0;
   }
 
   static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
@@ -229,16 +155,10 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
     mT2Serving = false; // should be unnecessary, and harmless
     
-    initT2(hb);
-
-    hb.addBytes('&',hartChar(fAll.mHartNum));
-
-    primePump(); // Note T2 doesn't call preloadT2Mailbox()
-    
     hb.hartbeat(fAll.mHartNum);
 
-    hb.addBytes('#',hartChar(fAll.mHartNum));
-
+    HBNOTE("T2LIV");
+    
     return liveT2(hb);          // go do your hart t2 thing you
   }
 

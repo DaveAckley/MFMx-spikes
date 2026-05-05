@@ -5,91 +5,117 @@
 #include "HostBlock.h"
 #include "nanoprintf.h"
 #include "FastLocal.h" // for fAll
+#include "AtomicLock.h"
+#include "Debug.h"
 
 namespace MFM {
-  void markHostBlock(u16 fileid, u16 lineno,const void * ptr) {
-    extern HostBlock theHostBlock;
+  DebugHookFncPtr theGlobalDebugHook;
+
+  extern HostBlock theHostBlock;
+
+  static AtomicLock stringPackLock;
+  void packToHost(char * buf) { // let's try marking one at a time..
+    u32 count;
+    for (count = 0; buf[count]; ++count) { }
+    MFM_API_ASSERT(count > 1,UNSUPPORTED_SIZE);
+    if (count&1) {
+      buf[count-2] = buf[count-1];
+      buf[count-1] = 0;
+    }
+
+    {
+      AtomicScopeLock guard(stringPackLock);
+      theHostBlock.packString(buf);
+    }
+  }
+
+  void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag = 0) {
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c val=0x%p}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s0x%p} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
+                 tag?tag:" =",
                  ptr
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
-  void markHostBlock(u16 fileid, u16 lineno,const U8C c) {
+  void markHostBlock(u16 fileid, u16 lineno,const U8C c, const char * tag = 0) {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c val=(%u,%u)}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s(%u,%u)} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
+                 tag?tag:" =",
                  c.x, c.y
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
-  void markHostBlock(u16 fileid, u16 lineno,const S8C c) {
+  void markHostBlock(u16 fileid, u16 lineno,const S8C c, const char * tag = 0) {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c val=(%d,%d)}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s(%d,%d)} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
+                 tag?tag:" =",
                  c.x, c.y
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
-  void markHostBlock(u16 fileid, u16 lineno,const S16C c) {
+  void markHostBlock(u16 fileid, u16 lineno,const S16C c, const char * tag = 0) {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c val=(%d,%d)}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s(%d,%d)} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
+                 tag?tag:" =",
                  c.x, c.y
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
-  void markHostBlock(u16 fileid, u16 lineno,const int val) {
+  void markHostBlock(u16 fileid, u16 lineno,const int val, const char * tag = 0) {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c val=%d}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s%d} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
+                 tag?tag:" =",
                  val
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
-  void markHostBlock(u16 fileid, u16 lineno,const char *optmsg) {
+  void markHostBlock(u16 fileid, u16 lineno,const char *msg, const char * tag = 0) {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 64;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s%s}\n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u %d,%d h%c%s%s} \n",
                  fileid,lineno,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
                  hartChar(fAll.mHartNum),
-                 optmsg?" ":"",
-                 optmsg?optmsg:""
+                 tag?tag:" ",
+                 msg
                  );
-    theHostBlock.packString(buf);
+    packToHost(buf);
   }
 
   void memset_s(void* addr, u8 byte, u32 count) {

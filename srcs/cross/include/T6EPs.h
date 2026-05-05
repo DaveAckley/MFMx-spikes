@@ -25,43 +25,42 @@ namespace MFM {
     SUBTC * getClosedTCPtrIfAny() const ;
 
     bool shipTC(SUBTC & car, u8 carindex) ;
-    void initT6EP(BlockCode bc, bool isin, L1Data &l1Data) ;
-    void configureDest(U8C ournoc0, U8C destnoc0, u8 blockindex) ;
+    void initT6EP(EndPointAddress srcEPA, bool isin, L1Data &l1Data) ;
+    void configureDest(U8C ournoc0, U8C destnoc0, EndPointAddress destEPA) ;
 
     TCOpsData mOpsDataStg[CAR_COUNT];
     L1Data * mL1Data;
 
     L1Data & getL1Data() {
       MFM_API_ASSERT_NONNULL(mL1Data);
-      u8 idx = this->getDestBlockCodeIndex();
+      u8 idx = this->getSrcBlockCodeIndex();
       return *mL1Data;
     }
 
     L1Data & getL1Data() const {
       MFM_API_ASSERT_NONNULL(mL1Data);
-      u8 idx = this->getDestBlockCodeIndex();
+      u8 idx = this->getSrcBlockCodeIndex();
       return *mL1Data;
     }
 
     SUBTCBLOCKSTG & getCarStg() const {
-      return getL1Data().getCarStg(this->getDestBlockCodeIndex());
+      return getL1Data().getCarStg(this->getSrcBlockCodeIndex());
     }
 
     AtomicLock & getAtomicLock() const {
-      return getL1Data().getAtomicLock(this->getDestBlockCodeIndex());
+      return getL1Data().getAtomicLock(this->getSrcBlockCodeIndex());
     }
 
     typename L1Data::CarIdxs & getCarIdxs() const {
-      return getL1Data().getCarIdxs(this->getDestBlockCodeIndex());
+      return getL1Data().getCarIdxs(this->getSrcBlockCodeIndex());
     }
 
     EPState & getPublicEPState() const {
-      return getL1Data().getPublicEPState(this->getDestBlockCodeIndex());
+      return getL1Data().getPublicEPState(this->getSrcBlockCodeIndex());
     }
 
     U8C mDestNoC0;
     u32 mDestBlockAddr;         // blockindex already applied; needs only carindex
-
   };
 
 

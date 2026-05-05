@@ -10,6 +10,7 @@
 #include "S8C.h"
 #include "nanoprintf.h"
 #include "ImageBlock.h"
+#include "Debug.h"
 //#include "FastT2.h" // REMEMBER: NO createByMail on HART NC!
 
 namespace MFM {
@@ -31,142 +32,64 @@ namespace MFM {
     u8 mEPFuncsInUse;
 
     void copyEPFuncsNC() {
-      {
-    ImageBlockHeader * ibh = (ImageBlockHeader*) 0x14; // WELL-KNOWN ADDRESS GAH
-    extern HostBlock theHostBlock;
-    HostBlock & hb = theHostBlock;
-    hb.addBytes('\\','\\');
-    hb.packString(getNameFromImageCode((ImageCode) ibh->getImageCode()));
-    hb.addBytes('/','/');
-      }
+      HBMARK;
+
       EPFuncPtr* start_addr = (EPFuncPtr*) &__start_rodata_fp_table_nc;
       EPFuncPtr* end_addr = (EPFuncPtr*) &__end_rodata_fp_table_nc;
 
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," 2COPE 0x%p-0x%p\n", start_addr, end_addr);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
+      //HBPTAG(ncstart,start_addr);
+      //HBPTAG(ncend,end_addr);
 
       u32 ptrCount = end_addr - start_addr;
+      HBPTAG(ptrC,ptrCount);
       MFM_API_ASSERT(ptrCount < MAX_EPFUNCS,OUT_OF_ROOM);
       for (u32 i = 0u; i < ptrCount; ++i) {
         mEPFuncs[i] = start_addr[i];
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," copEED %lu @0x%p = 0x%p\n", i, &mEPFuncs[i], mEPFuncs[i]);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
+        //HBPTAG(copEED,(void*) mEPFuncs[i]);
       }
 
       mEPFuncsInUse = (u8) ptrCount;
     }
 
     bool runEPFuncsNC(bool forInit) {
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," runEPF %u %u\n",
-                       forInit, mEPFuncsInUse);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
-
+      //if (forInit) HBPTAG(runEPFNC,forInit);
       bool ret = false;
-      for (u32 i = 0u; i < mEPFuncsInUse; ++i) {
+      for (u32 j = 0u; j < mEPFuncsInUse; ++j) {
+        //        u32 i = mEPFuncsInUse-j-1u; // DEBUG: RUN INITS BACKWARDS
+        u32 i = j;
         EPFuncPtr epf = mEPFuncs[i];
         if (epf) {
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," %lu run@0x%p\n",
-                       i, epf);
-          theHostBlock.packString(buf);
+          if (forInit) HBPTAG(fncInit,i); 
+          //if (forInit) HBPTAG(fncPtr,(void*) epf);
+          if (!forInit) HBPTAG(4STEPNC,i);
+          if ((*epf)(forInit)) {
+            if (forInit) HBPTAG(true,(void*) epf);
+            ret = true;
+          }
         }
       }
-#endif
-      if ((*epf)(forInit)) {
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," %lu bongn@0x%p\n",
-                       i, mEPFuncs[i]);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
-        ret = true;
-      }
-        }
-      }
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," aNOut %u %u\n",
-                       forInit, mEPFuncsInUse);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
-
+      if (forInit) HBPTAG(epfInUse,mEPFuncsInUse);
       return ret;
     }
-
   };
   FAST_LOCAL(FastNC,fNC,n);
 
   int stepNC(HostBlock & hb) {
-    fNC.runEPFuncsNC(false);
+    if (!fNC.runEPFuncsNC(false))
+      breathe();
+    return 0;
+  }
+
+  int initNC() {
+    HBNOTE("initNC");
+    fNC.init();
     return 0;
   }
 
   int hartMainNC(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    fNC.init();
-
-#ifndef BUILD_HOST      
-      {
-        static u32 once = 0;
-        if (++once<5u) {
-          extern HostBlock theHostBlock;
-          char buf[100];
-          npf_snprintf(buf,100," %s:%d: haro\n",
-                       __FILE__,__LINE__);
-          theHostBlock.packString(buf);
-        }
-      }
-#endif
-
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-
     return liveNC(hb);
-
-    return 0; /* NOT REACHED */
   }
 }
 

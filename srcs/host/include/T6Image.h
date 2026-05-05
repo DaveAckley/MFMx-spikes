@@ -152,7 +152,7 @@ namespace MFM {
       iba.def("init", &ImageBlockAddr::init,py::call_guard<py::gil_scoped_release>());
       iba.def("getBlockCode", &ImageBlockAddr::getBlockCode,py::call_guard<py::gil_scoped_release>());
       iba.def("getBlockAddr", &ImageBlockAddr::getBlockAddr, py::call_guard<py::gil_scoped_release>());
-      iba.def("getArrayLength", &ImageBlockAddr::getArrayLength, py::call_guard<py::gil_scoped_release>());
+      iba.def("getStorageCount", &ImageBlockAddr::getStorageCount, py::call_guard<py::gil_scoped_release>());
 
       py::class_<ImageBlockHeader> ibh(m,"ImageBlockHeader");
       ibh.def("isValid", &ImageBlockHeader::isValid,py::call_guard<py::gil_scoped_release>());

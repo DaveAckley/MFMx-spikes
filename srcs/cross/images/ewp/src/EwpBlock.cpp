@@ -46,7 +46,7 @@ namespace MFM {
       HBMARK;
 
       theEwpL1Data.reset();     // zero all
-      auto & theEwpBlockCars = theEwpL1Data.mTheTCBlocks;
+      auto & theEwpBlockCars = theEwpL1Data.mTheTCStorages;
 
       ///// BIRTH
       findHub(); // find my feet find my face
@@ -61,11 +61,13 @@ namespace MFM {
       }
       // Cars are now initted
 
-      // Set up our endpoint: Destination EWHUB[ourtypeidx]
-      myEwpEPNC.initEwpEP(BC_EWHUB, false, theEwpL1Data);
+      // Set up our endpoint: Source { EWPCARS, 0 }
+      myEwpEPNC.initEwpEP({ BC_EWPCARS, 0 }, false, theEwpL1Data);
       HBNOTE("ewCFD");
       HBPVAL(fCOINC.mCellO.mImageTypeIndex);
-      myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, fCOINC.mCellO.mImageTypeIndex);
+
+      // Set up our endpoint: Destination { EWHUB, ourtypeidx }
+      myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, { BC_EWHUB, fCOINC.mCellO.mImageTypeIndex });
       myEwpEPNC.activate();
       ret = true;
       HBMARK;

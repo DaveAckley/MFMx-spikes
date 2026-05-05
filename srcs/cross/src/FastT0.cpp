@@ -5,6 +5,7 @@
 #include "FastT2.h" // for preloadT2Mailbox
 #include "Printf.h"
 #include "CrossUtils.h"
+#include "Debug.h"
 
 namespace MFM {
   static const volatile u32 * RISCV_DEBUG_REG_WALL_CLOCK_LO = (volatile u32 *) 0xffb1'21f0u;
@@ -73,9 +74,14 @@ namespace MFM {
     FAIL(UNREACHABLE_CODE); // um what? try to set T0's fail bit
   }
 
-  int hartMainT0(HostBlock & hb) {
+  int initT0() {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+    HBNOTE("initT0");
     preloadT2Mailbox();
+    return 0;
+  }
+
+  int hartMainT0(HostBlock & hb) {
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     return liveT0(hb);          // go do your hart t0 thing you
   }

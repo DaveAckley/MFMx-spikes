@@ -95,6 +95,11 @@ nc_init:
 	# FALL THROUGH: j exit_setup
         
 exit_setup:  ## ALL HARTS COME THROUGH HERE
+	
+	## NEXT TWO INSNS DISABLE L0 CACHE ON ALL HARTS
+	# li x1, 8                # DEBUG get bit 3 set
+        # csrrs x0, 0x7c0, x1     # DEBUG set DisLowCash to disable L0 data cache
+
 	# Finally initialize global pointer (same for all harts)
 	lui gp,%hi(__global_pointer$)
 	addi gp,gp,%lo(__global_pointer$)
@@ -104,11 +109,15 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	## of reset, the local data RAM will spend up to 2048 clock
 	## cycles resetting its contents to zero."
 
+	##### fALL SETUP. See FastLocal.h, ImageBlock.h, HostBlock.h
 	la t1, __fast_start     # get local ptr
 	la t2, __hostblock_start # get hb ptr
 	sb s0,(t1)              # set fast[0] 0..7 to hartnum
         lhu t3,24(t2)           # get hb.mNoC0
         sh t3,2(t1)             # stash in fALL.mNoC0
+	li t2, 0x14             # get ImageBlockHeader address
+	lw t3,(t2)              # get IBH
+        sw t3,8(t1)             # stash in fALL.mIBH
 
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value

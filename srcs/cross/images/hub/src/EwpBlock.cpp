@@ -16,7 +16,7 @@ namespace MFM {
 
     bool ret = false;
     if (unlikely(doInit)) {
-      HBMARK;
+      HBNOTE("EWHUBARO");
       //// ONE-TIME INITS
       T6CellO cello;
       if (!cello.init()) FAIL(NO_MATCH);
@@ -34,38 +34,34 @@ namespace MFM {
             HBASSERT_LS(ncount, 8u); 
             u32 n = ncount++;
             EwpEP<8> & ewpnc = myEwpEPArray[n];
-            HBNOTE("PRCFG");
-            HBPVAL((void*)&ewpnc);
-            HBPVAL(n);
-            ewpnc.initEwpEP(BC_EWPCARS, true, theEwpL1Data);
-            HBPVAL(atcp);
-            ewpnc.configureDest(fAll.mNoC0, cello.getNoC0ofCellP(atcp), n);
+            //HBPVAL(n);
+            HBPVAL(cello.getNoC0ofCellP(atcp));
+            ewpnc.initEwpEP({ BC_EWHUB, (u8) n }, true, theEwpL1Data);
+            ewpnc.configureDest(fAll.mNoC0, cello.getNoC0ofCellP(atcp), { BC_EWPCARS, 0 });
             
-            HBNOTE("PREBANG?");
             EwpBlockStg & ebs = ewpnc.getCarStg();
+            HBPTAG(PRCFG,&ebs);
             for (u32 c = 0; c < ebs.getCarCount(); ++c) {
               EwpBlock & eb = ebs.getTC(c);
               eb.init();
             }
             ret = true;
-            HBPVAL(n);
-            ewpnc.activate();
           }
         }
+      }
+      HBNOTE("EWHF");
+      for (u32 n = 0; n < 8; ++n) {
+        if (theEwpL1Data.getPublicEPState(n) != EPState::CONFIGURED) continue;
+        //HBPVAL(n);
+        myEwpEPArray[n].activate();
       }
     } else {
             
       //// LIVING
-      //      if (false) ////XXXX DON'T PROCESS EWPS WHILE WE WORK ON INTERHUB
       for (u32 n = 0; n < 8; ++n) {
         EwpEP<8> & ewpnc = myEwpEPArray[n];
-        if (!ewpnc.isInitted()) continue;
-
-        SNAP(8,HBPVAL(&ewpnc));
-        if (ewpnc.updateOps()) {
-          ret = true;
-          HBMARK;
-        }
+        if (!ewpnc.isActive()) continue;
+        if (ewpnc.updateOps()) ret = true;
       }
     }
     return ret;

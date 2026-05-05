@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "Fail.h"
 #include "U8C.h"
+#include "ImageBlock.h"
 
 // See cross/src/_BUD.ld.in for section defs and such
 
@@ -28,11 +29,12 @@ namespace MFM {
     u8 mHartNum, mInspirationOnHand;
     U8C mNoC0;             // local copy of HostBlock.mNoC0
     u32 mCreativityBuffer; // see FastT2.h
+    ImageBlockHeader mIBH; // local copy of 0x14: ImageBlockHeader
   };
 
   void sleepCycles(u32 cycles) ;
-  static constexpr u32 BREATH_DURATION = 8'000u; //< in fake 'cycles' which are some k/AIFreq with k > 1
-  inline void breathe() { sleepCycles(BREATH_DURATION); } //< about 1ms?
+  static constexpr u32 BREATH_DURATION = 4'000u; //< in fake 'cycles' which are some k/AIFreq with k > 1
+  inline void breathe() { sleepCycles(BREATH_DURATION); } //< ~<1ms?
 
   extern FastAll fAll;
 }

@@ -115,7 +115,7 @@ namespace MFM {
     if (!crbi.remove(carindex)) return false; // no arriving cars
     HBMARK;
 
-    EwpBlockStg & cars = theEwpL1Data.mTheTCBlocks[0];
+    EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[0];
     HBASSERT_LS(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
@@ -126,19 +126,18 @@ namespace MFM {
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     HBPVAL(&crbo);
     crbo.add(carindex);         // hand control back to comm
-    HBNOTE("AFTCLOS");
+    HBPTAG(AFTCLOS,&crbo);
 
     return true;
   }
 
-  static void initB(HostBlock & hb) {
-    MFM_API_ASSERT(hb.goodMagic(),ILLEGAL_STATE);
+  int initB() {
     preloadT2Mailbox();
-    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::TRYING;
+    return 0;
   }
 
   int liveB(HostBlock & hb) {
-    initB(hb);
+    MFM_API_ASSERT(hb.goodMagic(),ILLEGAL_STATE);
 
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
@@ -150,7 +149,6 @@ namespace MFM {
       }
       if (!processEwpCars(hb,false))
         breathe();
-      
     }
     return 0;
   }

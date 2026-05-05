@@ -2,10 +2,11 @@
 #include "TC.h"
 #include "T6EPs.h"
 #include "HostBlock.h"
-#include "TCBlock.h"
+#include "TCStorage.h"
 #include "FastLocal.h"
 #include "AtomicLock.h"
 #include "BlockCode.h"
+#include "FastT2.h" // for between
 
 namespace MFM {
   struct ZotPayload {
@@ -24,7 +25,11 @@ namespace MFM {
       mGAMZB = 0xfedc01b5;
     }
     void update(bool isin) {
-      ++mCounts[ isin ? 0 : 1 ];
+      HBPTAG(ZBMP,mCounts[1]);
+      ++mCounts[0];
+      mCounts[1] = between(0,999999);
+      HBPTAG(incr,mCounts[0]);
+      HBPTAG(rndo,mCounts[1]);
     }
   };
 
@@ -38,8 +43,8 @@ namespace MFM {
     void init(u32 data, bool bongo) ;
   };
 
-  struct ZotBlockStg : TCBlock<ZotBlock,2> { // umm this struct could have been a typedef
-    typedef TCBlock<ZotBlock,2> Super;
+  struct ZotBlockStg : TCStorage<ZotBlock,2> { // umm this struct could have been a typedef
+    typedef TCStorage<ZotBlock,2> Super;
   };
 
 
@@ -57,9 +62,10 @@ namespace MFM {
     bool recvTC(ZotBlock & car, u8 carindex) ;
     //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6EP
 
-    void initZotEP(BlockCode destbc, bool isin, Super::L1Data & l1data) ;
+    void initZotEP(EndPointAddress srcEPA, bool isin, Super::L1Data & l1data) ;
+
   };
-  
+
   static constexpr u32 ZOTBLOCKS_IN_IDX = 0u;
   static constexpr u32 ZOTBLOCKS_OUT_IDX = 1u;
   static constexpr u32 ZOTBLOCKS_DEMO_COUNT = 2u;

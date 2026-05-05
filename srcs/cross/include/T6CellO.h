@@ -28,10 +28,6 @@ namespace MFM {
     u8 getImageCodeAtCellP(U8C cp) const ;    //< get ImageCode at intra-cell position cp
     U8C getCellPofImage(ImageCode ic) const ; //< get intra-cell pos of first-found ic, or (255,255)
 
-    /* This doesn't exist. See T6ImageBlock.h instead --
-    U8C findCellPOfferingBlockCode(BlockCode bc) const ; //< get an intra-cell pos that offers bc, or (255,255)
-    */
-    
     inline const CellBlock & getOurCB() const {
       return *(const CellBlock*) (u32*) mOurCellBlockAddr;
     }

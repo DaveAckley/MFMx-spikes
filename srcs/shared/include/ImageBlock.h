@@ -14,7 +14,7 @@ namespace MFM {
     static constexpr u8 IBA_MAGIC = 0xba;
     u8 mIBAMagic;
     u8 mBlockCode;
-    u8 mArrayLength;
+    u8 mStorageCount;
     u8 mHostChunkOffsetOpt;     // if this != 255, host maps iba blockcode to noc + this*64
     u32 mBlockAddr;
 
@@ -34,7 +34,7 @@ namespace MFM {
     void init(u8 blockcode, u8 len, u32 addr) {
       mIBAMagic = IBA_MAGIC;
       mBlockCode = blockcode;
-      mArrayLength = len;
+      mStorageCount = len;
       mHostChunkOffsetOpt = U8_MAX; //< assume no host/ mapping
       mBlockAddr = addr;
     }
@@ -47,7 +47,7 @@ namespace MFM {
 
     u32 getHostChunkOffsetOpt() const { return mHostChunkOffsetOpt; }
 
-    u32 getArrayLength() const { return mArrayLength; }
+    u32 getStorageCount() const { return mStorageCount; }
 
     const char *to_repr() const {
       static constexpr u32 BUF_SIZ = 100;
@@ -60,7 +60,7 @@ namespace MFM {
                  "<ImageBlockAddr:bc=%s(%u),al=%u,hc=%u/0x%x,ad=0x%x>",
                  getNameFromBlockCode((BlockCode) iba.getBlockCode()),
                  iba.getBlockCode(),
-                 iba.getArrayLength(),
+                 iba.getStorageCount(),
                  iba.getHostChunkOffsetOpt(),
                  iba.getHostChunkOffsetOpt() == U8_MAX ? 0u :
                  HOST_COMMS_MAP_CHUNK_SIZE*iba.getHostChunkOffsetOpt(),
@@ -70,7 +70,7 @@ namespace MFM {
                  "<ImageBlockAddr:invalid(0x%x),%u,%u,0x%x>",
                  iba.mIBAMagic,
                  iba.getBlockCode(),
-                 iba.getArrayLength(),
+                 iba.getStorageCount(),
                  iba.getBlockAddr());
 #pragma GCC diagnostic pop
       return buf;

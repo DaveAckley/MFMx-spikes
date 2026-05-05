@@ -97,9 +97,11 @@ namespace MFM {
   //  T6Grid theT6Grid;
 
   bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+    if (theEwpL1Data.isUninitted(ngbidx)) return false;
+
     if (!theEwpL1Data.isActive(ngbidx)) {
-      HBNOTE("hPROCBLOC");
-      HBPVAL(ngbidx);
+      HBPTAG(hPROCBLOC,ngbidx);
+      //HBPVAL(theEwpL1Data.getPublicEPState(ngbidx));
       return false;             // wait a bit
     }
 
@@ -113,7 +115,7 @@ namespace MFM {
     if (!crbi.remove(carindex)) return false; // no arriving cars
     HBNOTE("hub/prcHC|0");
 
-    EwpBlockStg & cars = theEwpL1Data.mTheTCBlocks[ngbidx];
+    EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[ngbidx];
     HBASSERT_LS(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
@@ -124,18 +126,29 @@ namespace MFM {
     car.closeTC(sizeof(pay)); // ready to go
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     crbo.add(carindex);         // hand control back to comm
-    HBNOTE("hub/AFTCLOS");
+    HBPTAG(hub/AFTCLOS,&crbo);
     
     return true;
   }
 
   bool processInterHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
-    SNAP(80,HBPVAL(ngbidx));
+    if (theInterHubL1Data.isUninitted(ngbidx))
+      return false; // unconnected is not an error
+
+    if (!theInterHubL1Data.isActive(ngbidx)) {
+      HBPTAG(ihPROCBLOC,&theInterHubL1Data.getCarStg(ngbidx));
+      HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx)));
+      return false;             // wait a bit
+    }
+
+    HBPTAG(PROCINTERHUB,ngbidx);
+    HBPTAG(pIHS,inside);
 
     using IHubData = T6EPL1Data<InterHubStorage,4>;
     IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[ngbidx];
     IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
     IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
+    HBPTAG(PRINHU-crbi,&crbi);
 
     memoryFence();
 
@@ -145,7 +158,7 @@ namespace MFM {
     HBPVAL(ngbidx);
     HBPVAL(carindex);
 
-    InterHubStorage & cars = theInterHubL1Data.mTheTCBlocks[ngbidx];
+    InterHubStorage & cars = theInterHubL1Data.mTheTCStorages[ngbidx];
     HBASSERT_LS(carindex, cars.getCarCount());
     InterHubBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
@@ -156,38 +169,49 @@ namespace MFM {
     car.closeTC(sizeof(pay)); // ready to go
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     crbo.add(carindex);         // hand control back to comm
-    HBNOTE("ihub/AFTCLOS");
+    HBPTAG(ihub/AFTCLOS,&crbo);
     
     return true;
+  }
+
+  int initB() {
+    HBPTAG(iNitB,fAll.mNoC0);
+    preloadT2Mailbox();
+    return 0;
   }
 
   int liveB(HostBlock & hb) {
     if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
     //hb.addBytes('L',hartChar(fAll.mHartNum));
-    preloadT2Mailbox();
-    //hb.addBytes('B',hartChar(fAll.mHartNum));
-
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     HBMARK;
 
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      if ((++spin & 0x1ffff) == 0) {
+      if ((++spin & 0xffff) == 0) {
         HBXVAL(spin);
         hb.hartbeat(fAll.mHartNum);
       }
       bool work = false;
-      for (u32 e = 0u; e < 8u; ++e)
-        if (processHubCars(e,hb,true)) {
-          HBPVAL(e);
-          work = true;
-        }
-      for (u32 i = 0u; i < 4u; ++i)
+      HBPTAG(clams,spin);
+      for (u32 i = 0u; i < 4u; ++i) {
+        //HBPTAG(FORCHA,i);
+        //SNAP(10,HBPTAG(fIHC,i));
         if (processInterHubCars(i,hb,(i&1)==0)) {
-          HBPVAL(i);
+          HBPTAG(dIHC,i);
           work = true;
         }
+      }
+
+      HBPTAG(bombs,spin);
+      for (u32 e = 0u; e < 8u; ++e) {
+        if (processHubCars(e,hb,true)) {
+          HBPTAG(dpHC,e);
+          work = true;
+        }
+      }
+
       if (!work)
         breathe();
     }

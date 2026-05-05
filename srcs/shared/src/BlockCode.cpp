@@ -36,7 +36,7 @@ namespace MFM {
 
   const char * getNameFromBlockCode(BlockCode b) {
 
-#define XX(NAME,SIZE,TYPE,BLOCKS)               \
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                \
   case CONC(BC_,NAME): return XSTR_MACRO(CONC(BC_,NAME));
 
     switch (b) {
@@ -52,7 +52,7 @@ namespace MFM {
 
   BlockCode getBlockCodeFromName(const char * n) {
 
-#define XX(NAME,SIZE,TYPE,BLOCKS)                       \
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                        \
   if (!strcmp_s(n,XSTR_MACRO(CONC(BC_,NAME)))) return CONC(BC_,NAME);
     
   BLOCKCODE_LIST()
@@ -62,16 +62,28 @@ namespace MFM {
 
   }
 
-  static const u32 blockCodeSizes[] = {
+  static const u32 blockCodeStorageSizes[] = {
     0u,
-#define XX(NAME,SIZE,TYPE,BLOCKS) (SIZE), // Note we're NOT doing sizeof(TYPE)!
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_SIZE), // Note we're NOT doing sizeof(TYPE)!
     BLOCKCODE_LIST()
 #undef XX
   };
 
-  u32 getSizeFromBlockCode(BlockCode b) {
-    MFM_API_ASSERT(b < sizeof(blockCodeSizes)/sizeof(blockCodeSizes[0]), ILLEGAL_ARGUMENT);
-    return blockCodeSizes[b];
+  static const u32 blockCodeStorageCounts[] = {
+    0u,
+#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_COUNT),
+    BLOCKCODE_LIST()
+#undef XX
+  };
+
+  u32 getStorageSizeFromBlockCode(BlockCode b) {
+    MFM_API_ASSERT(b < sizeof(blockCodeStorageSizes)/sizeof(blockCodeStorageSizes[0]), ILLEGAL_ARGUMENT);
+    return blockCodeStorageSizes[b];
+  }
+
+  u32 getStorageCountFromBlockCode(BlockCode b) {
+    MFM_API_ASSERT(b < sizeof(blockCodeStorageCounts)/sizeof(blockCodeStorageCounts[0]), ILLEGAL_ARGUMENT);
+    return blockCodeStorageCounts[b];
   }
 
 

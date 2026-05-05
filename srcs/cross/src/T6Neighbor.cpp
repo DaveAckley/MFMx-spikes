@@ -3,24 +3,38 @@
 #include "Debug.h"
 
 namespace MFM {
-  ImageBlockAddr T6Neighbor::findIBAIfAny(BlockCode bc) const {
-    HBNOTE("CALT");
+  ImageBlockAddr T6Neighbor::findIBAIfAny(BlockCode bc, bool debug) const {
+    HBASSERT_EQ(isValid(),true);
+    //if (debug) HBNOTE("CALT");
     ImageBlockAddr ret;
     ret.reset();                // ensure invalid
-    ImageBlockHeader ngbibh = NRI3::blockingReadImageBlockHeaderCT6Offset(mNoC0Us,mUsToNgbCT6Offset);
-    if (ngbibh.isValid()) {
+    ImageBlockHeader ngbibh = NRI3::blockingReadImageBlockHeaderCT6Offset(mNoC0Us,mUsToNgbCT6Offset,debug);
+    if (!ngbibh.isValid()) {
+      if (debug) HBNOTE("INVG");
+    } else {
+      if (debug) HBPVAL(ngbibh.mEntries);
       for (u32 e = 0u; e < ngbibh.mEntries; ++e) {
-        ImageBlockAddr iba = NRI3::blockingReadImageBlockAddrCT6Offset(mNoC0Us,mUsToNgbCT6Offset,e);
+        ImageBlockAddr iba = NRI3::blockingReadImageBlockAddrCT6Offset(mNoC0Us,mUsToNgbCT6Offset,e,debug);
         //HBPVAL(e);
-        if (!iba.isValid() || iba.mArrayLength==0) continue;
-        //HBPVAL(iba.getBlockCode());
+        if (!iba.isValid() || iba.mStorageCount==0) {
+          if (debug) {
+            HBPVAL(mNoC0Us);
+            HBPVAL(mUsToNgbCT6Offset);
+            HBNOTE("NVALG");
+            HBNOTE(iba.isValid());
+            HBNOTE(iba.mStorageCount);
+            HBPVAL(e);
+          }
+          continue;
+        }
         if (iba.getBlockCode() == bc) {
           ret = iba;            // ret becomes valid
-          HBPVAL(iba.mArrayLength);
+          if (debug) HBPVAL(iba.mStorageCount);
           break;
         }
       }
     }
+    if (debug && !ret.isValid()) HBPVAL(ret.isValid());
     return ret;                 // invalid or not..
   }
 

@@ -7,12 +7,12 @@
 #include "S16C.h"
 
 namespace MFM {
-  void markHostBlock(u16 fileid, u16 lineno,const void * ptr) ;
-  void markHostBlock(u16 fileid, u16 lineno,const char * msg) ;
-  void markHostBlock(u16 fileid, u16 lineno,const int val) ;
-  void markHostBlock(u16 fileid, u16 lineno,const U8C c) ;
-  void markHostBlock(u16 fileid, u16 lineno,const S8C c) ;
-  void markHostBlock(u16 fileid, u16 lineno,const S16C c) ;
+  void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) ;
+  void markHostBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) ;
+  void markHostBlock(u16 fileid, u16 lineno,const int val, const char * tag) ;
+  void markHostBlock(u16 fileid, u16 lineno,const U8C c, const char * tag) ;
+  void markHostBlock(u16 fileid, u16 lineno,const S8C c, const char * tag) ;
+  void markHostBlock(u16 fileid, u16 lineno,const S16C c, const char * tag) ;
 
   inline void memoryFence() {
     asm volatile (

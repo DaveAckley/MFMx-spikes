@@ -122,11 +122,15 @@ namespace MFM {
   //  T6Grid theT6Grid;
 
   bool processZotCars(HostBlock & hb,bool inside) {
+    HOOKIT();
+
     const u32 DIR_IDX = inside ? ZOTBLOCKS_IN_IDX : ZOTBLOCKS_OUT_IDX;
 
     if (!theZotBlockL1Data.isActive(DIR_IDX)) {
       HBNOTE("zPROCBLOC");
-      SNAP(5,HBPVAL(theZotBlockL1Data.getPublicEPState(DIR_IDX)));
+      EPState & pubstate = theZotBlockL1Data.getPublicEPState(DIR_IDX);
+      HBPVAL(&pubstate);
+      HBPVAL(getNameFromEPState(pubstate));
       return false;             // wait a bit
     }
 
@@ -139,36 +143,33 @@ namespace MFM {
 
     u8 carindex;
     if (!crbi.remove(carindex)) return false;
-    HBNOTE("zot got|");
-    HBPVAL(inside);
+    HBPTAG("zot got|",inside);
 
-    ZotBlockStg & cars = theZotBlockL1Data.mTheTCBlocks[DIR_IDX];
+    ZotBlockStg & cars = theZotBlockL1Data.mTheTCStorages[DIR_IDX];
     HBASSERT_LS(carindex, cars.getCarCount());
     ZotBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(),TCState::OPEN); 
     ZotPayload & pay = car.payload();
     pay.update(inside); // kilroy was here
 
-    HBNOTE("zot/PRECLOS");
+    HBPTAG(zot/PRECLOS,carindex);
     car.closeTC(sizeof(pay)); // every car is a full car
     MFM_API_ASSERT(!crbo.isFull(),ILLEGAL_STATE);
     crbo.add(carindex);
-    HBNOTE("zot/AFTCLOS");
+    HBPTAG(zot/AFTCLOS,&crbo);
 
     return true;
   }
 
-  int liveB(HostBlock & hb) {
+  int initB() {
     auto ptpr = getPtrPair<L1Stuff,FastStuff,LdSectionName<'b'>>();
-    HBNOTE("AKAPP");
-    HBPVAL(ptpr.mFastPriv);
-    HBPVAL(ptpr.mL1Pub);
-    
-    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-    //hb.addBytes('L',hartChar(fAll.mHartNum));
+    HBPTAG(AKAPP,ptpr.mL1Pub);
     preloadT2Mailbox();
-    //hb.addBytes('B',hartChar(fAll.mHartNum));
+    return 0;
+  }
 
+  int liveB(HostBlock & hb) {
+    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
 
