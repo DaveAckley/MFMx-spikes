@@ -95,6 +95,21 @@ namespace MFM {
     return hostlogfile;
   }
 
+  std::ofstream getOStreamLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED ofstream
+    std::string keypath = hostlogdir;
+    if (key.mType == TagType::T6TADR)
+      keypath.append("/tiles/");
+    else
+      keypath.append("/host/");
+    keypath.append(key.to_string());
+    keypath.append(".dat");
+      
+    std::ofstream ofs(keypath, std::ios::app);
+    ofs << "---" << runTimeSeconds() << "---" << std::endl;
+    return ofs;
+  }
+
+
   FILE * getHostLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED FILE *
     std::string keypath = hostlogdir;
     if (key.mType == TagType::T6TADR)
@@ -105,7 +120,12 @@ namespace MFM {
     keypath.append(".dat");
       
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
-    fprintf(keylog,"---%0.4f---\n",runTimeSeconds());
+    static auto last = runTimeSeconds();
+    auto now = runTimeSeconds();
+    if (now >= last + 1) {
+      fprintf(keylog,"---%0.4f---\n",now);
+      last = now;
+    }
     return keylog;
   }
 

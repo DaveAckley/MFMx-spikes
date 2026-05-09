@@ -8,10 +8,15 @@
 #include "EventWindow.h"
 //#include "CornerState.h"
 #include "ImageBlock.h"
+#include "BlockCode.h"
 #include "CrossUtils.h"
 #include "TCState.h"
 
 namespace MFM {
+
+  // We have P150B boards, so we are using the PCIe 0 tile, which is
+  // at (2,0) in NoC0 coords
+  static constexpr U8C PCIeTILE_NOC0 = {2,0};
 
   /** NoC byte offsets (arg to getNIUAddress) */
   //static constexpr u32 NOC_NODE_ID = 0x44;
@@ -82,10 +87,17 @@ namespace MFM {
 
     constexpr u8 NRI3_BLOCKING_TRANSACTION_ID = 0xe;
 
+    /** Initiate a packet write to the host. sourcedata is the source
+        L1 address. Destaddr is a u64 host address formatted for PCIe
+        traversal, and note WE ARE NOT DEALING WITH THE PCIe
+        TRANSACTION ATTRIBUTES stuff in the top six bits of destaddr!
+        Whatever the caller provides we just pass on. */
+    s32 initiateWriteToHost(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, u64 destaddr) ;
+
     /** Initiate an inter-T6 packet write. sourcedata and destaddr
         should both be L1 addresses, and they at least need to be
         equal to each other mod 64, and should probably both just be
-        equal to 0 mod 64. */
+        equal to 0 mod 16. */
     s32 initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) ;
     
     /** Read up to 16 words from ngb's L1. Note that destaddr MAY

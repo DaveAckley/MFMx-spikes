@@ -1,6 +1,7 @@
 #include "QuietBox.h"
 #include "Blackhole.h"
 #include "HostUtils.h"
+#include "ImageCode.h"
 
 namespace MFM {
   BGRImageHD QuietBox::t6gridRenderBlock;

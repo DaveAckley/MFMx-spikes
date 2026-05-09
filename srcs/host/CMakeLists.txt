@@ -5,28 +5,27 @@ pybind11_add_module(MFMx src/mfmx_wrapper.cpp)
 
 target_sources(MFMx PRIVATE
     src/BGRImage.cpp
-    # src/C4I.cpp
-    src/EWControl.cpp
-    src/Layout.cpp
-#    src/S32C.cpp
-    src/STVL.cpp
-    src/StringBlock.cpp
     src/BHLog.cpp
     src/BHTag.cpp
     src/Blackhole.cpp
     src/CodeManager.cpp
     src/CommsModule.cpp
+    src/EWControl.cpp
     src/FATAL.cpp
     src/FailStrings.cpp
     src/HostCommsMap.cpp
     src/HostRandom.cpp
     src/HostUtils.cpp
     src/ImageManager.cpp
+    src/Layout.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
     src/QuietBox.cpp
+    src/STVL.cpp
+    src/StringBlock.cpp
     src/T6Image.cpp
     src/TimeDefs.cpp
+    src/XMark.cpp
     src/XUtilsHost.cpp
     ${SHARED_SOURCES}
 )

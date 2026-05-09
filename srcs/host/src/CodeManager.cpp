@@ -129,8 +129,8 @@ namespace MFM {
             U16C s = DG::getSingleT6GridSize();
             U16C e = o+s;
             std::string rep = s.to_string()+"@"+o.to_string()+"-"+e.to_string();
-            Eprintf("\nBH#%u/%u,HUBADDED at %p from 0x%08x noc[%u,%u] %s\n",
-                    mChipNum,toTLBI,t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
+            Eprintf("\n %s,HUBADDED at %p from 0x%08x noc[%u,%u] %s\n",
+                    BHTag::t6adt(mChipNum,toTLBI),t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
             if (false) {
               // MORE DEBUG
               U16C globalsize = DG::getGlobalGridSize();
@@ -347,10 +347,6 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           HOST_FATAL(BAD_VALUE,"Bad HBCIGAM 0x%08x @ %u\n",hb.mHBCigam,tlbi);
 
         if (false) {
-          /*          Eprintf("HBLOG %u %u\n",
-                 hb.mLogBuffer.mFirstFreeIdx,
-                 hb.mLogBuffer.mFirstUsedIdx);
-          */
             bool first = true;
             s32 ch;
             while ((ch = hb.removeByte()) >= 0) {
@@ -573,11 +569,12 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mChipNum, tlbi);
     //bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
-    if (false) Eprintf("BH%d:(%u,%u) IMCO %s sz%d hb0x%08x\n",
-            mChipNum,nocc.x,nocc.y,
-            t6i.getName().c_str(),
-            t6i.getBinFileSize(),
-            hostblockaddr);
+    if (false)
+      Eprintf("%s[%s] IMCO sz%d hb0x%08x\n",
+              BHTag::t6adc(mChipNum,nocc.x,nocc.y).c_str(),
+              t6i.getName().c_str(),
+              t6i.getBinFileSize(),
+              hostblockaddr);
     {
       const char * rvcode = t6i.getTheBinFile();
       u32 * codewords = (u32*) rvcode;
@@ -627,9 +624,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           if (hb.mPerHartFailFileID[hart] != 0) {
             const char * path = GET_PATH_FROM_FILE_ID(hb.mPerHartFailFileID[hart]);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
-            Eprintf("%.03f BH%d:(%2u,%2u)%s %s STUCK?\n%s:%u: %s\n",
+            Eprintf("%.03f %s[%s] %s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    mChipNum,hb.mNoC0.x,hb.mNoC0.y,
+                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y),
                     t6i.getName().c_str(),
                     hartName(hart),
                     path,
@@ -637,9 +634,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
                     getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
                     );
           } else {
-            Eprintf("%.03f BH%d:(%2u,%2u)%s %s NOFID? 0x%08x = FAIL%d:%s\n",
+            Eprintf("%.03f %s[%s] %s NOFID? 0x%08x = FAIL%d:%s\n",
                     runTimeSeconds(),
-                    mChipNum,hb.mNoC0.x,hb.mNoC0.y,
+                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
                     t6i.getName().c_str(),
                     hartName(hart),
                     hb.mPerHartWatchdog[hart],
@@ -674,9 +671,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);
 
         buf[idx] = 0;
-        Eprintf("%.03f BH%d:(%2u,%2u)HOBU<<%s>>UBOH\n",
+        Eprintf("%.03f %s[%s]<<<%s>>>%s[%s]\n",
                 runTimeSeconds(),
-                mChipNum,hb.mNoC0.x,hb.mNoC0.y,buf);
+                BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                t6i.getName().c_str(),
+                buf,
+                BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                t6i.getName().c_str());
       }
     }
     return 0;

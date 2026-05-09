@@ -11,6 +11,8 @@
 #include "HostCommsMap.h"
 #include "CommsModule.h"
 #include "P4Atom.h"
+#include "PT_LogBlock.h" // for LogBlockStg and frens
+#include "PT_ACacheBlock.h" // ditto ACacheBlockStg
 
 #include <pybind11/functional.h> // for std::function?
 
@@ -30,8 +32,11 @@ namespace MFM {
     OurTLBs() ;
 
     // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
-    //LogCarStorage & getLogCarStorageHost(u32 tlbi) const ;
-    //LogCarStorage::LogCar & getLogCarHost(u32 tlbi, u32 carnum) const ;
+    LogBlockStg & getLogBlockStgHost(u32 tlbi) const ;
+    LogBlockStg::CAR_TYPE & getLogBlockHost(u32 tlbi, u32 carnum) const ;
+
+    ACacheBlockStg & getACacheBlockStgHost(u32 tlbi) const ;
+    ACacheBlockStg::CAR_TYPE & getACacheBlockHost(u32 tlbi, u32 carnum) const ;
 
     // ACCESS FAKE MMAP'D ADDRS (TO R/W REMOTE T6s)
     char * getL1HostAddressForTLBI(u32 tlbi) ; //< host-mapped address of L1 addr 0 for T6 tlbi
@@ -39,7 +44,8 @@ namespace MFM {
     //    u32 getLogCarT6L1(u32 tlbi, u32 carnum) ;
 
     bool updateTransports(bool includeEWs) ;
-    void updateLogCars(unsigned tlbi) ;
+    void updateLogBlocks(unsigned tlbi) ;
+    void updateACacheBlocks(unsigned tlbi) ;
     void updateEWCars(unsigned tlbi) ;
 
     void setDeviceInfo(u32 chipNum, s32 devfd) {
@@ -115,16 +121,21 @@ namespace MFM {
       return (void*) (all + tlbi * hostRAMSizePerT6());
     }
 
+    struct membuf : std::streambuf {
+      membuf(char* begin, u32 len) { this->setg(begin, begin, begin + len);}
+    };
+
     struct TLBInfo {
       struct tenstorrent_allocate_tlb_out mAllocOut;
       const T6Image * mDeployedImage;
       u32 mT6GridStart;         //< if image has a T6Grid block
+      u32 mACacheTransportBlockStart;
       u32 mLogTransportBlockStart;
-      //u32 mLogCars;
       u32 mEWTransportBlockStart;
       u32 mRemoteBaseAddress;
       u8 mFailStatus;
-      u8 mNextLogCarIndex;
+      u8 mNextLogBlockIndex;
+      u8 mNextACacheBlockIndex;
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
       bool mHasBeenDumped;
@@ -139,15 +150,22 @@ namespace MFM {
         MFM_API_ASSERT_NONNULL(mDeployedImage);
         return *mDeployedImage;
       }
-#if 0      
-      u32 getLogCarIndex() const { return mNextLogCarIndex; }
-      u32 advanceLogCarIndex() {
-        if (++mNextLogCarIndex >= LogCarStorage::CAR_COUNT)
-          mNextLogCarIndex = 0u;
-        return mNextLogCarIndex;
+
+      u32 getLogBlockIndex() const { return mNextLogBlockIndex; }
+      u32 advanceLogBlockIndex() {
+        if (++mNextLogBlockIndex >= LogBlockStg::CAR_COUNT)
+          mNextLogBlockIndex = 0u;
+        return mNextLogBlockIndex;
       }
-#endif      
+
+      u32 getACacheBlockIndex() const { return mNextACacheBlockIndex; }
+      u32 advanceACacheBlockIndex() {
+        if (++mNextACacheBlockIndex >= ACacheBlockStg::CAR_COUNT)
+          mNextACacheBlockIndex = 0u;
+        return mNextACacheBlockIndex;
+      }
     };
+
     TLBInfo & getTLBInfo(u32 tlbi) ;
 
     bool configureT6ImageForHostComms(T6Image & t6i) {

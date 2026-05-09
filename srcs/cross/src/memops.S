@@ -26,11 +26,11 @@
 #define HAVE_RISCV_MEMCPY
 #define HAVE_RISCV_MEMSET
 #define HAVE_RISCV_MEMMOVE
-//#define HAVE_RISCV_MEMMOVE_HALF_WORDS
+#define HAVE_RISCV_MEMMOVE_HALF_WORDS
 
 #define _memcpy memcpy
 #define _memset memset
-//#define _memmove memmove
+#define _memmove memmove
 
 #if __riscv_xlen == 32
 # define REG_S sw

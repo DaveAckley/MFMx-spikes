@@ -4,6 +4,7 @@
 #include <string>
 #include "MDist.h"
 #include "Point.h" // for SPoint
+#include "UxC.h" // for U16C
 
 namespace MFM {
   //  struct U16C; // FORWARD

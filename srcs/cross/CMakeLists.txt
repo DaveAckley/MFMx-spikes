@@ -25,6 +25,9 @@ add_library(crosslib STATIC)
 target_sources(crosslib PUBLIC
   src/CrossUtils.cpp
   src/DefaultLives.cpp
+  src/EP_Ewp.cpp
+  src/EP_LogBlock.cpp
+  src/EP_InterHub.cpp
   src/FATAL.cpp
   src/FastB.cpp
   src/FastLocal.cpp
@@ -34,7 +37,6 @@ target_sources(crosslib PUBLIC
   src/FastT2.cpp
   src/NRIUtils.cpp
   src/Printf.cpp
-  src/SharedEPs.cpp
   src/T6CellO.cpp
   src/T6EPL1Data.cpp
   src/T6EPs.cpp

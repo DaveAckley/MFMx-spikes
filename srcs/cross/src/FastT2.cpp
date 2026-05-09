@@ -53,7 +53,7 @@ namespace MFM {
     MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
     *((volatile u32 *) (MAILBOX_BASE_T2)) = 1u; // write to T2 (from any but NC)
 
-    HBNOTE(PRIMD);
+    LOGNOTE(PRIMD);
   }
 
   void preloadT2Mailbox() { // run once at startup on each hart except NC
@@ -64,20 +64,20 @@ namespace MFM {
 
     while (!isRandomServerReady()) { }
 
-    HBNOTE(RDEE);
+    LOGNOTE(RDEE);
     
     primePump();
 
   }
   
   int initT2() {
-    HBNOTE("INIT2");
+    LOGNOTE("INIT2");
 
     extern HostBlock theHostBlock;
     HostBlock & hb = theHostBlock;
     
     u32 seed = hb.mCommonArgs[0] * (hb.mNoC0.x+1) + (hb.mNoC0.y);
-    HBXTAG(SEED,seed);
+    LOGXTAG(SEED,seed);
 
     fT2.mRandom.seedMT_MFM(seed);
 
@@ -93,7 +93,7 @@ namespace MFM {
 
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
 
-    HBNOTE(CREATIVITY UP);
+    LOGNOTE(CREATIVITY UP);
     mT2Serving = true;
     return 0;
   }

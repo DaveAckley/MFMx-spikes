@@ -7,16 +7,19 @@
 #include "EwpBlock.h"
 #include "InterHub.h"
 #include "Grid.h"
+#include "EP_ACacheBlock.h"
 
 namespace MFM {
 
   struct FastB {
     GridManager mGridManager;
+    ACacheBlockPrivateControl mPACBControl;
   };
   FAST_LOCAL(FastB,fB,b);
 
   // L1 DATA
   T6Grid theT6Grid[1];
+  DLGridList theDLGridList;
 
   bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
     if (theEwpL1Data.isUninitted(ngbidx)) return false;
@@ -114,7 +117,9 @@ namespace MFM {
   int initB() {
     HBPTAG(INIT+,fAll.mNoC0);
     preloadT2Mailbox();
-    fB.mGridManager.init(theT6Grid[0]);
+    theDLGridList.init();
+    fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
+    fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
     HBPTAG(INIT-,fAll.mNoC0);
     return 0;
   }
@@ -129,7 +134,14 @@ namespace MFM {
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
       if ((++spin & 0xffff) == 0) {
-        HBXVAL(spin);
+        HBPTAG(horg,spin/0xffff); // generate some HB logging please?
+        LOGPTAG(zorg,spin/0xffff); // generate SOME logging please?
+        LOGPTAG(hub/liveB,spin); // generate SOME logging please?
+        if (false) {
+          static bool once;
+          if (!once) theDLGridList.demo();
+          once = true;
+        }
         hb.hartbeat(fAll.mHartNum);
       }
       bool work = false;
@@ -145,6 +157,8 @@ namespace MFM {
         }
       }
 
+      //work = true;
+      
       if (!work)
         breathe();
     }

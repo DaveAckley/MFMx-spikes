@@ -4,7 +4,7 @@
 
 namespace MFM {
   int doDefaultInit(HostBlock & hb) {
-    HBMARK;
+    LOGMARK;
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::INITTING; 
@@ -16,7 +16,7 @@ namespace MFM {
     case 'n': initNC(); break;
     }
 
-    HBNOTE(GRAND);
+    LOGNOTE(GRAND);
     u32 WAIT_ITERATIONS = 150u;
     if (ch == 'n') WAIT_ITERATIONS = 1; // DEBUG: short circuit wait on HN
     for (u32 w = WAIT_ITERATIONS; w > 0u; --w) {
@@ -24,12 +24,12 @@ namespace MFM {
       hb.hartbeat(fAll.mHartNum);
       breathe();
     }
-    HBNOTE("ENGAGE");
+    //    HBNOTE("ENGAGE");
     return 0;
   }
 
   static int justLive(HostBlock & hb) {
-    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
+    //    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
@@ -55,8 +55,8 @@ namespace MFM {
 
   int __attribute__((weak)) initB() { return weakInit(); }
   int __attribute__((weak)) initT0() { return weakInit(); }
-  int __attribute__((weak)) initT1() { return weakInit(); }
-  int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2
+  int __attribute__((weak)) initT1() { return weakInit(); } // NOTE FastT1.cpp has a strong initT2 for logging
+  int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2 for PRNG
   int __attribute__((weak)) initNC() { return weakInit(); }
 
   int __attribute__((weak)) liveB(HostBlock & hb) { return justLive(hb); }

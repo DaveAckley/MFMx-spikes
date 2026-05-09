@@ -32,7 +32,7 @@ namespace MFM {
     u8 mEPFuncsInUse;
 
     void copyEPFuncsNC() {
-      HBMARK;
+      LOGMARK;
 
       EPFuncPtr* start_addr = (EPFuncPtr*) &__start_rodata_fp_table_nc;
       EPFuncPtr* end_addr = (EPFuncPtr*) &__end_rodata_fp_table_nc;
@@ -41,7 +41,7 @@ namespace MFM {
       //HBPTAG(ncend,end_addr);
 
       u32 ptrCount = end_addr - start_addr;
-      HBPTAG(ptrC,ptrCount);
+      LOGPTAG(ptrC,ptrCount);
       MFM_API_ASSERT(ptrCount < MAX_EPFUNCS,OUT_OF_ROOM);
       for (u32 i = 0u; i < ptrCount; ++i) {
         mEPFuncs[i] = start_addr[i];
@@ -59,16 +59,16 @@ namespace MFM {
         u32 i = j;
         EPFuncPtr epf = mEPFuncs[i];
         if (epf) {
-          if (forInit) HBPTAG(fncInit,i); 
+          if (forInit) LOGPTAG(fncInit,i); 
           //if (forInit) HBPTAG(fncPtr,(void*) epf);
           //if (!forInit) HBPTAG(4STEPNC,i);
           if ((*epf)(forInit)) {
-            if (forInit) HBPTAG(true,(void*) epf);
+            if (forInit) LOGPTAG(true,(void*) epf);
             ret = true;
           }
         }
       }
-      if (forInit) HBPTAG(epfInUse,mEPFuncsInUse);
+      if (forInit) LOGPTAG(epfInUse,mEPFuncsInUse);
       return ret;
     }
   };

@@ -1,4 +1,5 @@
 # -*- mode: conf-toml; -*-
+# Mon May 11 09:14:21 2026 Resurrect host logging
 # Sat May  2 02:00:18 2026 Rename bhcard -> bhchip
 # Thu Feb 12 12:23:10 2026 Consider adding multimage host config here
 # Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
@@ -11,7 +12,10 @@
  bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
 
 [module.AcceptLogging]
-#  blocks = [BC_LOGCARS]
+  blocks = [BC_LOGBLOCK]
+
+[module.AcceptACache]
+  blocks = [BC_ACACHEBLOCK]
 
 [module.OriginateEWs]
 #  blocks = [BC_EWCARS]
@@ -25,12 +29,13 @@
   #hostModules = [ AcceptLogging ]
 
 [layout.ewpandhub]
+#  bhchips = [2]
   bhchips = [0,1,2,3]
   defaultImage = EWP
 #  cell.all = C1X2_EWP_HUB
 #  cell.all = C2X1_EWP_HUB
   cell.all = C2X2_EWP_HUB
-  #hostModules = [ AcceptLogging ]
+  hostModules = [ AcceptLogging, AcceptACache ]
 
 [layout.zotandewp]
   bhchips = [1]

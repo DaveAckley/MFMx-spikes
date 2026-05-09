@@ -85,7 +85,8 @@ namespace MFM {
 
     doDefaultInit(hb);
 
-    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
+    //    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
+    LOGMARK;
 
     switch (fAll.mHartNum) {
     case 0u: return hartMainB(hb);

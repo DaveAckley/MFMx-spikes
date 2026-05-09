@@ -3,9 +3,7 @@ namespace MFM {
 
   template <u8 BLOCK_COUNT>
   void EwpEP<BLOCK_COUNT>::initEwpEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
-    //    HBMARK;
     this->initT6EP(srcEPA, isin, l1data);
-    //HBMARK;
   }
      
   template <u8 BLOCK_COUNT>
@@ -15,9 +13,7 @@ namespace MFM {
 
     // Open it up
     car.openTC();
-    //    HBPTAG(ERCV,this->getName());
     crbi.add(carindex); //notify hB
-    //    HBPTAG(car#,carindex);
 
     return true;
   }

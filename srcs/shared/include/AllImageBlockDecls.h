@@ -3,4 +3,5 @@
 // Include all possible sources of imageblocks here
 //#include "TC.h"
 #include "CellBlock.h"
+#include "PT_LogBlock.h"
 //#include "T6Grid.h"

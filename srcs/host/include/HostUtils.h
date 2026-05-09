@@ -3,6 +3,7 @@
 #include <itype.h>
 #include <cstdio>
 #include <string.h>
+#include <fstream>
 
 #include "BHTag.h"
 #include "TimeDefs.h"
@@ -60,6 +61,7 @@ namespace MFM {
   void EEvprintf(const char * file, u32 line, const char * fmt, va_list args) ; // vfprintf "
   FILE * getHostLog() ;
   FILE * getHostLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
+  std::ofstream getOStreamLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
 
   template <typename... Args>
   auto stringFormat(std::string_view format, Args&&... args) -> std::string {

@@ -1,4 +1,4 @@
-#include "SharedEPs.h"
+#include "EP_InterHub.h"
 
 namespace MFM {
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {

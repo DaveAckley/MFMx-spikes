@@ -4,10 +4,13 @@ message("HUBS ${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(hub)
 target_sources(hub PRIVATE
   src/ImageConfig.cpp
+  images/hub/src/EP_ACacheBlock.cpp
+  images/hub/src/ACacheBlock.cpp
   images/hub/src/EwpBlock.cpp
   images/hub/src/Grid.cpp
   images/hub/src/InterHub.cpp
   images/hub/src/LiveB.cpp
+  images/hub/src/T1fastlz.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 

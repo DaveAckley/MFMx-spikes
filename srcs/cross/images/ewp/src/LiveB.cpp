@@ -29,7 +29,7 @@ namespace MFM {
     EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
     EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
 
-    SNAP(5,HBPVAL(&crbo));
+    //    SNAP(5,HBPVAL(&crbo));
     memoryFence();
 
     u8 carindex;
@@ -67,6 +67,7 @@ namespace MFM {
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
       if ((++spin & 0xfff) == 0) {
+        if ((spin & 0xffffff) == 0) LOGPTAG(LiveB,spin);
         hb.hartbeat(fAll.mHartNum);
       }
       if (!processEwpCars(hb,false))

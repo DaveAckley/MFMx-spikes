@@ -37,6 +37,7 @@ namespace MFM {
         ((y < other.y) ? other.y - y : x - other.y);
     }
     constexpr bool operator==(const UxC & other) const { return x==other.x && y==other.y; }
+    constexpr bool operator!=(const UxC & other) const { return x!=other.x || y!=other.y; }
     constexpr UxC operator*(const UxC & other) const { return UxC(x * other.x, y * other.y); }
     constexpr UxC operator/(const UxC & other) const { return UxC(x / other.x, y / other.y); }
     constexpr UxC operator%(const UxC & other) const { return UxC(x % other.x, y % other.y); }

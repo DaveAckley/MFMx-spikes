@@ -1,5 +1,5 @@
-#include "SharedEPs.h"
-#include "SharedTCs.h"
+#include "EP_Ewp.h"
+#include "PT_Ewp.h"
 #include "Grid.h"
 #include "T6Grid.h"
 #include "EwpBlock.h"
@@ -53,10 +53,25 @@ namespace MFM {
     T6Grid & g = *mT6GridPtr;
     u32 changes = g.getTotalChanges();
     S16C scenter(center);
+    //    LOGPTAG(gmwEWc,center);
     for (u32 sn = 0u; sn < EventWindow::ATOM_COUNT; ++sn) {
       S16C offc = siteNumberToOffset(sn);
       U16C gridc(scenter.x+offc.x,scenter.y+offc.y);
-      g.setAtomOrDrop(gridc,ew.getAtom(sn));
+      const P4Atom atom = ew.getAtom(sn);
+      if (g.setAtomOrDrop(gridc,atom)) {
+        // atom valid and was different than before
+        // so add it to the DLGridList
+        bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
+        if (b) LOGPTAG(oldATOM,gridc);
+        else LOGPTAG(newATOM,gridc);
+        LOGPTAG(ATOMS,mDLGridListPtr->getLength());
+
+        /*
+        bool b = mACBL1Ctrl->writeAtom(atom, gridc);
+        if (b) LOGPTAG(wrATOM,gridc);
+        else LOGPTAG(drATOM,sn);
+        */
+      }
     }
     return g.getTotalChanges()-changes;
   }

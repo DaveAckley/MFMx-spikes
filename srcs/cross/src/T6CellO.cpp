@@ -27,7 +27,7 @@ namespace MFM {
     mUsCellPos = mUsCT6 % cb.mCellStride;
 
     u8 ourimagecode = ib.getImageCode();
-    HBPVAL(getNameFromImageCode((ImageCode) ourimagecode));
+    LOGPVAL(getNameFromImageCode((ImageCode) ourimagecode));
     u8 count = 0u;
     for (u8 y = 0u; y < cb.mCellSize.y; ++y) {
       for (u8 x = 0u; x < cb.mCellSize.x; ++x) {

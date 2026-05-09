@@ -300,6 +300,81 @@ namespace MFM {
     return ret; //< whether read succeeded (then us too) or not (then us neither)
   }
 
+  s32 NRI3::initiateWriteToHost(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, u64 destaddr) {
+    u32 destaddrlow = (u32) (destaddr&0xffffffff);
+    u32 destaddrmid = (u32) ((destaddr>>32)&0xffffffff);
+    U8C destnoc0 = PCIeTILE_NOC0;
+    u32 usenoc = preferNoC(sourcenoc0,destnoc0); 
+    waitTilNRIClear(usenoc); // BLOCKING
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits for source
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(sourcenoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_LO, destaddrlow);   // lower 32 bits of dest
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_MID, destaddrmid); // upper 32 bits of dest
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destnoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE, wordCount<<2u); // bytecount to write
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
+    
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
+    volatile u32 superstition = funcReadNRIAddress(usenoc,3,NRI_NOC_CMD_CTRL); // read for memory ordering
+
+    return 1;
+#if 0
+      s32 T6ElevatorTransport::initiateWrite(u32 * data, u32 wordCount, U16C xy, u64 destaddr) {
+DIEWAY();
+    if (!allClear()) return -1; // Not ready
+DIEWAY();
+    u32 byteCount = wordCount * 4;
+    if (byteCount == 0 || byteCount > (1<<14))
+      return -2;                // EINVAL: bad size
+DIEWAY();
+
+    // TARG (lo+mid) is the source in our L1. TARG hi is our NoC0 coord as NodeId
+    u32 targlo = (u32) data;
+    u32 targmid = 0u;
+    u32 targhi = ((mHostBlockPtr->mPos.x&0x3f)<<6)|(mHostBlockPtr->mPos.y&0x3f);
+DIEWAY();
+
+    // In general:
+    //   RET (lo+mid) is the dest addr, RET hi is the NoC0 coord of the dest tile
+    // For initiateWriteToHost specifically:
+    //   RET (lo+mid) is the dest in Host RAM, RET hi is the NoC0 coord of the PCIe tile ?
+    u32 retlo = (u32) (destaddr&0xffffffff);
+    u32 retmid = (u32) ((destaddr>>32)&0xffffffff);
+    u32 rethi = ((xy.y&0x3f)<<6)|(xy.x&0x3f);
+    u32 noc_ctrl = (2<<0);      // write request
+DIEWAY();
+
+    // Set up the registers
+    *NOC_TARG_ADDR_LO = targlo;
+    *NOC_TARG_ADDR_MID = targmid;
+    *NOC_TARG_ADDR_HI = targhi;
+
+    *NOC_RET_ADDR_LO = retlo;
+    *NOC_RET_ADDR_MID = retmid;
+    *NOC_RET_ADDR_HI = rethi;
+DIEWAY();
+
+    *NOC_CTRL = 2;              // write request
+    *NOC_AT_LEN_BE = byteCount;
+
+    // We are ready to initiate the NoC transaction?
+DIEWAY();
+    *NOC_CMD_CTRL = 1;            // THE BIRD IS AWAY
+    u32 readback = *NOC_CMD_CTRL;  // read it back for memory ordering?
+DIEWAY();
+    return 0;
+  }
+#endif
+    return 0;
+  }
+
   s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
 
@@ -317,7 +392,7 @@ namespace MFM {
 
     //    u32 usenoc = 0u; // should be useNoC(usnoc0, noc0) when that exists
     u32 usenoc = preferNoC(sourcenoc0,destnoc0); // pick not longer route (all else equal)
-    SNAP(60,HBPTAG(**USENOC**,(u32) usenoc));
+    //    SNAP(60,HBPTAG(**USENOC**,(u32) usenoc));
     waitTilNRIClear(usenoc);
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source

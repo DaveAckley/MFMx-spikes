@@ -33,13 +33,11 @@ namespace MFM {
 
     L1Data & getL1Data() {
       MFM_API_ASSERT_NONNULL(mL1Data);
-      u8 idx = this->getSrcBlockCodeIndex();
       return *mL1Data;
     }
 
     L1Data & getL1Data() const {
       MFM_API_ASSERT_NONNULL(mL1Data);
-      u8 idx = this->getSrcBlockCodeIndex();
       return *mL1Data;
     }
 
@@ -60,7 +58,7 @@ namespace MFM {
     }
 
     U8C mDestNoC0;
-    u32 mDestBlockAddr;         // blockindex already applied; needs only carindex
+    u64 mDestBlockAddr;         // blockindex already applied; needs only carindex
   };
 
 

@@ -108,10 +108,10 @@ namespace MFM {
     u8 getGoneCount() const { return mGoneCount; }
 
     void activate() {
-      HBPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
-      HBPTAG(s,mSrcEPA.mBlockCodeIndex);
+      LOGPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
+      LOGPTAG(s,mSrcEPA.mBlockCodeIndex);
       //HBPTAG(dest,getNameFromBlockCode(mDestEPA.mBlockCode));
-      HBPTAG(d,mDestEPA.mBlockCodeIndex);
+      LOGPTAG(d,mDestEPA.mBlockCodeIndex);
       HBASSERT_EQ(getFastEPState(),EPState::CONFIGURED);
       setFastEPState(EPState::ACTIVE);
     }
@@ -127,7 +127,7 @@ namespace MFM {
     void setFastEPState(EPState newstate) {
       HBASSERT_NE(getFastEPState(),newstate);
       mFastEPState = newstate;
-      if (mFastEPState >= EPState::CONFIGURED) 
+      if (mFastEPState >= EPState::INITTED) 
         this->setPublicEPState(mFastEPState);
     }
 

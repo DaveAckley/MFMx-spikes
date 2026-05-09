@@ -11,31 +11,16 @@
 #include "CellBlock.h" // everybody needs CellBlock
 
 namespace MFM {
-#define IMAGECODE_LIST()                     \
-  XX(EWP)                                    \
-  XX(HUB)                                    \
-  XX(HUB3X3)                                 \
-  XX(DEBUG)                                  \
-  XX(ZOT)                                    \
-
-  enum ImageCode : u8 {
-    IC_RSRV_ILL = 0,
-
-#define XX(NAME) IC_##NAME,
-    IMAGECODE_LIST()
-#undef XX
-  };
-
-  const char * getNameFromImageCode(ImageCode b) ;
-  ImageCode getImageCodeFromName(const char * n) ;
 
 #define BLOCKCODE_LIST()                        \
   XX(CELLBLOCK,sizeof(CellBlock),CellBlock,1u)  \
+  XX(LOGBLOCK,3072,LogBlockStg,1u)              \
   XX(ZOTBLOCK,256,ZotBlockStg,2u)               \
   XX(EWHUB,2048,EwpBlockStg,8u)                 \
   XX(EWPCARS,2048,EwpBlockStg,1u)               \
   XX(INTERHUB,8320,InterHubStorage,4u)          \
   XX(T6GRID,178852,T6Grid,1u)                   \
+  XX(ACACHEBLOCK,4416,ACacheBlockStg,1u)        \
   //END OF BLOCK_CODE_LIST
 
 #define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                        \

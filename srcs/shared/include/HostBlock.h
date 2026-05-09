@@ -4,6 +4,7 @@
 #include "itype.h"
 #include "RingBuffer.h"
 #include "UxC.h" // for U8C
+#include "SimConstants.h" // for HOST_RAM_PER_BH
 
 namespace MFM {
   static constexpr u8 HOST_COMMS_MAP_CHUNK_SIZE = 64u;
@@ -42,9 +43,11 @@ namespace MFM {
     inline void hartbeat(u32 hartnum) {
       if (hartnum < 5) ++mPerHartWatchdog[hartnum];
     }
-    u64 getHostNoCAddr() const {
-      return (((u64) mHostBaseAddrHi)<<32) + mHostBaseAddrLo;
+
+    u64 getOurHostNoCBaseAddress() const {
+      return getHostNoCAddr() + mTLBI * HOST_RAM_PER_BH;
     }
+
     void resetLog() { mLogBuffer.reset(); }
 
     bool addU16(u16 ch) { return mLogBuffer.add(ch); }
@@ -85,6 +88,12 @@ namespace MFM {
       if (mLogBuffer.remove(ch)) return (s32) ch;
       return -1;
     }
+
+  private:
+    u64 getHostNoCAddr() const {
+      return (((u64) mHostBaseAddrHi)<<32) + mHostBaseAddrLo;
+    }
+
   };
 }
 

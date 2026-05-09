@@ -29,7 +29,6 @@ namespace MFM {
       return TCMarker::getPacketBytesFromTCMSize(getHeader().getTCSizeCode());
     }
 
-
     void writeMarkers(TCMarker m) {
       getHeader() = m;                    // write header
       if (TCMarker::hasAnkle(m.mTCMSize)) // if this size has an ankle
@@ -56,27 +55,16 @@ namespace MFM {
     }
 
     void closeTC(u32 finalPayloadBytes) {
+      if (finalPayloadBytes > getMaxPayloadSize()) {
+        LOGPTAG(COORF,finalPayloadBytes);
+        LOGPTAG(COORM,getMaxPayloadSize());
+      }
       MFM_API_ASSERT(finalPayloadBytes <= getMaxPayloadSize(), OUT_OF_ROOM);
 
       TCMarker h = getHeader();
       MFM_API_ASSERT(h.getTCState() == TCState::OPEN, ILLEGAL_ARGUMENT);
-      //      HBPTAG(clTCsz,finalPayloadBytes);
-      //      HBXTAG(hrepre,h.getU32());
       h.reinit(finalPayloadBytes, TCState::CLOSED); // sets tcmSize here
-      if (false) {
-        HBXTAG(hreaft,h.getU32());
-      }
       writeMarkers(h);
-      if (false) {
-        HBXTAG(h2e,h.getU32());
-        HBXTAG(fhh,getHeader().getU32());
-        HBXTAG(*hd,&getHeader());
-        HBXTAG(fft,getFooter().getU32());
-        HBXTAG(*ft,&getFooter());
-        HBXTAG(fak,getAnkle().getU32());
-        HBXTAG(*ak,&getAnkleOrDie());
-        HBXTAG(TCBase::this,this);
-      }
     }
 
     u32 getMaxWordSize() const { return getMaxPacketSize()/4u; }

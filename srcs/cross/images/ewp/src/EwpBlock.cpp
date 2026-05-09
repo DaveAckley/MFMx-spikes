@@ -30,7 +30,7 @@ namespace MFM {
 
     // find our hub coords
     fCOINC.mHubCP = cello.getCellPofImage(ImageCode::IC_HUB); // search cell for hub
-    HBPVAL(fCOINC.mHubCP);
+    LOGPVAL(fCOINC.mHubCP);
     MFM_API_ASSERT(cello.isValidCP(fCOINC.mHubCP),NOT_FOUND);
     fCOINC.mHubNoC0 = cello.getNoC0ofCellP(fCOINC.mHubCP);
 
@@ -43,7 +43,7 @@ namespace MFM {
   static bool manageEwpNC(bool doInit) {
     bool ret = false;
     if (unlikely(doInit)) {
-      HBMARK;
+      LOGMARK;
 
       theEwpL1Data.reset();     // zero all
       auto & theEwpBlockCars = theEwpL1Data.mTheTCStorages;
@@ -69,12 +69,12 @@ namespace MFM {
       myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, { BC_EWHUB, fCOINC.mCellO.mImageTypeIndex });
       myEwpEPNC.activate();
       ret = true;
-      HBMARK;
+      LOGMARK;
 
     } else {
 
       //// LIFE
-      SNAP(5,HBMARK);
+      //      SNAP(5,HBMARK);
       if (myEwpEPNC.updateOps()) {
         ret = true;
         //        HBMARK;

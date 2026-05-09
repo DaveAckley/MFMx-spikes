@@ -5,7 +5,7 @@ namespace MFM {
   template<class SUBEP, class SUBTC>
   void EP<SUBEP,SUBTC>::initEP(EndPointAddress srcEPA, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn) {
     reset();
-    HBPTAG(initEP,this->getName());
+    LOGPTAG(initEP,this->getName());
 
     mLockPtr = &lock;           // set up the lock
     AtomicScopeLock guard(getPlatformLock()); // then take it
@@ -23,8 +23,8 @@ namespace MFM {
     mOldestGone = 0u;
     mGoneCount = mCarCount;
     this->setFastEPState(EPState::INITTED);
-    HBPTAG(sEPA,getNameFromBlockCode(mSrcEPA.mBlockCode));
-    HBPTAG(sEPA,mSrcEPA.mBlockCodeIndex);
+    LOGPTAG(sEPA,getNameFromBlockCode(mSrcEPA.mBlockCode));
+    LOGPTAG(sEPA,mSrcEPA.mBlockCodeIndex);
     //HBMARK;
   }
 
@@ -48,7 +48,7 @@ namespace MFM {
 
       SUBTC & car = *carp;
       if (!car.isComplete()) {
-        SNAP(10,HBPTAG(gonBLK,carp));
+        //        SNAP(10,HBPTAG(gonBLK,carp));
         break;
       }
 

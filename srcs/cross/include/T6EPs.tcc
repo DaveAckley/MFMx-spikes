@@ -7,6 +7,8 @@
 #include "nanoprintf.h"
 
 namespace MFM {
+  extern HostBlock theHostBlock;
+
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
   void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::setPublicEPState(EPState newstate) { 
     ASSERT_RIGHT_HART();
@@ -25,22 +27,40 @@ namespace MFM {
     BlockCode destbc = destEPA.mBlockCode;
     u8 destblockindex = destEPA.mBlockCodeIndex;
 
-    // Set up block address
+    // Set up dest block address
+    LOGPTAG(CFDS,this->getName());
+    LOGPVAL(getNameFromBlockCode(destbc));
+    LOGPTAG(sBlkIdx,this->getSrcBlockCodeIndex());
     ImageBlockAddr iba;
-    HBPTAG(CFDS,this->getName());
-    HBPVAL(getNameFromBlockCode(destbc));
-    HBPTAG(sBlkIdx,this->getSrcBlockCodeIndex());
-    bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, destbc, iba);
-    HBPTAG(t6dest0,destnoc0);
-    HBPTAG(dBlkIdx,destblockindex);
-    HBASSERT_EQ(ret,true);
+    if (destnoc0 == PCIeTILE_NOC0) { // targetting our PCIe tile means dest is host
 
-//    HBXTAG(dib0,*(((u32*) &iba)+0));
-//    HBXTAG(dib1,*(((u32*) &iba)+1));
-    HBASSERT_LS(destblockindex, iba.mStorageCount);
-    mDestBlockAddr = iba.mBlockAddr + destblockindex * getStorageSizeFromBlockCode(destbc);
+      // (0) find our own ImageBlockAddr for getSrcEPA().mBlockCode else bang
+      // (1) find owniba.mHostChunkOffsetOpt != 255 or bang
+      // (2) find u64 hostbaseaddr from hostblock lo,hi
+      // (3) mDestBlockAddr = hostbaseaddr + 64*owniba.mHostChunkOffsetOpt
+      ImageBlockHeader & ib = T6ImageBlock::getOurImageBlock();
+      ImageBlockAddr iba = ib.findIBAIfAny(this->getSrcEPA().mBlockCode);
+      MFM_API_ASSERT(iba.isValid(),ILLEGAL_STATE); // (0)
+      u8 hchunk = iba.getHostChunkOffsetOpt();
+      MFM_API_ASSERT(hchunk!=255u,NO_MATCH); // (1)
+      const HostBlock & hb = theHostBlock;
+      u64 hostbaseaddr = hb.getOurHostNoCBaseAddress(); // (2)
+      mDestBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
+      u32 ourtlbi = U8C::makeTLBIFromNoCCoord(ournoc0);
+      HBXTAG64(hbAddr,hostbaseaddr);
+      HBXTAG64(mDBAdr,mDestBlockAddr);
+      HBXTAG(tlbi,ourtlbi);
+    } else {
+      // dest is T6
+      bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, destbc, iba);
+      LOGPTAG(t6dest0,destnoc0);
+      LOGPTAG(dBlkIdx,destblockindex);
+      HBASSERT_EQ(ret,true);
+      HBASSERT_LS(destblockindex, iba.mStorageCount);
+      mDestBlockAddr = iba.mBlockAddr + destblockindex * getStorageSizeFromBlockCode(destbc);
+    }
 
-    HBXTAG(dBA,mDestBlockAddr);
+    LOGPTAG64(dBA,mDestBlockAddr);
   }
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
@@ -93,30 +113,31 @@ namespace MFM {
       FAIL(INCOMPLETE_CODE);
     }
     //    HBXTAG(mDBA,mDestBlockAddr);
-    u32 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
+    u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
     U8C ournoc0 = fAll.mNoC0;
     U8C destnoc0 = mDestNoC0;
 
-    if (!U8C::isNoC0CoordAT6(destnoc0)) {
-      HBNOTE("NODEST");
-      /// DEBUG PRETEND WE SHIPT TO LOCK UP THIS CAR
-      return true;
-    }
     u32 wordCount = car.getHeader().getPacketWords();
 
-    HOOKIT();
-    //    HBMARK;
-    //    HBPTAG(SHPTC/us,ournoc0);
-    //HBPTAG(ucar+,(void*) &car);
-    //HBPTAG(ucar-,(void*)(((char*) &car)+4*wordCount));
-    //    HBPTAG(dst,destnoc0);
-    //HBPTAG(dcar+,(void*) destcaraddr);
-    //HBPTAG(dcar-,(void*)(((char*) destcaraddr)+4*wordCount));
-    s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, destcaraddr);
-    HOOKIT();
-    //    HBPTAG(stat,status);
-    return status > 0;
+    if (U8C::isNoC0CoordAT6(destnoc0)) {
+      s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, (u32) destcaraddr);
+      return status > 0;
+    }
+
+    if (destnoc0 == PCIeTILE_NOC0) { // host target
+      s32 status = NRI3::initiateWriteToHost(ournoc0,(u32*) &car, wordCount, destcaraddr);
+      if (status == 0) HBPTAG(FAILSHIPHOST,wordCount);
+      else {
+        HBPTAG(FROMT6,this->getName());
+        HBPTAG(TOHOST,wordCount);
+      }
+      return status > 0;
+    }
+
+    HBNOTE("NODEST");
+    /// DEBUG PRETEND WE SHIPT TO LOCK UP THIS CAR
+    return true;
   }
   
 

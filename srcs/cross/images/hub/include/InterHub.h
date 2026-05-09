@@ -6,8 +6,8 @@
 #include "FastLocal.h"
 #include "AtomicLock.h"
 #include "BlockCode.h"
-#include "SharedTCs.h" // for InterHubPayload, InterHubBlock, InterHubStorage
-#include "SharedEPs.h" // for InterHubEP
+#include "PT_InterHub.h" // for InterHubPayload, InterHubBlock, InterHubStorage
+#include "EP_InterHub.h" // for InterHubEP
 
 namespace MFM {
 

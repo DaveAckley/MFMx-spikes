@@ -6,8 +6,8 @@
 #include "FastLocal.h"
 #include "AtomicLock.h"
 #include "BlockCode.h"
-#include "SharedTCs.h" // for EwpPayload and EwpBlock
-#include "SharedEPs.h" // for EwpBlockStg and EwpEP
+#include "PT_Ewp.h" // for EwpPayload and EwpBlock
+#include "EP_Ewp.h" // for EwpBlockStg and EwpEP
 
 namespace MFM {
 

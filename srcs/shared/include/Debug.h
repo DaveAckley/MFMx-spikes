@@ -4,7 +4,7 @@
 
 #include "CrossUtils.h"
 #include "FastLocal.h"          // for fAll
-#include "ImageBlock.h"         // for ImageBlockHeader
+#include "ImageCode.h"
 
 namespace MFM {
   typedef void (*DebugHookFncPtr)(u16 filed, u16 lineno);
@@ -24,6 +24,29 @@ namespace MFM {
   if (__count == COUNT) HBPTAG(SNAPT,__count);  \
   } while (0)
 
+
+#define LOGMARK FIDLMARKLG(GET_FILE_ID(__FILE__),__LINE__)
+#define FIDLMARKLG(F,L) do {                                            \
+    markLogBlock(F,L, getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode)); \
+  } while (0)
+
+#define LOGNOTE(MSG) LOGPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode))
+#define FIDLMARKLGMSG(F,L,MSG) do {                                     \
+    markLogBlock(F,L,MSG);                                              \
+  } while (0)
+
+#define LOGPVAL(PRTABLEVAL) FIDLPVALLG(GET_FILE_ID(__FILE__),__LINE__,PRTABLEVAL)
+#define FIDLPVALLG(F,L,P) do { markLogBlock(F,L,P,0); } while(0)
+
+#define LOGPTAG(TAG,PRTABLEVAL) FIDLPTAGLG(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
+#define FIDLPTAGLG(F,L,T,P) do { markLogBlock(F,L,P,"" #T ":"); } while(0)
+
+#define LOGPTAG64(TAG,PRTABLEVAL) FIDLPTAGLG64(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
+#define FIDLPTAGLG64(F,L,T,P) do { markLogBlock64(F,L,P,"" #T ":"); } while(0)
+
+#define LOGXTAG(TAG,PRTABLEVAL) FIDLXTAGLG(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
+#define FIDLXTAGLG(F,L,T,P) do { markLogBlock(F,L,(void*)(P),"" #T ":"); } while(0)
+
 #define HBMARK FIDLMARK(GET_FILE_ID(__FILE__),__LINE__)
 #define FIDLMARK(F,L) do {                                              \
     markHostBlock(F,L, getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode),0); \
@@ -35,14 +58,23 @@ namespace MFM {
 #define HBPVAL(PRTABLEVAL) FIDLPVAL(GET_FILE_ID(__FILE__),__LINE__,PRTABLEVAL)
 #define FIDLPVAL(F,L,P) do { markHostBlock(F,L,P,0); } while(0)
 
+#define HBPVAL64(PRTABLEVAL) FIDLPVAL64(GET_FILE_ID(__FILE__),__LINE__,PRTABLEVAL)
+#define FIDLPVAL64(F,L,P) do { markHostBlock64(F,L,P,0); } while(0)
+
 #define HBXVAL(PRTABLEVAL) FIDLXVAL(GET_FILE_ID(__FILE__),__LINE__,PRTABLEVAL)
 #define FIDLXVAL(F,L,P) do { markHostBlock(F,L,(void*)(P),0); } while(0)
 
 #define HBPTAG(TAG,PRTABLEVAL) FIDLPTAG(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
 #define FIDLPTAG(F,L,T,P) do { markHostBlock(F,L,P," " #T ":"); } while(0)
 
+#define HBPTAG64(TAG,PRTABLEVAL) FIDLPTAG64(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
+#define FIDLPTAG64(F,L,T,P) do { markHostBlock64(F,L,P," " #T ":"); } while(0)
+
 #define HBXTAG(TAG,PRTABLEVAL) FIDLXTAG(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
 #define FIDLXTAG(F,L,T,P) do { markHostBlock(F,L,(void*)(P)," " #T ":"); } while(0)
+
+#define HBXTAG64(TAG,PRTABLEVAL) FIDLXTAG64(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
+#define FIDLXTAG64(F,L,T,P) do { markHostBlock64(F,L,(P)," " #T ":"); } while(0)
 
 #define HBASSERT_COMP(A,B,OP) do {              \
   if (!(A OP B)) {                              \
@@ -65,6 +97,12 @@ namespace MFM {
 #define HBASSERT_COMP(A,B,OP) do {              \
   MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
  } while(0)
+
+#define LOGMARK do { } while (0)
+#define LOGNOTE(MSG) do { } while (0)
+#define LOGPVAL(PRTABLEVAL) do { } while (0)
+#define LOGPTAG(TAG,PRTABLEVAL) do { } while (0)
+#define LOGPTAG64(TAG,PRTABLEVAL) do { } while (0)
 
 #endif
 

@@ -10,12 +10,15 @@ set(SHARED_SOURCES_LIST
   ${SHARED_DIR}/src/Dirs.cpp
   ${SHARED_DIR}/src/EP.cpp
   ${SHARED_DIR}/src/FailCodes.cpp
+  ${SHARED_DIR}/src/ImageBlock.cpp
+  ${SHARED_DIR}/src/ImageCode.cpp
   ${SHARED_DIR}/src/MDist.cpp
   ${SHARED_DIR}/src/P4Atom.cpp
   ${SHARED_DIR}/src/Point.cpp
   ${SHARED_DIR}/src/Random.cpp
   ${SHARED_DIR}/src/S8C.cpp
   ${SHARED_DIR}/src/mt19937.cpp
+#  ${SHARED_DIR}/src/fastlz.cpp
 #  ${SHARED_DIR}/src/U8C.cpp eaten by the monster of UxC
   # Add any other shared .cpp files here
 )

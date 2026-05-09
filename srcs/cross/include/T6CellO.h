@@ -5,6 +5,7 @@
 #include "T6ImageBlock.h" 
 #include "CellBlock.h" 
 #include "Printf.h"
+#include "ImageCode.h"
 
 namespace MFM {
   // T6-side Cell operations
