@@ -1,9 +1,10 @@
 #ifndef RINGBUFFER_H  /* -*- C++ -*- */
 #define RINGBUFFER_H
 #include "itype.h"
+#include "XUtils.h" // for memset_s
 
 #ifndef BUILD_HOST
-#include "CrossUtils.h"
+#include "CrossUtils.h" // for writeCommit*
 #endif
 
 namespace MFM {
@@ -15,9 +16,25 @@ namespace MFM {
     u32 mFirstUsedIdx;
     u32 mFirstFreeIdx;
 
+    void init() {
+      memset_s(this,'\0',sizeof(*this));
+    }
+
     void reset() {
       mFirstFreeIdx = 0u;
       mFirstUsedIdx = 0u;
+    }
+
+    bool hasRoomForNMore(u32 n) const {
+      if (n >= RING_BUFFER_SIZE/2) return false; // SHOULD FAIL INSTEAD
+      if (unlikely(mFirstFreeIdx >= U32_MAX-n)) {
+        u32 lim = mFirstUsedIdx & RING_BUFFER_MASK;
+        for (u32 i = 1u; i <= n; ++i)
+          if (((mFirstFreeIdx + i) & RING_BUFFER_MASK) == lim)
+            return false;
+        return true;
+      }
+      return mFirstFreeIdx - mFirstUsedIdx < RING_BUFFER_SIZE - n ;
     }
 
     bool isEmpty() const { return mFirstUsedIdx == mFirstFreeIdx; }

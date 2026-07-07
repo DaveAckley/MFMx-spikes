@@ -30,13 +30,16 @@ namespace MFM {
 
   template<class SUBEP, class SUBTC>
   bool EP<SUBEP,SUBTC>::updateOps() {
-    //HBPTAG(uOps,this);
+    constexpr u32 BS = 40;
+    bool isLogXX = (this->getName()[0] == 'L');
+    char buf[BS];
+    EACH(5'000,HBPTAG(EPups,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     
     bool ret = false;
     /// TRY RECEIVING ARRIVALS
     while (mGoneCount > 0) {    // if we have gone cars
-      if (false) { static u32 lastgone;
+      if (isLogXX) { static u32 lastgone;
         if (lastgone != mGoneCount) {
           HBPTAG(NUgonect,mGoneCount);
           lastgone = mGoneCount;
@@ -48,11 +51,11 @@ namespace MFM {
 
       SUBTC & car = *carp;
       if (!car.isComplete()) {
-        //        SNAP(10,HBPTAG(gonBLK,carp));
+        if (isLogXX) SNAP(5,HBPTAG(gonBLK,carp));
         break;
       }
 
-      //      HBPTAG(EPgonect,mGoneCount);
+      //HBPTAG(EPgonect,mGoneCount);
       //      HBPTAG(EPoldidx,mOldestGone);
 
       TCState cs = car.getTCState();
@@ -70,6 +73,7 @@ namespace MFM {
       //      HBPTAG(EPARRV,this->getName());
       //      HBPTAG(EPARRL,(u32) mSrcEPA.mBlockCodeIndex);
       if (recvTC(car, mOldestGone)) {
+        ++mRecvTCCount;
         // successful recvTC MEANS:
         //  - one less gone car
         //  - one more here car
@@ -90,9 +94,11 @@ namespace MFM {
       }
     }
 
+    if (isLogXX) EACH(100,HBMARK);
+
     /// TRY SHIPPING DEPARTURES
     while (mHereCount > 0u) { // if we have cars here
-      if (false) { static u32 lasthere;
+      if (isLogXX) { static u32 lasthere;
         if (lasthere != mHereCount) {
           HBPTAG(NUherect,mHereCount);
           lasthere = mHereCount;
@@ -107,32 +113,33 @@ namespace MFM {
 
       MFM_API_ASSERT(car.isComplete(),ILLEGAL_STATE);
       TCState cs = car.getTCState();
-      //      HBPTAG(hercs,cs);
+      if (isLogXX) HBPTAG(hercs,cs);
 
       // ADVANCE CLOSED TO DEPARTING
       if (cs == TCState::CLOSED) {
         cs = departingState();
         car.setDepartingTC(cs);
-        //        HBPTAG(advdep,car.getTCState());
+        if (isLogXX) HBPTAG(advdep,car.getTCState());
       }
 
-      //HBPVAL(cs);
+      if (isLogXX) HBPVAL(cs);
       if (!isDeparting(cs)) break; // (still) not ready to go
 
       // Bye now, come back soon!
       TCOpsData & data = getOpsData(mOldestHere);
       data.mDepartureTime = millisElapsed();
 
-      //      HBPTAG(dptim,data.mDepartureTime);
+      if (isLogXX) HBPTAG(dptim,data.mDepartureTime);
 
       if (shipTC(car,mOldestHere)) {        // SHIPT!
+        ++mShipTCCount;
         // DEBUG: DELIBERATELY BREAK SHIPT CARS
         // DEBUG: TO READ AS INCOMPLETE UNTIL THEY RETURN
         car.getHeader().mTCMMagic = 0;
 
         if (mGoneCount == 0u) mOldestGone = mOldestHere;
         mGoneCount++;
-        //        HBPTAG(goneCt,mGoneCount);
+        if (isLogXX) HBPTAG(goneCt,mGoneCount);
       
         mOldestHere = incrementIndex(mOldestHere);
         mHereCount--;
@@ -148,4 +155,24 @@ namespace MFM {
     return ret;
   }
 
+#ifndef BUILD_HOST
+  template<class SUBEP, class SUBTC>
+  char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
+    npf_snprintf(buf,size,"[%s] c%u h%uo%u g%uo%u fs%u S%lu R%lu",
+                 this->getName(),
+                 this->mCarCount,
+                 this->mHereCount,this->mOldestHere,
+                 this->mGoneCount,this->mOldestGone,
+                 this->getFastEPState(),
+                 this->mShipTCCount,
+                 this->mRecvTCCount
+                 );
+    return buf;
+  }
+#else  
+  template<class SUBEP, class SUBTC>
+  char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
+    snprintf(size,buf,"HONK");
+  }
+#endif
 }

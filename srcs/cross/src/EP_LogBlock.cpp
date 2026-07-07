@@ -28,7 +28,7 @@ namespace MFM {
 
       if (pay.getBytesRemaining() <= p256len) return false; // marks missed NYI
 
-      u32 nowms = totalMillisElapsed;
+      u32 nowms = millisElapsed();
       u32 diff = nowms - mBaseTicks;
       if (diff >= U16_MAX) return false; 
 
@@ -60,6 +60,7 @@ namespace MFM {
         HBPTAG(LB1WAITS,theLogBlockL1Data.getPublicEPState(0));
       }
     }
+    HBPTAG(LB1INITOUThb,spin);
     LOGPTAG(LB1INITOUT,spin);
   }
 
@@ -96,7 +97,7 @@ namespace MFM {
     mCurrentLogBlock = &nlb;
     mCurrentCarIndex = newcarindex;
     mLastTickOffset = 0;
-    mBaseTicks = totalMillisElapsed;
+    mBaseTicks = millisElapsed();
     mMarksMissed = 0;
 
     //    HBPTAG(LB1CsuNC,mCurrentLogBlock);
@@ -211,6 +212,11 @@ namespace MFM {
       ret = true;
 
     } else {
+      {
+        static u32 spin = 0;
+        if ((++spin & 0x3'ffff) == 0)
+          HBXTAG(logLive,spin);
+      }
 
       //// LIFE
       //      SNAP(5,HBMARK);

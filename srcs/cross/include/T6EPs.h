@@ -18,6 +18,7 @@ namespace MFM {
     using SUBTC = typename SUBTCBLOCKSTG::CAR_TYPE;
     using Super = EP<SUBEP,SUBTC>;
     static constexpr u32 TC_BLOCK_SIZE = sizeof(SUBTCBLOCKSTG);
+    static constexpr u32 TC_BLOCK_COUNT = BLOCK_COUNT;
     static constexpr u32 CAR_COUNT = SUBTCBLOCKSTG::CAR_COUNT;
     static constexpr u32 CAR_SIZE = sizeof(SUBTC);
 

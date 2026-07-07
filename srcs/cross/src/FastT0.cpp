@@ -35,7 +35,7 @@ namespace MFM {
       HTFuncPtr* end_addr = (HTFuncPtr*) &__end_rodata_fp_table_t0;
 
       u32 ptrCount = end_addr - start_addr;
-      HBPTAG(ptrC,ptrCount);
+      //      HBPTAG(ptrC,ptrCount);
       MFM_API_ASSERT(ptrCount < MAX_HTFUNCS_T0,OUT_OF_ROOM);
       for (u32 i = 0u; i < ptrCount; ++i) 
         mHTFuncsT0[i] = start_addr[i];
@@ -77,7 +77,15 @@ namespace MFM {
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;
 
-  u32 millisElapsed() { return totalMillisElapsed; }
+  u32 millisElapsed() {
+    memoryFence();
+    return totalMillisElapsed;
+  }
+
+  u32 ticksElapsed() {
+    memoryFence();
+    return t0TicksElapsed;
+  }
 
   int liveT0(HostBlock & hb) {
     //DP.printf("T0:RND %d\n",create(100));
@@ -108,8 +116,11 @@ namespace MFM {
       }
 
       if (fT0.debugTicksElapsed != ticksElapsed) {
-        if (ticksElapsed % 1000u == 0) { // ~8s -> ~5.5s
-          hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
+        const u32 LIM = 10000;
+        if (ticksElapsed % LIM == 0) { // ~8s -> ~5.5s
+          HBPTAG(10kticks,ticksElapsed/LIM);
+          LOGPTAG(10kticksl,ticksElapsed/LIM);
+          //hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors

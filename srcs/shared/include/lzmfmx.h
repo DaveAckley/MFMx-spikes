@@ -2,41 +2,117 @@
 #include "itype.h"
 #include "RingBuffer.h"
 #include <cstdio>
+#include "Fail.h"
+#include "Debug.h"
+
+#ifndef BUILD_HOST
+#include "FastLocal.h"
+inline void waitALittle() { MFM::sleepCycles(500); }
+#else
+inline void waitALittle() { }
+#endif
 
 namespace MFM {
-  //  struct MemByteSource {
+  using ByteSourceFuncPtr = s32 (*)(bool canread, void * ctxt); // >=0 byte, -1 eof, -2 blocked
+  using ByteSinkFuncPtr = bool (*)(const u8, void * ctxt); // true: wrote, false: blocked, error, or eof
+  
+  using LZBuf = RingBuffer<u8,6>; // 5 bits minimum so hasRoomForNMore(sizeof(AtomReport)) is safe
+
+#if 0
+
   struct ByteSource {
-    u8 * mData;
-    u32 mLen;
-    u32 mPos;
+    LZBuf * mBufL1;
+    ByteSource() : mBufL1(0) { }
+
+    void init(LZBuf & l1src) {
+      mBufL1 = & l1src; 
+    }
 
     /// APPY
     s32 getNextByteBlocking() {
-      if (!mData) return -2;
-      if (mPos >= mLen) return -1;
-      return mData[mPos++];
+      if (!mBufL1) return -2;
+      do {
+        u8 ch;
+        if (mBufL1->remove(ch))
+          return (s32) ch;
+        waitALittle();          // don't pound L1 toooo hard
+      } while (true);
     }
 
     bool isEOF() {
-      return mData && mPos >= mLen;
+      return false;
     }
   };
 
-  //  struct MemByteSink {
+  struct ACacheBlockL1Control; // FORWARD
+
   struct ByteSink {
-    u8 * mData;
-    u32 mLen;
-    u32 mPos;
+    ACacheBlockL1Control * mACBL1;
+    ByteSink() : mACBL1(0) { }
+
+    void init(ACacheBlockL1Control & acbl1) {
+      memset_s(this,'\0',sizeof(*this));
+      mACBL1 = &acbl1;
+    }
 
     /// APPY
     s32 putNextByteBlocking(u8 byte) {
-      if (!mData) return -2;
-      if (mPos >= mLen) return -1;
-      mData[mPos++] = byte;
-      return 0;
+      MFM_API_ASSERT_NONNULL(mACBL1);
+      ACacheBlockL1Control & acbl1 = *mACBL1;
+
+      do {
+        {                       //// TAKE L1 LOCK
+          AtomicScopeLock guard(acbl1.mLock);
+          if (acbl1.mCurrentACacheBlock) {
+            ACacheBlock & acb = *acbl1.mCurrentACacheBlock;
+            ACacheBlockPayload & pay = acb.payload();
+            if (pay.addByte(byte)) return (s32) byte;
+          }            
+        } 
+
+        waitALittle();          // don't pound L1 toooo hard
+        {
+          u32 spin = 0;
+          if ((++spin & 0xfff) == 0)
+            LOGPTAG(pNBB,byte);
+        }
+      } while (true);
+    }
+
+    bool isNextByteSpaceAvailable() const {
+      MFM_API_ASSERT_NONNULL(mACBL1);
+      ACacheBlockL1Control & acbl1 = *mACBL1;
+
+      AtomicScopeLock guard(acbl1.mLock); // TAKE LOCK
+      return acbl1.mCurrentACacheBlock &&
+        acbl1.mCurrentACacheBlock->payload().getBytesRemaining() > 0;
+    }
+  };
+
+  struct LZByteSink {
+    LZBuf * mBufL1;
+    LZByteSink() : mBufL1(0) { }
+
+    void init(LZBuf & l1snk) {
+      mBufL1 = &l1snk; 
+    }
+
+    /// APPY
+    s32 putNextByteBlocking(u8 byte) {
+      if (!mBufL1) return -2;
+      do {
+        if (mBufL1->add(byte)) return (s32) byte;
+        waitALittle();          // don't pound L1 toooo hard
+        {
+          u32 spin = 0;
+          if ((++spin & 0xfff) == 0)
+            LOGPTAG(pNBB,byte);
+        }
+      } while (true);
     }
     bool isNextByteSpaceAvailable() const {
-      return mData && mPos < mLen;
+      MFM_API_ASSERT_NONNULL(mBufL1);
+      return !mBufL1->isFull();
     }
   };
 
@@ -65,7 +141,6 @@ namespace MFM {
     }
   };
 
-#if 0
   struct FileByteSink {
   //  struct ByteSink {
     FILE * mFile;
@@ -90,9 +165,14 @@ namespace MFM {
 
     static_assert(RING_SIZE == 348 && MAX_MATCH == 18 && MIN_MATCH == 2, "mfmx params");
 
-    void init();
-    bool encode(ByteSource & ubs, ByteSink & cbs) ;
-    bool decode(ByteSource & cbs, ByteSink & ubs) ;
+    void init(ByteSourceFuncPtr ucompin, void * inctxt, ByteSinkFuncPtr compout, void * outctxt) ;
+
+    bool inputIsEOF() ;
+
+    void compressForever() ;
+
+    bool encode() ;
+    bool decode() ;
 
 #ifdef HOST
     void printBuffer() ;
@@ -106,8 +186,18 @@ namespace MFM {
 #endif
 
   private:
+    s32 getNextByteBlocking();
+    s32 putNextByteBlocking(u8);
+
     void insertNode(u32 r);
     void deleteNode(u32 p);
+
+    ByteSourceFuncPtr mInPtr;
+    void * mInCtxt;
+    ByteSinkFuncPtr mOutPtr;
+    void * mOutCtxt;
+
+    u32 mBytesIn, mBytesOut;
 
     u8 mRing[RING_SIZE + MAX_MATCH - 1];
     u16 mLc[RING_SIZE + 1], mRc[RING_SIZE + 257], mPar[RING_SIZE + 1];

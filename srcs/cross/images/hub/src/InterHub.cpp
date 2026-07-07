@@ -35,7 +35,7 @@ namespace MFM {
       //HBPVAL(ourCellNum);
       for (u8 d = D4_N; d <= D4_E; ++d) {
         S8C offc = S8C::makeS8CFromDir4((Dir4) d);
-        HBPVAL(d);
+        //        HBPVAL(d);
         //HBPVAL(offc);
         S8C norgct6 = (ourCellNum + offc) * ourstride + cb.mLayoutOffset;
         S8C nhubct6 = norgct6 + cello.mUsCellPos;
@@ -47,11 +47,11 @@ namespace MFM {
           U8C atnoc0 = U8C::makeNoC0CoordFromCT6Coord(atct6);
           {
             S8C ngbct6off = nhubct6-ourct6;
-            HBPTAG(BDII,ngbct6off);
+            //            HBPTAG(BDII,ngbct6off);
 
             T6Neighbor ngb;
             if (ngb.init(ournoc0,ngbct6off)) {
-              ImageBlockAddr usiba = ngb.findIBAIfAny(BC_INTERHUB, /*debug=*/true);
+              ImageBlockAddr usiba = ngb.findIBAIfAny(BC_INTERHUB, /*debug=*/false);
               //HBNOTE("BNGI");
               //HBXVAL((u32) usiba.mIBAMagic);
               MFM_API_ASSERT(usiba.isValid(),ILLEGAL_STATE);
@@ -63,7 +63,7 @@ namespace MFM {
               //HBPTAG(IHEP-WEIN,weAreIn);
               ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
               InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d];
-              HBPTAG(ihepind,&ihstg);
+              //              HBPTAG(ihepind,&ihstg);
               for (u32 c = 0; c < ihstg.getCarCount(); ++c) {
                 InterHubBlock & ihb = ihstg.getTC(c);
                 ihb.init();
@@ -75,10 +75,10 @@ namespace MFM {
         }
       }
 
-      HBNOTE(GOFI);
+      //      HBNOTE(GOFI);
       for (u8 d = D4_N; d <= D4_E; ++d) {
-        HBPTAG(ihdir,d);
-        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
+        //        HBPTAG(ihdir,d);
+        //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
         if (theInterHubL1Data.getPublicEPState(d) != EPState::CONFIGURED) continue;
         myInterHubEP[d].activate(); // release the hounds
         HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));

@@ -35,12 +35,12 @@ namespace MFM {
             u32 n = ncount++;
             EwpEP<8> & ewpnc = myEwpEPArray[n];
             //HBPVAL(n);
-            HBPVAL(cello.getNoC0ofCellP(atcp));
+            //            HBPVAL(cello.getNoC0ofCellP(atcp));
             ewpnc.initEwpEP({ BC_EWHUB, (u8) n }, true, theEwpL1Data);
             ewpnc.configureDest(fAll.mNoC0, cello.getNoC0ofCellP(atcp), { BC_EWPCARS, 0 });
             
             EwpBlockStg & ebs = ewpnc.getCarStg();
-            HBPTAG(PRCFG,&ebs);
+            //            HBPTAG(PRCFG,&ebs);
             for (u32 c = 0; c < ebs.getCarCount(); ++c) {
               EwpBlock & eb = ebs.getTC(c);
               eb.init();

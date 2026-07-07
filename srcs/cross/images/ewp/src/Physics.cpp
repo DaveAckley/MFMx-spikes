@@ -38,7 +38,7 @@ namespace MFM {
     P4Atom & ca = ew.mAtoms[0];
     u32 cat = ca.getType();
 
-    HBXTAG(FIZIX,cat);
+    SNAP(200,HBXTAG(FIZIX,cat));
 
     ////// BEGIN "PHYSICS" //////
     switch (cat) {

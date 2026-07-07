@@ -20,7 +20,7 @@ namespace MFM {
   XX(EWPCARS,2048,EwpBlockStg,1u)               \
   XX(INTERHUB,8320,InterHubStorage,4u)          \
   XX(T6GRID,178852,T6Grid,1u)                   \
-  XX(ACACHEBLOCK,4416,ACacheBlockStg,1u)        \
+  XX(ACACHEBLOCK,3072,ACacheBlockStg,1u)        \
   //END OF BLOCK_CODE_LIST
 
 #define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                        \

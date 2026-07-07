@@ -28,6 +28,8 @@ namespace MFM {
       runHTFuncsNC(true);
     }
 
+    u64 mBytesOut, mBytesIn;
+
     static constexpr u32 MAX_EPFUNCS = 6u;
     HTFuncPtr mHTFuncs[MAX_EPFUNCS];
     u8 mHTFuncsInUse;
@@ -75,9 +77,21 @@ namespace MFM {
   };
   FAST_LOCAL(FastNC,fNC,n);
 
+  u64 recordBytesOINC(bool out, u32 count) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    if (out) return fNC.mBytesOut += count;
+    return fNC.mBytesIn += count;
+  }
+
   int stepNC(HostBlock & hb) {
+    static u32 spin;
     if (!fNC.runHTFuncsNC(false))
       breathe();
+    if ((++spin & 0xf'ffff) == 0) {
+      LOGXX(spin);
+      LOGPTAG64(NCBO,fNC.mBytesOut);
+      //      LOGPTAG64(NCBI,fNC.mBytesIn);
+    }
     return 0;
   }
 

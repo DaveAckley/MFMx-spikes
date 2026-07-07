@@ -8,6 +8,7 @@
 namespace MFM {
   struct XMark {              //< eXpandedMark
     u64 mTickStamp;
+    u16 mTicksRelative;
     U16C mFidLin;
     U8C mNoC;
     u8 mChipNum;

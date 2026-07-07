@@ -32,28 +32,52 @@ namespace MFM {
     u8 mCurrentCarIndex;        // valid whenever mCurrentACacheBlock != 0
     u32 mBaseTicks;
     u32 mAReportsMissed;
+    static constexpr u8 ACBL1_NC_INITTED = 0x01;
+    static constexpr u8 ACBL1_T0_INITTED = 0x02;
+    static constexpr u8 ACBL1_T1_INITTED = 0x04;
+    u8 mFlags;
 
     void init() ;
-    int step(HostBlock & hb) ;
+    void setFlags(u8 flags) ;
+    bool testFlags(u8 flags) const ;
+    u8 getFlags() const { return mFlags; }
+
+    // int step(HostBlock & hb) ;
     bool readyToClose() ;
-    bool writeAtom(const P4Atom atom, U16C gridc) ;
-  private:
-    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // CALLER HOLDS LOCK & crbi IS NON-EMPTY
+    bool writeByteToCurrentACB(u8 byte) ;
+    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
+ private:
   };
 
   struct DLGridList;            // FORWARD
   struct ACacheBlockPrivateControl {
+    using TheL1Data = ACacheBlockEP::Super::L1Data;
+
+    enum State : u8 {
+      UNINIT = 0u,            // unknown / illegal
+      NEXT = 1u,              // waiting for next car to fill
+      WAIT = 2u,              // waiting for end of frame time
+      PACK = 3u,              // compressing and shipping ARs
+    };
+    
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
-    static constexpr u32 BOGOMS_PER_FRAME = 100u;
+    static constexpr u32 BOGOMS_PER_FRAME = 1000u; // XXX 100u
+    
+    //    lzmfmx mARCompressor; -> FastT1
+    AtomReportIO mARIO;
     ACacheBlockL1Control * mACBL1Control;
     DLGridList * mDLGridList;
+    u32 mARsToSend;
     u32 mFramesSent;
     s32 mSlackMS;
     u32 mNextFrameBogoMS;
+    State mState;
 
     void init(ACacheBlockL1Control & acbl1, DLGridList & dll1) ;
     int step(HostBlock & hb) ;
+    int updateCars(HostBlock & hb) ;
     void tryToSendFrame(HostBlock & hb);
+    ACacheBlock & getCurrentACBOrDie() ;
   };
 
   extern T6EPL1Data<ACacheBlockStg,1u> theACacheBlockL1Data;

@@ -37,6 +37,7 @@ namespace MFM {
       msg.push_back(ch);
     }
 
+    mTicksRelative = ticks;
     mTickStamp = ((u64)ticksbase) + ticks;
     mFidLin = U16C(fid,lin);
     mNoC = noc0;

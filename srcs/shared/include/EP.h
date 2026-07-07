@@ -107,6 +107,8 @@ namespace MFM {
     u8 getHereCount() const { return mHereCount; }
     u8 getGoneCount() const { return mGoneCount; }
 
+    char * report(u32 size, char * buf) const ;
+
     void activate() {
       LOGPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
       LOGPTAG(s,mSrcEPA.mBlockCodeIndex);
@@ -133,6 +135,7 @@ namespace MFM {
 
     EPState mFastEPState;       //< shadowed in L1Data
     AtomicLock * mLockPtr;
+    u32 mShipTCCount, mRecvTCCount;
     u8 mCarCount;
     bool mIsIn;
     bool mCarsStartIn;

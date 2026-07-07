@@ -55,7 +55,7 @@ namespace MFM {
 
   int __attribute__((weak)) initB() { return weakInit(); }
   int __attribute__((weak)) initT0() { return weakInit(); }
-  int __attribute__((weak)) initT1() { return weakInit(); } // NOTE FastT1.cpp has a strong initT2 for logging
+  int __attribute__((weak)) initT1() { return weakInit(); }
   int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2 for PRNG
   int __attribute__((weak)) initNC() { return weakInit(); }
 

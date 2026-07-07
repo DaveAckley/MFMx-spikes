@@ -5,8 +5,10 @@
 #include "UxC.h" // for U8C
 #include "S8C.h" 
 #include "S16C.h"
+#include "P4Atom.h"
 
 namespace MFM {
+  void markLogBlock(u16 fileid, u16 lineno,const P4Atom atom) ;
   void markLogBlock(u16 fileid, u16 lineno,const char * msg) ;
   void markLogBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) ;
@@ -169,5 +171,9 @@ namespace MFM {
   void XXX_MAYBE_DIE_FUNC(const char * file, u32 line, u32& count);
 
   const char * stripDirs(const char * path, u32 dircount = 2u);
+
+  static constexpr u32 ACBUF_SIZE = 40;
+  using AtomCharBuf = char [ACBUF_SIZE];
+  bool formatP4Atom(const P4Atom a, AtomCharBuf buf) ;
 
 }

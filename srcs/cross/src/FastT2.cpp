@@ -93,8 +93,6 @@ namespace MFM {
 
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
 
-    LOGNOTE(CREATIVITY UP);
-    mT2Serving = true;
     return 0;
   }
 
@@ -133,12 +131,17 @@ namespace MFM {
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
+    LOGNOTE(CREATIVITY UP);
+    HBNOTE(CREATIVITY HUP);
+    mT2Serving = true;
+
     u32 spin = 0u;
     while (true) {
       fT2.fillRandomBuffer();
-      if ((spin++ & 0xfffff) == 0u) {
+      if ((++spin & 0xff'ffff) == 0u) {
         hb.hartbeat(fAll.mHartNum);
         if (fT2.mBlocked > 0) DP.printf("RNDBLOCKED %d %d\n", spin, fT2.mBlocked);
+        if ((spin & 0x7ff'ffff) == 0) HBXTAG(RNDOGETTY,spin);
       }
       for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
         u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);

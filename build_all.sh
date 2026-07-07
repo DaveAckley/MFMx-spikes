@@ -105,6 +105,14 @@ mkdir -p "${WHEELS_DIR}"
 #    but it might interfere with other aspects of your build. Test with and without.
 "${PYTHON}" -m pip install ${CMAKE_VERBOSITY} --no-deps --find-links="${WHEELS_DIR}" .
 
+if [ $? ]; then
+    TRIGGER_FILE="/data/ackley/PART4/code/D/blackholeSpikes/BUILT.new"
+    touch "${TRIGGER_FILE}"
+    echo "RELEASE THE HOUNDS"
+else
+    echo "ELSE"
+fi
+
 echo "--- Build process complete ---"
 
 if [ "x${TESTFILE}" != "x" ] ; then
