@@ -13,7 +13,6 @@
 #include "P4Atom.h"
 #include "PT_LogBlock.h" // for LogBlockStg and frens
 #include "PT_ACacheBlock.h" // ditto ACacheBlockStg
-#include "ZHostDecompressor.h"
 
 #include <pybind11/functional.h> // for std::function?
 
@@ -46,9 +45,7 @@ namespace MFM {
 
     bool updateTransports(bool includeEWs) ;
     void updateLogBlocks(unsigned tlbi) ;
-
     void updateACacheBlocks(unsigned tlbi) ;
-    void applyACacheBlock(ACacheBlockPayload& acbp, u32 tlbi) ;
     void updateEWCars(unsigned tlbi) ;
 
     void setDeviceInfo(u32 chipNum, s32 devfd) {
@@ -142,8 +139,6 @@ namespace MFM {
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
       bool mHasBeenDumped;
-
-      ZHostDecompressor mZHD; // everybody gets one, at least for now..
 
       void setDeployedImage(const T6Image & img) ;
 

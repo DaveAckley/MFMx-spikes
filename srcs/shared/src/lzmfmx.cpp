@@ -1,9 +1,6 @@
 /* Dave's first attempt at a custom LZ(W|SS|??)
    compressor for such as atoms and coords
 
-   --Mon Jun 15 01:11:21 2026 
-   Redo for funcptr IO instead of classes
-
    --Sun Jun  7 16:22:27 2026
    First 'release' into the mfmx codebase
 
@@ -16,7 +13,6 @@
 #include "lzmfmx.h"
 #include "Fail.h"
 #include "XUtils.h"             // for memset_s
-#include "Debug.h"              // for LOG* etc
 
 #if 0
 #undef FAIL
@@ -31,49 +27,10 @@ namespace MFM {
   }
 #endif
 
-  void lzmfmx::init(ByteSourceFuncPtr ucompin, void * inctxt, ByteSinkFuncPtr compout, void * outctxt) {
+  void lzmfmx::init() {
     memset_s(this,'\0',sizeof(*this));
-
-    MFM_API_ASSERT_NONNULL(ucompin);
-    MFM_API_ASSERT_NONNULL(compout);
-    mInPtr = ucompin;
-    mInCtxt = inctxt;
-    mOutPtr = compout;
-    mOutCtxt = outctxt;
-
     for (u32 i = RING_SIZE + 1; i <= RING_SIZE + 256; ++i) mRc[i] = NIL;
     for (u32 i = 0; i <= RING_SIZE; ++i) mPar[i] = NIL;
-  }
-
-  bool lzmfmx::inputIsEOF() {
-    s32 v = mInPtr(true,mInCtxt);
-    //    SNAP(100,LOGXTAG(iIEOF,v));
-    return v < 0;
-  }
-
-  s32 lzmfmx::getNextByteBlocking() {
-    s32 v;
-    u32 spin = 0;
-    while (true) {
-      v = mInPtr(false,mInCtxt);
-      if (v >= 0) break;
-      waitALittle();
-      if ((++spin % 1'000'000)==0) {
-        LOGPTAG(lzmgNBB,spin);
-        LOGPX(mBytesIn);
-        LOGPX(mBytesOut);
-      }
-    }
-    ++mBytesIn;
-    return (s32) v;
-  }
-
-  s32 lzmfmx::putNextByteBlocking(u8 byte) {
-    while (!mOutPtr(byte,mOutCtxt)) {
-      SNAP(100,LOGXTAG(BLOK,(u32)byte));
-    }
-    if ((++mBytesOut % 0x1f)==0) HBPTAG(pNBB,mBytesOut);
-    return (s32) byte;
   }
 
   void lzmfmx::insertNode(u32 r) {
@@ -137,54 +94,31 @@ namespace MFM {
     mPar[p] = NIL;
   }
 
-  void lzmfmx::compressForever() {
-    HBMARK;
-    LOGMARK;
-    while (true) {
-      encode();
-      SNAP(100,LOGPTAG(encret?,this)); // unexpected since ubs has no eof..
-    }
-  }
-
-  bool lzmfmx::encode() {
+  bool lzmfmx::encode(ByteSource & ubs, ByteSink & cbs) {
     u8 code[17], flags = 0, mask = 1;
     u32 cptr = 1, sid = 0, r = RING_SIZE - MAX_MATCH, n = 0;
 
     // Prime lookahead buffer
-    while (n < MAX_MATCH && !inputIsEOF()) {
-      s32 sb = getNextByteBlocking();
-      if (sb < 0) LOGPTAG(lzenc,sb);
-      else mRing[r + n++] = (u8) sb;
-    }
+    while (n < MAX_MATCH && !ubs.isEOF())
+      mRing[r + n++] = ubs.getNextByteBlocking();
 
     for (u32 i = 1; i <= MAX_MATCH; ++i)
       insertNode(r - i);
     insertNode(r);
 
     while (n > 0) {
-      if (false) {
-        static u32 spin = 0;
-        if ((spin++ & 0xfffff) == 0)
-          LOGPTAG(lzmenc,n);
-      }
 
       u32 ml = mMlen > n ? n : mMlen;
-      if (ml <= MIN_MATCH) {
-        LOGXTAG(lzlit,(u32) mRing[r]);
-        ml = 1; flags |= mask; code[cptr++] = mRing[r];
-      } else {
+      if (ml <= MIN_MATCH) { ml = 1; flags |= mask; code[cptr++] = mRing[r]; }
+      else {
         code[cptr++] = mMpos & 0xFF;
         code[cptr++] = ((mMpos >> 4) & 0xF0) | (ml - MIN_MATCH - 1);
-        LOGXTAG(lzref,(u32) (((mMpos&0xff)<<16)|ml));
       }
     
       if (!(mask <<= 1)) {
-        LOGXTAG(lzflg,(u32) flags);
         code[0] = flags;
         for (u32 i = 0; i < cptr; ++i)
-          putNextByteBlocking(code[i]); // abstract: pack packets in here too
-        LOGXTAG(lzwrt,(u32) cptr);
-        HBPTAG(lz2wrt,(u32) cptr);
+          cbs.putNextByteBlocking(code[i]);
         flags = 0;
         mask = 1;
         cptr = 1;
@@ -193,8 +127,8 @@ namespace MFM {
       // Slide window by ml positions
       for (u32 i = 0; i < ml; ++i) {
         deleteNode(sid);
-        if (!inputIsEOF()) {
-          u8 c = getNextByteBlocking();
+        if (!ubs.isEOF()) {
+          u8 c = ubs.getNextByteBlocking();
           mRing[sid] = c;
           if (sid < MAX_MATCH - 1) mRing[sid + RING_SIZE] = c;
         } else {
@@ -210,39 +144,39 @@ namespace MFM {
     if (cptr > 1) {
       code[0] = flags;
       for (u32 i = 0; i < cptr; ++i)
-        putNextByteBlocking(code[i]);
+        cbs.putNextByteBlocking(code[i]);
     }
     return true;
   }
 
 #if 0
-  bool lzmfmx::encode() {
+  bool lzmfmx::encode(ByteSource & ubs, ByteSink & cbs) {
     while (true) {
-      s32 s = getNextByteBlocking();
-      if (s >= 0) putNextByteBlocking((u8) s);
+      s32 s = ubs.getNextByteBlocking();
+      if (s >= 0) cbs.putNextByteBlocking((u8) s);
       else break;
     }
     return true;
   }
 #endif
 
-  bool lzmfmx::decode() {
+  bool lzmfmx::decode(ByteSource & cbs, ByteSink & ubs) {
     memset_s(mRing, '\0', RING_SIZE - MAX_MATCH);
     uint32_t r = RING_SIZE - MAX_MATCH;
-    while (!inputIsEOF()) {
-      u32 flags = getNextByteBlocking() | 0xFF00;
-      for (; (flags & 0x100) && !inputIsEOF(); flags >>= 1) {
+    while (!cbs.isEOF()) {
+      u32 flags = cbs.getNextByteBlocking() | 0xFF00;
+      for (; (flags & 0x100) && !cbs.isEOF(); flags >>= 1) {
         if (flags & 1) {
-          u8 c = getNextByteBlocking();
+          u8 c = cbs.getNextByteBlocking();
           //buf_grow(&out, 1);
-          putNextByteBlocking(c);
+          ubs.putNextByteBlocking(c);
           mRing[r] = c;
           if (++r >= RING_SIZE) r = 0;
         } else {
-          if (inputIsEOF()) break;
-          u32 lo = getNextByteBlocking();
-          if (inputIsEOF()) break;
-          u32 hi = getNextByteBlocking();
+          if (cbs.isEOF()) break;
+          u32 lo = cbs.getNextByteBlocking();
+          if (cbs.isEOF()) break;
+          u32 hi = cbs.getNextByteBlocking();
           u32 p = lo | ((hi & 0xF0) << 4);
           u32 ml = (hi & 0x0F) + MIN_MATCH + 1;
           //buf_grow(&out, ml);
@@ -250,7 +184,7 @@ namespace MFM {
             u32 idx = p + k;
             if (idx >= RING_SIZE) idx -= RING_SIZE;
             u8 c = mRing[idx];
-            putNextByteBlocking(c);
+            ubs.putNextByteBlocking(c);
             mRing[r] = c;
             if (++r >= RING_SIZE) r = 0;
           }

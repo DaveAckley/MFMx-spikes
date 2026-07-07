@@ -27,7 +27,7 @@ namespace MFM {
         HBPTAG(pewSu,mEWsSucceeded);
       }
     } else if (ewt.mPayloadState.mPayloadCode != EwpPayloadCode::EWPC_EMPTY) {
-      SNAP(2,HBPTAG(wotwot?,ewt.mPayloadState.mPayloadCode));
+      HBPTAG(wotwot?,ewt.mPayloadState.mPayloadCode);
     } 
     return ret;
   }
@@ -38,7 +38,7 @@ namespace MFM {
     P4Atom & ca = ew.mAtoms[0];
     u32 cat = ca.getType();
 
-    SNAP(200,HBXTAG(FIZIX,cat));
+    HBXTAG(FIZIX,cat);
 
     ////// BEGIN "PHYSICS" //////
     switch (cat) {

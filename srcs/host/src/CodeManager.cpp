@@ -626,7 +626,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
             Eprintf("%.03f %s[%s] %s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y),
                     t6i.getName().c_str(),
                     hartName(hart),
                     path,

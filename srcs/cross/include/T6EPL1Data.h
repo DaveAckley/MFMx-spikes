@@ -11,7 +11,6 @@ namespace MFM {
   template<class SUBTCBLOCKSTG, u8 BLOCKCOUNT>
   struct T6EPL1Data {
     static constexpr u32 CAR_COUNT = SUBTCBLOCKSTG::CAR_COUNT;
-    static u8 constexpr BLOCK_COUNT = BLOCKCOUNT;
     static u8 constexpr MASK_BITS = _getLogBase2(2u*CAR_COUNT+1u); // +1 chicken 2* superchicken
     typedef RingBuffer<u8,MASK_BITS> CarIdxRB;
     struct CarIdxs {
@@ -35,29 +34,29 @@ namespace MFM {
     }
 
     SUBTCBLOCKSTG & getCarStg(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LS(blockindex,BLOCKCOUNT);
       return mTheTCStorages[blockindex];
     }
 
     AtomicLock & getAtomicLock(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LS(blockindex,BLOCKCOUNT);
       return mTheLocks[blockindex];
     }
 
     CarIdxs & getCarIdxs(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LS(blockindex,BLOCKCOUNT);
       return mTheCarIdxs[blockindex];
     }
 
     EPState & getPublicEPState(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LS(blockindex,BLOCKCOUNT);
       return mThePublicEPState[blockindex];
     }
 
-    SUBTCBLOCKSTG mTheTCStorages[BLOCK_COUNT];
-    AtomicLock mTheLocks[BLOCK_COUNT];
-    CarIdxs mTheCarIdxs[BLOCK_COUNT];
-    EPState mThePublicEPState[BLOCK_COUNT];
+    SUBTCBLOCKSTG mTheTCStorages[BLOCKCOUNT];
+    AtomicLock mTheLocks[BLOCKCOUNT];
+    CarIdxs mTheCarIdxs[BLOCKCOUNT];
+    EPState mThePublicEPState[BLOCKCOUNT];
   };
 
 }

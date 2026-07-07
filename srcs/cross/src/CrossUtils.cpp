@@ -8,8 +8,6 @@
 #include "AtomicLock.h"
 #include "Debug.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Control
-#include "P4Atom.h"
-#include "FastT0.h"             // for ticksElapsed()
 
 namespace MFM {
   DebugHookFncPtr theGlobalDebugHook;
@@ -39,8 +37,7 @@ namespace MFM {
   void markLogBlock64(u16 fileid, u16 lineno,const u64 val, const char * tag = 0) {
     constexpr u32 BUF_SIZ = 40;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s0x%lx'%08lx.",
-                 tag?tag:"=",
+    npf_snprintf(buf,BUF_SIZ,"0x%lx'%08lx",
                  (u32)(val>>32),
                  (u32)(val&0xffffffff)
                  );
@@ -92,15 +89,11 @@ namespace MFM {
     markLogBlock(fileid,lineno,buf);
   }
 
-  static u16 lowTicks() { return ticksElapsed()%10'000; }
-  static u16 lowMillis() { return millisElapsed()&0xffff; }
-
   void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag = 0) {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%p} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 9 %u %d,%d h%c%s0x%p} \n",
                  fileid,lineno,
-                 lowMillis(), //lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -115,9 +108,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%u,%u)} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 8 %u %d,%d h%c%s(%u,%u)} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -132,9 +124,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%d,%d)} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 7 %u %d,%d h%c%s(%d,%d)} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -149,9 +140,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%ld,%ld)} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 6 %u %d,%d h%c%s(%ld,%ld)} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -166,9 +156,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%d} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 5 %u %d,%d h%c%s%d} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -183,9 +172,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%lx'%08lx} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 4 %u %d,%d h%c%s0x%lx'%08lx} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -201,9 +189,8 @@ namespace MFM {
     extern HostBlock theHostBlock;
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%s} \n",
+    npf_snprintf(buf,BUF_SIZ,"{%u:%u 3 %u %d,%d h%c%s%s} \n",
                  fileid,lineno,
-                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -252,24 +239,4 @@ namespace MFM {
     return suf;
   }
 
-  void markLogBlock(u16 fileid, u16 lineno,const P4Atom atom) {
-    AtomCharBuf buf;
-    formatP4Atom(atom,buf);
-    markLogBlock(fileid,lineno,buf);
-  }
-
-  bool formatP4Atom(const P4Atom a, AtomCharBuf buf) {
-    if (!a.isValid()) {
-      snprintf(&buf[0],ACBUF_SIZE,"!V0x%04x'%04x'%08x'%08x",
-               (u32) a.mParityAndType,
-               (u32) a.mData0,
-               a.mStg[0], a.mStg[1]);
-      return false;
-    }      
-    snprintf(&buf[0],ACBUF_SIZE,"t%d/%x:0x%04x'%08x'%08x",
-             a.getType(), a.getType(),
-             (u32) a.mData0,
-             a.mStg[0], a.mStg[1]);
-    return true;
-  }
 }

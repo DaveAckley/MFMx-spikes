@@ -12,12 +12,10 @@ namespace MFM {
   // EwpEP::CarIdxs theEwpBlockIdxs[8];
 
   FAST_LOCAL_ARRAY(EwpEP<8>,8,myEwpEPArray,n);
+  static bool manageHubNC(bool doInit) {
 
-  static RCFlag manageHubNC(HTOpCode htoc) {
-    RCFlag ret = RCFlag::RC_ZERO;
-
-    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
-
+    bool ret = false;
+    if (unlikely(doInit)) {
       HBNOTE("EWHUBARO");
       //// ONE-TIME INITS
       T6CellO cello;
@@ -37,40 +35,35 @@ namespace MFM {
             u32 n = ncount++;
             EwpEP<8> & ewpnc = myEwpEPArray[n];
             //HBPVAL(n);
-            //            HBPVAL(cello.getNoC0ofCellP(atcp));
+            HBPVAL(cello.getNoC0ofCellP(atcp));
             ewpnc.initEwpEP({ BC_EWHUB, (u8) n }, true, theEwpL1Data);
             ewpnc.configureDest(fAll.mNoC0, cello.getNoC0ofCellP(atcp), { BC_EWPCARS, 0 });
             
             EwpBlockStg & ebs = ewpnc.getCarStg();
-            //            HBPTAG(PRCFG,&ebs);
+            HBPTAG(PRCFG,&ebs);
             for (u32 c = 0; c < ebs.getCarCount(); ++c) {
               EwpBlock & eb = ebs.getTC(c);
               eb.init();
             }
+            ret = true;
           }
         }
       }
-
-    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
-
-      LOGMARK;
-
       HBNOTE("EWHF");
       for (u32 n = 0; n < 8; ++n) {
         if (theEwpL1Data.getPublicEPState(n) != EPState::CONFIGURED) continue;
         //HBPVAL(n);
         myEwpEPArray[n].activate();
       }
-
-    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+    } else {
             
       //// LIVING
       for (u32 n = 0; n < 8; ++n) {
         EwpEP<8> & ewpnc = myEwpEPArray[n];
         if (!ewpnc.isActive()) continue;
-        ewpnc.updateOps();
+        if (ewpnc.updateOps()) ret = true;
       }
-    } else LOGPTAG(unknown htoc,htoc);
+    }
     return ret;
   }
   

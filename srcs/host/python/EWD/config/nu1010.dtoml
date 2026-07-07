@@ -29,8 +29,8 @@
   #hostModules = [ AcceptLogging ]
 
 [layout.ewpandhub]
-  bhchips = [0]
-#  bhchips = [0,1,2,3]
+#  bhchips = [2]
+  bhchips = [0,1,2,3]
   defaultImage = EWP
 #  cell.all = C1X2_EWP_HUB
 #  cell.all = C2X1_EWP_HUB

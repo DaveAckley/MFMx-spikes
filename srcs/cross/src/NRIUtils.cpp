@@ -4,7 +4,6 @@
 #include "FastLocal.h" // for FAll
 #include "FastT0.h" // for millisElapsed
 #include "FastT2.h" // for create
-#include "FastNC.h" // for recordOutputBytesNC
 #include "T6Grid.h"
 #include "Debug.h"
 #include "utils.h" // for PopCount
@@ -154,8 +153,7 @@ namespace MFM {
     while (readNIUReqsOutstanding(useNoC, NRI3_BLOCKING_TRANSACTION_ID) > 0) {
       if (++spin > MAX_TOTAL_SPIN) FAIL(OPERATION_FAILED);
     }
-
-    recordBytesOINC(false,wordcount<<2u);
+    //if (debug) HBPVAL(spin);
 
     //HBXVAL(l1readaddr);
 
@@ -326,8 +324,55 @@ namespace MFM {
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
     volatile u32 superstition = funcReadNRIAddress(usenoc,3,NRI_NOC_CMD_CTRL); // read for memory ordering
 
-    recordBytesOINC(true,wordCount<<2);
     return 1;
+#if 0
+      s32 T6ElevatorTransport::initiateWrite(u32 * data, u32 wordCount, U16C xy, u64 destaddr) {
+DIEWAY();
+    if (!allClear()) return -1; // Not ready
+DIEWAY();
+    u32 byteCount = wordCount * 4;
+    if (byteCount == 0 || byteCount > (1<<14))
+      return -2;                // EINVAL: bad size
+DIEWAY();
+
+    // TARG (lo+mid) is the source in our L1. TARG hi is our NoC0 coord as NodeId
+    u32 targlo = (u32) data;
+    u32 targmid = 0u;
+    u32 targhi = ((mHostBlockPtr->mPos.x&0x3f)<<6)|(mHostBlockPtr->mPos.y&0x3f);
+DIEWAY();
+
+    // In general:
+    //   RET (lo+mid) is the dest addr, RET hi is the NoC0 coord of the dest tile
+    // For initiateWriteToHost specifically:
+    //   RET (lo+mid) is the dest in Host RAM, RET hi is the NoC0 coord of the PCIe tile ?
+    u32 retlo = (u32) (destaddr&0xffffffff);
+    u32 retmid = (u32) ((destaddr>>32)&0xffffffff);
+    u32 rethi = ((xy.y&0x3f)<<6)|(xy.x&0x3f);
+    u32 noc_ctrl = (2<<0);      // write request
+DIEWAY();
+
+    // Set up the registers
+    *NOC_TARG_ADDR_LO = targlo;
+    *NOC_TARG_ADDR_MID = targmid;
+    *NOC_TARG_ADDR_HI = targhi;
+
+    *NOC_RET_ADDR_LO = retlo;
+    *NOC_RET_ADDR_MID = retmid;
+    *NOC_RET_ADDR_HI = rethi;
+DIEWAY();
+
+    *NOC_CTRL = 2;              // write request
+    *NOC_AT_LEN_BE = byteCount;
+
+    // We are ready to initiate the NoC transaction?
+DIEWAY();
+    *NOC_CMD_CTRL = 1;            // THE BIRD IS AWAY
+    u32 readback = *NOC_CMD_CTRL;  // read it back for memory ordering?
+DIEWAY();
+    return 0;
+  }
+#endif
+    return 0;
   }
 
   s32 NRI3::initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
@@ -367,7 +412,6 @@ namespace MFM {
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
     volatile u32 superstition = funcReadNRIAddress(usenoc,3,NRI_NOC_CMD_CTRL); // read for memory ordering
 
-    recordBytesOINC(true,wordCount<<2);    
     return 1;
   }
 

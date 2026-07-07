@@ -39,16 +39,13 @@ namespace MFM {
     }                                                                   \
   } while (0);
 
-  static RCFlag manageZotzNC(HTOpCode htoc) {
-    RCFlag ret = RCFlag::RC_ZERO;
-
-    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+  static bool manageZotzNC(bool doInit) {
+    bool ret = false;
+    if (unlikely(doInit)) {
       //      setGlobalDebugHook(zotBlockHook);
 
       theZotBlockL1Data.reset(); // zero all
       
-    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
-
       ZotBlockStg (&theZotBlockCarsIO)[2] = theZotBlockL1Data.mTheTCStorages;
       for (u32 i = 0; i < sizeof(theZotBlockCarsIO)/sizeof(theZotBlockCarsIO[0]); ++i) {
         ZotBlockStg & zbs = theZotBlockCarsIO[i];
@@ -69,10 +66,11 @@ namespace MFM {
       myZotEPIN.activate();
       myZotEPOUT.activate();
       assertZotBlocksInitted() ;
-    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+      ret = true;
+    } else {
       assertZotBlocksInitted() ;
-      myZotEPIN.updateOps();
-      myZotEPOUT.updateOps();
+      if (myZotEPIN.updateOps()) ret = true;
+      if (myZotEPOUT.updateOps()) ret = true;
     }    
     return ret;
   }

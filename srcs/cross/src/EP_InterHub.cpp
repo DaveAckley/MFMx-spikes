@@ -2,7 +2,7 @@
 
 namespace MFM {
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
-    //    HBXTAG(InHuInit,&l1data);
+    HBXTAG(InHuInit,&l1data);
     this->initT6EP(srcEPA, isin, l1data);
   }
      

@@ -103,7 +103,11 @@ namespace MFM {
 
     u16 getLength() const { return mLength; }
 
-    void init() ;
+    void init() {
+      memset_s(this,'0',sizeof(*this));       // zero all (lock, len,..) to start
+      memset_s(mSites,'\377',sizeof(mSites)); // fill sites with cNONE
+      mRoot = DL2D::cNONE;                    // and root is null
+    }
 
     bool popBackC(U8C & c) {
       AtomicScopeLock guard(mLock);
@@ -117,17 +121,24 @@ namespace MFM {
     bool pushFrontC(U8C c) {
       AtomicScopeLock guard(mLock);
       DL2D & d = _get(c);
+      //LOGDL2D(mSites,pFC,d);
       bool ret = false;
       if (d.isOccupied()) {
+        //U8C oldroot = mRoot;
         _remove(c,true);
+        //LOGPTAG(bremr,oldroot);
+        //LOGPTAG(aremr,mRoot);
+        //LOGDL2D(mSites,nud,d);
         ret = true;
       }
       // c is unlinked
       if (mRoot == DL2D::cNONE) { // list is empty
         d.setNextC(c);  // so point at self
         d.setPrevC(c);  // so point at self
+        //LOGDL2D(mSites,nur,d);
       } else {
         DL2D & r = _get(mRoot);
+        //LOGDL2D(mSites,olr,r);
 
         U8C oldnextc = r.getNextC();
         U8C oldprevc = r.getPrevC();
@@ -140,12 +151,15 @@ namespace MFM {
         d.setPrevC(oldprevc);   // and our prev is old root prev
         if (oldprevc == mRoot)  // if old root's prev was root
           r.setPrevC(c);        // now it's us
+        //LOGDL2D(mSites,fd,d);
 
+        //LOGPTAG(opc,oldprevc);
         _get(oldprevc).setNextC(c); // and old tail's next is us
+        //LOGDL2D(mSites,op,get(oldprevc));
       }
       mRoot = c;     // and we're the root either way
       ++mLength;
-      if (!ret) LOGPTAG(mroo,mLength);
+      //LOGPTAG(mroo,mLength);
       return ret;     // meaning moved to front (vs new insert)
     }
 
@@ -193,7 +207,15 @@ namespace MFM {
   };
 
   struct GridManager {
-    void init(T6Grid & grid, ACacheBlockL1Control & acbl1, DLGridList & gridlist) ;
+    void init(T6Grid & grid, ACacheBlockL1Control & acbl1, DLGridList & gridlist) {
+      memset_s(this,'\0',sizeof(*this));
+      mDLGridListPtr = &gridlist;
+      mT6GridPtr = &grid;
+      mACBL1Ctrl = &acbl1;
+      U16C gsize = T6Grid::getGridSize();
+      HBPTAG(T6GridSize,gsize);
+      HBPTAG(T6GridSites,gsize.x*gsize.y);
+    }
 
     U16C selectRandomSite() {
       return U16C((u16) between(0u,DG::T6GRID_WIDTH-1),
@@ -226,6 +248,4 @@ namespace MFM {
     u32 mEWsObsoleted;
     u32 mTotalAtomicChanges;
   };
-
-  extern DLGridList theDLGridList; // defined in hub/LiveB.cpp
 }

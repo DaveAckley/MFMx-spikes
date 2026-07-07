@@ -82,7 +82,6 @@ namespace MFM {
   }
 
   int hartMainT0(HostBlock & hb) {
-    HBNOTE(__FUNCTION__);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     return liveT0(hb);          // go do your hart t0 thing you
   }

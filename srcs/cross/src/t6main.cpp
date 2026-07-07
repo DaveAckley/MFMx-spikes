@@ -4,8 +4,6 @@
 #include "Printf.h" // for t6InitPrinters()
 #include "Debug.h" 
 #include "DefaultLives.h" 
-#include "HartTasks.h" // XXX
-
 
 // Baby RV Service APIs 
 #include "FastLocal.h"
@@ -30,21 +28,17 @@ namespace MFM {
   DECLARE_THE_IMAGE_BLOCK(0xea,18);
 #endif
 
-  HartTaskerPublicState theHartTaskerPublicState;
-
   int t6inithostblock(HostBlock &hb) { // RUNS ON HARTB ONLY
     u32 node_id = *NOC_NODE_ID0;
     hb.mNoC0.x = ((node_id >> 0) & 0x3f);
     hb.mNoC0.y = ((node_id >> 6) & 0x3f);
     hb.mTLBI = U8C::makeTLBIFromNoCCoord({hb.mNoC0.x,hb.mNoC0.y});
-    RCFlag flags = RCFlag::RC_ZERO;
-    hb.addBytes('t',flags?'6':'X');
+    hb.addBytes('t','6');
     return 0;
   }
   int t6otherinits(HostBlock &hb) { // RUNS ON HARTB ONLY
     hb.addBytes('o','i');
     t6InitPrinters(hb);
-    theHartTaskerPublicState.init();
     return 0;
   }
 
@@ -89,10 +83,7 @@ namespace MFM {
     //setGlobalDebugHook(ouriba0OK);
     //HBPTAG(HOOKT,hartName(fAll.mHartNum));
 
-    HartTaskerPrivate udaMan;
-    udaMan.init(theHartTaskerPublicState);
-    udaMan.run();
-    HBNOTE(<<ENDINSQ>>);
+    doDefaultInit(hb);
 
     //    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
     LOGMARK;

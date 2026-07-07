@@ -21,6 +21,7 @@ namespace MFM {
     void init() {
       memset_s(this,'\0',sizeof(*this));
       copyHTFuncsT0();
+      runHTFuncsT0(true);
     }
 
     static constexpr u32 MAX_HTFUNCS_T0 = 6u;
@@ -41,15 +42,19 @@ namespace MFM {
       mHTFuncsInUseT0 = (u8) ptrCount;
     }
 
-    void stepHTFuncsT0() {
+    bool runHTFuncsT0(bool forInit) {
+      bool ret = false;
       for (u32 j = 0u; j < mHTFuncsInUseT0; ++j) {
         u32 i = j;
         HTFuncPtr epf = mHTFuncsT0[i];
-        SNAP(3,HBPTAG(runT0,(void*) epf));
         if (epf) {
-          (*epf)(HTOC_LIVE);
+          if (forInit) HBPTAG(fncInit,i); 
+          if ((*epf)(forInit)) 
+            ret = true;
         }
       }
+      if (forInit) HBPTAG(epfInUse,mHTFuncsInUseT0);
+      return ret;
     }
     
     u64 debugTimestamperStart;
@@ -72,29 +77,13 @@ namespace MFM {
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;
 
-  u32 millisElapsed() {
-    memoryFence();
-    return totalMillisElapsed;
-  }
-
-  u32 ticksElapsed() {
-    memoryFence();
-    return t0TicksElapsed;
-  }
-
-  int MYstepT0(HostBlock & hb) {
-    SNAP(10,HBPTAG(@,__FUNCTION__));
-    fT0.stepHTFuncsT0();
-    return 0;
-  }
+  u32 millisElapsed() { return totalMillisElapsed; }
 
   int liveT0(HostBlock & hb) {
     //DP.printf("T0:RND %d\n",create(100));
-    /*
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
     t0TicksElapsed = 0u;
-    */
 
     u16 spin = 0u;
     u32 aiFreq = hb.mAIClockFrequency;
@@ -111,19 +100,16 @@ namespace MFM {
         fT0.newMillisElapsed = (u32) ((1000 * cycles) / aiFreq);
         if (fT0.newMillisElapsed != fT0.lastMillisElapsed) { // don't hit L1 til new milli
           fT0.lastMillisElapsed = fT0.newMillisElapsed;
-          totalMillisElapsed = fT0.newMillisElapsed;
+          totalMillisElapsed = fT0.lastMillisElapsed;
           aiFreq = hb.mAIClockFrequency; // and refresh aiFreq then too, just in case
           // CALL STEPT0 ONCE PER ~MILLI!
-          MYstepT0(hb);
+          stepT0(hb);
         }
       }
 
       if (fT0.debugTicksElapsed != ticksElapsed) {
-        const u32 LIM = 10000;
-        if (ticksElapsed % LIM == 0) { // ~8s -> ~5.5s
-          HBPTAG(10kticks,ticksElapsed/LIM);
-          LOGPTAG(10kticksl,ticksElapsed/LIM);
-          //hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
+        if (ticksElapsed % 1000u == 0) { // ~8s -> ~5.5s
+          hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors
@@ -132,10 +118,16 @@ namespace MFM {
     FAIL(UNREACHABLE_CODE); // um what? try to set T0's fail bit
   }
 
+  int stepT0(HostBlock & hb) {
+    fT0.runHTFuncsT0(false);
+    return 0;
+  }
+
   int initT0() {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+    HBNOTE("initT0");
+    preloadT2Mailbox();
     fT0.init();
-    HBNOTE(init T0);
     return 0;
   }
 
@@ -144,19 +136,16 @@ namespace MFM {
     return liveT0(hb);          // go do your hart t0 thing you
   }
 
-  // called by initseq and by stepHTFuncsT0
-  RCFlag manageLogBlockT0(HTOpCode htoc) {
-    RCFlag ret = RCFlag::RC_ZERO;
-    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+  static bool manageLogBlockT0(bool doInit) {
+    bool ret = false;
+    if (unlikely(doInit)) {
 
       HBMARK;
       theLogBlockL1Control.init();
       HBMARK;
-      //ret = true;
+      ret = true;
 
-    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
-      LOGMARK;
-    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+    } else {
 
       static u32 spin = 0;
       //// LIFE
@@ -167,33 +156,11 @@ namespace MFM {
 
       HostBlock & hb = theHostBlock;
       theLogBlockL1Control.step(hb);      
-    } else LOGPTAG(unknown htoc,htoc);
-
+    }
     return ret;
   }
 
   __attribute__((section(".rodata_fp_table_t0")))
   HTFuncPtr logT0 = &manageLogBlockT0;
-
-  ////////
-  TEFResult TaskEpochFunction_CLOCK(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
-    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    switch (hei) {
-    case HE_BEGIN:
-      HBNOTE(init CLOCK);
-      initT0();
-      fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
-      fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
-      t0TicksElapsed = 0u;
-      break;
-    default:
-      FAIL(UNREACHABLE_CODE);
-    }
-    return TEFR_CONTINUE;
-  }
-
-
 }
-
-
 

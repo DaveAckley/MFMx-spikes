@@ -27,7 +27,6 @@ target_sources(MFMx PRIVATE
     src/TimeDefs.cpp
     src/XMark.cpp
     src/XUtilsHost.cpp
-    src/ZHostDecompressor.cpp
     ${SHARED_SOURCES}
 )
 

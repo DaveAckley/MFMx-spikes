@@ -26,8 +26,8 @@ target_sources(crosslib PUBLIC
   src/CrossUtils.cpp
   src/DefaultLives.cpp
   src/EP_Ewp.cpp
-  src/EP_InterHub.cpp
   src/EP_LogBlock.cpp
+  src/EP_InterHub.cpp
   src/FATAL.cpp
   src/FastB.cpp
   src/FastLocal.cpp
@@ -35,7 +35,6 @@ target_sources(crosslib PUBLIC
   src/FastT0.cpp
   src/FastT1.cpp
   src/FastT2.cpp
-  src/HartTasks.cpp
   src/NRIUtils.cpp
   src/Printf.cpp
   src/T6CellO.cpp
@@ -43,10 +42,8 @@ target_sources(crosslib PUBLIC
   src/T6EPs.cpp
   src/T6ImageBlock.cpp
   src/T6Neighbor.cpp
-  src/TEFs.cpp
   src/formatSymbols.pl
   src/t6main.cpp
-#  src/RunLevel.cpp
 )
 
 # Assign global file IDs to crosslib files

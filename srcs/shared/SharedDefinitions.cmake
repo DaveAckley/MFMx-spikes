@@ -6,7 +6,6 @@
 set(SHARED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/srcs/shared)
 # Use CMAKE_CURRENT_SOURCE_DIR here as this file is within 'shared/'
 set(SHARED_SOURCES_LIST
-  ${SHARED_DIR}/src/AtomReport.cpp
   ${SHARED_DIR}/src/BlockCode.cpp
   ${SHARED_DIR}/src/Dirs.cpp
   ${SHARED_DIR}/src/EP.cpp
@@ -18,10 +17,9 @@ set(SHARED_SOURCES_LIST
   ${SHARED_DIR}/src/Point.cpp
   ${SHARED_DIR}/src/Random.cpp
   ${SHARED_DIR}/src/S8C.cpp
-  ${SHARED_DIR}/src/lzmfmx.cpp
   ${SHARED_DIR}/src/mt19937.cpp
+  ${SHARED_DIR}/src/lzmfmx.cpp
 #  ${SHARED_DIR}/src/U8C.cpp eaten by the monster of UxC
-#  ${SHARED_DIR}/src/LZSM.cpp
   # Add any other shared .cpp files here
 )
 set(SHARED_SOURCES "${SHARED_SOURCES_LIST}")
