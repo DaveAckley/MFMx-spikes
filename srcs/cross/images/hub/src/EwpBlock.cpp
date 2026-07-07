@@ -1,5 +1,5 @@
 #include "EwpBlock.h"
-#include "FastNC.h" // for EPFuncPtr
+#include "HartTasks.h" // for HTFuncPtr
 #include "T6CellO.h"
 #include "Debug.h"
 #include "FastLocal.h" // for fAll
@@ -12,10 +12,12 @@ namespace MFM {
   // EwpEP::CarIdxs theEwpBlockIdxs[8];
 
   FAST_LOCAL_ARRAY(EwpEP<8>,8,myEwpEPArray,n);
-  static bool manageHubNC(bool doInit) {
 
-    bool ret = false;
-    if (unlikely(doInit)) {
+  static RCFlag manageHubNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+
       HBNOTE("EWHUBARO");
       //// ONE-TIME INITS
       T6CellO cello;
@@ -35,38 +37,43 @@ namespace MFM {
             u32 n = ncount++;
             EwpEP<8> & ewpnc = myEwpEPArray[n];
             //HBPVAL(n);
-            HBPVAL(cello.getNoC0ofCellP(atcp));
+            //            HBPVAL(cello.getNoC0ofCellP(atcp));
             ewpnc.initEwpEP({ BC_EWHUB, (u8) n }, true, theEwpL1Data);
             ewpnc.configureDest(fAll.mNoC0, cello.getNoC0ofCellP(atcp), { BC_EWPCARS, 0 });
             
             EwpBlockStg & ebs = ewpnc.getCarStg();
-            HBPTAG(PRCFG,&ebs);
+            //            HBPTAG(PRCFG,&ebs);
             for (u32 c = 0; c < ebs.getCarCount(); ++c) {
               EwpBlock & eb = ebs.getTC(c);
               eb.init();
             }
-            ret = true;
           }
         }
       }
+
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+
+      LOGMARK;
+
       HBNOTE("EWHF");
       for (u32 n = 0; n < 8; ++n) {
         if (theEwpL1Data.getPublicEPState(n) != EPState::CONFIGURED) continue;
         //HBPVAL(n);
         myEwpEPArray[n].activate();
       }
-    } else {
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
             
       //// LIVING
       for (u32 n = 0; n < 8; ++n) {
         EwpEP<8> & ewpnc = myEwpEPArray[n];
         if (!ewpnc.isActive()) continue;
-        if (ewpnc.updateOps()) ret = true;
+        ewpnc.updateOps();
       }
-    }
+    } else LOGPTAG(unknown htoc,htoc);
     return ret;
   }
   
   __attribute__((section(".rodata_fp_table_nc")))
-  EPFuncPtr hubEPPtr = &manageHubNC;
+  HTFuncPtr hubEPPtr = &manageHubNC;
 }

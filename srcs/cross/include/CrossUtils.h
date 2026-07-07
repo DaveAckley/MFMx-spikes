@@ -5,8 +5,10 @@
 #include "UxC.h" // for U8C
 #include "S8C.h" 
 #include "S16C.h"
+#include "P4Atom.h"
 
 namespace MFM {
+  void markLogBlock(u16 fileid, u16 lineno,const P4Atom atom) ;
   void markLogBlock(u16 fileid, u16 lineno,const char * msg) ;
   void markLogBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) ;
@@ -152,8 +154,8 @@ namespace MFM {
 #define XXX_DEBUG_FUNC(...) /* XXX_DEBUG_FUNC_DOIT(__FILE__,__LINE__) */
 
 namespace MFM {
-  inline bool isInL1(u32 addr) { return /*addr >= MEM_L1_BASE &&*/ addr < MEM_L1_SIZE; }
-  inline bool isInL1(u32 * addr) { return isInL1((u32) addr); }
+  inline bool isInL1(uptr addr) { return /*addr >= MEM_L1_BASE &&*/ addr < MEM_L1_SIZE; }
+  inline bool isInL1(u32 * addr) { return isInL1((uptr) addr); }
 
   void memset_s(void* addr, u8 byte, u32 count) ;
 
@@ -169,5 +171,9 @@ namespace MFM {
   void XXX_MAYBE_DIE_FUNC(const char * file, u32 line, u32& count);
 
   const char * stripDirs(const char * path, u32 dircount = 2u);
+
+  static constexpr u32 ACBUF_SIZE = 40;
+  using AtomCharBuf = char [ACBUF_SIZE];
+  bool formatP4Atom(const P4Atom a, AtomCharBuf buf) ;
 
 }

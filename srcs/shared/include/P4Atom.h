@@ -43,17 +43,6 @@ namespace MFM {
       if (us[2] < ot[2]) return -1;
       if (us[2] > ot[2]) return  1;
       return 0;
-      /*
-      if (mParityAndType < other.mParityAndType) return -1;
-      if (mParityAndType > other.mParityAndType) return 1;
-      if (mData0 < other.mData0) return -1;
-      if (mData0 > other.mData0) return 1;
-      if (mStg[0] < other.mStg[0]) return -1;
-      if (mStg[0] > other.mStg[0]) return 1;
-      if (mStg[1] < other.mStg[1]) return -1;
-      if (mStg[1] > other.mStg[1]) return 1;
-      return 0;
-      */
     }
     bool operator==(const P4Atom other) const { return compareTo(other) == 0; }
     bool operator!=(const P4Atom other) const { return compareTo(other) != 0; }

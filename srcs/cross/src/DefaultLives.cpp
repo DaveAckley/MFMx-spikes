@@ -29,7 +29,7 @@ namespace MFM {
   }
 
   static int justLive(HostBlock & hb) {
-    //    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
+    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
@@ -55,7 +55,7 @@ namespace MFM {
 
   int __attribute__((weak)) initB() { return weakInit(); }
   int __attribute__((weak)) initT0() { return weakInit(); }
-  int __attribute__((weak)) initT1() { return weakInit(); } // NOTE FastT1.cpp has a strong initT2 for logging
+  int __attribute__((weak)) initT1() { return weakInit(); }
   int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2 for PRNG
   int __attribute__((weak)) initNC() { return weakInit(); }
 
@@ -66,7 +66,7 @@ namespace MFM {
   int __attribute__((weak)) liveNC(HostBlock & hb) { return justLive(hb); }
 
   int __attribute__((weak)) stepB(HostBlock & hb) { return 0; }
-  int __attribute__((weak)) stepT0(HostBlock & hb) { return 0; }
+  int __attribute__((weak)) stepT0(HostBlock & hb) { return 0; } // NOTE FastT0.cpp has a strong stepT0
   int __attribute__((weak)) stepT1(HostBlock & hb) { return 0; }
   int __attribute__((weak)) stepT2(HostBlock & hb) { return 0; }
   int __attribute__((weak)) stepNC(HostBlock & hb) { return 0; } // NOTE FastNC.cpp has a strong stepNC

@@ -83,7 +83,7 @@ namespace MFM {
     // create dir to hold all the rest.
     std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
     std::filesystem::create_directories(hostlogdir+"host/");  // for other BHTags
-    std::string logpath = hostlogdir + "all.txt";
+    std::string logpath = hostlogdir + "all.mfmk";            // MFMxLogJumpr extension
     hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
     fprintf(hostlogfile,"pid=%d,tid=%lu\n",
             ::getpid(),
@@ -102,7 +102,7 @@ namespace MFM {
     else
       keypath.append("/host/");
     keypath.append(key.to_string());
-    keypath.append(".dat");
+    keypath.append(".mfmk");
       
     std::ofstream ofs(keypath, std::ios::app);
     ofs << "---" << runTimeSeconds() << "---" << std::endl;
@@ -117,7 +117,7 @@ namespace MFM {
     else
       keypath.append("/host/");
     keypath.append(key.to_string());
-    keypath.append(".dat");
+    keypath.append(".mfmk");
       
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
     static auto last = runTimeSeconds();

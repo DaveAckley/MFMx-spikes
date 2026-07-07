@@ -102,6 +102,30 @@ SECTIONS
        *(.text.*)             # All executable code from input files (e.g., from templates)
      } > L1
 
+    .rodata_fp_table_t0 :
+    {
+       . = ALIGN(4);
+       __start_rodata_fp_table_t0 = .;
+       KEEP(*(SORT(.rodata_fp_table_t0*)))
+       __end_rodata_fp_table_t0 = .;
+    } > L1
+
+    .rodata_fp_table_t1 :
+    {
+       . = ALIGN(4);
+       __start_rodata_fp_table_t1 = .;
+       KEEP(*(SORT(.rodata_fp_table_t1*)))
+       __end_rodata_fp_table_t1 = .;
+    } > L1
+
+    .rodata_fp_table_t2 :
+    {
+       . = ALIGN(4);
+       __start_rodata_fp_table_t2 = .;
+       KEEP(*(SORT(.rodata_fp_table_t2*)))
+       __end_rodata_fp_table_t2 = .;
+    } > L1
+
     .rodata_fp_table_nc :
     {
        . = ALIGN(4);

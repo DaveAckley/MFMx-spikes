@@ -16,6 +16,10 @@ project(
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+# Mon Jul  6 00:28:07 2026 No color in emacs *compilation* buffer okay
+# Mon Jul  6 11:22:33 2026 now handled by emacs filter?
+#set(CMAKE_COLOR_MAKEFILE OFF)
+
 # --- Define PRIMARY_CMAKE_RUNNING cache variable ---
 # It defaults to OFF if not passed via -DPRIMARY_CMAKE_RUNNING=1
 if(NOT DEFINED PRIMARY_CMAKE_RUNNING)
@@ -83,3 +87,24 @@ endif()
 # Example of a dummy target in the top-level, if needed
 # add_executable(top_level_exe src/top_level.cpp)
 # target_include_directories(top_level_exe PRIVATE "${FILE_IDS_HEADER_DIR_FOR_THIS_BUILD}")
+
+# ── Build-success trigger ──────────────────────────────────────────────
+# Absolute path to the trigger file your bash watcher script looks for.
+# This is written ONLY after a successful top-level build completes.
+#set(TRIGGER_FILE "${CMAKE_BINARY_DIR}/BUILT.new")
+
+# Create a target that produces the trigger file.
+# # ALL makes it part of the default build, and DEPENDS ensures it runs last.
+# add_custom_target(write_build_trigger ALL
+#   DEPENDS ${CMAKE_PROJECT_NAME}   # see note below
+#   COMMAND ${CMAKE_COMMAND} -E touch "${TRIGGER_FILE}"
+#   COMMENT "Writing build-success trigger file"
+#   VERBATIM
+# )
+
+# # Top-level CMakeLists.txt (near the end)
+# add_custom_target(write_build_trigger ALL
+#   COMMAND ${CMAKE_COMMAND} -E touch "${TRIGGER_FILE}"
+#   COMMENT "Writing build-success trigger file"
+#   VERBATIM
+# )

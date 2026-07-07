@@ -130,7 +130,7 @@ namespace MFM {
             U16C e = o+s;
             std::string rep = s.to_string()+"@"+o.to_string()+"-"+e.to_string();
             Eprintf("\n %s,HUBADDED at %p from 0x%08x noc[%u,%u] %s\n",
-                    BHTag::t6adt(mChipNum,toTLBI),t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
+                    BHTag::t6adt(mChipNum,toTLBI).c_str(),t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
             if (false) {
               // MORE DEBUG
               U16C globalsize = DG::getGlobalGridSize();
@@ -626,7 +626,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
             Eprintf("%.03f %s[%s] %s STUCK?\n%s:%u: %s\n",
                     runTimeSeconds(),
-                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y),
+                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
                     t6i.getName().c_str(),
                     hartName(hart),
                     path,

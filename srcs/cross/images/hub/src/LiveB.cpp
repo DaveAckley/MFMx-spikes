@@ -13,7 +13,6 @@ namespace MFM {
 
   struct FastB {
     GridManager mGridManager;
-    ACacheBlockPrivateControl mPACBControl;
   };
   FAST_LOCAL(FastB,fB,b);
 
@@ -22,6 +21,14 @@ namespace MFM {
   DLGridList theDLGridList;
 
   bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+    {
+      static u32 spin = 0u;
+      if ((++spin & 0x3f'ffff) == 0) {
+        HBXTAG(hubPrcHC,spin);
+        LOGXTAG(hubPrcHCL,spin);
+      }
+    }
+
     if (theEwpL1Data.isUninitted(ngbidx)) return false;
 
     if (!theEwpL1Data.isActive(ngbidx)) {
@@ -38,7 +45,11 @@ namespace MFM {
 
     u8 carindex;
     if (!crbi.remove(carindex)) return false; // no arriving cars
-    //    HBPTAG(hub/prcHC|0,&theT6Grid);
+    {
+      static u32 spin = 0u;
+      if (((spin++) & 0xfffff) == 0)
+        HBXTAG(hub_prcHC,spin);
+    }
 
     HBASSERT_LS(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
@@ -46,6 +57,7 @@ namespace MFM {
     //    HBPTAG(hub/INSIZ,car.currentTCSize());
     EwpPayload & pay = car.payload();
 
+    //    LOGPTAG(EwpPay,carindex);
     fB.mGridManager.applyEWT(pay);
 
     //    HBPTAG(plCODE,(u32) pay.mPayloadState.mPayloadCode);
@@ -119,31 +131,37 @@ namespace MFM {
     preloadT2Mailbox();
     theDLGridList.init();
     fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
-    fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
+    // moved to T1 fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
     HBPTAG(INIT-,fAll.mNoC0);
     return 0;
   }
 
   int liveB(HostBlock & hb) {
-    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
+    HBNOTE("liveB");
     //hb.addBytes('L',hartChar(fAll.mHartNum));
+    if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     HBMARK;
+    LOGMARK;
 
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      if ((++spin & 0xffff) == 0) {
-        HBPTAG(horg,spin/0xffff); // generate some HB logging please?
-        LOGPTAG(zorg,spin/0xffff); // generate SOME logging please?
-        LOGPTAG(hub/liveB,spin); // generate SOME logging please?
+      const u32 BITS = 15;//16;
+      const u32 LIM = (1<<BITS)-1;
+      if ((++spin & LIM) == 0) {
+        HBPTAG(horg,spin>>BITS); // generate some HB logging please?
+        LOGPTAG(zorg,spin>>BITS); // generate SOME logging please?
+        //        LOGPTAG(hub/liveB,spin); // generate SOME logging please?
         if (false) {
           static bool once;
           if (!once) theDLGridList.demo();
           once = true;
         }
-        hb.hartbeat(fAll.mHartNum);
       }
+      if ((spin & 0x3ff) == 0)
+        hb.hartbeat(fAll.mHartNum);
+
       bool work = false;
       for (u32 i = 0u; i < 4u; ++i) {
         if (processInterHubCars(i,hb,(i&1)==0)) {
@@ -159,8 +177,9 @@ namespace MFM {
 
       //work = true;
       
-      if (!work)
-        breathe();
+      if (!work) {
+        //breathe();
+      }
     }
     return 0;
   }

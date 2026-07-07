@@ -8,6 +8,7 @@
 #include "EventWindow.h"
 #include "EwpBlock.h"
 #include "Physics.h"
+#include "HartTasks.h" // for HTFuncPtr
 
 namespace MFM {
 
@@ -19,8 +20,7 @@ namespace MFM {
 
   bool processEwpCars(HostBlock & hb,bool inside) {
     if (!theEwpL1Data.isActive(0)) {
-      HBNOTE("ePROCBLOC");
-      SNAP(5,HBPVAL(theEwpL1Data.getPublicEPState(0)));
+      SNAP(5,HBPTAG(ePROCBLOC,theEwpL1Data.getPublicEPState(0)));
       return false;             // wait a bit
     }
 
@@ -60,6 +60,7 @@ namespace MFM {
 
   int liveB(HostBlock & hb) {
     MFM_API_ASSERT(hb.goodMagic(),ILLEGAL_STATE);
+    HBPTAG(@,__FUNCTION__);
 
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
@@ -75,4 +76,25 @@ namespace MFM {
     }
     return 0;
   }
+
+  RCFlag manageEwpDemoT0(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+      HBMARK;
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+      static u32 spin = 0;
+      //// LIFE
+      static constexpr u32 BITS = 13;
+      if ((spin++ & ((1u<<BITS)-1)) == 0) {
+        HBPTAG(ewpdemo,spin>>BITS);
+        LOGPTAG(ewpdemo,spin>>BITS);
+      }
+    } else LOGPTAG(unknown htoc,htoc);
+    return ret;
+  }
+  __attribute__((section(".rodata_fp_table_t0")))
+  HTFuncPtr demoT0 = &manageEwpDemoT0;
+
 }

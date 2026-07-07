@@ -1,5 +1,5 @@
 #include "ZotBlock.h"
-#include "FastNC.h" // for EPFuncPtr
+#include "HartTasks.h" // for HTFuncPtr
 
 namespace MFM {
   T6EPL1Data<ZotBlockStg,2> theZotBlockL1Data;
@@ -39,13 +39,16 @@ namespace MFM {
     }                                                                   \
   } while (0);
 
-  static bool manageZotzNC(bool doInit) {
-    bool ret = false;
-    if (unlikely(doInit)) {
+  static RCFlag manageZotzNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
       //      setGlobalDebugHook(zotBlockHook);
 
       theZotBlockL1Data.reset(); // zero all
       
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+
       ZotBlockStg (&theZotBlockCarsIO)[2] = theZotBlockL1Data.mTheTCStorages;
       for (u32 i = 0; i < sizeof(theZotBlockCarsIO)/sizeof(theZotBlockCarsIO[0]); ++i) {
         ZotBlockStg & zbs = theZotBlockCarsIO[i];
@@ -66,17 +69,16 @@ namespace MFM {
       myZotEPIN.activate();
       myZotEPOUT.activate();
       assertZotBlocksInitted() ;
-      ret = true;
-    } else {
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
       assertZotBlocksInitted() ;
-      if (myZotEPIN.updateOps()) ret = true;
-      if (myZotEPOUT.updateOps()) ret = true;
+      myZotEPIN.updateOps();
+      myZotEPOUT.updateOps();
     }    
     return ret;
   }
 
   __attribute__((section(".rodata_fp_table_nc")))
-  EPFuncPtr zotEPPtr = &manageZotzNC;
+  HTFuncPtr zotEPPtr = &manageZotzNC;
 
   void ZotEP::initZotEP(EndPointAddress srcEPA, bool isin, Super::L1Data & l1data) {
     HBPTAG(initZ,this->getName());

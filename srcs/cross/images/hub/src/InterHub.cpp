@@ -1,5 +1,5 @@
 #include "InterHub.h"
-#include "FastNC.h" // for EPFuncPtr
+#include "HartTasks.h" // for HTFuncPtr
 #include "T6CellO.h"
 #include "Debug.h"
 #include "FastLocal.h" // for fAll
@@ -13,10 +13,11 @@ namespace MFM {
 
   FAST_LOCAL_ARRAY(InterHubEP,4,myInterHubEP,n);
 
-  static bool manageInterHubNC(bool doInit) {
-    bool ret = false;
+  static RCFlag manageInterHubNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
 
-    if (unlikely(doInit)) {
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+
       HBNOTE("IHUBARO");
       //// ONE-TIME INITS
       theInterHubL1Data.reset(); // zero all
@@ -35,7 +36,7 @@ namespace MFM {
       //HBPVAL(ourCellNum);
       for (u8 d = D4_N; d <= D4_E; ++d) {
         S8C offc = S8C::makeS8CFromDir4((Dir4) d);
-        HBPVAL(d);
+        //        HBPVAL(d);
         //HBPVAL(offc);
         S8C norgct6 = (ourCellNum + offc) * ourstride + cb.mLayoutOffset;
         S8C nhubct6 = norgct6 + cello.mUsCellPos;
@@ -47,11 +48,11 @@ namespace MFM {
           U8C atnoc0 = U8C::makeNoC0CoordFromCT6Coord(atct6);
           {
             S8C ngbct6off = nhubct6-ourct6;
-            HBPTAG(BDII,ngbct6off);
+            //            HBPTAG(BDII,ngbct6off);
 
             T6Neighbor ngb;
             if (ngb.init(ournoc0,ngbct6off)) {
-              ImageBlockAddr usiba = ngb.findIBAIfAny(BC_INTERHUB, /*debug=*/true);
+              ImageBlockAddr usiba = ngb.findIBAIfAny(BC_INTERHUB, /*debug=*/false);
               //HBNOTE("BNGI");
               //HBXVAL((u32) usiba.mIBAMagic);
               MFM_API_ASSERT(usiba.isValid(),ILLEGAL_STATE);
@@ -63,7 +64,7 @@ namespace MFM {
               //HBPTAG(IHEP-WEIN,weAreIn);
               ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
               InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d];
-              HBPTAG(ihepind,&ihstg);
+              //              HBPTAG(ihepind,&ihstg);
               for (u32 c = 0; c < ihstg.getCarCount(); ++c) {
                 InterHubBlock & ihb = ihstg.getTC(c);
                 ihb.init();
@@ -75,17 +76,19 @@ namespace MFM {
         }
       }
 
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+
       HBNOTE(GOFI);
       for (u8 d = D4_N; d <= D4_E; ++d) {
-        HBPTAG(ihdir,d);
-        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
+        //        HBPTAG(ihdir,d);
+        //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
         if (theInterHubL1Data.getPublicEPState(d) != EPState::CONFIGURED) continue;
         myInterHubEP[d].activate(); // release the hounds
         HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
       }
       HBMARK;
 
-    } else {
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
       //      HBXTAG(IHLIV,0);
       //// LIVING
       for (u32 n = 0; n < 4; ++n) {
@@ -94,16 +97,14 @@ namespace MFM {
         if (!myIHEPNC.isInitted()) continue;
 
         //        HBPTAG(IHUO,n);
-        if (myIHEPNC.updateOps()) {
-          ret = true;
-          //          HBMARK;
-        }
+        myIHEPNC.updateOps();
+        //          HBMARK;
       }
-    }
+    } else LOGPTAG(unknown htoc,htoc);
 
     return ret;
   }
   
   __attribute__((section(".rodata_fp_table_nc")))
-  EPFuncPtr interhubEPPtr = &manageInterHubNC;
+  HTFuncPtr interhubEPPtr = &manageInterHubNC;
 }

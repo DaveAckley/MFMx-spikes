@@ -3,16 +3,55 @@
 #include "FastT0.h"
 #include "ExtraConstants.h"
 #include "FastT2.h" // for preloadT2Mailbox
+#include "EP_LogBlock.h" // for theLogBlockL1Control
 #include "Printf.h"
 #include "CrossUtils.h"
 #include "Debug.h"
+#include "HartTasks.h" // for HTFuncPtr
 
 namespace MFM {
+  extern "C" char __start_rodata_fp_table_t0[];
+  extern "C" char __end_rodata_fp_table_t0[];
+
   static const volatile u32 * RISCV_DEBUG_REG_WALL_CLOCK_LO = (volatile u32 *) 0xffb1'21f0u;
   static const volatile u32 * RISCV_DEBUG_REG_WALL_CLOCK_HA = (volatile u32 *) 0xffb1'21f4u;
   static const volatile u32 * RISCV_DEBUG_REG_WALL_CLOCK_HI = (volatile u32 *) 0xffb1'21f8u;
 
   struct FastT0 {
+    void init() {
+      memset_s(this,'\0',sizeof(*this));
+      copyHTFuncsT0();
+    }
+
+    static constexpr u32 MAX_HTFUNCS_T0 = 6u;
+    HTFuncPtr mHTFuncsT0[MAX_HTFUNCS_T0];
+    u8 mHTFuncsInUseT0;
+
+    void copyHTFuncsT0() {
+      LOGMARK;
+
+      HTFuncPtr* start_addr = (HTFuncPtr*) &__start_rodata_fp_table_t0;
+      HTFuncPtr* end_addr = (HTFuncPtr*) &__end_rodata_fp_table_t0;
+
+      u32 ptrCount = end_addr - start_addr;
+      HBPTAG(ptrC,ptrCount);
+      MFM_API_ASSERT(ptrCount < MAX_HTFUNCS_T0,OUT_OF_ROOM);
+      for (u32 i = 0u; i < ptrCount; ++i) 
+        mHTFuncsT0[i] = start_addr[i];
+      mHTFuncsInUseT0 = (u8) ptrCount;
+    }
+
+    void stepHTFuncsT0() {
+      for (u32 j = 0u; j < mHTFuncsInUseT0; ++j) {
+        u32 i = j;
+        HTFuncPtr epf = mHTFuncsT0[i];
+        SNAP(3,HBPTAG(runT0,(void*) epf));
+        if (epf) {
+          (*epf)(HTOC_LIVE);
+        }
+      }
+    }
+    
     u64 debugTimestamperStart;
     u32 debugTicksElapsed;
     u32 lastMillisElapsed;
@@ -33,13 +72,29 @@ namespace MFM {
   u32 t0TicksElapsed;
   u32 totalMillisElapsed;
 
-  u32 millisElapsed() { return totalMillisElapsed; }
+  u32 millisElapsed() {
+    memoryFence();
+    return totalMillisElapsed;
+  }
+
+  u32 ticksElapsed() {
+    memoryFence();
+    return t0TicksElapsed;
+  }
+
+  int MYstepT0(HostBlock & hb) {
+    SNAP(10,HBPTAG(@,__FUNCTION__));
+    fT0.stepHTFuncsT0();
+    return 0;
+  }
 
   int liveT0(HostBlock & hb) {
     //DP.printf("T0:RND %d\n",create(100));
+    /*
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
     t0TicksElapsed = 0u;
+    */
 
     u16 spin = 0u;
     u32 aiFreq = hb.mAIClockFrequency;
@@ -56,16 +111,19 @@ namespace MFM {
         fT0.newMillisElapsed = (u32) ((1000 * cycles) / aiFreq);
         if (fT0.newMillisElapsed != fT0.lastMillisElapsed) { // don't hit L1 til new milli
           fT0.lastMillisElapsed = fT0.newMillisElapsed;
-          totalMillisElapsed = fT0.lastMillisElapsed;
+          totalMillisElapsed = fT0.newMillisElapsed;
           aiFreq = hb.mAIClockFrequency; // and refresh aiFreq then too, just in case
-          // CALL STEPT0 ONCE PER MILLI!
-          stepT0(hb);
+          // CALL STEPT0 ONCE PER ~MILLI!
+          MYstepT0(hb);
         }
       }
 
       if (fT0.debugTicksElapsed != ticksElapsed) {
-        if (ticksElapsed % 1000u == 0) { // ~8s -> ~5.5s
-          hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
+        const u32 LIM = 10000;
+        if (ticksElapsed % LIM == 0) { // ~8s -> ~5.5s
+          HBPTAG(10kticks,ticksElapsed/LIM);
+          LOGPTAG(10kticksl,ticksElapsed/LIM);
+          //hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors
@@ -76,8 +134,8 @@ namespace MFM {
 
   int initT0() {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    HBNOTE("initT0");
-    preloadT2Mailbox();
+    fT0.init();
+    HBNOTE(init T0);
     return 0;
   }
 
@@ -85,4 +143,57 @@ namespace MFM {
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     return liveT0(hb);          // go do your hart t0 thing you
   }
+
+  // called by initseq and by stepHTFuncsT0
+  RCFlag manageLogBlockT0(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+
+      HBMARK;
+      theLogBlockL1Control.init();
+      HBMARK;
+      //ret = true;
+
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGMARK;
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+
+      static u32 spin = 0;
+      //// LIFE
+      static constexpr u32 BITS = 13;
+      if ((spin++ & ((1u<<BITS)-1)) == 0) {
+        LOGPTAG(LBStep,spin>>BITS);
+      }
+
+      HostBlock & hb = theHostBlock;
+      theLogBlockL1Control.step(hb);      
+    } else LOGPTAG(unknown htoc,htoc);
+
+    return ret;
+  }
+
+  __attribute__((section(".rodata_fp_table_t0")))
+  HTFuncPtr logT0 = &manageLogBlockT0;
+
+  ////////
+  TEFResult TaskEpochFunction_CLOCK(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+    switch (hei) {
+    case HE_BEGIN:
+      HBNOTE(init CLOCK);
+      initT0();
+      fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
+      fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
+      t0TicksElapsed = 0u;
+      break;
+    default:
+      FAIL(UNREACHABLE_CODE);
+    }
+    return TEFR_CONTINUE;
+  }
+
+
 }
+
+
+

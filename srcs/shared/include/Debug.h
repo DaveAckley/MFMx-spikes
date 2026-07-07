@@ -15,6 +15,14 @@ namespace MFM {
   do { if (theGlobalDebugHook) (*theGlobalDebugHook)(GET_FILE_ID(__FILE__),__LINE__); } while (0)
   
 
+#define EACH(COUNT,CODE)                          \
+  do {                                            \
+    static u32 __EACHNUM__ = 0u;                  \
+    if ((__EACHNUM__++ % COUNT) == 0) {           \
+      CODE;                                       \
+    }                                             \
+  } while (0)
+
 #define SNAP(COUNT,CODE)                        \
   do {                                          \
   static u32 __count = 0u;                      \
@@ -25,12 +33,21 @@ namespace MFM {
   } while (0)
 
 
+#define LOGPX(EXPR) LOGPTAG(EXPR,EXPR)
+#define LOGXX(EXPR) LOGXTAG(EXPR,EXPR)
 #define LOGMARK FIDLMARKLG(GET_FILE_ID(__FILE__),__LINE__)
 #define FIDLMARKLG(F,L) do {                                            \
     markLogBlock(F,L, getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode)); \
   } while (0)
 
 #define LOGNOTE(MSG) LOGPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode))
+
+#define LOGATOM(ATOM) FIDLMARKLGATOM(GET_FILE_ID(__FILE__),__LINE__,ATOM)
+#define FIDLMARKLGATOM(F,L,ATOM) do {                                   \
+    markLogBlock(F,L,ATOM);                                             \
+  } while (0)
+
+#define LOGMSG(MSG) FIDLMARKLGMSG(GET_FILE_ID(__FILE__),__LINE__,MSG)
 #define FIDLMARKLGMSG(F,L,MSG) do {                                     \
     markLogBlock(F,L,MSG);                                              \
   } while (0)
@@ -76,6 +93,9 @@ namespace MFM {
 #define HBXTAG64(TAG,PRTABLEVAL) FIDLXTAG64(GET_FILE_ID(__FILE__),__LINE__,TAG,PRTABLEVAL)
 #define FIDLXTAG64(F,L,T,P) do { markHostBlock64(F,L,(P)," " #T ":"); } while(0)
 
+#define HBPX(EXPR) HBPTAG(EXPR,EXPR)
+#define HBXX(EXPR) HBXTAG(EXPR,EXPR)
+
 #define HBASSERT_COMP(A,B,OP) do {              \
   if (!(A OP B)) {                              \
     HBPTAG(HBANG!,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode)); \
@@ -85,9 +105,27 @@ namespace MFM {
   MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
   } while(0)
   
-#else
+#else //ifndef BUILD_HOST
+#include "HostUtils.h"
 
-#define SNAP(COUNT,CODE) do { } while (0)
+#define EACH(COUNT,CODE)                          \
+  do {                                            \
+    static u32 __count = 0u;                      \
+    if ((__count++ % COUNT) == 0) {               \
+      CODE;                                       \
+    }                                             \
+  } while (0)
+
+#define SNAP(COUNT,CODE)                        \
+  do {                                          \
+  static u32 __count = 0u;                      \
+  if (__count++ < COUNT) {                      \
+    CODE;                                       \
+  }                                             \
+  if (__count == COUNT) HTprintf("SNAPT %ul\n",__count);  \
+  } while (0)
+
+
 #define HBMARK do { } while (0)
 #define HBNOTE(MSG) do { } while (0)
 #define HBPVAL(INTISHVAL) do { } while (0)
@@ -98,11 +136,15 @@ namespace MFM {
   MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
  } while(0)
 
+#define LOGPX(EXPR) do { } while (0)
+#define LOGXX(EXPR) do { } while (0)
 #define LOGMARK do { } while (0)
 #define LOGNOTE(MSG) do { } while (0)
+#define LOGATOM(MSG) do { } while (0)
+#define LOGMSG(MSG) do { } while (0)
 #define LOGPVAL(PRTABLEVAL) do { } while (0)
 #define LOGPTAG(TAG,PRTABLEVAL) do { } while (0)
-#define LOGPTAG64(TAG,PRTABLEVAL) do { } while (0)
+#define LOGXTAG(TAG,PRTABLEVAL) do { } while (0)
 
 #endif
 

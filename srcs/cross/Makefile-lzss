@@ -1,0 +1,23 @@
+SRCDIR:=$(realpath .)
+RBINDIR:=../../bin
+BINDIR:=$(realpath $(RBINDIR))
+PROG:=$(BINDIR)/testit
+SRC:=$(SRCDIR)/lzssx.c
+TMPCMP:=/tmp/file.lzss
+TMPDEC:=/tmp/file.txt
+
+all:	test
+
+test:	$(PROG)
+	$(PROG) e $(SRC) $(TMPCMP)
+	$(PROG) d $(TMPCMP) $(TMPDEC)
+	diff $(SRC) $(TMPDEC)
+
+$(PROG):	$(SRC) Makefile
+	gcc -I ../include -Wall -pedantic $< -o $@
+
+clean:	FORCE
+	rm -f *~ $(PROG) $(TMPCMP) $(TMPDEC)
+
+
+.PHONY:	FORCE
