@@ -86,6 +86,7 @@ namespace MFM {
     hb->mHostBaseAddrHi = (u32) ((hostBufferBase>>32) & 0xffffffff);
     hb->mAIClockFrequency = (u32) 800'000'000u; // XXX ASSUME 'IDLE' CLOCK SPEED FOR NOW
     hb->mChipNum = mChipNum < U8_MAX ? mChipNum : U8_MAX;
+    hb->mHostFlags = HostBlock::HBF_ASSERT_STOP_LOG; // XXX TRY STOP LOGGING
     hb->mCommonArgs[0] = time(0); // per-run nonce
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
     hb->mHBMagic = HostBlock::HBMAGIC;
@@ -117,7 +118,7 @@ namespace MFM {
           char * l1base = mOurTLBs.getL1HostAddressForTLBI(toTLBI);
           T6Grid * t6gp = (T6Grid*) (l1base + t6gridaddr);
           U8C noc0 = U8C::makeUxCNoCCoordFromTLBI(toTLBI);
-          addHub(toTLBI,*t6gp);
+          addHub(toTLBI,mChipNum);
 
           // XXXXX DEBUG
           if (!image.hasCellBlock()) Eprintf("\nNO CELL BLOCK FOR %u??\n", toTLBI);
@@ -450,13 +451,14 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           c.set(220u,220u,20u);
           break;
 
+        case 4u: // MINFB and
         case 5u: // MAXFB
           {
             constexpr u32 slowBits = 1u;
             u32 val = a.mStg[1]; // get hidden counter
-            u8 rd = (val>>0+slowBits)&0xf; rd = (rd-8)*(rd-8);
-            u8 gd = (val>>4+slowBits)&0xf; gd = (gd-8)*(gd-8);
-            u8 bd = (val>>8+slowBits)&0xf; bd = (bd-8)*(bd-8);
+            u8 rd = (val>>0+slowBits)&0xf; rd = (rd-8)*(rd-8); // underflow
+            u8 gd = (val>>4+slowBits)&0xf; gd = (gd-8)*(gd-8); // overflow
+            u8 bd = (val>>8+slowBits)&0xf; bd = (bd-8)*(bd-8); // whatever
             c.set(50u+3u*rd,50u+3u*gd,50+3u*bd);
             if (false)
               Eprintf("(%u,%u) fbrgb(%u,%u,%u)\n",
@@ -472,7 +474,8 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         {
           U16C pixc = t6origin+atomc;
           bgr.setPixel(pixc, c);
-          RGBPix reread = bgr.getPixel(pixc);
+          EACH(10'000'000,Eprintf("RITE2@%u(%u,%u) = #%02x%02x%02x\n", __EACHNUM__, pixc.x,pixc.y, c.mRGB[0],c.mRGB[1],c.mRGB[2]));
+          //RGBPix reread = bgr.getPixel(pixc);
           if (false)
             Eprintf("RITE2(%u,%u) = 0x%02x%02x%02x\n",
                     pixc.x,pixc.y,
@@ -502,26 +505,29 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
   }
 
   s32 CodeManager::scanHubGrid() {
+    FAIL(DEIMPLEMENTED_CODE);
+    /*
     s32 ret = 0;
-    for (auto & item : mHubTLBIToT6Grid) {
-      HubTLBI tlbi = item.first;
-      ChangeCount ccnt = item.second.first;
-      T6Grid * tgp = item.second.second;
+    for (auto & item : mHubTLBIToHubValue) {
+      HubTLBI tlbi = item.second.mTLBI;
+      ChangeCount ccnt = item.second.mChangeCount;
+      T6Grid * tgp = item.second.mT6GridPtr;
 
       u32 tcnt = readT6GridTotalChanges(*tgp,tlbi);
       if (ccnt != tcnt) {
-        item.second.first = tcnt;
+        item.second.mChangeCount = tcnt;
         readAndDisplayT6Grid(*tgp,tlbi);
         ret++;
       }
     }
     return ret;
+    */
   }
 
 #if 0 // OLD  
   s32 CodeManager::scanHubGrids() {
     s32 ret = 0;
-    for (auto & item : mHubTLBIToT6Grid) {
+    for (auto & item : mHubTLBIToHubValue) {
       HubTLBI tlbi = item.first;
       ChangeCount ccnt = item.second.first;
       T6Grid * tgp = item.second.second;
@@ -548,6 +554,25 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     return ret;
   }
 #endif
+
+  std::string CodeManager::getFIDLIfAny(const char * imageName, u32 codeByteAddr, std::string * optfuncptr) {
+    const std::string script_path = std::string(SPIKE_DIR)+"/../../notes/pc2FIDLs.pl";
+    char buf[11];
+    std::snprintf(buf,sizeof(buf),"0x%06x",codeByteAddr);
+    std::string cmd = script_path
+      + " " + SPIKE_NAME
+      + " " + imageName
+      + " " + buf;
+    std::string fidlfunc = execShellCmd(cmd);
+    size_t eol = fidlfunc.find('\n',0);
+    size_t splitat = (eol==std::string::npos ? fidlfunc.size() : eol);
+    std::string fidl = fidlfunc.substr(0,splitat);
+    std::string func = splitat < fidlfunc.size() ? fidlfunc.substr(splitat+1,std::string::npos) : "";
+
+    if (fidl=="" || fidl[0]=='?') return "";
+    if (optfuncptr) *optfuncptr = func;
+    return fidl;
+  }
 
   s32 CodeManager::slowScanHostBlocks() {
     if (mLastTLBISlowScanned >= OurTLBs::AHAX_TLBI_L1_LAST_UNI)
@@ -631,7 +656,17 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           + " " + spike_name
           + " " + image_name
           + " " + buf;
-        std::string fidl = execShellCmd(cmd);
+        std::string fidlfunc = execShellCmd(cmd);
+        size_t eol = fidlfunc.find('\n',0);
+        size_t splitat = (eol==std::string::npos ? fidlfunc.size() : eol);
+        std::string fidl = fidlfunc.substr(0,splitat);
+        std::string func = splitat < fidlfunc.size() ? fidlfunc.substr(splitat+1,std::string::npos) : "";
+        
+        if (false)
+          Eprintf("%.03f FIDL[%s] FUNC [%s]\n",
+                  runTimeSeconds(),
+                  fidl.c_str(),
+                  func.c_str());
         std::string flag = info.mStuckDog[hart] ? "NOFID" : "LIVE";
         if (fidl == "") {
           Eprintf("%.03f %s[%s] %s %s PCs %s\n",
@@ -642,7 +677,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
                   hartName(hart),
                   buf);
         } else {
-          std::string mark = makeMark(fidl, mChipNum, hb.mNoC0, hartName(hart), std::string("PCs ")+buf);
+          std::string mark = makeMark(fidl, mChipNum, hb.mNoC0, hartName(hart), ((func=="")?std::string("PCs"):func)+" "+buf);
           Eprintf("%.03f %s[%s] %s %s\n",
                   runTimeSeconds(),
                   BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
@@ -659,16 +694,72 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           anystuck = true;
           if (hb.mPerHartFailFileID[hart] != 0) {
             const char * path = GET_PATH_FROM_FILE_ID(hb.mPerHartFailFileID[hart]);
-            while (*path) if (*path++ == '/') break; // hack: eat mfmx/ prefix
-            Eprintf("%.03f %s[%s] %s STUCK?\n%s:%u: %s\n",
+            while (*path) if (*path++ == '/') break; // hack: eat / prefix
+            std::string mark = makeMark(hb.mPerHartFailFileID[hart],
+                                        hb.mPerHartFailFileLine[hart],
+                                        mChipNum, hb.mNoC0, hartName(hart),
+                                        getFailCodeString((FAILCode) hb.mPerHartStatus[hart]));
+            Eprintf("%.03f %s[%s] STUCK? %s\n",
                     runTimeSeconds(),
                     BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
                     t6i.getName().c_str(),
-                    hartName(hart),
-                    path,
-                    hb.mPerHartFailFileLine[hart],
-                    getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
-                    );
+                    mark.c_str());
+            if (true) {
+              OurTLBs::StackBlock sb;
+              Eprintf("%.03f %s %s REGZ sp: 0x%08x, ra: 0x%08x, fp: 0x%08x\n",
+                      runTimeSeconds(),
+                      BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                      t6i.getName().c_str(),
+                      hb.mAtFailRegSP,
+                      hb.mAtFailRegRA,
+                      hb.mAtFailRegFP);
+
+              u32 stackBaseAddr;
+              u32 fpAddr = hb.mAtFailRegFP;
+              u32 words = mOurTLBs.readHartStackAfterFail(nocc,hart,sb,hb.mAtFailRegSP,&stackBaseAddr);
+              for (u32 w = 0; w < words; ++w) {
+                u32 maybeaddr = sb[w];
+                u32 thisAddr = stackBaseAddr + (w<<2);
+                u8 frameFlag = ' ';
+                bool pccheck = true;
+                if (thisAddr  == fpAddr) {
+                  frameFlag = '>';
+                  pccheck = false;           // don't lookup fp values
+                  if (w>1) fpAddr = sb[w-2]; // but link on
+                } else if (thisAddr == fpAddr-4) {
+                  frameFlag = '!';
+                }
+                if (frameFlag == ' ') continue; // drop args/locals?
+                std::string maybefidl = "";
+                std::string maybefunc;
+                if (pccheck && maybeaddr >= 300)  //HACK
+                  maybefidl = getFIDLIfAny(t6i.getName().c_str(),maybeaddr-4,&maybefunc); // -4 => hope for caller addr, not ret addr
+                if (maybefidl != "") {
+                  std::string mark = makeMark(maybefidl, mChipNum, hb.mNoC0, hartName(hart), maybefunc);
+
+                  Eprintf("%.03f %s %s %s 0x%08x%csp[%u] = 0x%08x %s %s\n",
+                          runTimeSeconds(),
+                          BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                          t6i.getName().c_str(),
+                          hartName(hart),
+                          thisAddr,
+                          frameFlag,
+                          w, sb[w],
+                          mark.c_str(),
+                          tryASCIIParse(sb[w]).c_str());
+                } else {
+                  Eprintf("%.03f %s %s %s 0x%08x%csp[%u] = 0x%08x %s\n",
+                          runTimeSeconds(),
+                          BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                          t6i.getName().c_str(),
+                          hartName(hart),
+                          thisAddr,
+                          frameFlag,
+                          w, sb[w],
+                          tryASCIIParse(sb[w]).c_str());
+                }
+              }
+            }
           } else if (false) {
             /*
             Eprintf("%.03f %s[%s] %s NOFID@0x%08x -> 0x%08x = FAIL%d:%s\n",
@@ -692,7 +783,6 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
                 + " " + buf;
               std::string fidl = execShellCmd(cmd);
               std::string mark = makeMark(fidl, mChipNum, hb.mNoC0, hartName(hart), std::string("PCs ")+buf);
-              //Eprintf("PCCMD %s\n",cmd.c_str());
               Eprintf("%.03f %s[%s] NOFID %s\n",
                       runTimeSeconds(),
                       BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),

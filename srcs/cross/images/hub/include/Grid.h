@@ -101,7 +101,10 @@ namespace MFM {
       MFM_API_ASSERT(isValidC(c),ARRAY_INDEX_OUT_OF_BOUNDS);
     }
 
-    u16 getLength() const { return mLength; }
+    u16 getLength() {
+      AtomicScopeLock guard(mLock);
+      return mLength;
+    }
 
     void init() ;
 
@@ -155,7 +158,7 @@ namespace MFM {
       }
       mRoot = c;     // and we're the root either way
       ++mLength;
-      if (!ret) LOGPTAG(mroo,mLength);
+      //SNAP(10'000'000,LOGPTAG(mroo+,mLength));
       return ret;     // meaning moved to front (vs new insert)
     }
 
@@ -187,7 +190,7 @@ namespace MFM {
 
     void _remove(U8C c, bool fromFront) {
       DL2D & d = _get(c);
-      MFM_API_ASSERT(d.isOccupied(),ILLEGAL_STATE);
+      MFM_API_ASSERT(d.isOccupied(),ILLEGAL_ARGUMENT);
       if (mRoot == c) {
         U8C newroot = (fromFront ? d.getNextC() : d.getPrevC());
         mRoot = (newroot == mRoot) ? DL2D::cNONE : newroot;
@@ -199,6 +202,7 @@ namespace MFM {
       d.setNone();
       MFM_API_ASSERT(mLength > 0,ILLEGAL_STATE);
       --mLength;
+      //SNAP(10'000'000,LOGPTAG(mroo-,mLength));
     }
   };
 
@@ -211,8 +215,8 @@ namespace MFM {
     }
 
     S16C siteNumberToOffset(u32 sn) const {
-      MDist4 md;
-      SPoint sp = md.GetPoint(sn); // or fail
+      const MDist4 md;
+      SPoint sp = md.getPoint(sn);
       return S16C(sp);
     }
 
@@ -229,6 +233,7 @@ namespace MFM {
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;
+    u32 mAutoseedWaitCount;
     u32 mEWsOffered;
     u32 mEWsEmptiesShipped;
     u32 mEWsReturned;

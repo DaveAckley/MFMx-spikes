@@ -13,13 +13,24 @@ namespace MFM {
     static const u32 HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
     static const u32 HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..
 
+    enum HostFlags : u8 {
+      HBF_ASSERT_STOP_LOG = 0x01, // block further hblogging if any HBASSERT blows
+      HBF_RSV1 = 0x02,
+      HBF_RSV2 = 0x04,
+      HBF_RSV3 = 0x08,
+      HBF_RSV4 = 0x10,
+      HBF_RSV5 = 0x20,
+      HBF_RSV6 = 0x40,
+      HBF_RSV7 = 0x80
+    };
+
     //// DATA MEMBERS
     u32 mHBMagic;               // MUST BE FIRST u32 BYTES 0..3
 
     s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
     U8C mNoC0;                  // MUST BE BYTES 24..25
     u8 mTLBI, mFails;           // MUST BE BYTES 26..27
-    u8 mChipNum, RSV1, RSV2, RSV3; // MUST BE BYTES 28..31
+    u8 mChipNum, mHostFlags, RSV2, RSV3; // MUST BE BYTES 28..31
     u32 mCommonArgs[2];         // MUST BE BYTES 32..39
 
     u32 mPerHartWatchdog[5];    // spin counter for liveness checks
@@ -28,7 +39,11 @@ namespace MFM {
 
     u32 mAIClockFrequency;
 
-    typedef RingBuffer<u16,12u> LogBuffer;
+    u32 mAtFailRegSP;           // copies of select regs, only
+    u32 mAtFailRegRA;           // valid when failed, intended 
+    u32 mAtFailRegFP;           // for stack dump purposes
+
+    typedef RingBuffer<u16,13u> LogBuffer; //XXX waay big shrink to <=10u?
     LogBuffer mLogBuffer;
 
     u16 mPerHartFailFileID[5];  

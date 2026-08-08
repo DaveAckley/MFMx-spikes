@@ -3,6 +3,8 @@
 #include "Fail.h"
 
 #ifndef BUILD_HOST  // then build for T6/RISCV
+#include "FastLocal.h"          // for fAll
+
 namespace MFM {
   
   inline bool tryLockASM(void* addr) {
@@ -68,8 +70,20 @@ namespace MFM {
 #ifndef BUILD_HOST
   public:
     
-    void lock()  { acquireLockASM(&mLock); }
-    void unlock() { releaseLockASM(&mLock); }
+    void lock()  {
+      // don't try for the lock if already have it doh
+      u8 hartplusone = fAll.mHartNum + 1;  // +1 so 0's not a hart
+      MFM_API_ASSERT(mHartPlusOne != hartplusone,LOCK_FAILURE);
+      acquireLockASM(&mLock);
+      mHartPlusOne = hartplusone;
+    }
+    void unlock() {
+      // don't release a lock that isn't ours doh
+      u8 hartplusone = fAll.mHartNum + 1; 
+      MFM_API_ASSERT(mHartPlusOne == hartplusone,WRONG_HART);
+      mHartPlusOne = 0;
+      releaseLockASM(&mLock);
+    }
     bool tryLock() { return tryLockASM(&mLock); }
     bool peekLock() const { return mLock != 0u; }
 
@@ -77,12 +91,14 @@ namespace MFM {
     AtomicLock(const char * unusedName) : AtomicLock() { }
     AtomicLock()
       : mLock(0)
+      , mHartPlusOne(0)
     {
       MFM_API_ASSERT_L1_ADDRESS(this);
     }
     
   private:
     u32 mLock;
+    u8 mHartPlusOne;
 #else
   public:
     void lock()  { mLock.lock(); }

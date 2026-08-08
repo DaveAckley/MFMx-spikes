@@ -29,24 +29,24 @@ namespace MFM {
     EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
     EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
 
-    //    SNAP(5,HBPVAL(&crbo));
+    SNAP(5,HBPVAL(&crbo));
     memoryFence();
 
     u8 carindex;
     if (!crbi.remove(carindex)) return false; // no arriving cars
-    //    HBPTAG(GOTEWT,(u32) carindex);
+    EACH(10'000,HBPTAG(GOTEWT,(u32) carindex));
 
     EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[0];
-    HBASSERT_LS(carindex, cars.getCarCount());
+    HBASSERT_LT(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
-    //    HBPTAG(ewp/INSIZ,car.currentTCSize());
+    EACH(10'000,HBPTAG(ewp/INSIZ,car.currentTCSize()));
 
     EwpPayload & pay = car.payload();
     bool ret = fB.mThePhysics.doTransition(pay);
 
     car.closeTC(pay.currentPayloadSize()); // ready to go
-    //    HBPTAG(ewp/OUTSIZ,car.currentTCSize());
+    EACH(10'000,HBPTAG(ewp/OUTSIZ,car.currentTCSize()));
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     crbo.add(carindex);         // hand control back to comm
 
@@ -103,9 +103,9 @@ namespace MFM {
     switch (hei) {
 
     default:
-      HBPTAG(!EWPT!,getHartEpochName(hei));
-      break;
+      SNAP(2,HBPTAG(!EWPT!,getHartEpochName(hei)));
+      return TEFR_NO_THANKS;
     }
-    return TEFR_CONTINUE;
+    return TEFR_CONTINUE; // NOT REACHED for the moment
   }  
 }

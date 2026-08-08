@@ -17,7 +17,7 @@ namespace MFM {
     RCFlag f = RCFlag::RC_ZERO;
     if ((++calls & 0x3'ffff) == 0) {
       theHostBlock.hartbeat(fAll.mHartNum);
-      LOGXTAG(ubsCalls,calls);
+      //LOGXTAG(ubsCalls,calls);
       if ((calls & 0xf'ffff) == 0)
         HBXTAG(ubsCallsh,calls+(u32) f);
     }
@@ -25,9 +25,10 @@ namespace MFM {
     //    if (isReadable) return l1dLZBytesIn.isEmpty() ? -2 : 0;
     if (isReadable) return 0;   // never return eof (0 not a real byte here)
     //    LOGMARK;
+    //    EACH(100'000,LOGPTAG(unBS,__EACHNUM__));
     u8 byte;
     if (l1dLZBytesIn.remove(byte)) {
-      SNAP(10,LOGXTAG(UBSZONG,(u32) byte));
+      //      SNAP(20,LOGXTAG(UBSZONG,(u32) byte));
       return (s32) byte;
     }
     //    LOGMARK;
@@ -37,34 +38,22 @@ namespace MFM {
     MFM_API_ASSERT_NONNULL(context);
     ACacheBlockL1Control & acbl1 = *(ACacheBlockL1Control*) context;
     bool ret = acbl1.writeByteToCurrentACB(byte);
-    if (!ret) SNAP(10,LOGXTAG(cBSBLK,(u32)byte));
+    if (!ret) SNAP(3,LOGXTAG(cBSBLK,(u32)byte));
     return ret;
   }
 
   struct FastT1 {
     lzmfmx mLZComp;
     void init() {
-      HBMARK;
+      HBPTAG(fT1,sizeof(FastT1));
       l1dLZBytesIn.init();
       l1dLZBytesOut.init();
       HBMARK;
       mLZComp.init(uncompressedByteSource,0,compressedByteSink,&theACacheBlockL1Control);
       HBMARK;
-#if 1
-
-      u32 spin = 0;
-      ACacheBlockL1Control & acbl1 = theACacheBlockL1Control;
-      while (!acbl1.testFlags(acbl1.ACBL1_T0_INITTED)) { // wait for t0
-        waitALittle();
-        if ((++spin & 0xff'ffff) == 0)
-          HBXTAG(zwait,spin);
-        //          LOGPTAG(zwait,spin);
-      }
-#endif
-      HBNOTE(PastT0InitOK);
-      LOGPTAG(spunOut,spin);
-      acbl1.setFlags(acbl1.ACBL1_T1_INITTED);
       HBNOTE(PastT1InitOK);
+      HBNOTE(WOTNOWBATMAN);
+      theACacheBlockL1Control.setFlags(theACacheBlockL1Control.ACBL1_T1_INITTED);
     }
     void live() {
       HBMARK;
@@ -87,4 +76,6 @@ namespace MFM {
     return 0;
   }
 
+  int initT1(HostBlock & hb) { return myInitT1(); }
+  int liveT1(HostBlock & hb) { return myLiveT1(hb); }
 }

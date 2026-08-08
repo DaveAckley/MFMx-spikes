@@ -92,7 +92,7 @@ namespace MFM {
       return false;
 
     HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
-    HBASSERT_LS(wordcount, PRIVRB_MAXWORDS); // XXX don't be greedy
+    HBASSERT_LT(wordcount, PRIVRB_MAXWORDS); // XXX don't be greedy
     HBASSERT_GT(wordcount, 0); // XXX but insist we're getting something..
 
     //if (debug) HBPVAL(fromnoc0);
@@ -306,9 +306,10 @@ namespace MFM {
     u32 destaddrlow = (u32) (destaddr&0xffffffff);
     u32 destaddrmid = (u32) ((destaddr>>32)&0xffffffff);
     U8C destnoc0 = PCIeTILE_NOC0;
-    u32 usenoc = preferNoC(sourcenoc0,destnoc0); 
+    u32 usenoc = 0;//XXX preferNoC(sourcenoc0,destnoc0); 
     waitTilNRIClear(usenoc); // BLOCKING
 
+    EACH(100'000,{HBPTAG64(inW2H,destaddr);HBPX(usenoc);HBXX(sourcedata);});
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits for source
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(sourcenoc0));
@@ -335,7 +336,7 @@ namespace MFM {
 
     //    HBXTAG(dsar,(u32) destaddr);
     HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
-    HBASSERT_LS(wordCount, 2000); // XXX don't be greedy
+    HBASSERT_LT(wordCount, 2000); // XXX don't be greedy
     HBASSERT_GT(wordCount, 0); // XXX but insist we're getting something..
 
     MFM_API_ASSERT((wordCount*4u)<=(1u<<14),OUT_OF_RESOURCES); // packets don't go over 16KB for this code

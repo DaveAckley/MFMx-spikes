@@ -6,14 +6,15 @@
 namespace MFM {
 
   template<u32 R>
-  MDist<R>::MDist()
-  {
+  void MDist<R>::init() const {
     /* This is once-only so let's be very stupid.  (We'll want to
        precompile all this out later anyway.)  We store the points in
        just one table, sorted by their lengths, and remember where the
        different lengths begin.  This lets us index and select offsets
        of any given length, or contiguous range of lengths, from zero up
        to the R. */
+
+    MFM_API_ASSERT_STATE(!mMDistInitted);
 
     /* Init the reverse lookup table to all 'illegal' */
     for (u32 x = 0; x<EVENT_WINDOW_DIAMETER; ++x)
@@ -48,7 +49,8 @@ namespace MFM {
                 && p.GetManhattanLength() <= length
                 && p.GetMaximumLength() <= max)
             {
-              m_indexToPoint[next] = p;
+              m_indexToPoint[0][next] = p.GetX();
+              m_indexToPoint[1][next] = p.GetY();
               m_pointToIndex[x][y] = next;
               ++next;
             }
@@ -60,19 +62,22 @@ namespace MFM {
     if (next != EVENT_WINDOW_SITES(R))
       FAIL(ILLEGAL_STATE);
 
-    InitEscapesByDirTable();
-    InitHorizonsByDirTable();
-    InitRasterTables();
-    InitESLTables();
+    _initEscapesByDirTable();
+    _initHorizonsByDirTable();
+    _initRasterTables();
+    _initESLTables();
+
+    mMDistInitted = true; // And Don't You Ever Come Back Here
   }
 
   template<u32 R>
-  void MDist<R>::InitRasterTables()
+  void MDist<R>::_initRasterTables()
   {
     /* Yet more once-only and eventually to be pre-compiled into
        const, so for here and now let's see how unbelievably slow and
        obvious we can make this.
     */
+    const MDist<R> md;
     const s32 SR = (s32) R;
     u32 rasterIndex = 0;
     for (s32 y = -SR; y <= SR; ++y)
@@ -80,7 +85,7 @@ namespace MFM {
       for (s32 x = -SR; x <= SR; ++x)
       {
         const SPoint s(x,y);
-        s32 sn = GetSiteNumber(s);
+        s32 sn = md.getSiteNumber(s);
         if (sn >= 0)
         {
           m_rasterToSiteNum[rasterIndex] = sn;
@@ -107,12 +112,13 @@ namespace MFM {
   }
 
   template<u32 R>
-  void MDist<R>::InitESLTables()
+  void MDist<R>::_initESLTables()
   {
     /* Yet more once-only and eventually to be pre-compiled into
        const, so for here and now let's see how unbelievably slow and
        obvious we can make this.
     */
+    const MDist<R> md;
     u32 eslIndex = 0;
     u32 currentESL = U32_MAX;  // flag
     u32 firstESLIdx = 0;
@@ -126,7 +132,7 @@ namespace MFM {
         for (s32 y = -SR; y <= SR; ++y)
         {
           const SPoint s(x,y);
-          s32 sn = GetSiteNumber(s);
+          s32 sn = md.getSiteNumber(s);
           if (sn < 0) continue; // Not in window
 
           u32 thisESL = x*x + y*y;
@@ -169,12 +175,13 @@ namespace MFM {
   }
 
   template<u32 R>
-  void MDist<R>::InitEscapesByDirTable()
+  void MDist<R>::_initEscapesByDirTable()
   {
     /* Again, this is once-only and eventually to be pre-compiled into
        const, so for here and now let's see how unbelievably slow and
        obvious we can make this.
     */
+    const MDist<R> md;
 
     for (u32 d = Dirs::NORTH; d < Dirs::DIR_COUNT; ++d) // For each dir
     {
@@ -196,9 +203,9 @@ namespace MFM {
         // if any, and add their indexes to the d direction of the
         // byDirection array.
 
-        for (u32 idx = this->GetFirstIndex(0); idx <= this->GetLastIndex(R); ++idx)
+        for (u32 idx = md.getFirstIndex(0); idx <= md.getLastIndex(R); ++idx)
         {
-          SPoint rel = this->GetPoint(idx);
+          SPoint rel = md.getPoint(idx);
 
           // How many times do we have to add dirDelta to rel for it
           // to no longer be in the event window?
@@ -224,8 +231,9 @@ namespace MFM {
   }
 
   template<u32 R>
-  void MDist<R>::InitHorizonsByDirTable()
+  void MDist<R>::_initHorizonsByDirTable()
   {
+    const MDist<R> md;
     /* Etc, ditto, unbelievably slow and obvious == good.
     */
 
@@ -260,9 +268,9 @@ namespace MFM {
         for (u32 horizon = R + dirDelta.GetManhattanLength(); horizon >= R + 1; --horizon)
         {
 
-          for (u32 idx = this->GetFirstIndex(0); idx <= this->GetLastIndex(R); ++idx)
+          for (u32 idx = md.getFirstIndex(0); idx <= md.getLastIndex(R); ++idx)
           {
-            SPoint rel = this->GetPoint(idx);
+            SPoint rel = md.getPoint(idx);
 
             // How many times do we have to add dirDelta to rel for it
             // reach the horizon?
@@ -296,19 +304,50 @@ namespace MFM {
   }
 
   template<u32 R>
-  u32 MDist<R>::GetTableSize(u32 maxRadius) const
+  u32 MDist<R>::getTableSize(u32 maxRadius) const
   {
     return EVENT_WINDOW_SITES(maxRadius);
   }
 
+  template<u32 R> u8 MDist<R>::m_rasterToSiteNum[ARRAY_LENGTH];
+  template<u32 R> u8 MDist<R>::m_siteNumToRaster[ARRAY_LENGTH];
+
+  template<u32 R> u8 MDist<R>::m_siteNumToESLNum[ARRAY_LENGTH];
+  template<u32 R> u8 MDist<R>::m_eSLNumToSiteNum[ARRAY_LENGTH];
+  template<u32 R> u8 MDist<R>::m_firstESLValue[2*R+2];  // cutoff distances for ESL rings
+  template<u32 R> u8 MDist<R>::m_firstESLIndex[2*R+2];
+
+  template<u32 R> s32 MDist<R>::m_indexToPoint[2][ARRAY_LENGTH];
+  template<u32 R> s32 MDist<R>::m_pointToIndex[EVENT_WINDOW_DIAMETER][EVENT_WINDOW_DIAMETER];
+
+  template<u32 R> u32 MDist<R>::m_firstIndex[R+2];  // m_firstIndex[R+1] holds 'lastIndex[R]'
+
+  template<u32 R> u8 MDist<R>::m_escapesByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
+
+  template<u32 R> u8 MDist<R>::m_horizonsByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
+
+  template<u32 R> bool MDist<R>::mMDistInitted;
+
+  /*
   template<u32 R>
   const MDist<R>& MDist<R>::get()
   {
-    return THE_INSTANCE;
-  }
+    return THE_INSTANCE.getm();
+    }
 
   template<u32 R>
-  s32 MDist<R>::FromPoint(const SPoint& offset, u32 maxRadius) const
+  MDist<R>& MDist<R>::getm()
+  {
+    if (!THE_INSTANCE_INITTED) {
+      THE_INSTANCE.init();
+      THE_INSTANCE_INITTED = true;
+    }
+    return THE_INSTANCE;
+  }
+  */
+
+  template<u32 R>
+  s32 MDist<R>::fromPoint(const SPoint& offset, u32 maxRadius) const
   {
     u32 x = (u32) (offset.GetX()+R);
     u32 y = (u32) (offset.GetY()+R);
@@ -318,27 +357,25 @@ namespace MFM {
     u32 idx = m_pointToIndex[x][y];
 
     // Ensure we're inside the allowed radius
-    if (idx >= GetFirstIndex(maxRadius+1))
+    if (idx >= getFirstIndex(maxRadius+1))
       return -1;
 
     return (s32) idx;
   }
 
   template<u32 R>
-  void MDist<R>::FillFromBits(SPoint& pt, u8 bits, u32 maxRadius) const
+  void MDist<R>::fillFromBits(SPoint& pt, u8 bits, u32 maxRadius) const
   {
     MFM_API_ASSERT_ARG(bits < ARRAY_LENGTH);
 
-    const SPoint & bp = m_indexToPoint[bits];
-
-    pt.SetX(bp.GetX());
-    pt.SetY(bp.GetY());
+    pt.SetX(m_indexToPoint[0][bits]);
+    pt.SetY(m_indexToPoint[1][bits]);
   }
 
   //static SPoint VNNeighbors[4];
 
   template<u32 R>
-  void MDist<R>::FillRandomSingleDir(SPoint& pt,Random & random) const
+  void MDist<R>::fillRandomSingleDir(SPoint& pt,Random & random) const
   {
     switch(random.Create(4))
       {

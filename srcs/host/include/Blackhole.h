@@ -54,8 +54,9 @@ namespace MFM {
     }
 
     Blackhole(unsigned chip = 0u)
-      : mChipNum(chip)
-      , mCurrentPhase(Phase::HAS_CHIP_NUM)
+      : mCurrentPhase(Phase::HAS_CHIP_NUM)
+      , mChipNum(chip)
+      , mOurTLBs(*this)
       , mQuitTransportThread(false)
       , mCodeManager(mChipNum,mOurTLBs)
       , mTransportThreadMutex("TSPO")
@@ -113,6 +114,8 @@ namespace MFM {
     void * getHostRAMPtrIfAny() { return mOurTLBs.hostRAMPtr(); }
 
     OurTLBs & getOurTLBs() { return mOurTLBs; }
+
+    CodeManager & getCodeManager() { return mCodeManager; }
 
   private:
     void phaseAdvance() ;

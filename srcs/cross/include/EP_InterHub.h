@@ -17,7 +17,7 @@ namespace MFM {
     u32 getCarSize() const { return sizeof(InterHubBlock); }
     InterHubBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      HBASSERT_LS(carindex, CAR_COUNT);
+      HBASSERT_LT(carindex, CAR_COUNT);
       return mOpsDataStg[carindex];
     }
     bool recvTC(InterHubBlock & car, u8 carindex) ;

@@ -25,7 +25,7 @@ namespace MFM {
     u32 getCarSize() const { return sizeof(EwpBlock); }
     EwpBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      HBASSERT_LS(carindex, CAR_COUNT);
+      HBASSERT_LT(carindex, CAR_COUNT);
       return Super::mOpsDataStg[carindex];
     }
     bool recvTC(EwpBlock & car, u8 carindex) ;

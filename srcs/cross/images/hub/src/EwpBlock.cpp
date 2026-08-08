@@ -33,7 +33,7 @@ namespace MFM {
           U8C atcp(x,y);
           if (cello.getImageCodeAtCellP(atcp) == ImageCode::IC_EWP) {
             // we are not ready for more than 8 ewps in our cell
-            HBASSERT_LS(ncount, 8u); 
+            HBASSERT_LT(ncount, 8u); 
             u32 n = ncount++;
             EwpEP<8> & ewpnc = myEwpEPArray[n];
             //HBPVAL(n);

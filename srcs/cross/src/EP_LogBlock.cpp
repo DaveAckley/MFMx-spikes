@@ -12,6 +12,8 @@ namespace MFM {
   FAST_LOCAL(LogBlockEP,myLogBlockEPNC,n);
 
   bool LogBlockL1Control::writeMark(u16 fileid, u16 lineno, const char * msg) {
+    /// ONLY LOG FROM T15!
+    if (theHostBlock.mTLBI != 15) return true;
     //    HBMARK;
     constexpr u32 HDRBYTES = 8u;
     HostBlock & hb = theHostBlock;
@@ -19,16 +21,21 @@ namespace MFM {
     for (const char * p = msg; *p; ++p) { ++msglen; }
     MFM_API_ASSERT(msglen < 250-HDRBYTES, ILLEGAL_ARGUMENT);
     u8 p256len = HDRBYTES + msglen;
-    SNAP(3,HBPTAG(LB1wM10,msg));
+    //SNAP(2,HBPTAG(LB1wM10,msg));
     do {
       AtomicScopeLock guard(mLock);
       if (!mCurrentLogBlock) return false;
-      SNAP(3,HBPTAG(LB1wM11,msg));
+      //SNAP(3,HBPTAG(LB1wM11,msg));
       LogBlock & lb = *mCurrentLogBlock;
       LogBlockPayload & pay = lb.payload();
       u32 br = pay.getBytesRemaining();
-      HBPTAG(LBR,br);
-      if (br <= p256len) return false; // marks missed NYI
+      //SNAP(3,HBPTAG(LBR,br));
+      if (br <= p256len) {
+        if (br < 2*HDRBYTES)
+          return false; // marks missed NYI
+        p256len = br;
+        msglen = p256len-HDRBYTES;
+      }
 
       u32 nowms = millisElapsed();
       u32 diff = nowms - mBaseTicks;
@@ -43,10 +50,10 @@ namespace MFM {
       pay.put_u16(diff16);
       pay.put_u16(fileid);
       pay.put_u16(lineno);
-      for (const char * p = msg; *p; ++p) {
-        pay.put_u8(*p);
+      for (u32 i = 0; i < msglen; ++i) {
+        pay.put_u8(msg[i]);
       }
-      HBPTAG(LBM,msg);
+      //SNAP(5,HBPTAG(LBM,msg));
     } while(0);
     return true;
   }
@@ -64,7 +71,7 @@ namespace MFM {
       }
     }
     HBPTAG(LB1INITOUThb,spin);
-    LOGPTAG(LB1INITOUT,spin);
+    //LOGPTAG(LB1INITOUT,spin);
   }
 
   bool LogBlockL1Control::readyToClose() {
@@ -80,7 +87,8 @@ namespace MFM {
 
     LogBlockPayload & pay = mCurrentLogBlock->payload();
     if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK) {
-      HBPTAG(CLOGspace,pay.mDataUsed);
+      HBPTAG(CLOGspace,this); // XXX pay.mDataUsed);
+      HBPTAG(y2?,this);
       return true;              // close for lack of space
     }
 
@@ -95,7 +103,7 @@ namespace MFM {
     SNAP(4,HBPTAG(LBSUNCi,newcarindex));
         
     LogBlockStg & lbs = theLogBlockL1Data.mTheTCStorages[0];
-    HBASSERT_LS(newcarindex, lbs.getCarCount());
+    HBASSERT_LT(newcarindex, lbs.getCarCount());
     LogBlock & nlb = lbs.getTC(newcarindex);
     HBASSERT_EQ(nlb.getTCState(), TCState::OPEN); 
         
@@ -115,7 +123,7 @@ namespace MFM {
     TheL1Data::CarIdxRB & crbi = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
     TheL1Data::CarIdxRB & crbo = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
 
-    SNAP(4,HBPTAG(L1CSt,mCurrentLogBlock));
+    EACH(1'000,HBPTAG(L1CSt,mCurrentLogBlock));
     //    LOGNOTE("USE UP CURRENT LOG BLOCK! FASTER PUSSYCAT FASTER!");
     //    LOGPTAG(LB1CStep10,mCurrentLogBlock);
 
@@ -144,8 +152,8 @@ namespace MFM {
         LogBlock & olb = *mCurrentLogBlock;
         LogBlockPayload & opay = olb.payload();
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
+        HBPTAG(LB->HN,mCurrentCarIndex);
         got = crbo.add(mCurrentCarIndex); // hand control back to comm
-        //        HBPTAG(LBShipi,mCurrentCarIndex);
         HBASSERT_EQ(got,true);
       }
       // RECEIVING
@@ -249,21 +257,21 @@ namespace MFM {
     switch (hei) {
 
     case HE_BORN1:
-      MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+      if (hartnum != HARTNUM_T0) return TEFR_NO_THANKS;
       HBPTAG(@,__FUNCTION__);
       manageLogBlockT0(HTOC_INIT);
-      break;
+      return TEFR_CONTINUE;
 
     case HE_GROW0:
       HBNOTE(LT);
       LOGNOTE(LOGTESTLOG);
-      break;
+      return TEFR_CONTINUE;
 
     default:
-      HBPTAG(TEFLOG,getHartEpochName(hei));
+      SNAP(2,HBPTAG(TEFLOG,getHartEpochName(hei)));
       break;
     }
-    return TEFR_CONTINUE;
+    return TEFR_NO_THANKS;
   }
   
 

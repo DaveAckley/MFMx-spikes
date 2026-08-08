@@ -33,6 +33,7 @@ namespace MFM {
 
     if (!theEwpL1Data.isActive(ngbidx)) {
       HBPTAG(hPROCBLOC,ngbidx);
+      HBPVAL(getNameFromEPState(theEwpL1Data.getPublicEPState(ngbidx)));
       return false;             // maybe wait a bit
     }
 
@@ -51,7 +52,7 @@ namespace MFM {
         HBXTAG(hub_prcHC,spin);
     }
 
-    HBASSERT_LS(carindex, cars.getCarCount());
+    HBASSERT_LT(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
     //    HBPTAG(hub/INSIZ,car.currentTCSize());
@@ -76,8 +77,8 @@ namespace MFM {
       return false; // unconnected is not an error
 
     if (!theInterHubL1Data.isActive(ngbidx)) {
-      HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx));
-      HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx)));
+      EACH(1'000'000,HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx)));
+      EACH(1'000'000,HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx))));
       return false;             // wait a bit
     }
 
@@ -96,7 +97,7 @@ namespace MFM {
     if (!crbi.remove(carindex)) return false; // no arriving cars
 
     InterHubStorage & cars = theInterHubL1Data.mTheTCStorages[ngbidx];
-    HBASSERT_LS(carindex, cars.getCarCount());
+    HBASSERT_LT(carindex, cars.getCarCount());
     InterHubBlock & car = cars.getTC(carindex);
 
     if (false) {
@@ -128,7 +129,6 @@ namespace MFM {
 
   int myInitB() {
     HBPTAG(INIT+,fAll.mNoC0);
-    // now handled by PRNG task:    preloadT2Mailbox();
     theDLGridList.init();
     fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
     // moved to T1 fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
@@ -151,7 +151,7 @@ namespace MFM {
       const u32 LIM = (1<<BITS)-1;
       if ((++spin & LIM) == 0) {
         HBPTAG(horg,spin>>BITS); // generate some HB logging please?
-        LOGPTAG(zorg,spin>>BITS); // generate SOME logging please?
+        //LOGPTAG(zorg,spin>>BITS); // generate SOME logging please?
         //        LOGPTAG(hub/liveB,spin); // generate SOME logging please?
         if (false) {
           static bool once;

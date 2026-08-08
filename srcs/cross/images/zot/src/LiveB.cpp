@@ -41,7 +41,7 @@ namespace MFM {
     HBPTAG("zot got|",inside);
 
     ZotBlockStg & cars = theZotBlockL1Data.mTheTCStorages[DIR_IDX];
-    HBASSERT_LS(carindex, cars.getCarCount());
+    HBASSERT_LT(carindex, cars.getCarCount());
     ZotBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(),TCState::OPEN); 
     ZotPayload & pay = car.payload();

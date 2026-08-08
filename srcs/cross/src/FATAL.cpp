@@ -7,16 +7,20 @@
 #include "HostBlock.h"
 
 namespace MFM {
-  static void reportFailureHostBlock(unsigned fileId, unsigned line) {
-    extern HostBlock theHostBlock;
-    HostBlock & hb = theHostBlock;
-    u8 hart = fAll.mHartNum;
-    hb.mPerHartFailFileID[hart] = (MFM::u16) fileId;
-    hb.mPerHartFailFileLine[hart] = (MFM::u16) line;
-  }
+  extern HostBlock theHostBlock;
 }
 
 void DieHereNow(signed code, unsigned fileId, unsigned line) {
-  if (fileId != 0u) MFM::reportFailureHostBlock(fileId, line);
+  if (fileId != 0u) {
+    using namespace MFM;
+    HostBlock & hb = theHostBlock;
+    u8 hart = fAll.mHartNum;
+    hb.mPerHartFailFileID[hart] = (u16) fileId;
+    hb.mPerHartFailFileLine[hart] = (u16) line;
+    hb.mAtFailRegSP = getRegisterSP();
+    hb.mAtFailRegRA = getRegisterRA();
+    hb.mAtFailRegFP = getRegisterFP();
+  }
+  volatile MFM::u8 flag[] = "IDIEHERENOW.";
   t6hang(code);
 }

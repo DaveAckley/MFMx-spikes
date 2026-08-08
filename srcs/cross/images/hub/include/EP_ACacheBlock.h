@@ -16,7 +16,7 @@ namespace MFM {
     u32 getCarSize() const { return sizeof(ACacheBlock); }
     ACacheBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      HBASSERT_LS(carindex, CAR_COUNT);
+      HBASSERT_LT(carindex, CAR_COUNT);
       return mOpsDataStg[carindex];
     }
     bool recvTC(ACacheBlock & car, u8 carindex) ;
@@ -30,6 +30,7 @@ namespace MFM {
     AtomicLock mLock;
     ACacheBlock * mCurrentACacheBlock;
     u8 mCurrentCarIndex;        // valid whenever mCurrentACacheBlock != 0
+    u32 mCompressedBytesPacked;
     u32 mBaseTicks;
     u32 mAReportsMissed;
     static constexpr u8 ACBL1_NC_INITTED = 0x01;
@@ -60,18 +61,22 @@ namespace MFM {
       PACK = 3u,              // compressing and shipping ARs
     };
     
+    const char * getStateName(State us) ;
+
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
-    static constexpr u32 BOGOMS_PER_FRAME = 1000u; // XXX 100u
+    static constexpr u32 BOGOMS_PER_FRAME = 100u; // XXX 100u
     
     //    lzmfmx mARCompressor; -> FastT1
     AtomReportIO mARIO;
     ACacheBlockL1Control * mACBL1Control;
     DLGridList * mDLGridList;
+    u32 mUncompressedBytesPacked;
     u32 mARsToSend;
     u32 mFramesSent;
     s32 mSlackMS;
     u32 mNextFrameBogoMS;
     State mState;
+    u16 mARSpinner;
 
     void init(ACacheBlockL1Control & acbl1, DLGridList & dll1) ;
     int step(HostBlock & hb) ;

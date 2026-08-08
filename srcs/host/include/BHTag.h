@@ -38,6 +38,13 @@ namespace MFM {
       , mNoC0(0,0)
     { }
 
+    constexpr BHTag()
+      : mType(TagType::UNINIT)
+      , mChip(0)
+      , mTLBI(0)
+      , mNoC0(0,0)
+    { }
+
     static std::string t6adc(u8 c, u8 x, u8 y) {
       BHTag t(T6TADR,c,x,y);
       return t.to_string();

@@ -25,6 +25,10 @@ namespace MFM {
       mFirstUsedIdx = 0u;
     }
 
+    u32 lengthish() const {
+      return mFirstFreeIdx - mFirstUsedIdx;
+    }
+
     bool hasRoomForNMore(u32 n) const {
       if (n >= RING_BUFFER_SIZE/2) return false; // SHOULD FAIL INSTEAD
       if (unlikely(mFirstFreeIdx >= U32_MAX-n)) {
@@ -49,10 +53,11 @@ namespace MFM {
 #ifndef BUILD_HOST
       // ensure new item store is complete
       writeCommitL1(&mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK], item);
-      ++mFirstFreeIdx;          // before incrementing the pointer
 #else      
-      mRingBuffer[mFirstFreeIdx++ & RING_BUFFER_MASK] = item;
+      // or at least have a sequence point, host-side.
+      mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK] = item;
 #endif
+      ++mFirstFreeIdx;          // before incrementing the pointer
       return true;
     }
 
@@ -61,10 +66,11 @@ namespace MFM {
 #ifndef BUILD_HOST
       // ensure dest store is complete
       writeCommitL1(&dest, mRingBuffer[mFirstUsedIdx & RING_BUFFER_MASK]);
-      ++mFirstUsedIdx;          // before incrementing the pointer
-#else      
-      dest = mRingBuffer[mFirstUsedIdx++ & RING_BUFFER_MASK];
+#else
+      // or at least have a sequence point, host-side.
+      dest = mRingBuffer[mFirstUsedIdx & RING_BUFFER_MASK];
 #endif
+      ++mFirstUsedIdx;          // before incrementing the pointer
       return true;
     }
   };

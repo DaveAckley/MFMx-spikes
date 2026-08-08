@@ -30,10 +30,11 @@ namespace MFM {
 
   template<class SUBEP, class SUBTC>
   bool EP<SUBEP,SUBTC>::updateOps() {
-    bool isLogXX = (this->getName()[0] == 'L');
-    constexpr u32 BS = 40;
+    bool isLogXX = (this->getName()[0] == 'A');
+    constexpr u32 BS = 100;
     char buf[BS];
-    //EACH(100'000,HBPTAG(EPuo,this->report(BS,buf)));
+    EACH(100'000,HBPTAG(EPuo,this->report(BS,buf)));
+    //EACH(10'000,LOGPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     
     bool ret = false;
@@ -41,7 +42,7 @@ namespace MFM {
     while (mGoneCount > 0) {    // if we have gone cars
       if (true) { static u32 lastgone;
         if (lastgone != mGoneCount) {
-          HBPTAG(#GC,this->getName());
+          EACH(10'000,{HBPTAG(#GC,this->getName());HBPX(__EACHNUM__);});
           lastgone = mGoneCount;
         }
       }
@@ -70,7 +71,7 @@ namespace MFM {
       TCOpsData & data = getOpsData(mOldestGone);
       data.mArrivalTime = millisElapsed();
 
-      HBPTAG(EPRV,this->getName());
+      EACH(1'000'000,HBPTAG(EPRV,this->getName()));
       //HBPTAG(EPRL,(u32) mSrcEPA.mBlockCodeIndex);
       //HBPTAG(EPARRC,(u32) car);
 
@@ -88,7 +89,12 @@ namespace MFM {
     
         mOldestGone = incrementIndex(mOldestGone);
         mGoneCount--;
-        HBPTAG(<>R,this->report(BS,buf));
+        //HBPTAG(<>R,this->report(BS,buf));
+        //if (this->getSrcBlockCode() != BC_INTERHUB)
+        /*
+        if (this->getSrcBlockCode() == BC_ACACHEBLOCK)
+          EACH(1,LOGPTAG(<>R,this->report(BS,buf)));
+        */
         ret = true;
         //        HBPTAG(EPRCVD,this->getName());
       }
@@ -120,6 +126,7 @@ namespace MFM {
 
       // ADVANCE CLOSED TO DEPARTING
       if (cs == TCState::CLOSED) {
+        //        LOGPTAG(2DEP,this->report(BS,buf));
         cs = departingState();
         car.setDepartingTC(cs);
         if (isLogXX) HBPTAG(advdep,car.getTCState());
@@ -146,7 +153,12 @@ namespace MFM {
       
         mOldestHere = incrementIndex(mOldestHere);
         mHereCount--;
-        HBPTAG(<>S,this->report(BS,buf));
+        //HBPTAG(<>S,this->report(BS,buf));
+        //if (this->getSrcBlockCode() != BC_INTERHUB)
+        /*
+        if (this->getSrcBlockCode() == BC_ACACHEBLOCK)
+          EACH(1,LOGPTAG(<>S,this->report(BS,buf)));
+        */
         ret = true;
       } else
         break;                  // try again later.
@@ -161,14 +173,16 @@ namespace MFM {
 #ifndef BUILD_HOST
   template<class SUBEP, class SUBTC>
   char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
-    npf_snprintf(buf,size,"[%s] c%u h%uo%u g%uo%u fs%u S%lu R%lu",
+    npf_snprintf(buf,size,"[%s:%s:%u] c%u h%uo%u g%uo%u S%lu R%lu fs%u",
                  this->getName(),
+                 getAbbrFromBlockCode(this->mSrcEPA.mBlockCode),
+                 this->mSrcEPA.mBlockCodeIndex,
                  this->mCarCount,
                  this->mHereCount,this->mOldestHere,
                  this->mGoneCount,this->mOldestGone,
-                 this->getFastEPState(),
                  this->mShipTCCount,
-                 this->mRecvTCCount
+                 this->mRecvTCCount,
+                 this->getFastEPState()
                  );
     return buf;
   }

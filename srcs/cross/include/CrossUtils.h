@@ -35,6 +35,23 @@ namespace MFM {
    );
   }
 
+  /* Get select registers */
+
+  inline u32 getRegisterSP(void) {
+    register u32 val asm("x2");
+    return val;
+  }
+
+  inline u32 getRegisterRA(void) {
+    register u32 val asm("x1");
+    return val;
+  }
+
+  inline u32 getRegisterFP(void) {
+    register u32 val asm("x8");
+    return val;
+  }
+  
   /** AI-DERIVED CODE SOSUMI
    * @brief Writes a value to an address, reads it back, and ensures the read-back
    *        value is consumed before returning.
@@ -176,4 +193,5 @@ namespace MFM {
   using AtomCharBuf = char [ACBUF_SIZE];
   bool formatP4Atom(const P4Atom a, AtomCharBuf buf) ;
 
+  char * formatCountedByte(u32 count, u8 byte) ;
 }

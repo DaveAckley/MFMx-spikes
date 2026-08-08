@@ -14,12 +14,27 @@
 namespace MFM {
   DebugHookFncPtr theGlobalDebugHook;
 
+  static constexpr u32 BIG_BUF_SIZ = 100;
+  static constexpr u32 MARK_BUF_SIZ = 64;
+  static constexpr u32 MINI_BUF_SIZ = 32;
+
   extern HostBlock theHostBlock;
 
   static AtomicLock stringPackLock;
-  void packToHost(char * buf) { // let's try marking one at a time..
+  static void debugPackToHost(char * buf) { // let's try marking one at a time..
+    // Suppress all debug logging after a fail if hostflag is set
+    if ((theHostBlock.mHostFlags & HostBlock::HBF_ASSERT_STOP_LOG) != 0 &&
+        (theHostBlock.mFails != 0))
+      return;
+
     u32 count;
+    const char *abuf;
     for (count = 0; buf[count]; ++count) { }
+    if (count <= 1) {
+      abuf = "\\/";
+      count = 2;
+    } else
+      abuf = buf;
     MFM_API_ASSERT(count > 1,UNSUPPORTED_SIZE);
     if (count&1) {
       buf[count-2] = buf[count-1];
@@ -28,7 +43,7 @@ namespace MFM {
 
     {
       AtomicScopeLock guard(stringPackLock);
-      theHostBlock.packString(buf);
+      theHostBlock.packString(abuf);
     }
   }
 
@@ -37,9 +52,8 @@ namespace MFM {
   }
 
   void markLogBlock64(u16 fileid, u16 lineno,const u64 val, const char * tag = 0) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s0x%lx'%08lx.",
+    char buf[MINI_BUF_SIZ];
+    npf_snprintf(buf,MINI_BUF_SIZ,"%s0x%lx'%08lx.",
                  tag?tag:"=",
                  (u32)(val>>32),
                  (u32)(val&0xffffffff)
@@ -48,44 +62,38 @@ namespace MFM {
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s0x%p", tag?tag:"=", ptr);
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s0x%p", tag?tag:"=", ptr);
     markLogBlock(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const int val, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s%d", tag?tag:"=", val);
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s%d", tag?tag:"=", val);
     markLogBlock(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const U8C c, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s(%u,%u)", tag?tag:"=", c.x, c.y);
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s(%u,%u)", tag?tag:"=", c.x, c.y);
     markLogBlock(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const S8C c, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
     markLogBlock(fileid,lineno,buf);
   }
   
   void markLogBlock(u16 fileid, u16 lineno,const S16C c, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
     markLogBlock(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) {
-    constexpr u32 BUF_SIZ = 40;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"%s%s",
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s%s",
                  tag?tag:"",
                  msg
                  );
@@ -96,9 +104,8 @@ namespace MFM {
   static u16 lowMillis() { return millisElapsed()&0xffff; }
 
   void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag = 0) {
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%p} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%p} \n",
                  fileid,lineno,
                  lowMillis(), //lowTicks(),
                  theHostBlock.mChipNum,
@@ -108,14 +115,12 @@ namespace MFM {
                  tag?tag:" =",
                  ptr
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void markHostBlock(u16 fileid, u16 lineno,const U8C c, const char * tag = 0) {
-    extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%u,%u)} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%u,%u)} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -125,14 +130,13 @@ namespace MFM {
                  tag?tag:" =",
                  c.x, c.y
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void markHostBlock(u16 fileid, u16 lineno,const S8C c, const char * tag = 0) {
     extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%d,%d)} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%d,%d)} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -142,14 +146,13 @@ namespace MFM {
                  tag?tag:" =",
                  c.x, c.y
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void markHostBlock(u16 fileid, u16 lineno,const S16C c, const char * tag = 0) {
     extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%ld,%ld)} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%ld,%ld)} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -159,14 +162,13 @@ namespace MFM {
                  tag?tag:" =",
                  (s32) c.x, (s32) c.y
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void markHostBlock(u16 fileid, u16 lineno,const int val, const char * tag = 0) {
     extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%d} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%d} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -176,14 +178,13 @@ namespace MFM {
                  tag?tag:" =",
                  val
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void markHostBlock64(u16 fileid, u16 lineno,const u64 val, const char * tag = 0) {
     extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%lx'%08lx} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%lx'%08lx} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -194,14 +195,13 @@ namespace MFM {
                  (u32)(val>>32),
                  (u32)(val&0xffffffff)
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
   
   void markHostBlock(u16 fileid, u16 lineno,const char *msg, const char * tag = 0) {
     extern HostBlock theHostBlock;
-    constexpr u32 BUF_SIZ = 80;
-    char buf[BUF_SIZ];
-    npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%s} \n",
+    char buf[BIG_BUF_SIZ];
+    npf_snprintf(buf,BIG_BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%s} \n",
                  fileid,lineno,
                  lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
@@ -211,7 +211,7 @@ namespace MFM {
                  tag?tag:" ",
                  msg
                  );
-    packToHost(buf);
+    debugPackToHost(buf);
   }
 
   void memset_s(void* addr, u8 byte, u32 count) {
@@ -266,10 +266,20 @@ namespace MFM {
                a.mStg[0], a.mStg[1]);
       return false;
     }      
-    snprintf(&buf[0],ACBUF_SIZE,"t%d/%x:0x%04x'%08x'%08x",
-             a.getType(), a.getType(),
+    snprintf(&buf[0],ACBUF_SIZE,"#%d:0x%04x'%04x'%08x'%08x",
+             a.getType(),
+             (u32) a.mParityAndType,
              (u32) a.mData0,
              a.mStg[0], a.mStg[1]);
     return true;
   }
+  
+  char * formatCountedByte(u32 count, u8 byte) {
+    static char buf[16];
+    u32 digits = 0;
+    for (u32 d = count; d > 0; ++digits) d = d/10;
+    snprintf(buf,sizeof(buf),"%d%d 0x%02x",digits,count,byte);
+    return buf;
+  }
+
 }

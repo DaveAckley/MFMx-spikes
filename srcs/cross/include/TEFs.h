@@ -5,6 +5,6 @@
 namespace MFM {
 
   extern TaskEpochFunc TaskEpochFunction_BOOT;
-  extern TaskEpochFunc TaskEpochFunction_CLOCK;
+  extern TaskEpochFunc TaskEpochFunction_CLOK;
   
 }

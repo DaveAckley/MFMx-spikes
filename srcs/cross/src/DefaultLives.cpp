@@ -65,10 +65,10 @@ namespace MFM {
   int __attribute__((weak)) liveT2(HostBlock & hb) { return justLive(hb); } // NOTE FastT2.cpp has a strong liveT2
   int __attribute__((weak)) liveNC(HostBlock & hb) { return justLive(hb); }
 
-  int __attribute__((weak)) stepB(HostBlock & hb) { return 0; }
-  int __attribute__((weak)) stepT0(HostBlock & hb) { return 0; } // NOTE FastT0.cpp has a strong stepT0
-  int __attribute__((weak)) stepT1(HostBlock & hb) { return 0; }
-  int __attribute__((weak)) stepT2(HostBlock & hb) { return 0; }
-  int __attribute__((weak)) stepNC(HostBlock & hb) { return 0; } // NOTE FastNC.cpp has a strong stepNC
+  int __attribute__((weak)) stepB(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; }
+  int __attribute__((weak)) stepT0(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; } // NOTE FastT0.cpp has a strong stepT0
+  int __attribute__((weak)) stepT1(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; }
+  int __attribute__((weak)) stepT2(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; }
+  int __attribute__((weak)) stepNC(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; } // NOTE FastNC.cpp has a strong stepNC
   
 }

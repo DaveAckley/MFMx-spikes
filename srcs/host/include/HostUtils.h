@@ -59,6 +59,7 @@ namespace MFM {
   void KTEEprintf(const BHTag & key, const char * file, u32 line, const char * fmt, ...) ; // fprintf to per-tile host logfile in /tmp
   void EEprintf(const char * file, u32 line, const char * fmt, ...) ; // fprintf to host logfile in /tmp
   void EEvprintf(const char * file, u32 line, const char * fmt, va_list args) ; // vfprintf "
+  u32 searchForFileId(const char * path) ;
   FILE * getHostLog() ;
   FILE * getHostLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
   std::ofstream getOStreamLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
@@ -83,6 +84,10 @@ namespace MFM {
 
   std::string execShellCmd(const std::string& cmd) ;
 
+  std::string makeMark(u32 fid, u32 lid, u32 dev, U8C noc0, std::string hartname, std::string msg) ;
   std::string makeMark(std::string fidl, u32 dev, U8C noc0, std::string hartname, std::string msg) ;
+
+  std::string tryASCIIParse(u32 le) ;
+  u32 countDecimalDigits(u32 num) ;
 }
 

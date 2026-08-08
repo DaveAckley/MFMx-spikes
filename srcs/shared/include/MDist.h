@@ -2,7 +2,8 @@
 
 /*
   MDist.h Support for Manhattan distance calculations
-  Copyright (C) 2014 The Regents of the University of New Mexico.  All rights reserved.
+  Copyright (C) 2026 The Living Computation Foundation. All rights reserved.
+  Copyright (C) 2014 The Regents of the University of New Mexico. All rights reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -24,7 +25,7 @@
    \file MDist.h Support for Manhattan distance calculations
    \author Trent R. Small.
    \author David H. Ackley.
-   \date (C) 2014 All rights reserved.
+   \date (C) 2026 All rights reserved.
    \lgpl
 */
 #ifndef MDIST_H
@@ -125,26 +126,18 @@ namespace MFM
    * A singleton class consisting of many utilities used for
    * calculating Many-kinds-of Distances, including Manhattan distance
    * and euclidean squared distance.
+   *
+   * Sun Jul 26 23:25:16 2026 Redo: Make it an empty class that refers
+   * to static members instead, to avoid static ctors and such that
+   * our T6 _BUD.S startup code is currently not running.
    */
   template <u32 R>
-  class MDist
+  struct MDist
   {
-  private:
-    MDist(const MDist &) ;  // Singleton: Declare away copy ctor
-    MDist & operator=(const MDist &) ; // Don't want this either
-
-  public:
     /**
      * The diameter of an EventWindow of Radius R .
      */
     static const u32 EVENT_WINDOW_DIAMETER = R*2+1;
-
-    /**
-     * Access the singleton MDist of any given size.
-     */
-    static const MDist<R> & get();
-
-    static const MDist<R> THE_INSTANCE;
 
     /**
      * Fills a given SPoint with a random Von Neumann unit vector.
@@ -154,7 +147,7 @@ namespace MFM
      * @param random The PRNG used to determine which unit vector to
      *               fill \c pt with.
      */
-    void FillRandomSingleDir(SPoint& pt,Random & random) const;
+    void fillRandomSingleDir(SPoint& pt,Random & random) const;
 
     /**
      * Gets the area of a Manhattan Distance circle of a given radius .
@@ -162,17 +155,17 @@ namespace MFM
      * @param maxRadius The radius of the Manhattan Distance circle to
      *                  examine.
      */
-    u32 GetTableSize(u32 maxRadius) const;
+    u32 getTableSize(u32 maxRadius) const;
 
     /**
      * Get the lowest index corresponding to a distance of \c radius.
      * Useful for starting an event window iteration at a given distance
      *
      * \param radius The radius to find the lowest index of.
-     * \sa GetLastIndex
-     * \sa GetPoint
+     * \sa getLastIndex
+     * \sa getPoint
      */
-    u32 GetFirstIndex(const u32 radius) const
+    u32 getFirstIndex(const u32 radius) const
     {
       MFM_API_ASSERT_ARG(radius < sizeof(m_firstIndex)/sizeof(m_firstIndex[0]));
       return m_firstIndex[radius];
@@ -183,11 +176,11 @@ namespace MFM
      * Useful for ending an event window iteration at a given distance
      *
      * \param radius The radius to find the highest index of.
-     * \sa GetFirstIndex
+     * \sa getFirstIndex
      */
-    u32 GetLastIndex(const u32 radius) const
+    u32 getLastIndex(const u32 radius) const
     {
-      return GetFirstIndex(radius+1)-1;
+      return getFirstIndex(radius+1)-1;
     }
 
     /**
@@ -196,10 +189,10 @@ namespace MFM
      * event window iteration at a given distance
      *
      * \param eslRadius The ESL radius to find the lowest index of.
-     * \sa GetLastESLIndex
-     * \sa GetPoint
+     * \sa getLastESLIndex
+     * \sa getPoint
      */
-    u32 GetFirstESLIndex(const u32 eslRadius) const
+    u32 getFirstESLIndex(const u32 eslRadius) const
     {
       for (u32 i = 0; i < sizeof(m_firstESLValue)/sizeof(m_firstESLValue[0]); ++i)
       {
@@ -217,12 +210,12 @@ namespace MFM
      * \param eslRadius The esl radius to find the highest index of.
      * \sa GetFirstESLIndex
      */
-    u32 GetLastESLIndex(const u32 eslRadius) const
+    u32 getLastESLIndex(const u32 eslRadius) const
     {
-      return GetFirstESLIndex(eslRadius+1)-1;
+      return getFirstESLIndex(eslRadius+1)-1;
     }
 
-    u32 GetSiteCount() const { return ARRAY_LENGTH; }
+    u32 getSiteCount() const { return ARRAY_LENGTH; }
 
     /**
        Get the relative coordinates of a given \c siteNumber, with
@@ -236,13 +229,14 @@ namespace MFM
        \fails ILLEGAL_ARGUMENT if siteNumber is greater than or equal
        to ARRAY_LENGTH
 
-       \sa GetSiteNumber
-       \sa FromPoint
+       \sa getSiteNumber
+       \sa gromPoint
      */
-    const SPoint & GetPoint(const u32 siteNumber) const
+    const SPoint getPoint(const u32 siteNumber) const
     {
       MFM_API_ASSERT_ARG(siteNumber < ARRAY_LENGTH);
-      return m_indexToPoint[siteNumber];
+      return SPoint(m_indexToPoint[0][siteNumber],
+                    m_indexToPoint[1][siteNumber]);
     }
 
     /**
@@ -250,9 +244,9 @@ namespace MFM
      * possible.  Returns -1 if the given offset cannot be expressed
      * as a max length radius bond.
      */
-    s32 GetSiteNumber(const SPoint & offset) const
+    s32 getSiteNumber(const SPoint & offset) const
     {
-      return FromPoint(offset, R);
+      return fromPoint(offset, R);
     }
 
     /**
@@ -260,7 +254,7 @@ namespace MFM
      * if possible.  Returns -1 if the given index does not correspond
      * to a sitenum
      */
-    s32 GetSiteNumberFromRasterIndex(const u32 index) const
+    s32 getSiteNumberFromRasterIndex(const u32 index) const
     {
       if (index >= ARRAY_LENGTH) return -1;
       return m_rasterToSiteNum[index];
@@ -271,7 +265,7 @@ namespace MFM
      * possible.  Returns -1 if the given site number index does not
      * correspond to a raster index
      */
-    s32 GetRasterIndexFromSiteNumber(const u32 sitenum) const
+    s32 getRasterIndexFromSiteNumber(const u32 sitenum) const
     {
       if (sitenum >= ARRAY_LENGTH) return -1;
       return m_siteNumToRaster[sitenum];
@@ -281,15 +275,15 @@ namespace MFM
      * Return the coding of offset as a bond if possible.  Returns -1 if
      * the given offset cannot be expressed as a max length radius bond.
      */
-    s32 FromPoint(const SPoint& offset, u32 radius) const;
+    s32 fromPoint(const SPoint& offset, u32 radius) const;
 
     /*
      * Fills pt with the point represented by bits.
      * Uses a 4-bit rep if maxRadius less than 3
      */
-    void FillFromBits(SPoint& pt, u8 bits, u32 maxRadius) const;
+    void fillFromBits(SPoint& pt, u8 bits, u32 maxRadius) const;
 
-    MDist();
+    void init() const;
 
   private:
     static const u32 ARRAY_LENGTH = EVENT_WINDOW_SITES(R);
@@ -299,31 +293,36 @@ namespace MFM
       return EVENT_WINDOW_SITES(maxDistance);
     }
 
-    void InitRasterTables();
-    u8 m_rasterToSiteNum[ARRAY_LENGTH];
-    u8 m_siteNumToRaster[ARRAY_LENGTH];
+    static void _initRasterTables();
+    static void _initESLTables();
+    static void _initEscapesByDirTable();
+    static void _initHorizonsByDirTable();
+    
+    static u8 m_rasterToSiteNum[ARRAY_LENGTH];
+    static u8 m_siteNumToRaster[ARRAY_LENGTH];
 
-    void InitESLTables();
-    u8 m_siteNumToESLNum[ARRAY_LENGTH];
-    u8 m_eSLNumToSiteNum[ARRAY_LENGTH];
-    u8 m_firstESLValue[2*R+2];  // cutoff distances for ESL rings
-    u8 m_firstESLIndex[2*R+2];
+    static u8 m_siteNumToESLNum[ARRAY_LENGTH];
+    static u8 m_eSLNumToSiteNum[ARRAY_LENGTH];
+    static u8 m_firstESLValue[2*R+2];  // cutoff distances for ESL rings
+    static u8 m_firstESLIndex[2*R+2];
 
-    Point<s32> m_indexToPoint[ARRAY_LENGTH];
-    s32 m_pointToIndex[EVENT_WINDOW_DIAMETER][EVENT_WINDOW_DIAMETER];
+    static s32 m_indexToPoint[2][ARRAY_LENGTH];
+    static s32 m_pointToIndex[EVENT_WINDOW_DIAMETER][EVENT_WINDOW_DIAMETER];
 
-    u32 m_firstIndex[R+2];  // m_firstIndex[R+1] holds 'lastIndex[R]'
+    static u32 m_firstIndex[R+2];  // m_firstIndex[R+1] holds 'lastIndex[R]'
 
-    void InitEscapesByDirTable();
-    u8 m_escapesByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
+    static u8 m_escapesByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
 
-    void InitHorizonsByDirTable();
-    u8 m_horizonsByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
+    static u8 m_horizonsByDirection[Dirs::DIR_COUNT][ARRAY_LENGTH];
+
+    static bool mMDistInitted;
 
   };
 
+  /*
   template <u32 R>
-  const MDist<R> MDist<R>::THE_INSTANCE;
+  MDist<R> MDist<R>::THE_INSTANCE;
+  */
 
   typedef MDist<4> MDist4;
 

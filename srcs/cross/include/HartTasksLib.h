@@ -6,7 +6,7 @@
 namespace MFM {
 
 #define ALL_HART_EPOCHS  \
-  XX(BEGIN)              \
+  XX(BGN)                \
   XX(BORN0)              \
   XX(BORN1)              \
   XX(GROW0)              \
@@ -21,21 +21,23 @@ namespace MFM {
 #define LIB_HART_TASKS                         \
   /* BZOTN -> hb,h0,h1,h2,hn, with UC & lc */  \
   /* BEG BO0 BO1 GR0 GR1 GR2 GR3 LIV TASK */   \
-  XX(  b,  _,  _,  _,  _,  _,  _,  _, BOOT)    \
-  XX(  z,  _,  _,  _,  _,  _,  _,  _, CLOCK)   \
+  /*  XX(  b,  _,  _,  _,  _,  _,  _,  _, BOOT)*/       \
+  XX(  z,  _,  _,  _,  _,  _,  _,  _, CLOK)    \
   XX(  _,  _,  z,all,  _,  _,  _,  _, LOG)     \
-  XX(  _,  t,bzo,  t,bzo,  _,  _,  _, PRNG)    \
-  XX(  n,  n,  n,  _,  _,  n,  _,  _, NOC)     \
+  XX(  _,  t,bzo,  _,  t,bzo,  _,  _, PRNG)    \
+  XX(  n,  n,  n,  n,  _,  n,  _,  _, NOC)     \
 
+  //// COUNT THE EPOCHS
 #define XX(N) +1
   constexpr u8 HART_EPOCH_COUNT = 1
     ALL_HART_EPOCHS
     ;
 #undef XX
 
+  //// DEFINE SYMBOLS FOR EPOCH NUMBERS
 #define XX(N) ,HE_##N
   enum HartEpochIndex : u8 {
-    HEI_ILLEGAL=0                // blow 0 for OoB
+    HE_ILLEGAL=0                // blow 0 for OoB
     ALL_HART_EPOCHS
   };
 #undef XX
@@ -43,7 +45,7 @@ namespace MFM {
   extern const char *hartEpochNames[HART_EPOCH_COUNT];
 
   inline const char * getHartEpochName(HartEpochIndex hei) {
-    if (hei >= HART_EPOCH_COUNT) hei = HartEpochIndex::HEI_ILLEGAL;
+    if (hei >= HART_EPOCH_COUNT) return "NOEPOCH"; //hei = HartEpochIndex::HEI_ILLEGAL;
     return hartEpochNames[hei];
   }
 
@@ -80,6 +82,7 @@ namespace MFM {
   using HTFuncPtr = RCFlag (*)(HTOpCode htoc);
 
   enum TEFResult : u8 {
+    TEFR_NO_THANKS,             // not my circus, but thanks for asking
     TEFR_CONTINUE,              // this step completed, continue init seq
     TEFR_HART_OUT               // init seq done for this hart
   };

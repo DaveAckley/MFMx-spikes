@@ -3,6 +3,13 @@
 #include "T6CellO.h"
 
 namespace MFM {
+  
+  /// SUPPLY A STRONG T1 SO THE WEAK ONE CAN ESPLODE
+  int stepT1(HostBlock & hb) {
+    EACH(10'000'000,HBPTAG(EWP,__EACHNUM__));
+    return 0;
+  }
+
   T6EPL1Data<EwpBlockStg,1> theEwpL1Data;
 
   using EwpEP1 = EwpEP<1>;
@@ -45,6 +52,7 @@ namespace MFM {
 
     if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
       LOGMARK;
+      HBMARK;
 
       theEwpL1Data.reset();     // zero all
       auto & theEwpBlockCars = theEwpL1Data.mTheTCStorages;
@@ -74,7 +82,7 @@ namespace MFM {
 
     } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
       LOGMARK;
-
+      HBMARK;
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
 
       //// LIFE

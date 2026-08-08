@@ -173,12 +173,14 @@ class EWD(App):
 #    else:
 #      tag = MFMx.BHTag(3,4,0xf,0xe);      # 3 == APPDBG
     #text = text.strip("\n")
-    msg = f"{key}:{text}"
+    msg = f"{key}:{text}\n"
     if False and ewd and (rlist := ewd.query("#richlog")):
       rlist.first().write(msg)     # write to onscreen log
 
     #MFMx.BHLog.log(msg)  # alt/2nd dest DEADLOCKY
-    print(msg,file=sys.stderr)                  # FOGIT
+    with open(f"/tmp/nu1011-{key}.txt","a") as file:
+      file.write(msg)
+    #print(msg,file=sys.stderr)                  # FOGIT
 
   def configureImageManager(self):
     print("START configureImageManager",self)
@@ -392,18 +394,18 @@ class EWD(App):
   def update_animation_content(self):
     curtime = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
     elapsedns = curtime - self.animation_start_time
-    if elapsedns < 1_000_000_000 * self.animation_frame_count / self.animation_frames_per_second:
+    if elapsedns <= 1_000_000_000 * self.animation_frame_count / self.animation_frames_per_second:
       return
     self.animation_frame_count += 1
     animation_widget = self.query_one("#ascii-animation", AsciiAnimation)
-    animation_widget.refresh()
+    #animation_widget.refresh()
     animation_widget.refreshCount += 1
     #self.doRTMPFrame()
     self.doRTMPGraphicsFrame(elapsedns)
-    if animation_widget.refreshCount % 50 == 0:
-      count = 25
-      #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
-      self.slowScan(count)
+    # if animation_widget.refreshCount % 5 == 0:
+    #   count = 2
+    #   #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
+    #   self.slowScan(count)
     if animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
       if random.randrange(3) == 0:
         self.fireCount = random.randint(1,10)
@@ -468,7 +470,8 @@ class EWD(App):
     if False:
       for i in range(1000):
         time.sleep(1)
-        self.slowScan(140);
+        #self.slowScan(140);
+        self.slowScan(1);
         print("STOPPING EWPROC\n")
     time.sleep(1)
     self.ewc.setActive(False)
@@ -514,13 +517,8 @@ class EWD(App):
 
   def doRTMPGraphicsFrame(self,simnanos):
     ewc = self.ewc
-    if self.animation_frame_count % 2 == 0:
-      chip = self.animation_frame_count//2 % 4
-      ewc.scanHubGrid(chip)
     img = ewc.renderGraphicsGridWindowToImage()
     frameNP = img.asNP()
-    #frameNP[1080//2,:,:] = (255,0,0) # scribble on image
-    #frameNP[:,1920//2,:] = (0,255,0) # scribble on image
     self.theRTMPFeed.sendGraphicsFrame(frameNP,simnanos,f"{self.scriptName}/{self.mfmxVersion}") 
 
 if __name__ == "__main__":

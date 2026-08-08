@@ -25,7 +25,7 @@ namespace MFM {
   TEFResult __attribute__((weak)) TaskEpochFunction_##NM (              \
                    HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) { \
     TEFDie(hti,hei,hartnum);                                            \
-    return TEFR_HART_OUT; /* NOT REACHED */                             \
+    return TEFR_NO_THANKS; /* NOT REACHED */                            \
   }
   ALL_HART_TASKS
 #undef XX
@@ -88,33 +88,51 @@ namespace MFM {
     u8 me = fAll.mHartNum;
     u8 memask = 1<<me;
     while (true) {
+      memoryFence();            // refresh before going for epoch?
       u8 epoch = ps.mEpochColumn;
       if (epoch >= HART_EPOCH_COUNT)
         break;                  // we done!
+      if ((memask & ps.mHartsOut) != 0) {
+        HBNOTE(ALREADYOUT);     // shouldn't be here
+        FAIL(INCONSISTENT_STATE);
+      }
       for (u8 t = 0; t < HART_TASK_COUNT; ++t) {
+        if (t == 0 || epoch == HE_ILLEGAL) // skip first row and column doh
+          continue;
         u8 whomask = hartTaskTable[t][epoch];
         EACH(100'000+10*me,{HBXX((u32)whomask);HBXX((u32)t);HBXX((u32)epoch);HBXX((u32)ps.mEpochTaskDoneFlags[t][epoch]);});
-        if (0==(memask & whomask)) continue; // not my monkey
-        if (0!=(memask & ps.mEpochTaskDoneFlags[t][epoch])) continue; // already done
         if ((whomask & ps.mHartsOut) != 0) { // ded if we need any out monkeys
-          HBPTAG(dedWhen,getHartEpochName((HartEpochIndex) epoch));
-          HBPTAG(dedWhat,getHartTaskName((HartTaskIndex) t));
-          HBXX((u32) memask);
-          HBXX((u32) whomask);
-          HBXX((u32) ps.mHartsOut);
-          HBASSERT_EQ((whomask & ps.mHartsOut),0);
+          // PRNG:GROW1 is safe doh since the only reason it's "needed" is to go OUT
+          if (!((t == HartTaskIndex::HT_PRNG && epoch == HartEpochIndex::HE_GROW1) ||
+                (t == HartTaskIndex::HT_NOC && epoch == HartEpochIndex::HE_GROW2))) {
+            HBPTAG(dedWhen,getHartEpochName((HartEpochIndex) epoch));
+            HBPTAG(dedWhat,getHartTaskName((HartTaskIndex) t));
+            HBXX((u32) memask);
+            HBXX((u32) whomask);
+            HBXX((u32) ps.mHartsOut);
+            //HBNOTE(!HBASSERT_EQ HBANG GOES HERE!);
+            HBASSERT_EQ((whomask & ps.mHartsOut),0);
+          }
         }
-        // IT'S TIME FOR ME TO DO THIS EPOCH TASK
-        {
+        if (0!=(memask & ps.mEpochTaskDoneFlags[t][epoch])) continue; // already done
+
+        // IT'S TIME FOR ME TO (MAYBE) DO THIS EPOCH TASK
+        if (false) {
           char buf[30];
           HBPTAG(+:,getTaskEpochName(buf,30,(HartTaskIndex) t, (HartEpochIndex) epoch, fAll.mHartNum));
         }
         TEFResult result = (*hartTaskEpochFunctionPtrs[t])((HartTaskIndex) t, (HartEpochIndex) epoch, fAll.mHartNum);
-        // I HAVE DONE THIS EPOCH TASK
-        {
+        // I HAVE (MAYBE) DONE THIS EPOCH TASK
+        if (false) {
           char buf[30];
           HBPTAG(-,getTaskEpochName(buf,30,(HartTaskIndex) t, (HartEpochIndex) epoch, fAll.mHartNum));
         }
+        if (0==(memask & whomask)) { // not my monkey
+          HBASSERT_EQ(result,TEFR_NO_THANKS); // and TEF told me that (right?)
+          ps.mEpochTaskDoneFlags[t][epoch] |= memask; // so call us done
+          continue;                           // so keep going
+        }
+        
         {
           AtomicScopeLock guard(ps.mLock);          
           ps.mEpochTaskDoneFlags[t][epoch] |= memask; // "I HAVE DONE THIS EPOCH TASK"
@@ -124,9 +142,8 @@ namespace MFM {
             return;
           }
         }
-        HBPTAG(@t,t);
-        HBPTAG(@e,epoch);
-        HBXX((u32)ps.mEpochTaskDoneFlags[t][epoch]);
+        HBXTAG(@t@e@f,((((u32)t<<8)|epoch)<<12)|ps.mEpochTaskDoneFlags[t][epoch]);
+        //HBXX((u32)ps.mEpochTaskDoneFlags[t][epoch]);
       }
       // Special epoch check hb only
       if (me == HARTNUM_B) {
@@ -136,7 +153,7 @@ namespace MFM {
         bool epochDone = true;
         for (u8 t = 0; t < HART_TASK_COUNT; ++t) {
           u8 whomask = hartTaskTable[t][epoch];
-          if (whomask != ps.mEpochTaskDoneFlags[t][epoch]) { // done by all who should?
+          if (whomask != (whomask & ps.mEpochTaskDoneFlags[t][epoch])) { // done by all who should?
             epochDone = false;
             break;
           }
@@ -144,6 +161,7 @@ namespace MFM {
         if (epochDone) {
           if (ps.mEpochColumn > 0) HBPTAG(END:,getHartEpochName((HartEpochIndex) ps.mEpochColumn));
           ++ps.mEpochColumn;
+          memoryFence();
           if (ps.mEpochColumn < HART_EPOCH_COUNT)
             HBPTAG(START:,getHartEpochName((HartEpochIndex) ps.mEpochColumn));
         }

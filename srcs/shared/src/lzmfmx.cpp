@@ -47,8 +47,7 @@ namespace MFM {
 
   bool lzmfmx::inputIsEOF() {
     s32 v = mInPtr(true,mInCtxt);
-    //    SNAP(100,LOGXTAG(iIEOF,v));
-    return v < 0;
+    return v == -1;
   }
 
   s32 lzmfmx::getNextByteBlocking() {
@@ -64,15 +63,17 @@ namespace MFM {
         LOGPX(mBytesOut);
       }
     }
+    //    EACH(1,LOGPTAG(>xLZI,formatCountedByte(__EACHNUM__,v)));
     ++mBytesIn;
     return (s32) v;
   }
 
   s32 lzmfmx::putNextByteBlocking(u8 byte) {
     while (!mOutPtr(byte,mOutCtxt)) {
-      SNAP(100,LOGXTAG(BLOK,(u32)byte));
+      //SNAP(100,LOGXTAG(BLOK,(u32)byte));
+      EACH(100'000,HBPTAG(pNBBb,__EACHNUM__));
     }
-    if ((++mBytesOut % 0x1f)==0) HBPTAG(pNBB,mBytesOut);
+    //EACH(1,{if (__EACHNUM__ > 985) LOGPTAG(>LO,formatCountedByte(__EACHNUM__-1,byte));});
     return (s32) byte;
   }
 
@@ -156,38 +157,41 @@ namespace MFM {
       s32 sb = getNextByteBlocking();
       if (sb < 0) LOGPTAG(lzenc,sb);
       else mRing[r + n++] = (u8) sb;
+      //LOGPTAG(lzprime,n);
     }
 
-    HBPTAG(lzmenc,"PRIMD");
+    //    LOGPTAG(lzmenc,"PRIMD");
 
     for (u32 i = 1; i <= MAX_MATCH; ++i)
       insertNode(r - i);
     insertNode(r);
 
-    HBPTAG(lzmencN,n);
+    //    LOGPTAG(lzmencN,n);
     while (n > 0) {
       if (true) {
         static u32 spin = 0;
-        if ((spin++ & 0xff) == 0)
+        if ((spin++ & 0xff) == 0) {
           HBPTAG(lzmenc,n);
+          //          LOGPTAG(lzmenc,n);
+        }
       }
 
       u32 ml = mMlen > n ? n : mMlen;
       if (ml <= MIN_MATCH) {
-        LOGXTAG(lzlit,(u32) mRing[r]);
+        //LOGXTAG(lzlit,(u32) mRing[r]);
         ml = 1; flags |= mask; code[cptr++] = mRing[r];
       } else {
         code[cptr++] = mMpos & 0xFF;
         code[cptr++] = ((mMpos >> 4) & 0xF0) | (ml - MIN_MATCH - 1);
-        LOGXTAG(lzref,(u32) (((mMpos&0xff)<<16)|ml));
+        //LOGXTAG(lzref,(u32) (((mMpos&0xff)<<16)|ml));
       }
     
       if (!(mask <<= 1)) {
-        LOGXTAG(lzflg,(u32) flags);
+        //LOGXTAG(lzflg,(u32) flags);
         code[0] = flags;
         for (u32 i = 0; i < cptr; ++i)
           putNextByteBlocking(code[i]); // abstract: pack packets in here too
-        LOGXTAG(lzwrt,(u32) cptr);
+        //LOGPTAG(lzwrt,(u32) cptr);
         HBPTAG(lz2wrt,(u32) cptr);
         flags = 0;
         mask = 1;

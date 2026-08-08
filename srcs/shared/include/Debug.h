@@ -32,6 +32,14 @@ namespace MFM {
   if (__count == COUNT) HBPTAG(SNAPT,__count);  \
   } while (0)
 
+#define ONE_PING_ONLY()                         \
+  do {                                          \
+    static u32 __pings;                         \
+    HBPTAG(1PO,__FUNCTION__);                   \
+    ++__pings;                                  \
+    memoryFence();                              \
+    HBASSERT_LE(__pings,1);                     \
+  } while(0)
 
 #define LOGPX(EXPR) LOGPTAG(EXPR,EXPR)
 #define LOGXX(EXPR) LOGXTAG(EXPR,EXPR)
@@ -110,15 +118,16 @@ namespace MFM {
 
 #define EACH(COUNT,CODE)                          \
   do {                                            \
-    static u32 __count = 0u;                      \
-    if ((__count++ % COUNT) == 0) {               \
+    thread_local u32 __EACHNUM__ = 0u;            \
+    if ((__EACHNUM__++ % COUNT) == 0) {           \
       CODE;                                       \
     }                                             \
   } while (0)
 
 #define SNAP(COUNT,CODE)                        \
   do {                                          \
-  static u32 __count = 0u;                      \
+    thread_local u32 __count = 0u;              \
+  memoryFence();  /* _count is super racy */    \
   if (__count++ < COUNT) {                      \
     CODE;                                       \
   }                                             \
@@ -135,6 +144,8 @@ namespace MFM {
 #define HBASSERT_COMP(A,B,OP) do {              \
   MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);     \
  } while(0)
+#define HBPX(EXPR) HBPTAG(EXPR,EXPR)
+#define HBXX(EXPR) HBXTAG(EXPR,EXPR)
 
 #define LOGPX(EXPR) do { } while (0)
 #define LOGXX(EXPR) do { } while (0)
@@ -150,8 +161,8 @@ namespace MFM {
 
 #define HBASSERT_EQ(A,B) HBASSERT_COMP(A,B,==)
 #define HBASSERT_NE(A,B) HBASSERT_COMP(A,B,!=)
-#define HBASSERT_LS(A,B) HBASSERT_COMP(A,B,<)
+#define HBASSERT_LT(A,B) HBASSERT_COMP(A,B,<)
 #define HBASSERT_GT(A,B) HBASSERT_COMP(A,B,>)
-#define HBASSERT_GTEQ(A,B) HBASSERT_COMP(A,B,>=)
-#define HBASSERT_LSEQ(A,B) HBASSERT_COMP(A,B,<=)
+#define HBASSERT_GE(A,B) HBASSERT_COMP(A,B,>=)
+#define HBASSERT_LE(A,B) HBASSERT_COMP(A,B,<=)
 

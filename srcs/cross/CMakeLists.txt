@@ -5,6 +5,13 @@ set(S_FILES_LIST
   src/memops.S
 )
 
+# Enable -g in assembly language 
+enable_language(ASM)
+
+if(NOT CMAKE_ASM_FLAGS MATCHES "-g")
+  set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -g")
+endif()
+
 # Add C++ compiler options specifically for cross ---
 set(CROSS_COMPILER_OPTIONS
   -g          # Add debug symbols
@@ -17,6 +24,7 @@ set(CROSS_COMPILER_OPTIONS
   -Wno-missing-field-initializers   # too many to be worth it?
   -Werror                # die on warnings for now
   -Wno-array-bounds      # just too many false positives on this?
+  -fno-omit-frame-pointer # worth trying for better debuggability?
   # Add any other host-specific C++ flags here
 )
 
@@ -74,12 +82,12 @@ add_custom_target(${GENERATED_LDSCRIPT_TARGET_NAME}
   -E                     # Preprocess only
   -P                     # Disable line markers
   -x c                   # Treat input as C source
-  -I${CMAKE_CURRENT_SOURCE_DIR}/include # Add include path for dev_mem_map.h
   -I${SHARED_INCLUDE_DIRS} # Add shared include paths if needed by ldscript.ld.in
   ${CMAKE_CURRENT_SOURCE_DIR}/src/_BUD.ld.in # Input template file
   -o ${GENERATED_LDSCRIPT} # Output file
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/_BUD.ld.in
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/dev_mem_map.h # Dependency on the header file
+  #${CMAKE_CURRENT_SOURCE_DIR}/include/dev_mem_map.h # Dependency on the header file
+  ${SHARED_INCLUDE_DIRS}/dev_mem_map.h # Dependency on the header file (now in shared/include)
   COMMENT "Preprocessing linker script ${GENERATED_LDSCRIPT}"
   BYPRODUCTS ${GENERATED_LDSCRIPT} # Tell CMake this target produces this file
 )

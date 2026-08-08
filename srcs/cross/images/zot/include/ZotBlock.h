@@ -56,7 +56,7 @@ namespace MFM {
     u32 getCarSize() const { return sizeof(ZotBlock); }
     ZotBlock * getCarPtrIfAny(u8 carindex) const ;
     TCOpsData & getOpsData(u8 carindex) {
-      HBASSERT_LS(carindex, CAR_COUNT);
+      HBASSERT_LT(carindex, CAR_COUNT);
       return mOpsDataStg[carindex];
     }
     bool recvTC(ZotBlock & car, u8 carindex) ;

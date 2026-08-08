@@ -468,7 +468,8 @@ class EWD(App):
     if False:
       for i in range(1000):
         time.sleep(1)
-        self.slowScan(140);
+        self.slowScan(1);
+        #self.slowScan(140);
         print("STOPPING EWPROC\n")
     time.sleep(1)
     self.ewc.setActive(False)

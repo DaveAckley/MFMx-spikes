@@ -4,12 +4,14 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <ctype.h>              // for isprint
 #include <filesystem>
 #include <cxxabi.h>             // for demangle ugh
 #include "BHLog.h"
 #include <string>
 #include <regex>
 #include "utils.h" // for XSTR_MACRO
+#include "FileIDs.h" // for GET_FILE_ID
 
 // for execShellCmd
 #include <array>
@@ -154,15 +156,27 @@ namespace MFM {
     fclose(logfile);
   }
 
+  u32 searchForFileId(const char * path) { // keep stripping dirs until found or none
+    const char * suf;
+    u32 ret;
+    for (suf = path; (*suf != 0) && ((ret = GET_FILE_ID(suf))==0); ) {
+      while (*suf) if (*++suf == '/') break;
+    }
+    return ret;
+  }
+
   void KTEEprintf(const BHTag & key, const char * file, u32 line, const char * fmt, ...) {
+    u32 fid = searchForFileId(file);
+    u32 tid = gettid();
+    std::string mark = makeMark(fid, line, 5, U8C(tid&0xff,(tid>>8)&0xff), "ht", "->");
     // TIMESTAMP?
-    char * base = strrchr((char*) file,'/');
-    if (base) file = base+1;
+    //    char * base = strrchr((char*) file,'/');
+    //    if (base) file = base+1;
 
     va_list args;
     va_start(args, fmt);
     FILE * logfile = getHostLogForKey(key);
-    fprintf(logfile,"%s:%d: ",file,line);
+    fprintf(logfile,"%s ",mark.c_str());
     vfprintf(logfile,fmt,args);
     va_end(args);
     fclose(logfile);
@@ -296,6 +310,10 @@ namespace MFM {
     return result;
   }
 
+  std::string makeMark(u32 fid, u32 lid, u32 dev, U8C noc0, std::string hartname, std::string msg) {
+    return makeMark(std::to_string(fid)+":"+std::to_string(lid), dev, noc0, hartname, msg);
+  }
+
   std::string makeMark(std::string fidl, u32 dev, U8C noc0, std::string hartname, std::string msg) {
     return std::string("{")
       + fidl
@@ -306,6 +324,27 @@ namespace MFM {
       + " " + hartname
       + " " + msg
       + "}";
+  }
+
+  std::string tryASCIIParse(u32 le) {
+    std::string ret="";
+    for (u32 i = 0; i < 4; ++i) {
+      u8 byte = le&0xff;
+      le >>= 8;
+      if (isprint(byte)) ret += byte;
+      else if (byte=='\n') ret += "\\n";
+      else ret += '.';
+    }
+    return std::string("'")+ret+"'";
+  }
+
+  u32 countDecimalDigits(u32 num) {
+    u32 count = 0;
+    while (num > 0) {
+      ++count;
+      num /= 10;
+    }
+    return count;
   }
 
   void initHostUtils() {

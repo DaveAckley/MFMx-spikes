@@ -6,23 +6,14 @@
 
 namespace MFM {
 
-#if 0
-  static constexpr u8 HM__ = 0; 
-  static constexpr u8 HM_b = 1<<HARTNUM_B;    //  1
-  static constexpr u8 HM_0 = 1<<HARTNUM_T0;   //  2
-  static constexpr u8 HM_1 = 1<<HARTNUM_T1;   //  4
-  static constexpr u8 HM_2 = 1<<HARTNUM_T2;   //  8
-  static constexpr u8 HM_n = 1<<HARTNUM_NC;   // 16
-  static constexpr u8 HM_b01 = HM_b|HM_0|HM_1;
-  static constexpr u8 HM_all = HM_b|HM_0|HM_1|HM_2|HM_n;
-#endif
-
   static constexpr u8 HA__ = 0; 
   static constexpr u8 HA_b = 1<<HARTNUM_B;    //  1
   static constexpr u8 HA_z = 1<<HARTNUM_T0;   //  2
   static constexpr u8 HA_o = 1<<HARTNUM_T1;   //  4
   static constexpr u8 HA_t = 1<<HARTNUM_T2;   //  8
   static constexpr u8 HA_n = 1<<HARTNUM_NC;   // 16
+  static constexpr u8 HA_bn = HA_b|HA_n;
+  static constexpr u8 HA_zo = HA_z|HA_o;
   static constexpr u8 HA_bzo = HA_b|HA_z|HA_o;
   static constexpr u8 HA_zon = HA_z|HA_o|HA_n;
   static constexpr u8 HA_all = HA_b|HA_z|HA_o|HA_t|HA_n;
@@ -45,10 +36,6 @@ namespace MFM {
 #undef XX
 
   // a TaskEpochFunction_FOO must be defined somewhere for every task FOO
-#define XX(BE,B0,B1,G0,G1,G2,G3,LV,NM) extern TaskEpochFunc TaskEpochFunction_##NM;
-  ALL_HART_TASKS
-#undef XX
-
 #define XX(BE,B0,B1,G0,G1,G2,G3,LV,NM) extern TaskEpochFunc TaskEpochFunction_##NM;
   ALL_HART_TASKS
 #undef XX

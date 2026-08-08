@@ -6,7 +6,7 @@ namespace MFM {
 
   const char * getNameFromBlockCode(BlockCode b) {
 
-#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                \
+#define XX(NAME,ABBR,STORAGE_SIZE,TYPE,STORAGE_COUNT)           \
   case CONC(BC_,NAME): return XSTR_MACRO(CONC(BC_,NAME));
 
     switch (b) {
@@ -20,9 +20,25 @@ namespace MFM {
     
   }
 
+  const char * getAbbrFromBlockCode(BlockCode b) {
+
+#define XX(NAME,ABBR,STORAGE_SIZE,TYPE,STORAGE_COUNT)           \
+  case CONC(BC_,NAME): return XSTR_MACRO(ABBR);
+
+    switch (b) {
+    default: break;
+
+    BLOCKCODE_LIST()
+    }
+    return "<illegabbr>";
+
+#undef XX
+    
+  }
+  
   BlockCode getBlockCodeFromName(const char * n) {
 
-#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT)                        \
+#define XX(NAME,ABBR,STORAGE_SIZE,TYPE,STORAGE_COUNT)                   \
   if (!strcmp_s(n,XSTR_MACRO(CONC(BC_,NAME)))) return CONC(BC_,NAME);
     
   BLOCKCODE_LIST()
@@ -34,14 +50,14 @@ namespace MFM {
 
   static const u32 blockCodeStorageSizes[] = {
     0u,
-#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_SIZE), // Note we're NOT doing sizeof(TYPE)!
+#define XX(NAME,ABBR,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_SIZE), // Note we're NOT doing sizeof(TYPE)!
     BLOCKCODE_LIST()
 #undef XX
   };
 
   static const u32 blockCodeStorageCounts[] = {
     0u,
-#define XX(NAME,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_COUNT),
+#define XX(NAME,ABBR,STORAGE_SIZE,TYPE,STORAGE_COUNT) (STORAGE_COUNT),
     BLOCKCODE_LIST()
 #undef XX
   };

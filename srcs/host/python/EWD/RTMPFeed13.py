@@ -134,7 +134,8 @@ class RTMPFeed:
         self.width = self.img.shape[1]
         self.secsPerI = 2
         self.goplen = int(self.secsPerI*self.fps)
-        self.ffmpegCommand = [
+        self.localStreamPath = "/data/ackley/AV/MFMX-STREAMS/"
+        self.ffmpegCommandBaseParms = [
             'ffmpeg', '-y',
             #'-re',
             '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
@@ -142,18 +143,21 @@ class RTMPFeed:
             '-framerate', str(self.fps),   # 'input option' ?
             '-vsync', '2', '-i', '-',
             '-r', str(self.fps),           # 'output option' ?
+            '-map', '0', # AI CLAIMS 'tee muxer requires explicit -map'
+            '-flags', '+global_header',    # AI CLAIMS: makes encoder emit SPS/PPS as extradata
             '-c:v', 'libx264', '-g', str(self.goplen), '-x264-params', 'no-scenecut=1',
+            '-tag:v', '7',                 # AI CLAIMS: forces correct H.264 codec tag for FLV
             '-pix_fmt', 'yuv420p',
             '-preset', 'ultrafast',
             #'-preset', 'veryfast',
             #'-maxrate', '4M',
             #'-bufsize', '1M',
-            '-f', 'flv', '-flvflags', 'no_duration_filesize',
-            self.rtmp_url
+            '-f', 'tee',
+#            '[f=flv]{}|[f=flv]{}'.format(self.rtmp_url, local_file), # tee to rtmp stream and local disk
         ]
 
         self.ewd.logkt(self.key,f"SIZE {self.width} x {self.height}")
-        self.ewd.logkt(self.key,f"RUN {self.ffmpegCommand}")
+        self.ewd.logkt(self.key,f"RUN {self.ffmpegCommandBaseParms}")
 
         self.ewd.logkt(self.key,f"GORMO")
         self.subproc_started = 0
@@ -182,15 +186,22 @@ class RTMPFeed:
 
     def restartSubProc(self):
         self.framesSentThisSubproc = 0
-        #using subprocess and pipe to fetch frame data
-        self.ewd.logkt(self.key,f"STARTING {self.ffmpegCommand}")
-        self.subproc = subprocess.Popen(self.ffmpegCommand,
+    
+        now = datetime.datetime.now(datetime.timezone.utc)
+        localFile = now.strftime(f"{self.localStreamPath}%Y-%m-%d+%H%M%S%Z.flv")
+        ffmpegCmd = [*self.ffmpegCommandBaseParms[:],
+                     #f"[f=flv:flvflags=no_duration_filesize]{self.rtmp_url}|[f=flv]{localFile}"]
+                     f"[f=flv]{self.rtmp_url}|[f=flv]{localFile}"]
+        
+        self.ewd.logkt(self.key,f"STARTING {ffmpegCmd}")
+        #print(f"SLOTRHOP STARTING {ffmpegCmd}")
+        self.subproc = subprocess.Popen(ffmpegCmd,
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.DEVNULL, 
                                         stderr=subprocess.STDOUT)
         self.subproc_started += 1
         self.ewd.logkt(self.key,f"SUBPROC #{self.subproc_started} IS {self.subproc}")
-        self.ewd.logkt(self.key,"CLAMS!")
+        self.ewd.logkt(self.key,f"CLAMS! @{localFile}")
 
     def drawTextOnImage(self,img,atext,xy,cachedfont):
         bfbox = cachedfont.renderBox

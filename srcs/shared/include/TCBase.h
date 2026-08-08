@@ -56,13 +56,17 @@ namespace MFM {
 
     void closeTC(u32 finalPayloadBytes) {
       if (finalPayloadBytes > getMaxPayloadSize()) {
-        LOGPTAG(COORF,finalPayloadBytes);
-        LOGPTAG(COORM,getMaxPayloadSize());
+        HBPTAG(COORF,finalPayloadBytes);
+        HBPTAG(COORM,getMaxPayloadSize());
       }
       MFM_API_ASSERT(finalPayloadBytes <= getMaxPayloadSize(), OUT_OF_ROOM);
 
       TCMarker h = getHeader();
-      MFM_API_ASSERT(h.getTCState() == TCState::OPEN, ILLEGAL_ARGUMENT);
+      // XXX SHOULD BE: HBASSERT_EQ(h.getTCState(),TCState::OPEN);
+      if (h.getTCState() != TCState::OPEN) {
+        // NO LOG DEBUG IN PATHS THAT CAN INCLUDE LOGGING! LOGPTAG(!OPNL,getCarStateName(h.getTCState()));
+        HBPTAG(!OPNH,getCarStateName(h.getTCState()));
+      }
       h.reinit(finalPayloadBytes, TCState::CLOSED); // sets tcmSize here
       writeMarkers(h);
     }

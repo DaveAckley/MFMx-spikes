@@ -29,7 +29,8 @@ nc_setup: j nc_init             # NC entrypoint must be addr 16 word 4
         .cfi_startproc
         .cfi_undefined ra /* "Inform the debugger that there is nowhere to backtrace past _start." */
 b_init:
-	li s0,0                 # we are hart0
+	/* Sat Jul 25 02:07:05 2026 used to be s0:hartnum but we're trying -fno-omit-frame-pointer */
+	li s1,0                 # we are hart0
 	la sp, __stack_top8K    # we've got 8k fastram 	
 	# zero bss for everybody
         la t1, __bss_start
@@ -75,22 +76,22 @@ b_init:
         ## END OF HARTB-ONLY CODE
 
 t0_init:
-        li s0,1                 # we are hart1
+        li s1,1                 # we are hart1
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 
 t1_init:
-        li s0,2                 # we are hart2
+        li s1,2                 # we are hart2
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 	
 t2_init:
-        li s0,3                 # we are hart3
+        li s1,3                 # we are hart3
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 	
 nc_init:
-        li s0,4                 # we are hart4
+        li s1,4                 # we are hart4
 	la sp, __stack_top8K    # we've got 8k fastram 	
 	# FALL THROUGH: j exit_setup
         
@@ -112,7 +113,7 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	##### fALL SETUP. See FastLocal.h, ImageBlock.h, HostBlock.h
 	la t1, __fast_start     # get local ptr
 	la t2, __hostblock_start # get hb ptr
-	sb s0,(t1)              # set fast[0] 0..7 to hartnum
+	sb s1,(t1)              # set fast[0] 0..7 to hartnum
         lhu t3,24(t2)           # get hb.mNoC0
         sh t3,2(t1)             # stash in fALL.mNoC0
 	li t2, 0x14             # get ImageBlockHeader address
@@ -128,19 +129,25 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
         ## FALL THROUGH	
 	
 runmain:        
+        ## Set up outermost call frame for debuggability
+        andi sp, sp, -16        # ensure 16 byte alignment
+        addi sp, sp, -16        # allocate four words (really, need FOUR?)
+        sw x0,8(sp)             # 0 -> saved fp
+        sw x0,12(sp)            # 0 -> saved ra
+        addi fp,sp,16           # fp = CFA = original (aligned) sp
         la a0, __hostblock_start  # arg is struct HOSTBLOCK *
 	call t6main
 
 	/* if/when they return, mark us as done */
 	la s2, __hostblock_start+4  # get host block, skipping HBMAGIC
-	sh2add t1, s0, s2            # t1: addr of mPerHartStatus[s0] 
-	addi t0,s0,1            # get s0 + 1
+	sh2add t1, s1, s2            # t1: addr of mPerHartStatus[s1] 
+	addi t0,s1,1            # get s1 + 1
         sw t0,0(t1)             # stick it in finish loc
 
         #### DEBUG: BLOW THE MAGIC IF NOCs 0 ON HARTB
 	j 2f                    # SKIP ALL THIS WE FIGGERED IT OUT
         
-	bne s0, x0, 2f          # skip all this unless B
+	bne s1, x0, 2f          # skip all this unless B
         la s2, __hostblock_start  # get host block 
 	li s3,250
 	lbu t0,24(s2)           # get xpos

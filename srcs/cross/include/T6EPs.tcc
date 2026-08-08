@@ -47,8 +47,8 @@ namespace MFM {
       u64 hostbaseaddr = hb.getOurHostNoCBaseAddress(); // (2)
       mDestBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
       u32 ourtlbi = U8C::makeTLBIFromNoCCoord(ournoc0);
-      //HBXTAG64(hbAddr,hostbaseaddr);
-      //HBXTAG64(mDBAdr,mDestBlockAddr);
+      HBXTAG64(hbAddr,hostbaseaddr);
+      HBXTAG64(mDBAdr,mDestBlockAddr);
       //HBPTAG(oNoC0,ournoc0);
       HBXTAG(tlbi,ourtlbi);
     } else {
@@ -57,7 +57,7 @@ namespace MFM {
       LOGPTAG(t6dest0,destnoc0);
       LOGPTAG(dBlkIdx,destblockindex);
       HBASSERT_EQ(ret,true);
-      HBASSERT_LS(destblockindex, iba.mStorageCount);
+      HBASSERT_LT(destblockindex, iba.mStorageCount);
       mDestBlockAddr = iba.mBlockAddr + destblockindex * getStorageSizeFromBlockCode(destbc);
     }
 
@@ -73,7 +73,8 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      HBPTAG(GCDEP,carindex);
+      EACH(1'000,HBPTAG(HN<-EP,carindex));
+      //EACH(10'000,HBPTAG(GCDEP,carindex));
       SUBTC* carp = this->getCarPtrIfAny(carindex);
       if (!carp) HBNOTE("NULLGO?");
       else HBASSERT_EQ(carp->getTCState(), TCState::CLOSED); 
@@ -126,6 +127,12 @@ namespace MFM {
     }
 
     if (destnoc0 == PCIeTILE_NOC0) { // host target
+      SNAP(100,HBPTAG(TC->HS,car.getName()));
+      SNAP(100,HBPTAG64(TC->HS,destcaraddr));
+      SNAP(100,HBPTAG(carWC,wordCount));
+      SNAP(100,HBPTAG(carPL,car.currentTCSize()));
+      SNAP(100,HBPTAG(TCstat,getCarStateName(car.getHeader().getTCState())));
+      SNAP(100,HBPTAG(TCcomp,car.isComplete()));
       s32 status = NRI3::initiateWriteToHost(ournoc0,(u32*) &car, wordCount, destcaraddr);
       if (status == 0) HBPTAG(FAILSHIPHOST,wordCount);
       else {

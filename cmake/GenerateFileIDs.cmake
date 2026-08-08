@@ -28,6 +28,7 @@ function(generate_file_ids_header output_header_file)
       "${FILEID_ROOT_PATH}/*.cpp"
       "${FILEID_ROOT_PATH}/*.h"
       "${FILEID_ROOT_PATH}/*.tcc"
+      "${FILEID_ROOT_PATH}/*.S"
     )
 
     # Sort the list for consistent ID assignment across builds
@@ -36,7 +37,8 @@ function(generate_file_ids_header output_header_file)
     set(FILE_ID_LINES "")
     set(current_id 1)   # SKIP ZERO FOR OoB
 
-    set(EXTRA_PATH_PREFIX ${CMAKE_PROJECT_NAME})  # see cross/toolchain-cross.cmake -macro-prefix-map
+    #set(EXTRA_PATH_PREFIX ${CMAKE_PROJECT_NAME})  # see cross/toolchain-cross.cmake -macro-prefix-map
+    set(EXTRA_PATH_PREFIX "")  # see cross/toolchain-cross.cmake -macro-prefix-map
 
     foreach(file_path IN LISTS ALL_SOURCE_FILES)
       # Normalize path to be relative to CMAKE_SOURCE_DIR for consistency

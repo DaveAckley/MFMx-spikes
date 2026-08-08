@@ -9,7 +9,7 @@ namespace MFM {
 
   struct LogBlockPayload {
     static constexpr u32 LBP_DATA_SIZE = 984;//1000;
-    static constexpr u32 LBP_HIGH_BYTES_MARK = LBP_DATA_SIZE - 64;
+    static constexpr u32 LBP_HIGH_BYTES_MARK = LBP_DATA_SIZE - 80; //XXX 64;
     static constexpr u32 LBP_HIGH_TICKS_MARK = 10'000;
     static constexpr u32 LBP_HEADER_SIZE = 2+2+4;
     static constexpr u32 LBP_TOTAL_SIZE = LBP_DATA_SIZE + LBP_HEADER_SIZE;
@@ -33,7 +33,8 @@ namespace MFM {
     }
 
     u32 getCurrentPayloadSize() {
-      return 1u + (u32) (&mData[mDataUsed] - (u8*) this);
+      //return 1u + (u32) (&mData[mDataUsed] - (u8*) this);
+      return 0u + (u32) (&mData[mDataUsed] - (u8*) this);
     }
 
     void init() {
@@ -87,7 +88,7 @@ namespace MFM {
     }
   };
 
-  constexpr u32 NUMBER_OF_LOGBLOCK_CARS = 3u;
+  constexpr u32 NUMBER_OF_LOGBLOCK_CARS = 4u;
   typedef TCStorage<LogBlock,NUMBER_OF_LOGBLOCK_CARS> LogBlockStg;
 
 }

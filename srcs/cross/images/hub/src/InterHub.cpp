@@ -78,7 +78,7 @@ namespace MFM {
 
     } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
 
-      HBNOTE(GOFI);
+      HBNOTE(GOFIH);
       for (u8 d = D4_N; d <= D4_E; ++d) {
         //        HBPTAG(ihdir,d);
         //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));

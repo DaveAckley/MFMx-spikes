@@ -70,6 +70,8 @@ namespace MFM {
         SNAP(2,HBPTAG(@,__FUNCTION__));
       else if (htoc==HTOpCode::HTOC_INIT)
         HBPTAG(init@,__FUNCTION__);
+      else if (htoc==HTOpCode::HTOC_OPEN)
+        HBPTAG(open@,__FUNCTION__);
       else FAIL(UNREACHABLE_CODE);
       for (u32 j = 0u; j < mHTFuncsInUse; ++j) {
         u32 i = j;
@@ -93,7 +95,7 @@ namespace MFM {
     static u32 spin;
     RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
     if ((++spin & 0xf'ffff) == 0) {
-      HBPTAG(stepNCing,spin);
+      HBXTAG(stepNCing,spin);
       LOGXX(spin);
       LOGPTAG64(NCBO,fNC.mBytesOut);
       //      LOGPTAG64(NCBI,fNC.mBytesIn);
@@ -116,31 +118,35 @@ namespace MFM {
 
   ////////
   TEFResult TaskEpochFunction_NOC(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    if (hartnum!=HARTNUM_NC) return TEFR_NO_THANKS;
+
     switch (hei) {
-    case HE_BEGIN:
-      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    case HE_BGN:
       HBNOTE(init NOC);
       initNC();
-      break;
+      return TEFR_CONTINUE;
 
     case HE_BORN0:
       HBMARK;
-      break;
+      return TEFR_CONTINUE;
 
     case HE_BORN1:
-      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
       HBMARK;
       fNC.runHTFuncsNC(HTOC_INIT);
-      break;
+      return TEFR_CONTINUE;
+
+    case HE_GROW0:
+      HBMARK;
+      fNC.runHTFuncsNC(HTOC_OPEN);
+      return TEFR_CONTINUE;
 
     case HE_GROW2:
-      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
       return TEFR_HART_OUT;     // DONE
 
     default:
-      FAIL(UNREACHABLE_CODE);
+      break;
     }
-    return TEFR_CONTINUE;
+    return TEFR_NO_THANKS;
   }
 
 }

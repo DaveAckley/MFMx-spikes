@@ -19,6 +19,8 @@
 
 namespace MFM {
 
+  class Blackhole; // FORWARD
+  
   class OurTLBs {
   public:
 
@@ -31,7 +33,7 @@ namespace MFM {
     static const u32 AHAX_TLBI_DEBUG_MULTI = (AHAX_TLBI_L1_MULTI + 1);
     static const u32 AHAX_TLBI_DEBUG_UNI = (AHAX_TLBI_DEBUG_MULTI + 1);
 
-    OurTLBs() ;
+    OurTLBs(Blackhole & bh) ;
 
     // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
     LogBlockStg & getLogBlockStgHost(u32 tlbi) const ;
@@ -165,6 +167,9 @@ namespace MFM {
     void debugReadWords(U8C fromNoC0,u32 srcByteAddr, u32 * words, u32 wordCount) ;
     void readPCSnapshots(U8C fromNoC0, u32 words[5]) ;
 
+    using StackBlock = std::deque<u32>;
+    u32 readHartStackAfterFail(U8C fromNoC0, u8 hartnum, StackBlock & sb, u32 atfailsp, u32 * optBaseAddrPtr) ;
+
     bool hasHostRAM() const { return mPinnedHostBuf.host_ptr != 0; }
     size_t hostRAMSize() const { return mPinnedHostBuf.size; }
     void * hostRAMPtr() const { return mPinnedHostBuf.host_ptr; }
@@ -182,6 +187,8 @@ namespace MFM {
       membuf(char* begin, u32 len) { this->setg(begin, begin, begin + len);}
     };
 
+
+
     struct TLBInfo {
       struct tenstorrent_allocate_tlb_out mAllocOut;
       const T6Image * mDeployedImage;
@@ -196,6 +203,8 @@ namespace MFM {
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
       bool mHasBeenDumped;
+
+      u32 mACBPacketsReceived;
 
       ZHostDecompressor mZHD; // everybody gets one, at least for now..
 
@@ -247,6 +256,7 @@ namespace MFM {
     pinned_host_buffer_t mPinnedHostBuf; 
     u32 mDevChipNum;
     s32 mDevFD;
+    Blackhole * mBlackholePtr;
     HostCommsMap mHostCommsMap;
     void * mMapAllT6;         //< start of ~140*2M addrs for host to R/W T6 (usually L1)
     size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 

@@ -36,7 +36,9 @@ namespace MFM {
     u32 mBlocked;
     u32 getFromRandomBuffer() {
       u32 ret;
-      while (!mRandomBuffer.remove(ret)) { ++mBlocked; }
+      while (!mRandomBuffer.remove(ret)) {
+        if ((mBlocked++ & 0xffff) == 0) HBPTAG(RNDBLK,mBlocked);
+      }
       return ret;
     }
   };
@@ -142,7 +144,10 @@ namespace MFM {
       if ((++spin & 0xff'ffff) == 0u) {
         hb.hartbeat(fAll.mHartNum);
         if (fT2.mBlocked > 0) DP.printf("RNDBLOCKED %d %d\n", spin, fT2.mBlocked);
-        if ((spin & 0x7ff'ffff) == 0) HBXTAG(RNDOGETTY,spin);
+        if ((spin & 0x7ff'ffff) == 0) {
+          LOGXTAG(RNDOGHETTI,spin);
+          HBXTAG(RNDOGETTY,spin);
+        }
       }
       for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
         u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);
@@ -173,33 +178,33 @@ namespace MFM {
   TEFResult TaskEpochFunction_PRNG(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
     switch (hei) {
     case HE_BORN0:
-      MFM_API_ASSERT_ON_HART(HARTNUM_T2);
+      if (hartnum!=HARTNUM_T2) return TEFR_NO_THANKS;
       HBNOTE(init PRNG);
       initT2();
-      break;
+      return TEFR_CONTINUE;
 
     case HE_BORN1:
-      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2);
-      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
-      //HBNOTE(prePRNG);
+      if (hartnum==HARTNUM_T2 || hartnum==HARTNUM_NC)
+        return TEFR_NO_THANKS;
       preloadT2Mailbox();
-      break;
-
-    case HE_GROW0:
-      MFM_API_ASSERT_ON_HART(HARTNUM_T2);
-      return TEFR_HART_OUT;
+      return TEFR_CONTINUE;
 
     case HE_GROW1:
-      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2);
-      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
-      HBPTAG(R1K,create(1000));
-      break;
+      if (hartnum!=HARTNUM_T2) return TEFR_NO_THANKS;
+      HBNOTE(H2DOGONE);
+      return TEFR_HART_OUT;
+
+    case HE_GROW2:
+      if (hartnum==HARTNUM_T2 || hartnum==HARTNUM_NC)
+        return TEFR_NO_THANKS;
+      HBPTAG(R1K,create(1'000'000));
+      return TEFR_CONTINUE;
 
     default:
-      HBPTAG(TEFPRNG,getHartEpochName(hei));
+      SNAP(3,HBPTAG(PRNG,getHartEpochName(hei)));
       break;
     }
-    return TEFR_CONTINUE;
+    return TEFR_NO_THANKS;
   }
   
 

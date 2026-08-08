@@ -42,14 +42,15 @@ namespace MFM {
     }
 
     void stepHTFuncsT0() {
+      EACH(10'000,HBPTAG(stepT0,__EACHNUM__));
       for (u32 j = 0u; j < mHTFuncsInUseT0; ++j) {
         u32 i = j;
         HTFuncPtr epf = mHTFuncsT0[i];
-        SNAP(2,HBPTAG(runT0,(void*) epf));
+        SNAP(2,HBPTAG(doT0,(void*) epf));
         if (epf) {
           (*epf)(HTOC_LIVE);
         }
-        SNAP(2,HBPTAG(ranT0,(void*) epf));
+        SNAP(2,HBPTAG(didT0,(void*) epf));
       }
     }
     
@@ -84,9 +85,9 @@ namespace MFM {
   }
 
   int MYstepT0(HostBlock & hb) {
-    SNAP(3,HBPTAG(@,__FUNCTION__));
+    EACH(10'000,HBPTAG(@,__FUNCTION__));
     fT0.stepHTFuncsT0();
-    SNAP(3,HBNOTE(BACK));
+    EACH(10'000,HBNOTE(BACK));
     return 0;
   }
 
@@ -178,21 +179,21 @@ namespace MFM {
   HTFuncPtr logT0 = &manageLogBlockT0;
 
   ////////
-  TEFResult TaskEpochFunction_CLOCK(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
-    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+  TEFResult TaskEpochFunction_CLOK(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    if (hartnum != HARTNUM_T0) return TEFR_NO_THANKS;
     switch (hei) {
-    case HE_BEGIN:
-      HBNOTE(init CLOCK);
+    case HE_BGN:
+      HBNOTE(init CLOK);
       myInitT0Clock();
       fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
       fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
       t0TicksElapsed = 0u;
-      break;
+      return TEFR_CONTINUE;
 
     default:
-      FAIL(UNREACHABLE_CODE);
+      break;
     }
-    return TEFR_CONTINUE;
+    return TEFR_NO_THANKS;
   }
 
 

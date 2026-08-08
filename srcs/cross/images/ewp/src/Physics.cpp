@@ -22,12 +22,13 @@ namespace MFM {
       if (ret) ++mEWsSucceeded;
       else ++mEWsFailed;
 
-      if (mEWsAttempted%100 == 0) {
+      if (mEWsAttempted%1'000 == 0) {
         HBPTAG(pewAt,mEWsAttempted);
         HBPTAG(pewSu,mEWsSucceeded);
       }
     } else if (ewt.mPayloadState.mPayloadCode != EwpPayloadCode::EWPC_EMPTY) {
-      SNAP(2,HBPTAG(wotwot?,ewt.mPayloadState.mPayloadCode));
+      HBPTAG(wotwot?,ewt.mPayloadState.mPayloadCode);
+      ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_EMPTY;
     } 
     return ret;
   }
@@ -61,8 +62,10 @@ namespace MFM {
     }
 
     case PHY_FB1: {
+      ca.mStg[1]++;             // cheat and access underlying u32
       u32 ngbsn = between(1u,4u);
       ew.mAtoms[ngbsn] = ca;
+      //      sleepCycles(1'000'000);   // waste time to simulate more complex physics
       return true;
     }
 

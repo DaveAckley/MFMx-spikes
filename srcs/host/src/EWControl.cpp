@@ -227,9 +227,9 @@ namespace MFM {
   }
 
   void EWControl::fillEW(S32C center, EventWindow & ew) {
-    const MDist4 & md = MDist4::get();
+    const MDist4 md;
     for (u32 sn = 0u; sn < 41u; ++sn) {
-      SPoint c = md.GetPoint(sn);
+      SPoint c = md.getPoint(sn);
       S32C at = { center.x+c.GetX(), center.y+c.GetY() };
       P4Atom a = getAtom(at);
       ew.mAtoms[sn] = a;
@@ -511,9 +511,9 @@ namespace MFM {
     entry.mWhenAllocated = when;
 
     ++mEventCenterCommitsAttempted;
-    const MDist4 & md = MDist4::get();
+    const MDist4 md;
     for (u32 sn = 0u; sn < 41u; ++sn) {
-      SPoint c = md.GetPoint(sn);
+      SPoint c = md.getPoint(sn);
       S32C at = { center.x+c.GetX(), center.y+c.GetY() };
       P4Atom a = getAtom(at);
       if (a != oldew.mAtoms[sn]) {
@@ -538,7 +538,7 @@ namespace MFM {
       if (oldew.mAtoms[sn] == a) continue;
       changed = true;
 
-      SPoint c = md.GetPoint(sn);
+      SPoint c = md.getPoint(sn);
       S32C at = { center.x+c.GetX(), center.y+c.GetY() };
       if (setAtom(at, a) && a.getType() != P4Atom::EMPTY_TYPE) {
         if (at.x < mMin.x) mMin.x = at.x;

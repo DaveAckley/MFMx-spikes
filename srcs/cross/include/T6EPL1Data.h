@@ -35,22 +35,22 @@ namespace MFM {
     }
 
     SUBTCBLOCKSTG & getCarStg(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LT(blockindex,BLOCK_COUNT);
       return mTheTCStorages[blockindex];
     }
 
     AtomicLock & getAtomicLock(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LT(blockindex,BLOCK_COUNT);
       return mTheLocks[blockindex];
     }
 
     CarIdxs & getCarIdxs(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LT(blockindex,BLOCK_COUNT);
       return mTheCarIdxs[blockindex];
     }
 
     EPState & getPublicEPState(u8 blockindex) {
-      HBASSERT_LS(blockindex,BLOCK_COUNT);
+      HBASSERT_LT(blockindex,BLOCK_COUNT);
       return mThePublicEPState[blockindex];
     }
 

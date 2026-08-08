@@ -44,7 +44,12 @@ namespace MFM {
   extern void runHartTaskerInits(); // in allimg/src/HartTasks.cpp
 
   int t6otherinits(HostBlock &hb) { // RUNS ON HARTB ONLY
-    hb.addBytes('o','i');
+    { // INIT MDist TABLES
+      const MDist4 md;
+      md.init();
+      hb.addBytes('m','d');
+    }
+
     t6InitPrinters(hb);
     setupHartTaskerInits();
     return 0;
@@ -90,7 +95,6 @@ namespace MFM {
     //HBPTAG(t6main,hartName(fAll.mHartNum));
     //setGlobalDebugHook(ouriba0OK);
     //HBPTAG(HOOKT,hartName(fAll.mHartNum));
-
     runHartTaskerInits();
 
     //    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);

@@ -32,7 +32,6 @@ namespace MFM {
   }
 
   bool ACacheBlockL1Control::readyToClose() {
-    AtomicScopeLock guard(mLock);
     if (!mCurrentACacheBlock)
       return false;             // nothing to close
     ACacheBlock & acb = *mCurrentACacheBlock;
@@ -52,17 +51,12 @@ namespace MFM {
     ACacheBlockPayload & pay = acb.payload();
     u32 wasused = pay.getCurrentLength();
     bool ret = pay.addByte(byte);
-    if (ret) ++mCompressedBytesPacked;
     {
-      if (ret /*true wasused < 3 || wasused > 990-3*/) {
-        u32 nowused = pay.getCurrentLength();
-        u32 idx = mCompressedBytesPacked-1;
-        char buf[40];
-        snprintf(buf,40,"#%u @%u:%u 0x%02x",idx,wasused,nowused,byte);
+      if (wasused < 3 || wasused > 990-3) {
+        char buf[30];
+        snprintf(buf,30,"r%u u%u 0x%02x",ret,wasused,byte);
         if (!ret) SNAP(2,LOGPTAG(sWBC>,buf));
-        else if ((idx % 990) > 980 || (idx % 990) <  20)
-          EACH(100'000,LOGPTAG(ARCB,buf));
-        //EACH(1,LOGPTAG(ARCB,buf));
+        else EACH(1,LOGPTAG(WBC>,buf));
       }
     }
     /*if (ret) EACH(1,LOGXTAG(>ACBC>,formatCountedByte(__EACHNUM__,byte)));
@@ -71,8 +65,6 @@ namespace MFM {
   }
 
   void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING FROM COMM2COMP
-    AtomicScopeLock guard(mLock);
-
     constexpr u32 BS = 50;
     char buf[BS];
 
@@ -90,11 +82,9 @@ namespace MFM {
     mCurrentCarIndex = newcarindex;
     mBaseTicks = millisElapsed();
     mAReportsMissed = 0;
-    if (false) {
-      LOGPX(mCurrentACacheBlock);
-      LOGPX(mCurrentCarIndex);
-      LOGPX(mBaseTicks);
-    }
+    LOGPX(mCurrentACacheBlock);
+    LOGPX(mCurrentCarIndex);
+    LOGPX(mBaseTicks);
 
     ACacheBlockPayload & npay = nlb.payload();
     npay.reset();
@@ -187,7 +177,7 @@ namespace MFM {
     memset_s(this,'\0',sizeof(*this)); // init all
     mACBL1Control = &acbl1;
     mDLGridList= &dll1;
-    mARIO.init(true);   // true: init for serialization (obj -> bytes)
+    mARIO.init();
     HBPTAG(PACBinit,sizeof(*this));
   }
 
@@ -223,14 +213,12 @@ namespace MFM {
     if (keytest) {  // current car is ready to go
       bool got;
 
-      if (false) {
-        LOGPX(keytest);
-        LOGPX(&acl1);
+      LOGPX(keytest);
+      LOGPX(&acl1);
 
-        HBPX(crbi.isEmpty());
-        HBPX(crbo.isFull());
-        HBPX(acl1.readyToClose());
-      }
+    HBPX(crbi.isEmpty());
+    HBPX(crbo.isFull());
+    HBPX(acl1.readyToClose());
       
 
       { // SHIPPING
@@ -239,12 +227,10 @@ namespace MFM {
         HBPTAG(SHIPH,opay.getCurrentPayloadSize());
         HBPTAG(SHIPR,opay.getBytesRemaining());
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
-        if (false) {
-          if (opay.getCurrentPayloadSize() < 4)
-            LOGPTAG(SHIPFRMS,acl1.mCurrentCarIndex);
-          else
-            LOGPTAG(SHIPFRML,acl1.mCurrentCarIndex);
-        }
+        if (opay.getCurrentPayloadSize() < 4)
+          LOGPTAG(SHIPFRMS,acl1.mCurrentCarIndex);
+        else
+          LOGPTAG(SHIPFRML,acl1.mCurrentCarIndex);
         got = crbo.add(acl1.mCurrentCarIndex); // hand control back to comm
         HBPTAG(ACBShipi,acl1.mCurrentCarIndex);
         HBASSERT_EQ(got,true);
@@ -328,10 +314,8 @@ namespace MFM {
         // WAIT FOR RCLOSE CLEAR
         if (!acb.payload().checkRCloseFlag()) {
           mFramesSent++;
-          if (false) {
-            LOGPTAG(2PACK,mFramesSent);
-            HBPTAG(2PACK,mFramesSent);
-          }
+          LOGPTAG(2PACK,mFramesSent);
+          HBPTAG(2PACK,mFramesSent);
           mNextFrameBogoMS += BOGOMS_PER_FRAME;
           if ((mFramesSent%100) == 0) LOGPTAG(WAITSENT,mFramesSent);
           mARsToSend = dl.getLength();
@@ -343,7 +327,7 @@ namespace MFM {
     case State::WAIT:
       {
         if (mNextFrameBogoMS <= millisElapsed()) {
-          //          LOGPTAG(2NEXT,mNextFrameBogoMS);
+          LOGPTAG(2NEXT,mNextFrameBogoMS);
           HBPTAG(2NEXT,mNextFrameBogoMS);
 
           // ACCESS PAY
@@ -362,53 +346,76 @@ namespace MFM {
       {
         //        LOGPTAG(PACKI,mARsToSend);
         if (mNextFrameBogoMS <= millisElapsed()) {
-          if (false) LOGPTAG(EOFTM,mFramesSent);
+          LOGPTAG(EOFTM,mFramesSent);
           mState = State::WAIT; // ran out of frame time
+        }
+        else if (false /*mARsToSend == 0*/) {
+          // XXX JUST stay in PACK?
+          // RUN END OF FRAME CODE
+          //          if ((mFramesSent % 100) == 0)
+          //            LOGPTAG(NEEDSENDEOFC,mFramesSent);
+          mState = State::WAIT; // nothing else to send
         } else {
 
-          // PACK WHAT BYTES WE CAN
-          AtomReport ar;
-          T6Grid & t6g = theT6Grid[0];
-          u32 count = 0;
-
-          //LOGPTAG(PAKLEN,l1dLZBytesIn.lengthish());
-          while (!l1dLZBytesIn.isFull()) { // while Room For One More
-
-            /// (1) Does mARIO have more bytes to supply?
-            u8 byte;
-            if (mARIO.tryGetByte(byte)) {
-              // Yes
-              l1dLZBytesIn.add(byte);
-              ++count;
-              ++mUncompressedBytesPacked;
-              {
-                char buf[20];
-                snprintf(buf,20,"#%u 0x%02x",mUncompressedBytesPacked,byte);
-                //EACH(1,LOGPTAG(ARUB,buf));
-              }
-              continue;
-            }
-            // No, done with that object
-            mARIO.discardObj();
-            
-            /// (2) Does dl have more ARs to supply?
-            U8C arc;
+          // PACK SOME BYTES
+          U8C arc;
+          // CHECK IF HAVE ROOM AND AN OBJECT
+          if (false) {
+            u32 n = sizeof(AtomReport);
+            LOGPX(n);
+            LOGPX(l1dLZBytesIn.mFirstFreeIdx);
+            LOGPX(l1dLZBytesIn.mFirstUsedIdx);
+            bool has = l1dLZBytesIn.mFirstFreeIdx - l1dLZBytesIn.mFirstUsedIdx < l1dLZBytesIn.RING_BUFFER_SIZE - n;
+            LOGPX(has);
+            LOGPX(l1dLZBytesIn.hasRoomForNMore(n));
+          }
+          //          LOGPX(mARIO.canPutObj());
+          EACH(1'000,HBPTAG(PACK,l1dLZBytesIn.hasRoomForNMore(sizeof(AtomReport))));
+          EACH(1'000,LOGPTAG(PACK,l1dLZBytesIn.hasRoomForNMore(sizeof(AtomReport))));
+          EACH(1'000,LOGPTAG(MACKPUT,mARIO.canPutObj()));
+          EACH(1'000,LOGPTAG(MACKGET,mARIO.canGetObj()));
+          EACH(1'000,LOGPTAG(MACKIOPOS,mARIO.getPos()));
+          for (u32 p = 0; p < 50; ++p) {
+            if (l1dLZBytesIn.hasRoomForNMore(sizeof(AtomReport)) &&
+                mARIO.canPutObj()) {
+            AtomReport ar;
             if (dl.popBackC(arc)) {
-              // Yes. Make report
+              EACH(1'000,HBPTAG(RUM4NMO,l1dLZBytesIn.lengthish()));
+              //LOGPTAG(RUM4NMO,l1dLZBytesIn.lengthish());
+              //LOGPTAG(RUM4NMOG,dl.getLength());
               ar.mCoord = U16C(arc.x,arc.y);
               ar.mSpin1 = ar.mSpin2 = mARSpinner++;
+              T6Grid & t6g = theT6Grid[0];
               ar.mAtom = t6g.getAtom(ar.mCoord);
-              //EACH(1,{LOGPTAG(AC:,ar.mCoord);LOGATOM(ar.mAtom);});
-              
-              // Stash it (or die: We Just Cleared mARIO)
+              //              LOGPTAG(GACK@,&t6g);
+              //LOGPTAG(PACKR,arc);
+              //LOGATOM(ar.mAtom);
               mARIO.putObj(ar);
-              continue;
+              
+              u8 byte;
+              //HBPTAG(+MARIO,ar.mCoord);
+              //              LOGPTAG(BP,&byte);
+              while (mARIO.tryGetByte(byte)) {
+                //EACH(1,LOGPTAG(>ACBU>,formatCountedByte(__EACHNUM__,byte)));
+                //SNAP(10,LOGXTAG(B,(u32) byte));
+                u32 spin = 0;
+                while (!l1dLZBytesIn.add(byte)) { // "CAN'T BE FALSE"
+                  if ((spin++ % (1u<<15))== 0)
+                    LOGPTAG(ACBSPIN,spin>>15);
+                }
+              }
+              // once we can get no more bytes, discard object:
+              mARIO.discardObj();
+              //LOGPTAG(-MARIO,l1dLZBytesIn.lengthish());
+            } else {
+              //LOGPTAG(mrooOut,dl.getLength());
+              break;
             }
-            /// (3) We have to wait
-            mState = State::WAIT; // nothing else to send
-            break;                // stop the loop
+          } else {
+              LOGPTAG(PAKOUT,p);
+              break;
+            }
           }
-          //LOGPTAG(PKOUT,count);
         }
       }
       break;

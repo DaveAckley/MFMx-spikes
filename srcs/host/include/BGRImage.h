@@ -46,9 +46,9 @@ namespace MFM {
     RGBPix getPixel(U16C coord) const {
       RGBPix ret;
       if (coord.x < PIXWID && coord.y < PIXHGT) {
-        for (u32 i = 0u; i < 3u; ++i) {
-          ret.mRGB[i] = mRaster[coord.y][coord.x][i];
-        }
+        ret.mRGB[0] = mRaster[coord.y][coord.x][2]; // convert from
+        ret.mRGB[1] = mRaster[coord.y][coord.x][1]; 
+        ret.mRGB[2] = mRaster[coord.y][coord.x][0]; // bgr to rgb
       }
       return ret;
     }
