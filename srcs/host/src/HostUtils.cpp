@@ -11,6 +11,14 @@
 #include <regex>
 #include "utils.h" // for XSTR_MACRO
 
+// for execShellCmd
+#include <array>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <string>
+
+
 namespace MFM {
 
   u8 p1(void *p) { return *(u8*)p; }
@@ -83,7 +91,7 @@ namespace MFM {
     // create dir to hold all the rest.
     std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
     std::filesystem::create_directories(hostlogdir+"host/");  // for other BHTags
-    std::string logpath = hostlogdir + "all.txt";
+    std::string logpath = hostlogdir + "all.mfmk";            // MFMxLogJumpr extension
     hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
     fprintf(hostlogfile,"pid=%d,tid=%lu\n",
             ::getpid(),
@@ -102,7 +110,7 @@ namespace MFM {
     else
       keypath.append("/host/");
     keypath.append(key.to_string());
-    keypath.append(".dat");
+    keypath.append(".mfmk");
       
     std::ofstream ofs(keypath, std::ios::app);
     ofs << "---" << runTimeSeconds() << "---" << std::endl;
@@ -117,7 +125,7 @@ namespace MFM {
     else
       keypath.append("/host/");
     keypath.append(key.to_string());
-    keypath.append(".dat");
+    keypath.append(".mfmk");
       
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
     static auto last = runTimeSeconds();
@@ -271,6 +279,35 @@ namespace MFM {
     return (status==0) ? res.get() : typeName ;
   }
   
+  // Run `cmd` through the shell and return its stdout as a std::string.
+  // Throws std::runtime_error if popen fails. Stderr is NOT captured.
+  std::string execShellCmd(const std::string& cmd) {
+    // RAII wrapper: pclose is called automatically on scope exit / throw.
+    std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (!pipe) {
+      throw std::runtime_error("popen() failed for: " + cmd);
+    }
+
+    std::array<char, 4096> buf;     // larger buffer = fewer reads
+    std::string result;
+    while (std::fgets(buf.data(), buf.size(), pipe.get()) != nullptr) {
+      result.append(buf.data());
+    }
+    return result;
+  }
+
+  std::string makeMark(std::string fidl, u32 dev, U8C noc0, std::string hartname, std::string msg) {
+    return std::string("{")
+      + fidl
+      + " " + std::to_string(1) // time NYI
+      + " " + std::to_string(dev) // bh#
+      + " " + std::to_string(noc0.x)
+      + "," + std::to_string(noc0.y)
+      + " " + hartname
+      + " " + msg
+      + "}";
+  }
+
   void initHostUtils() {
     static bool initted = false;
     MFM_API_ASSERT_STATE(!initted); // rumemba: one ping only.

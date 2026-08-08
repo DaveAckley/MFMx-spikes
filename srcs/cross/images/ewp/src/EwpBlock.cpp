@@ -40,9 +40,10 @@ namespace MFM {
     // OK. mCellO.mImageTypeIndex is our blockidx for HUB's BC_EWHUB
   }
 
-  static bool manageEwpNC(bool doInit) {
-    bool ret = false;
-    if (unlikely(doInit)) {
+  static RCFlag manageEwpNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
       LOGMARK;
 
       theEwpL1Data.reset();     // zero all
@@ -68,18 +69,21 @@ namespace MFM {
       // Set up our endpoint: Destination { EWHUB, ourtypeidx }
       myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, { BC_EWHUB, fCOINC.mCellO.mImageTypeIndex });
       myEwpEPNC.activate();
-      ret = true;
+      ret = RC_0_SELF_UP; // XXX?
       LOGMARK;
 
-    } else {
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGMARK;
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
 
       //// LIFE
       //      SNAP(5,HBMARK);
       if (myEwpEPNC.updateOps()) {
-        ret = true;
         //        HBMARK;
       }
-    }
+    } else LOGPTAG(unknown htoc,htoc);
+
     return ret;
   }
   

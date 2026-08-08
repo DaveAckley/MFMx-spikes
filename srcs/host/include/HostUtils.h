@@ -81,5 +81,8 @@ namespace MFM {
 
   std::string demangleCpp(const char* typeName) ; //< demangleCpp(typeid(FOO).name())) => MFM::FOO
 
+  std::string execShellCmd(const std::string& cmd) ;
+
+  std::string makeMark(std::string fidl, u32 dev, U8C noc0, std::string hartname, std::string msg) ;
 }
 

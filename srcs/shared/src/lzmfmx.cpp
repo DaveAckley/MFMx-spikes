@@ -147,6 +147,7 @@ namespace MFM {
   }
 
   bool lzmfmx::encode() {
+    HBPTAG(lzmenc,"ARO");
     u8 code[17], flags = 0, mask = 1;
     u32 cptr = 1, sid = 0, r = RING_SIZE - MAX_MATCH, n = 0;
 
@@ -157,15 +158,18 @@ namespace MFM {
       else mRing[r + n++] = (u8) sb;
     }
 
+    HBPTAG(lzmenc,"PRIMD");
+
     for (u32 i = 1; i <= MAX_MATCH; ++i)
       insertNode(r - i);
     insertNode(r);
 
+    HBPTAG(lzmencN,n);
     while (n > 0) {
-      if (false) {
+      if (true) {
         static u32 spin = 0;
-        if ((spin++ & 0xfffff) == 0)
-          LOGPTAG(lzmenc,n);
+        if ((spin++ & 0xff) == 0)
+          HBPTAG(lzmenc,n);
       }
 
       u32 ml = mMlen > n ? n : mMlen;

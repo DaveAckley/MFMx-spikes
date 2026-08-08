@@ -46,7 +46,7 @@ namespace MFM {
       P4Atom a = mT6GridPtr->getAtom(s);
       if (!a.isEmpty()) {
         found = s;
-        SNAP(100,HBPTAG(SEEKT,s));
+        SNAP(10,HBPTAG(SEEKT,s));
         return true;
       }
     }
@@ -122,9 +122,9 @@ namespace MFM {
     if (ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
       center.x = ewt.mHiddenXPos;
       center.y = ewt.mHiddenYPos;
-      SNAP(1000,HBPTAG(gmtraply,center));
+      SNAP(100,HBPTAG(gmtraply,center));
       if (matchesEW(ewt.mOld,center)) {
-        SNAP(1000,HBPTAG(gmaplid!,center));
+        SNAP(100,HBPTAG(gmaplid!,center));
         LOGPTAG(gmaplid!,center);
         writeEW(ewt.mNew,center);
       }
@@ -132,14 +132,14 @@ namespace MFM {
     // all EWPCs come through here
     EACH(100,HBNOTE(applyEWT-Seek));
     if (seekRandomNonEmptySite(center)) {
-      SNAP(100,HBNOTE(readEW));
+      SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;
       LOGPTAG(gmdisnew,center);
     } else {                    // couldn't find a center
-      SNAP(100,HBNOTE(noCtr));
+      SNAP(10,HBNOTE(noCtr));
       ++mEWsEmptiesShipped;
       if ((mEWsEmptiesShipped%100000)==0) LOGPTAG(gmdedhed,mEWsEmptiesShipped);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_EMPTY;

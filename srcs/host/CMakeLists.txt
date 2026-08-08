@@ -49,8 +49,12 @@ target_compile_options(MFMx PRIVATE
     ${CMAKE_SOURCE_DIR}/srcs/generated_headers
   )
 
+  get_filename_component(SPIKE_NAME "${CMAKE_SOURCE_DIR}" NAME)
+  
   target_compile_definitions(MFMx PRIVATE
     BUILD_HOST   # add -DBUILD_HOST to gcc lines
+    SPIKE_DIR="${CMAKE_SOURCE_DIR}"
+    SPIKE_NAME="${SPIKE_NAME}"
   )
 
   target_link_libraries(MFMx PRIVATE pybind11::headers)

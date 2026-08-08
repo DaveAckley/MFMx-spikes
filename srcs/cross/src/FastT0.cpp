@@ -7,7 +7,7 @@
 #include "Printf.h"
 #include "CrossUtils.h"
 #include "Debug.h"
-#include "HartTasks.h" // for HTFuncPtr
+#include "HartTasksLib.h" // for HTFuncPtr
 
 namespace MFM {
   extern "C" char __start_rodata_fp_table_t0[];
@@ -21,7 +21,6 @@ namespace MFM {
     void init() {
       memset_s(this,'\0',sizeof(*this));
       copyHTFuncsT0();
-      runHTFuncsT0(true);
     }
 
     static constexpr u32 MAX_HTFUNCS_T0 = 6u;
@@ -35,26 +34,23 @@ namespace MFM {
       HTFuncPtr* end_addr = (HTFuncPtr*) &__end_rodata_fp_table_t0;
 
       u32 ptrCount = end_addr - start_addr;
-      //      HBPTAG(ptrC,ptrCount);
+      HBPTAG(ptrC,ptrCount);
       MFM_API_ASSERT(ptrCount < MAX_HTFUNCS_T0,OUT_OF_ROOM);
       for (u32 i = 0u; i < ptrCount; ++i) 
         mHTFuncsT0[i] = start_addr[i];
       mHTFuncsInUseT0 = (u8) ptrCount;
     }
 
-    bool runHTFuncsT0(bool forInit) {
-      bool ret = false;
+    void stepHTFuncsT0() {
       for (u32 j = 0u; j < mHTFuncsInUseT0; ++j) {
         u32 i = j;
         HTFuncPtr epf = mHTFuncsT0[i];
+        SNAP(2,HBPTAG(runT0,(void*) epf));
         if (epf) {
-          if (forInit) HBPTAG(fncInit,i); 
-          if ((*epf)(forInit)) 
-            ret = true;
+          (*epf)(HTOC_LIVE);
         }
+        SNAP(2,HBPTAG(ranT0,(void*) epf));
       }
-      if (forInit) HBPTAG(epfInUse,mHTFuncsInUseT0);
-      return ret;
     }
     
     u64 debugTimestamperStart;
@@ -87,11 +83,20 @@ namespace MFM {
     return t0TicksElapsed;
   }
 
+  int MYstepT0(HostBlock & hb) {
+    SNAP(3,HBPTAG(@,__FUNCTION__));
+    fT0.stepHTFuncsT0();
+    SNAP(3,HBNOTE(BACK));
+    return 0;
+  }
+
   int liveT0(HostBlock & hb) {
     //DP.printf("T0:RND %d\n",create(100));
+    /*
     fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
     fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
     t0TicksElapsed = 0u;
+    */
 
     u16 spin = 0u;
     u32 aiFreq = hb.mAIClockFrequency;
@@ -108,10 +113,10 @@ namespace MFM {
         fT0.newMillisElapsed = (u32) ((1000 * cycles) / aiFreq);
         if (fT0.newMillisElapsed != fT0.lastMillisElapsed) { // don't hit L1 til new milli
           fT0.lastMillisElapsed = fT0.newMillisElapsed;
-          totalMillisElapsed = fT0.lastMillisElapsed;
+          totalMillisElapsed = fT0.newMillisElapsed;
           aiFreq = hb.mAIClockFrequency; // and refresh aiFreq then too, just in case
           // CALL STEPT0 ONCE PER ~MILLI!
-          stepT0(hb);
+          MYstepT0(hb);
         }
       }
 
@@ -129,16 +134,10 @@ namespace MFM {
     FAIL(UNREACHABLE_CODE); // um what? try to set T0's fail bit
   }
 
-  int stepT0(HostBlock & hb) {
-    fT0.runHTFuncsT0(false);
-    return 0;
-  }
-
-  int initT0() {
+  int myInitT0Clock() {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    HBNOTE("initT0");
-    preloadT2Mailbox();
     fT0.init();
+    HBNOTE(init T0 clock);
     return 0;
   }
 
@@ -147,16 +146,19 @@ namespace MFM {
     return liveT0(hb);          // go do your hart t0 thing you
   }
 
-  static bool manageLogBlockT0(bool doInit) {
-    bool ret = false;
-    if (unlikely(doInit)) {
+  // called by initseq and by stepHTFuncsT0
+  RCFlag manageLogBlockT0(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
 
       HBMARK;
       theLogBlockL1Control.init();
       HBMARK;
-      ret = true;
+      //ret = true;
 
-    } else {
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGMARK;
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
 
       static u32 spin = 0;
       //// LIFE
@@ -167,11 +169,34 @@ namespace MFM {
 
       HostBlock & hb = theHostBlock;
       theLogBlockL1Control.step(hb);      
-    }
+    } else LOGPTAG(unknown htoc,htoc);
+
     return ret;
   }
 
   __attribute__((section(".rodata_fp_table_t0")))
   HTFuncPtr logT0 = &manageLogBlockT0;
+
+  ////////
+  TEFResult TaskEpochFunction_CLOCK(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+    switch (hei) {
+    case HE_BEGIN:
+      HBNOTE(init CLOCK);
+      myInitT0Clock();
+      fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
+      fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
+      t0TicksElapsed = 0u;
+      break;
+
+    default:
+      FAIL(UNREACHABLE_CODE);
+    }
+    return TEFR_CONTINUE;
+  }
+
+
 }
+
+
 

@@ -27,7 +27,7 @@ namespace MFM {
   OurTLBs::OurTLBs()
     : mDevChipNum(U32_MAX)
     , mDevFD(-1)
-    , mMapAllT6L1(0)
+    , mMapAllT6(0)
     , mT6HostBufferSize(0)
     , mDMABufferPretendDeleted(false)
     , mEWsShipped(0)
@@ -219,9 +219,10 @@ namespace MFM {
   }
 
   char * OurTLBs::getL1HostAddressForTLBI(u32 tlbi) {
-    MFM_API_ASSERT_NONNULL(mMapAllT6L1);
+    MFM_API_ASSERT(tlbi <= AHAX_TLBI_L1_LAST_UNI,ILLEGAL_ARGUMENT);
+    MFM_API_ASSERT_NONNULL(mMapAllT6);
     const TLBInfo & info = getTLBInfo(tlbi);
-    char * tlbistart = ((char*)mMapAllT6L1) + tlbi*AHAX_CONSTANT2M;
+    char * tlbistart = ((char*)mMapAllT6) + tlbi*AHAX_CONSTANT2M;
     return tlbistart;
   }
 
@@ -274,26 +275,21 @@ namespace MFM {
   }  
 
   void OurTLBs::configureTLBs() {
-    // get addrs to cover all our T6 L1-mapping needs
-    mMapAllT6L1 = mmap(NULL, AHAX_MMAP_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    ASSERT(mMapAllT6L1 != MAP_FAILED);
-    LOGprintf(mDevChipNum,"MMAP FOR T6 L1 AT %p .. %p\n", mMapAllT6L1, AHAX_MMAP_SIZE + (char*) mMapAllT6L1);
+    // get addrs to cover all our T6 L1(-and-debug)-mapping needs
+    mMapAllT6 = mmap(NULL, AHAX_MMAP_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    ASSERT(mMapAllT6 != MAP_FAILED);
+    LOGprintf(mDevChipNum,"MMAP FOR T6 L1 AT %p .. %p\n", mMapAllT6, AHAX_MMAP_SIZE + (char*) mMapAllT6);
 
-    // configure and map all but the last two to the fleet - L1 uni
+    // configure and map all but the last three to the fleet - L1 uni
     for (unsigned i = AHAX_TLBI_L1_FIRST_UNI; i <= AHAX_TLBI_L1_LAST_UNI; ++i) {
       U16C nocc = U16C::makeNoCCoordFromTLBI(i);
 
       // configure as T6/L1 access window
       void * ptr = configureL1Window(i,{nocc,nocc});
 
-      /*
-      if (i < 2u || i >= AHAX_TLB2M_COUNT-4u)
-        LOGprintf(mChipNum,"TLBCFG %u @ (%u,%u) mapped at %p\n",i,nocc.x,nocc.y,ptr);
-      */
-      
     }
   
-    // map last two
+    // map last three
     {
       void * ptr = configureMulticastWindow(AHAX_TLBI_L1_MULTI, 0x0, /*wc=*/ true);
       //LOGprintf(mChipNum,"L1MULTI %u mapped at %p\n",AHAX_TLBI_L1_MULTI,ptr);
@@ -302,11 +298,17 @@ namespace MFM {
       void * ptr = configureMulticastWindow(AHAX_TLBI_DEBUG_MULTI, 0xFFB12000, false);
       //LOGprintf(mChipNum,"DEBUGMULTI %u mapped at %p\n",AHAX_TLBI_DEBUG_MULTI,ptr);
     }
+    {
+      // 2M window with range to be set per-use, addressing
+      // [RISCV_DEBUG_REGS_START_ADDR..RISCV_DEBUG_REGS_START_ADDR+2M)
+      void * ptr = configureDebugWindow(AHAX_TLBI_DEBUG_UNI);
+      //LOGprintf(mChipNum,"DEBUGUNI %u mapped at %p\n",AHAX_TLBI_DEBUG_UNI,ptr);
+    }
   }
 
   void OurTLBs::unconfigureTLBs() {
     // release the TLB map
-    s32 ret = munmap(mMapAllT6L1, AHAX_MMAP_SIZE);
+    s32 ret = munmap(mMapAllT6, AHAX_MMAP_SIZE);
     ASSERT(ret==0);
 
     // We believe there is nothing actually to do to 'unconfigure' the indiv TLBs?
@@ -325,7 +327,7 @@ namespace MFM {
   */
 
   void OurTLBs::writeToWords(u32 tlbi, u32 destAddr, u32 * words, u32 wordCount) {
-    u32 * tlbBase = (u32*) ((char*) mMapAllT6L1 + tlbi*AHAX_CONSTANT2M);
+    u32 * tlbBase = (u32*) ((char*) mMapAllT6 + tlbi*AHAX_CONSTANT2M);
     u32 * destTop = (u32*) (((u64) destAddr)&~((u64) AHAX_CONSTANT2M_MASK));
     u32 destOffsetWords = (destAddr&AHAX_CONSTANT2M_MASK)>>2u;
     if (destTop != (u32*) (((u64) mTLBInfos[tlbi].mRemoteBaseAddress)&~((u64) AHAX_CONSTANT2M_MASK)))
@@ -348,8 +350,34 @@ namespace MFM {
     }
   }
 
+  void OurTLBs::readPCSnapshots(U8C fromNoC0, u32 words[5]) {
+    debugReadWords(fromNoC0,RISCV_DEBUG_B_PC_SNAPSHOT,&words[HARTNUM_B],1);
+    debugReadWords(fromNoC0,RISCV_DEBUG_NC_PC_SNAPSHOT,&words[HARTNUM_NC],1);
+    debugReadWords(fromNoC0,RISCV_DEBUG_T0_PC_SNAPSHOT,&words[HARTNUM_T0],1);
+    debugReadWords(fromNoC0,RISCV_DEBUG_T1_PC_SNAPSHOT,&words[HARTNUM_T1],1);
+    debugReadWords(fromNoC0,RISCV_DEBUG_T2_PC_SNAPSHOT,&words[HARTNUM_T2],1);
+  }
+
+  void OurTLBs::debugReadWords(U8C fromNoC0,u32 srcByteAddr, u32 * words, u32 wordCount) {
+    const u32 mapBase = RISCV_DEBUG_REGS_START_ADDR & ~AHAX_CONSTANT2M_MASK;
+    const u32 mapEnd = mapBase + AHAX_CONSTANT2M;
+
+    MFM_API_ASSERT(srcByteAddr >= mapBase, ILLEGAL_ARGUMENT);
+    MFM_API_ASSERT(srcByteAddr + (wordCount<<2) < mapEnd, ILLEGAL_ARGUMENT);
+
+    u32 srcOffsetWords = srcByteAddr & AHAX_CONSTANT2M_MASK;
+    u8 * ptr = (u8*) configureDebugNoCOnly(fromNoC0);
+
+    for (u32 i = 0u; i < wordCount; ++i) {
+      words[i] = *(volatile uint32_t*)(ptr + srcOffsetWords + (i<<2u));
+    }
+  }
+
   void OurTLBs::readFromWords(u32 tlbi, u32 srcByteAddr, u32 * words, u32 wordCount) {
-    char * tlbBase = ((char*) mMapAllT6L1 + tlbi*AHAX_CONSTANT2M);
+    MFM_API_ASSERT(srcByteAddr < AHAX_CONSTANT2M &&
+                   4*wordCount < AHAX_CONSTANT2M &&
+                   srcByteAddr + 4*wordCount <= AHAX_CONSTANT2M, BAD_ADDRESS);
+    char * tlbBase = ((char*) mMapAllT6 + tlbi*AHAX_CONSTANT2M);
     u32 srcTop = srcByteAddr&~AHAX_CONSTANT2M_MASK;
     u32 srcOffsetWords = srcByteAddr&AHAX_CONSTANT2M_MASK;
     if (srcTop != 0u)
@@ -374,6 +402,20 @@ namespace MFM {
     return configureWindow(tlbi, range, 0u, true);
   }
 
+  void * OurTLBs::configureDebugWindow(u32 tlbi) {
+    U16CRange range;
+    range.reset();
+    return configureWindow(tlbi, range, RISCV_DEBUG_REGS_START_ADDR, false);
+  }
+#if 0
+  void * OurTLBs::reconfigureDebugWindow(u32 tlbi, U8C forNoC0) {
+    U16CRange range;
+    range.start = forNoC0;
+    range.end = forNoC0;
+    return configureWindow(tlbi, range, RISCV_DEBUG_REGS_START_ADDR, false);
+  }
+#endif
+  
   OurTLBs::TLBInfo & OurTLBs::getTLBInfo(u32 tlbi) {
     MFM_API_ASSERT(tlbi < AHAX_TLB2M_COUNT, ARRAY_INDEX_OUT_OF_BOUNDS);
     return mTLBInfos[tlbi];
@@ -417,6 +459,46 @@ namespace MFM {
 #endif
   }
   
+  void * OurTLBs::configureDebugNoCOnly(U8C noc0) {
+    const bool ismulti = false;
+    const bool wc = false;
+    const u32 address = RISCV_DEBUG_REGS_START_ADDR;
+    const u32 tlbi = AHAX_TLBI_DEBUG_UNI;
+
+    struct tenstorrent_configure_tlb confio;
+    memset_s(&confio,0,sizeof(confio));
+    struct tenstorrent_configure_tlb_in & cfin = confio.in;
+    struct tenstorrent_configure_tlb_out & cfout = confio.out;
+
+    cfin.id = mTLBInfos[tlbi].mAllocOut.id;
+    mTLBInfos[tlbi].mRemoteBaseAddress = address;
+    struct tenstorrent_noc_tlb_config & cfnoc = cfin.config;
+    cfnoc.addr = address&~AHAX_CONSTANT2M_MASK; // window base address (rounded down to 2M)
+    cfnoc.x_end = noc0.x;
+    cfnoc.y_end = noc0.y;
+    cfnoc.x_start = noc0.x;
+    cfnoc.y_start = noc0.y;
+    cfnoc.noc = 0u;
+    cfnoc.mcast = ismulti;
+    // cfnoc.ordering = 0u; // ??? 1 == strict? 0 == relaxed?
+    // cfnoc.linked
+    // cfnoc.static_vc
+    bool configured = (ioctl(mDevFD,TENSTORRENT_IOCTL_CONFIGURE_TLB, &confio) >= 0);
+    MFM_API_ASSERT(configured,ILLEGAL_STATE);
+
+    // map window into our space
+    u64 offset = wc ?
+      mTLBInfos[tlbi].mAllocOut.mmap_offset_wc :
+      mTLBInfos[tlbi].mAllocOut.mmap_offset_uc;
+    void * ptr;
+    if ((ptr = mmap((void*)(((char*) mMapAllT6) + tlbi*AHAX_CONSTANT2M), AHAX_CONSTANT2M,
+                    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
+                    mDevFD, offset)) == MAP_FAILED)
+      HOST_FATAL(OPERATION_FAILED,"MMAP FAIL");
+
+    return ptr;
+  }
+
   void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
     unsigned ismulti = range.area() > 1u;
     //LOGprintf(mChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
@@ -446,7 +528,7 @@ namespace MFM {
       mTLBInfos[tlbi].mAllocOut.mmap_offset_wc :
       mTLBInfos[tlbi].mAllocOut.mmap_offset_uc;
     void * ptr;
-    if ((ptr = mmap((void*)(((char*) mMapAllT6L1) + tlbi*AHAX_CONSTANT2M), AHAX_CONSTANT2M,
+    if ((ptr = mmap((void*)(((char*) mMapAllT6) + tlbi*AHAX_CONSTANT2M), AHAX_CONSTANT2M,
                     PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED,
                     mDevFD, offset)) == MAP_FAILED)
       HOST_FATAL(OPERATION_FAILED,"MMAP FAIL");
@@ -457,7 +539,7 @@ namespace MFM {
   void OurTLBs::updateLogBlocks(unsigned tlbi) {
     HostCommsMap & hcm = mHostCommsMap;
 
-    if (tlbi == 15) EACH(1000,HTprintf("upLBK15\n"));
+    if (tlbi == 15) EACH(1'000'000,HTprintf("upLBK15\n"));
 
     TLBInfo & tin = getTLBInfo(tlbi);
     const T6Image * image = tin.getDeployedImageIfAny();
@@ -565,7 +647,7 @@ namespace MFM {
   }
 
   void OurTLBs::updateACacheBlocks(unsigned tlbi) {
-    if (tlbi == 15) EACH(1000,HTprintf("EXQUEEZMEupACB15\n"));
+    if (tlbi == 15) EACH(1'000'000,HTprintf("EXQUEEZMEupACB15\n"));
 
     HostCommsMap & hcm = mHostCommsMap;
 
@@ -579,15 +661,20 @@ namespace MFM {
 
     ACacheBlockStg & stg = getACacheBlockStgHost(tlbi);
 
-    if (tlbi == 15) EACH(1000,HTprintf("upACB15\n"));
+    if (tlbi == 15) EACH(1'000'000,HTprintf("upACB15\n"));
 
     for (u32 tries = 0u; tries < ACacheBlockStg::CAR_COUNT; ++tries) {
       u32 car = tin.getACacheBlockIndex();
       ACacheBlockStg::CAR_TYPE & ac = stg.getTC(car);
 
       U16C addr = U16C::makeNoCCoordFromTLBI(tlbi);
-      if (!ac.isComplete() || ac.getTCState() != TCState::INBOUND_DEPARTED)
+      if (!ac.isComplete() || ac.getTCState() != TCState::INBOUND_DEPARTED) {
+        if (tlbi == 15)
+          EACH(1'000'000,HTprintf("upACB16 %u %u=?%u\n",
+                              ac.isComplete(),
+                              ac.getTCState(),TCState::INBOUND_DEPARTED));
         break;
+      }
 
       TCMarker cs = ac.getHeader();
       ACacheBlockPayload & acb = ac.payload();

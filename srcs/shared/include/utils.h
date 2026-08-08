@@ -40,12 +40,12 @@ namespace MFM {
     if (hartnum > HARTNUM_NC+1u)
       hartnum = HARTNUM_NC+1u;
     return (hartnum<<2)+
-      "hBT\0"
-      "hT0\0"
-      "hT1\0"
-      "hT2\0"
-      "hNC\0"
-      "h??"; 
+      "hb\0\0"
+      "h0\0\0"
+      "h1\0\0"
+      "h2\0\0"
+      "hn\0\0"
+      "h?\0"; 
   }
 
   inline char hartChar(u32 hartnum) {

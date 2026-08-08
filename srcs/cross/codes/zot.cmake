@@ -37,6 +37,7 @@ target_link_libraries(zot PRIVATE
 
 set(ZOT_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/t6-exports.h")
 set(ZOT_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/zot.bin")
+set(ZOT_DISASM_PATH "${CMAKE_CURRENT_BINARY_DIR}/zot.s")
 
 # Add a custom command that runs AFTER zot is linked
 add_custom_command(
@@ -45,6 +46,7 @@ add_custom_command(
   ${PERL_SIZER_PATH} - $<TARGET_FILE:zot> | # format with time info
   tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:zot> ${ZOT_BINFILE_PATH}
+  COMMAND ${CMAKE_OBJDUMP} -C -D $<TARGET_FILE:zot> > ${ZOT_DISASM_PATH}  # Disassemble for debug
   COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:zot> | # Dump symbol table
   sort -r -k 5 - | # alphabetize entries for OCD
   perl -n ${PERL_FORMATTER_PATH} - > ${ZOT_EXPORTS_HEADER}

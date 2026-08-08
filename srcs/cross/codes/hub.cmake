@@ -3,7 +3,8 @@ message("HUBL ${CMAKE_CURRENT_LIST_FILE}")
 message("HUBS ${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(hub)
 target_sources(hub PRIVATE
-  src/ImageConfig.cpp
+  allimg/src/ImageConfig.cpp
+  allimg/src/HartTasks.cpp
   images/hub/src/EP_ACacheBlock.cpp
 #  images/hub/src/ACacheBlock.cpp
   images/hub/src/EwpBlock.cpp
@@ -17,6 +18,7 @@ target_sources(hub PRIVATE
 
 target_link_libraries(hub PRIVATE crosslib)
 target_include_directories(hub PRIVATE
+  allimg/include
   images/hub/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${SHARED_INCLUDE_DIRS})
@@ -38,6 +40,7 @@ target_link_libraries(hub PRIVATE
 
 set(HUB_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/t6-exports.h")
 set(HUB_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/hub.bin")
+set(HUB_DISASM_PATH "${CMAKE_CURRENT_BINARY_DIR}/hub.s")
 
 # Add a custom command that runs AFTER hub is linked
 add_custom_command(
@@ -46,6 +49,7 @@ add_custom_command(
   ${PERL_SIZER_PATH} - $<TARGET_FILE:hub> | # format with time info
   tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:hub> ${HUB_BINFILE_PATH}
+  COMMAND ${CMAKE_OBJDUMP} -C -D $<TARGET_FILE:hub> > ${HUB_DISASM_PATH}  # Disassemble for debug
   COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:hub> | # Dump symbol table
   sort -r -k 5 - | # alphabetize entries for OCD
   perl -n ${PERL_FORMATTER_PATH} - > ${HUB_EXPORTS_HEADER}

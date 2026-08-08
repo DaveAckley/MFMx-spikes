@@ -29,6 +29,7 @@ namespace MFM {
     static const u32 AHAX_TLBI_L1_LAST_UNI = 139;
     static const u32 AHAX_TLBI_L1_MULTI = (AHAX_TLBI_L1_LAST_UNI + 1);
     static const u32 AHAX_TLBI_DEBUG_MULTI = (AHAX_TLBI_L1_MULTI + 1);
+    static const u32 AHAX_TLBI_DEBUG_UNI = (AHAX_TLBI_DEBUG_MULTI + 1);
 
     OurTLBs() ;
 
@@ -69,6 +70,57 @@ namespace MFM {
       mHostCommsMap.setHostMemoryBaseAddress(base);
     }
     
+#if 0
+    // ---- One-time setup --------------------------------------------------------
+    //
+    // Programs AHAX_TLBI_DEBUG_UNI with:
+    //   local_offset = 0xFFB00000  (2 MiB-aligned base covering debug regs + PC snapshots)
+    //   noc_sel      = 0           (NoC0)
+    //   mcast        = 0           (unicast)
+    //   ordering     = 0           (Default)
+    //   x_end, y_end = 0           (call retarget before reading)
+    //
+    // After init, the window maps [0xFFB0_0000, 0xFFB1_FFFF] in the target tile.
+    // To read debug regs:  window_base + DEBUG_REGS_WINDOW_OFFSET  (+ reg offset)
+    // To read PC snapshots: window_base + HART_PC_OFFSETS[i]
+
+    inline volatile u8* t6_debug_tlb_init(volatile void*  bar0_base,
+                                          T6DebugTlb*     state) {
+      // 2 MiB-aligned local_offset: round RISCV_DEBUG_REGS_START_ADDR down to 2 MiB.
+      // 0xFFB12000 & ~0x1FFFFF = 0xFFB00000
+      const uint64_t local_offset =
+        (RISCV_DEBUG_REGS_START_ADDR & ((1ULL << 43) - 1)) & ~(TLB_WINDOW_2MIB - 1);
+
+      // Assemble static 96-bit config (x_end = y_end = 0).
+      const uint64_t val96 =
+        (local_offset << 0);
+
+      state->static_low  = static_cast<uint32_t>(val96 & 0xFFFFFFFF);
+      state->static_mid  = static_cast<uint32_t>((val96 >> 32) & 0xFFFFFFFF);
+      state->static_high = 0; // val96 never exceeds 43 bits so high32 always 0
+
+      // Point to config registers for our TLB index.
+      volatile u8* cfg_base =
+        reinterpret_cast<volatile u8*>(bar0_base) + BAR0_TLB_CONFIG_OFFSET;
+      state->cfg_low  = reinterpret_cast<volatile uint32_t*>(
+                                                             cfg_base + AHAX_TLBI_DEBUG_UNI * TLB_CONFIG_ENTRY_SIZE);
+      state->cfg_mid  = state->cfg_low + 1;
+      state->cfg_high = state->cfg_low + 2;
+
+      // Write static config.
+      *state->cfg_low  = state->static_low;
+      *state->cfg_mid  = state->static_mid;
+      *state->cfg_high = state->static_high;
+
+      // Record window base for reads.
+      state->window_base =
+        reinterpret_cast<volatile u8*>(bar0_base) +
+        (uint64_t)AHAX_TLBI_DEBUG_UNI * TLB_WINDOW_2MIB;
+
+      return state->window_base;
+    }
+#endif
+
     void allocateHostRAM(size_t bufferSize) ;  // also setHostMemoryBaseAddress
     void doHostRAMAllocation(size_t sizePerT6) ;
 
@@ -110,6 +162,8 @@ namespace MFM {
     }
 
     void readFromWords(u32 tlbi, u32 srcByteAddr, u32 * words, u32 wordCount) ;
+    void debugReadWords(U8C fromNoC0,u32 srcByteAddr, u32 * words, u32 wordCount) ;
+    void readPCSnapshots(U8C fromNoC0, u32 words[5]) ;
 
     bool hasHostRAM() const { return mPinnedHostBuf.host_ptr != 0; }
     size_t hostRAMSize() const { return mPinnedHostBuf.size; }
@@ -178,13 +232,15 @@ namespace MFM {
     }
     
   private:
-    static const u32 AHAX_TLB2M_COUNT = (AHAX_TLBI_DEBUG_MULTI + 1);
+    static const u32 AHAX_TLB2M_COUNT = (AHAX_TLBI_DEBUG_UNI + 1);
     static const u32 AHAX_MMAP_SIZE = (AHAX_CONSTANT2M * AHAX_TLB2M_COUNT);
 
     // methods
     void * configureMulticastWindow(unsigned tlbi, u32 address, bool wc) ;
     void * configureL1Window(unsigned tlbi, U16CRange range) ;
     void * configureWindow(unsigned tlbi, U16CRange range, u32 address, bool wc) ;
+    void * configureDebugWindow(unsigned tlbi) ;
+    void * configureDebugNoCOnly(U8C forNoC0) ;
 
     // data
     TLBInfo mTLBInfos[AHAX_TLB2M_COUNT];
@@ -192,7 +248,7 @@ namespace MFM {
     u32 mDevChipNum;
     s32 mDevFD;
     HostCommsMap mHostCommsMap;
-    void * mMapAllT6L1;         //< start of ~140*2M addrs for host to R/W T6 L1
+    void * mMapAllT6;         //< start of ~140*2M addrs for host to R/W T6 (usually L1)
     size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 
     bool mDMABufferPretendDeleted;
     u64 mEWsShipped, mEWsReturned, mEWsCommitted;

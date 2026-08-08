@@ -30,18 +30,18 @@ namespace MFM {
 
   template<class SUBEP, class SUBTC>
   bool EP<SUBEP,SUBTC>::updateOps() {
-    constexpr u32 BS = 40;
     bool isLogXX = (this->getName()[0] == 'L');
+    constexpr u32 BS = 40;
     char buf[BS];
-    EACH(5'000,HBPTAG(EPups,this->report(BS,buf)));
+    //EACH(100'000,HBPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     
     bool ret = false;
     /// TRY RECEIVING ARRIVALS
     while (mGoneCount > 0) {    // if we have gone cars
-      if (isLogXX) { static u32 lastgone;
+      if (true) { static u32 lastgone;
         if (lastgone != mGoneCount) {
-          HBPTAG(NUgonect,mGoneCount);
+          HBPTAG(#GC,this->getName());
           lastgone = mGoneCount;
         }
       }
@@ -70,8 +70,10 @@ namespace MFM {
       TCOpsData & data = getOpsData(mOldestGone);
       data.mArrivalTime = millisElapsed();
 
-      //      HBPTAG(EPARRV,this->getName());
-      //      HBPTAG(EPARRL,(u32) mSrcEPA.mBlockCodeIndex);
+      HBPTAG(EPRV,this->getName());
+      //HBPTAG(EPRL,(u32) mSrcEPA.mBlockCodeIndex);
+      //HBPTAG(EPARRC,(u32) car);
+
       if (recvTC(car, mOldestGone)) {
         ++mRecvTCCount;
         // successful recvTC MEANS:
@@ -86,6 +88,7 @@ namespace MFM {
     
         mOldestGone = incrementIndex(mOldestGone);
         mGoneCount--;
+        HBPTAG(<>R,this->report(BS,buf));
         ret = true;
         //        HBPTAG(EPRCVD,this->getName());
       }
@@ -94,13 +97,13 @@ namespace MFM {
       }
     }
 
-    if (isLogXX) EACH(100,HBMARK);
+    if (isLogXX) EACH(100'000,HBPTAG(LOG,__EACHNUM__));
 
     /// TRY SHIPPING DEPARTURES
     while (mHereCount > 0u) { // if we have cars here
       if (isLogXX) { static u32 lasthere;
         if (lasthere != mHereCount) {
-          HBPTAG(NUherect,mHereCount);
+          //HBPTAG(NUherect,mHereCount);
           lasthere = mHereCount;
         }
       }
@@ -143,7 +146,7 @@ namespace MFM {
       
         mOldestHere = incrementIndex(mOldestHere);
         mHereCount--;
-        //HBPVAL(mHereCount);
+        HBPTAG(<>S,this->report(BS,buf));
         ret = true;
       } else
         break;                  // try again later.
@@ -173,6 +176,7 @@ namespace MFM {
   template<class SUBEP, class SUBTC>
   char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
     snprintf(size,buf,"HONK");
+    return buf;
   }
 #endif
 }

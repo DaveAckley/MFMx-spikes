@@ -3,7 +3,8 @@ message("EWPL ${CMAKE_CURRENT_LIST_FILE}")
 message("EWPS ${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(ewp)
 target_sources(ewp PRIVATE
-  src/ImageConfig.cpp
+  allimg/src/ImageConfig.cpp
+  allimg/src/HartTasks.cpp
   images/ewp/src/EwpBlock.cpp
   images/ewp/src/LiveB.cpp
   images/ewp/src/Physics.cpp
@@ -15,6 +16,7 @@ target_sources(ewp PRIVATE
   
 target_link_libraries(ewp PRIVATE crosslib)
 target_include_directories(ewp PRIVATE
+  allimg/include
   images/ewp/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${SHARED_INCLUDE_DIRS})
@@ -36,6 +38,7 @@ target_link_libraries(ewp PRIVATE
 
 set(EWP_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/t6-exports.h")
 set(EWP_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/ewp.bin")
+set(EWP_DISASM_PATH "${CMAKE_CURRENT_BINARY_DIR}/ewp.s")
 
 # Add a custom command that runs AFTER ewp is linked
 add_custom_command(
@@ -44,6 +47,7 @@ add_custom_command(
   ${PERL_SIZER_PATH} - $<TARGET_FILE:ewp> | # format with time info
   tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:ewp> ${EWP_BINFILE_PATH}
+  COMMAND ${CMAKE_OBJDUMP} -C -D $<TARGET_FILE:ewp> > ${EWP_DISASM_PATH}  # Disassemble for debug
   COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:ewp> | # Dump symbol table
   sort -r -k 5 - | # alphabetize entries for OCD
   perl -n ${PERL_FORMATTER_PATH} - > ${EWP_EXPORTS_HEADER}

@@ -1,4 +1,5 @@
 #include "Point.h"
+#include "Debug.h"
 
 namespace MFM
 {

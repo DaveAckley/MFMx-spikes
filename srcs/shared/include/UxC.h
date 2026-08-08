@@ -177,6 +177,11 @@ namespace MFM {
     using UC = UxC<UTYPEC>;
     UC start, end;
 
+    void reset() {
+      start.reset();
+      end.reset();
+    }
+
     u32 area() const {
       return
         (end.x - start.x +1) *

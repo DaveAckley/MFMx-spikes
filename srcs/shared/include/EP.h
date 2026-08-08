@@ -112,7 +112,7 @@ namespace MFM {
     void activate() {
       LOGPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
       LOGPTAG(s,mSrcEPA.mBlockCodeIndex);
-      //HBPTAG(dest,getNameFromBlockCode(mDestEPA.mBlockCode));
+      HBPTAG(dest,getNameFromBlockCode(mDestEPA.mBlockCode));
       LOGPTAG(d,mDestEPA.mBlockCodeIndex);
       HBASSERT_EQ(getFastEPState(),EPState::CONFIGURED);
       setFastEPState(EPState::ACTIVE);

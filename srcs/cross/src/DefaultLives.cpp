@@ -29,7 +29,7 @@ namespace MFM {
   }
 
   static int justLive(HostBlock & hb) {
-    //    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
+    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 

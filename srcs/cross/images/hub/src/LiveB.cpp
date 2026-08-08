@@ -76,7 +76,7 @@ namespace MFM {
       return false; // unconnected is not an error
 
     if (!theInterHubL1Data.isActive(ngbidx)) {
-      HBPTAG(ihPROCBLOC,&theInterHubL1Data.getCarStg(ngbidx));
+      HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx));
       HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx)));
       return false;             // wait a bit
     }
@@ -126,9 +126,9 @@ namespace MFM {
     return true;
   }
 
-  int initB() {
+  int myInitB() {
     HBPTAG(INIT+,fAll.mNoC0);
-    preloadT2Mailbox();
+    // now handled by PRNG task:    preloadT2Mailbox();
     theDLGridList.init();
     fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
     // moved to T1 fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
@@ -147,7 +147,7 @@ namespace MFM {
 
     while (true) {
       if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      const u32 BITS = 14;//16;
+      const u32 BITS = 16;//15;
       const u32 LIM = (1<<BITS)-1;
       if ((++spin & LIM) == 0) {
         HBPTAG(horg,spin>>BITS); // generate some HB logging please?

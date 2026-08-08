@@ -27,9 +27,9 @@ namespace MFM {
     u8 p256len = fxmk[0];
     u8 cmd = fxmk[1]>>5;
     u8 hartnum = fxmk[1]&0x7;
-    u16 ticks = (fxmk[3]<<8) | fxmk[2];
-    u16 fid = (fxmk[5]<<8) | fxmk[4];
-    u16 lin = (fxmk[7]<<8) | fxmk[6];
+    u16 ticks = (((u16)fxmk[3])<<8) | fxmk[2];
+    u16 fid = (((u16)fxmk[5])<<8) | fxmk[4];
+    u16 lin = (((u16)fxmk[7])<<8) | fxmk[6];
     std::string msg = "";
     for (u32 i = 8; i < p256len; ++i) {
       if (!(is.get(ch))) return false;

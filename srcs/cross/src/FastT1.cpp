@@ -6,7 +6,7 @@
 #include "Debug.h"
 #include "DefaultLives.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Control
-#include "HartTasks.h" // for HTFuncPtr
+#include "HartTasksLib.h" // for HTFuncPtr
 
 namespace MFM {
 
@@ -72,6 +72,7 @@ namespace MFM {
   
   int hartMainT1(HostBlock & hb) {
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
+    //    HBPTAG(@,__FUNCTION__);
     return liveT1(hb);          // go do your hart t1 thing you
   }  
 }

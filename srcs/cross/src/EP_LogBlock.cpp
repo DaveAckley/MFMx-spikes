@@ -1,5 +1,5 @@
 #include "EP_LogBlock.h"
-#include "HartTasks.h" // for HTFuncPtr
+#include "HartTasksLib.h" // for HTFuncPtr
 #include "FastT0.h" // for totalMillisElapsed
 #include "HostBlock.h" // for theHostBlock
 
@@ -19,14 +19,16 @@ namespace MFM {
     for (const char * p = msg; *p; ++p) { ++msglen; }
     MFM_API_ASSERT(msglen < 250-HDRBYTES, ILLEGAL_ARGUMENT);
     u8 p256len = HDRBYTES + msglen;
-    //    HBPTAG(LB1wM10,p256len);
+    SNAP(3,HBPTAG(LB1wM10,msg));
     do {
       AtomicScopeLock guard(mLock);
       if (!mCurrentLogBlock) return false;
+      SNAP(3,HBPTAG(LB1wM11,msg));
       LogBlock & lb = *mCurrentLogBlock;
       LogBlockPayload & pay = lb.payload();
-
-      if (pay.getBytesRemaining() <= p256len) return false; // marks missed NYI
+      u32 br = pay.getBytesRemaining();
+      HBPTAG(LBR,br);
+      if (br <= p256len) return false; // marks missed NYI
 
       u32 nowms = millisElapsed();
       u32 diff = nowms - mBaseTicks;
@@ -44,13 +46,14 @@ namespace MFM {
       for (const char * p = msg; *p; ++p) {
         pay.put_u8(*p);
       }
+      HBPTAG(LBM,msg);
     } while(0);
     return true;
   }
 
   void LogBlockL1Control::init() {
     memset_s(this,'\0',sizeof(*this)); // init lock, mark no current, no base ticks
-    HBPTAG(LB1INITGO,sizeof(*this));
+    //HBPTAG(LB1INITGO,sizeof(*this));
     // now wait until hn at least inits EP_LogBlock
     u32 spin = 0;
     while (theLogBlockL1Data.getPublicEPState(0) < EPState::INITTED) {
@@ -70,14 +73,16 @@ namespace MFM {
     if (!mCurrentLogBlock)
       return false;             // nothing to close
 
-    //HBPTAG(LB1CrTC11,mLastTickOffset);
-    if (mLastTickOffset > LogBlockPayload::LBP_HIGH_TICKS_MARK)
+    if (mLastTickOffset > LogBlockPayload::LBP_HIGH_TICKS_MARK) {
+      HBPTAG(CLOGtime,mLastTickOffset);
       return true;              // close for lack of time
+    }
 
     LogBlockPayload & pay = mCurrentLogBlock->payload();
-    //    HBPTAG(LB1CrTC12,pay.mDataUsed);
-    if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK)
+    if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK) {
+      HBPTAG(CLOGspace,pay.mDataUsed);
       return true;              // close for lack of space
+    }
 
     //    if (pay.mDataUsed > 0) HBPTAG(LB1CrTCOP,pay.mDataUsed);
     return false;               // stay open
@@ -87,7 +92,7 @@ namespace MFM {
     u8 newcarindex;
     bool got = crbi.remove(newcarindex);
     HBASSERT_EQ(got,true);
-    //    HBPTAG(LBSUNCi,newcarindex);
+    SNAP(4,HBPTAG(LBSUNCi,newcarindex));
         
     LogBlockStg & lbs = theLogBlockL1Data.mTheTCStorages[0];
     HBASSERT_LS(newcarindex, lbs.getCarCount());
@@ -110,7 +115,7 @@ namespace MFM {
     TheL1Data::CarIdxRB & crbi = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
     TheL1Data::CarIdxRB & crbo = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
 
-    //HBPTAG(LB1CStep10,mCurrentLogBlock);
+    SNAP(4,HBPTAG(L1CSt,mCurrentLogBlock));
     //    LOGNOTE("USE UP CURRENT LOG BLOCK! FASTER PUSSYCAT FASTER!");
     //    LOGPTAG(LB1CStep10,mCurrentLogBlock);
 
@@ -132,7 +137,7 @@ namespace MFM {
         !crbi.isEmpty() &&         // more empty cars are available and
         !crbo.isFull() &&          // more full cars are shippable and
         readyToClose()) {          // current car is ready to go
-      //      HBPTAG(LB1BOOM,readyToClose());
+      SNAP(4,HBPTAG(LB1BOOM,readyToClose()));
       AtomicScopeLock guard(mLock); // take the lock
       bool got;
       { // SHIPPING
@@ -146,10 +151,10 @@ namespace MFM {
       // RECEIVING
       setupNewCar(crbi);                                   
     } else if (mCurrentLogBlock == 0 && !crbi.isEmpty()) { // ready to init?
-      HBMARK;
       setupNewCar(crbi) ;
+      SNAP(3,HBPTAG(logSNC,&crbi));
     } else {                    // not ready for anything
-      sleepCycles(500);
+      //sleepCycles(500);
     }
     return 0;
   }
@@ -178,9 +183,11 @@ namespace MFM {
     return &this->getCarStg().getTC(carindex);
   }
 
-  static bool manageLogBlockNC(bool doInit) {
-    bool ret = false;
-    if (unlikely(doInit)) {
+  static RCFlag manageLogBlockNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+      HBPTAG(INIT@,__FUNCTION__);
       LOGMARK;
 
       theLogBlockL1Data.reset();     // zero all
@@ -209,9 +216,13 @@ namespace MFM {
       myLogBlockEPNC.activate();
 
       HBPTAG(lbACT, theLogBlockL1Data.getPublicEPState(0));
-      ret = true;
+      ret = RC_N_STARTED;
 
-    } else {
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGMARK;
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+
       {
         static u32 spin = 0;
         if ((++spin & 0x3'ffff) == 0)
@@ -219,15 +230,41 @@ namespace MFM {
       }
 
       //// LIFE
-      //      SNAP(5,HBMARK);
-      if (myLogBlockEPNC.updateOps()) {
-        ret = true;
+      {
+        constexpr u32 BS = 40;
+        char buf[BS];
+        //        SNAP(3,HBPTAG(EPlogUO,myLogBlockEPNC.report(BS,buf)));
       }
-    }
+      myLogBlockEPNC.updateOps();
+    } else LOGPTAG(unknown htoc,htoc);
     return ret;
   }
   
   __attribute__((section(".rodata_fp_table_nc")))
   HTFuncPtr logEPPtr = &manageLogBlockNC;
+
+  extern RCFlag manageLogBlockT0(HTOpCode htoc);
+  ////////
+  TEFResult TaskEpochFunction_LOG(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    switch (hei) {
+
+    case HE_BORN1:
+      MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+      HBPTAG(@,__FUNCTION__);
+      manageLogBlockT0(HTOC_INIT);
+      break;
+
+    case HE_GROW0:
+      HBNOTE(LT);
+      LOGNOTE(LOGTESTLOG);
+      break;
+
+    default:
+      HBPTAG(TEFLOG,getHartEpochName(hei));
+      break;
+    }
+    return TEFR_CONTINUE;
+  }
+  
 
 }

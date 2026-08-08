@@ -47,8 +47,9 @@ namespace MFM {
       u64 hostbaseaddr = hb.getOurHostNoCBaseAddress(); // (2)
       mDestBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
       u32 ourtlbi = U8C::makeTLBIFromNoCCoord(ournoc0);
-      HBXTAG64(hbAddr,hostbaseaddr);
-      HBXTAG64(mDBAdr,mDestBlockAddr);
+      //HBXTAG64(hbAddr,hostbaseaddr);
+      //HBXTAG64(mDBAdr,mDestBlockAddr);
+      //HBPTAG(oNoC0,ournoc0);
       HBXTAG(tlbi,ourtlbi);
     } else {
       // dest is T6
@@ -72,8 +73,7 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      //      HBPTAG(GCDEP,carindex);
-      //HBPVAL(&mCarIdxsPtr->mIdxs[COMP2COMM]);
+      HBPTAG(GCDEP,carindex);
       SUBTC* carp = this->getCarPtrIfAny(carindex);
       if (!carp) HBNOTE("NULLGO?");
       else HBASSERT_EQ(carp->getTCState(), TCState::CLOSED); 

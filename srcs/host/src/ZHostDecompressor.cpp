@@ -17,7 +17,7 @@ namespace MFM {
 
   ZHostDecompressor::ZHostDecompressor()
   {
-    HTprintf("ZHD HERE HALLO\n");
+    HTprintf("ZHD %p HERE HALLO\n",this);
   }
 
   void ZHostDecompressor::init() {

@@ -19,7 +19,7 @@ namespace MFM {
 
   void ACacheBlockL1Control::setFlags(u8 flags) {
     MFM_API_ASSERT((flags&mFlags)==0,ILLEGAL_ARGUMENT);
-    HBXTAG(ACBflagswas,(u32) mFlags);
+    //HBXTAG(ACBflagswas,(u32) mFlags);
     mFlags |= flags;
     memoryFence();
     HBXTAG(ACBFlagsNow,(u32) mFlags);
@@ -47,8 +47,8 @@ namespace MFM {
     ACacheBlock & acb = *mCurrentACacheBlock;
     ACacheBlockPayload & pay = acb.payload();
     bool ret = pay.addByte(byte);
-    if (ret) SNAP(100,LOGPTAG(WBTACB,pay.getCurrentLength()));
-    else SNAP(100,LOGXTAG(BLODK,(u32)byte));
+    if (ret) SNAP(10,LOGPTAG(WBTACB,pay.getCurrentLength()));
+    else SNAP(10,LOGXTAG(BLODK,(u32)byte));
     return ret;
   }
 
@@ -137,10 +137,10 @@ namespace MFM {
     HBPTAG(ABRCV!,carindex);
     car.openTC();               // open it up
     car.payload().init();       // clean it out
-    HBPTAG(ABRCV*,car.getTCState());
+    //    HBPTAG(ABRCV*,car.getTCState());
     //    HBPTAG(crbi,&crbi);
-    HBPX(crbi.isEmpty());
-    HBPX(crbi.isFull());
+    //    HBPX(crbi.isEmpty());
+    //    HBPX(crbi.isFull());
     crbi.add(carindex);         // notify h1 (will access it in ACacheBlockL1Control::step(..) above)
     return true;
   }
@@ -228,8 +228,11 @@ namespace MFM {
   }
 
   int ACacheBlockPrivateControl::step(HostBlock & hb) {
+    HBXX(mDLGridList);
+    HBXX(mACBL1Control);
     MFM_API_ASSERT_NONNULL(mDLGridList);
     MFM_API_ASSERT_NONNULL(mACBL1Control);
+    HBNOTE(ACBS11);
     if (true) {
       static u32 spin = 0u;
       if ((spin++ & 0xffff) == 0) {
@@ -238,8 +241,11 @@ namespace MFM {
         LOGPX((u32) mState);
       }
     }
+    HBNOTE(ACBS12);
     updateCars(hb);
+    HBNOTE(ACBS13);
     tryToSendFrame(hb);
+    HBNOTE(ACBS14);
     return 0;
   }
 
@@ -340,7 +346,7 @@ namespace MFM {
               u8 byte;
               //              LOGPTAG(BP,&byte);
               while (mARIO.tryGetByte(byte)) {
-                SNAP(100,LOGXTAG(B,(u32) byte));
+                SNAP(10,LOGXTAG(B,(u32) byte));
                 u32 spin = 0;
                 while (!l1dLZBytesIn.add(byte)) { // "CAN'T BE FALSE"
                   if ((spin++ % (1u<<15))== 0)
@@ -360,15 +366,20 @@ namespace MFM {
   }
 
   ////////
-  static bool manageACacheBlockT0(bool doInit) {
-    bool ret = false;
+  RCFlag manageACacheBlockT0(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
 
-    if (unlikely(doInit)) {
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
       HBNOTE("ACBT0ARO");
+
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+
+      LOGMARK;
+      HBNOTE(NCGO!);
       ACacheBlockL1Control & acbl1 = theACacheBlockL1Control;
       static u32 spin = 0u;
       while (!acbl1.testFlags(acbl1.ACBL1_NC_INITTED)) {
-        if ((++spin % 1'000'000) == 0)
+        if ((++spin % 100'000) == 0)
           HBPTAG(t0NCWait,spin);
       }
       HBPTAG(NCDONE!,spin);
@@ -377,19 +388,22 @@ namespace MFM {
       myPACBControlH0.init(theACacheBlockL1Control,theDLGridList);
       acbl1.setFlags(acbl1.ACBL1_T0_INITTED);
       LOGXTAG(T0INT,(u32)acbl1.getFlags());
-    } else {
-      EACH(1'000,HBXTAG(ACBLIV,0));
+
+      ret = RC_0_SELF_UP;
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+
+      EACH(1'000,HBPTAG(ACBLIV,__EACHNUM__));
       //// LIVING
       HostBlock & hb = theHostBlock;
       ACacheBlockPrivateControl & privcH0 = myPACBControlH0;
       privcH0.step(hb);
-
-      ret = true;
+      EACH(1'000,HBPTAG(ACBLOV,__EACHNUM__));
 
       static u32 spin = 0u;
       if ((++spin % 10'000) == 0)
         HBPTAG(+T0ACBLIVE,spin);
-    }
+    } else LOGPTAG(unknown htoc,htoc);
 
     return ret;
   }
@@ -397,9 +411,10 @@ namespace MFM {
   HTFuncPtr ACacheBlockEPPtrT0 = &manageACacheBlockT0;
 
   ////////
-  static bool manageACacheBlockNC(bool doInit) {
-    bool ret = false;
-    if (unlikely(doInit)) {
+  static RCFlag manageACacheBlockNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
       HBNOTE("MACBARO");
       LOGMARK;
 
@@ -428,7 +443,7 @@ namespace MFM {
       // Set up our endpoint: Source { ACACHEBLOCK, 0 }
       myACacheBlockEPNC.initACacheBlockEP({ BC_ACACHEBLOCK, 0 }, false, theACacheBlockL1Data);
       LOGPTAG(eacbCFD, theACacheBlockL1Data.getPublicEPState(0));
-      HBPTAG(mGoneCount2,myACacheBlockEPNC.getGoneCount());
+      HBPTAG(mGC2,myACacheBlockEPNC.getGoneCount());
 
       // Set up our endpoint: Dest { ACACHEBLOCK, ourtlbi? }
       u8 tlbi = (u8) U8C::makeTLBIFromNoCCoord(fAll.mNoC0);
@@ -441,20 +456,57 @@ namespace MFM {
       // We're done
       acbl1.setFlags(acbl1.ACBL1_NC_INITTED);
       HBXTAG(acbl1Flags, (u32) acbl1.getFlags());
-      ret = true;
-    } else {
+      ret = RC_N_SELF_UP; // XXX this has to be wrong. we are a service not all of HN
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGMARK;
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
 
       //// LIFE
       //      SNAP(5,HBMARK);
-      if (myACacheBlockEPNC.updateOps()) {
-        ret = true;
-      }
-    }
+      myACacheBlockEPNC.updateOps();
+
+    } else LOGPTAG(unknown htoc,htoc);
     return ret;
   }
   
   __attribute__((section(".rodata_fp_table_nc")))
   HTFuncPtr acbEPPtr = &manageACacheBlockNC;
 
+  extern int myInitT1() ;
+  extern int myLiveT1(HostBlock & hb) ;
+
+  ////////
+  TEFResult TaskEpochFunction_HACT(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    switch (hei) {
+    case HE_GROW0: //case HE_BORN0:
+      HBNOTE(iHACT);
+      if (hartnum == HARTNUM_T0) {
+        manageACacheBlockT0(HTOC_INIT);
+      } else if (hartnum == HARTNUM_T1) {
+        myInitT1();
+      } else if (hartnum == HARTNUM_NC) {
+        manageACacheBlockNC(HTOC_INIT);
+      }
+      HBMARK;
+      break;
+
+    case HE_GROW1: //case HE_BORN1:
+      HBNOTE(openHACT);
+      if (hartnum == HARTNUM_T0) {
+        manageACacheBlockT0(HTOC_OPEN);
+      } else if (hartnum == HARTNUM_T1) {
+        HBNOTE("T1 nongo");
+      } else if (hartnum == HARTNUM_NC) {
+        manageACacheBlockNC(HTOC_OPEN);
+      }
+      HBMARK;
+      break;
+
+    default:
+      FAIL(UNREACHABLE_CODE);
+    }
+    return TEFR_CONTINUE;
+  }
 
 }

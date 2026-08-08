@@ -13,10 +13,11 @@ namespace MFM {
 
   FAST_LOCAL_ARRAY(InterHubEP,4,myInterHubEP,n);
 
-  static bool manageInterHubNC(bool doInit) {
-    bool ret = false;
+  static RCFlag manageInterHubNC(HTOpCode htoc) {
+    RCFlag ret = RCFlag::RC_ZERO;
 
-    if (unlikely(doInit)) {
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+
       HBNOTE("IHUBARO");
       //// ONE-TIME INITS
       theInterHubL1Data.reset(); // zero all
@@ -75,7 +76,9 @@ namespace MFM {
         }
       }
 
-      //      HBNOTE(GOFI);
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+
+      HBNOTE(GOFI);
       for (u8 d = D4_N; d <= D4_E; ++d) {
         //        HBPTAG(ihdir,d);
         //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
@@ -85,7 +88,7 @@ namespace MFM {
       }
       HBMARK;
 
-    } else {
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
       //      HBXTAG(IHLIV,0);
       //// LIVING
       for (u32 n = 0; n < 4; ++n) {
@@ -94,12 +97,10 @@ namespace MFM {
         if (!myIHEPNC.isInitted()) continue;
 
         //        HBPTAG(IHUO,n);
-        if (myIHEPNC.updateOps()) {
-          ret = true;
-          //          HBMARK;
-        }
+        myIHEPNC.updateOps();
+        //          HBMARK;
       }
-    }
+    } else LOGPTAG(unknown htoc,htoc);
 
     return ret;
   }

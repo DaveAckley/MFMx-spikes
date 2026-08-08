@@ -20,6 +20,21 @@
   /// END: COUNT ENTRIES
   /////
 
+  /////
+  /// BEGIN: DECLARE SUBCLASS
+#define XIC_START_IMAGE_BLOCK(IMAGE_NAME) struct IMAGE_NAME##ImageBlock : public ImageBlockHeader {
+#define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE) ImageBlockAddr m##BLOCK_CODE;
+#define XIC_END_IMAGE_BLOCK(IMAGE_NAME) } ; /* IMAGE_NAME##Entries */ \
+  extern IMAGE_NAME##ImageBlock theImageBlock;
+
+#include "ImageConfig.inc" // in per-image subdir
+
+#undef XIC_START_IMAGE_BLOCK
+#undef XIC_BLOCKADDR
+#undef XIC_END_IMAGE_BLOCK
+  /// END: DECLARE SUBCLASS
+  /////
+
 #if 0
   /////
   /// BEGIN: DECLARE EXTERNS
@@ -36,17 +51,3 @@
   /// END: DECLARE EXTERNS
   /////
 #endif // 0
-  /////
-  /// BEGIN: DECLARE SUBCLASS
-#define XIC_START_IMAGE_BLOCK(IMAGE_NAME) struct IMAGE_NAME##ImageBlock : public ImageBlockHeader {
-#define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE) ImageBlockAddr m##BLOCK_CODE;
-#define XIC_END_IMAGE_BLOCK(IMAGE_NAME) } ; /* IMAGE_NAME##Entries */ \
-  extern IMAGE_NAME##ImageBlock theImageBlock;
-
-#include "ImageConfig.inc" // in per-image subdir
-
-#undef XIC_START_IMAGE_BLOCK
-#undef XIC_BLOCKADDR
-#undef XIC_END_IMAGE_BLOCK
-  /// END: DECLARE SUBCLASS
-  /////

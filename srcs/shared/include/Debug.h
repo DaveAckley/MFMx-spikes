@@ -17,8 +17,8 @@ namespace MFM {
 
 #define EACH(COUNT,CODE)                          \
   do {                                            \
-    static u32 __count = 0u;                      \
-    if ((__count++ % COUNT) == 0) {               \
+    static u32 __EACHNUM__ = 0u;                  \
+    if ((__EACHNUM__++ % COUNT) == 0) {           \
       CODE;                                       \
     }                                             \
   } while (0)

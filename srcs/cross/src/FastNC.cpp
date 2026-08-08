@@ -12,7 +12,7 @@
 #include "ImageBlock.h"
 #include "Debug.h"
 //#include "FastT2.h" // REMEMBER: NO createByMail on HART NC!
-#include "HartTasks.h" // for HTFuncPtr
+#include "HartTasksLib.h" // for HTFuncPtr
 
 namespace MFM {
 
@@ -25,16 +25,27 @@ namespace MFM {
     void init() {
       memset_s(this,'\0',sizeof(*this));
       copyHTFuncsNC();
-      runHTFuncsNC(true);
+#if 0
+      mPrivSeq.copyHTFuncs(HARTNUM_NC,
+                           (HTFuncPtr*) &__start_rodata_fp_table_nc,
+                           (HTFuncPtr*) &__end_rodata_fp_table_nc);
+      mPrivSeq.runHTFuncs(HTOpCode::HTOC_INIT);
+#endif
     }
 
     u64 mBytesOut, mBytesIn;
+
+#if 0    
+    PrivateSequencer mPrivSeq;
+#endif
 
     static constexpr u32 MAX_EPFUNCS = 6u;
     HTFuncPtr mHTFuncs[MAX_EPFUNCS];
     u8 mHTFuncsInUse;
 
+
     void copyHTFuncsNC() {
+      //HBMARK;
       LOGMARK;
 
       HTFuncPtr* start_addr = (HTFuncPtr*) &__start_rodata_fp_table_nc;
@@ -54,25 +65,20 @@ namespace MFM {
       mHTFuncsInUse = (u8) ptrCount;
     }
 
-    bool runHTFuncsNC(bool forInit) {
-      //if (forInit) HBPTAG(runEPFNC,forInit);
-      bool ret = false;
+    RCFlag runHTFuncsNC(HTOpCode htoc) {
+      if (htoc==HTOpCode::HTOC_LIVE)
+        SNAP(2,HBPTAG(@,__FUNCTION__));
+      else if (htoc==HTOpCode::HTOC_INIT)
+        HBPTAG(init@,__FUNCTION__);
+      else FAIL(UNREACHABLE_CODE);
       for (u32 j = 0u; j < mHTFuncsInUse; ++j) {
-        //        u32 i = mHTFuncsInUse-j-1u; // DEBUG: RUN INITS BACKWARDS
         u32 i = j;
         HTFuncPtr epf = mHTFuncs[i];
         if (epf) {
-          if (forInit) LOGPTAG(fncInit,i); 
-          //if (forInit) HBPTAG(fncPtr,(void*) epf);
-          //if (!forInit) HBPTAG(4STEPNC,i);
-          if ((*epf)(forInit)) {
-            if (forInit) LOGPTAG(true,(void*) epf);
-            ret = true;
-          }
+          (*epf)(htoc);
         }
       }
-      if (forInit) LOGPTAG(epfInUse,mHTFuncsInUse);
-      return ret;
+      return RCFlag::RC_ZERO;
     }
   };
   FAST_LOCAL(FastNC,fNC,n);
@@ -85,9 +91,9 @@ namespace MFM {
 
   int stepNC(HostBlock & hb) {
     static u32 spin;
-    if (!fNC.runHTFuncsNC(false))
-      breathe();
+    RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
     if ((++spin & 0xf'ffff) == 0) {
+      HBPTAG(stepNCing,spin);
       LOGXX(spin);
       LOGPTAG64(NCBO,fNC.mBytesOut);
       //      LOGPTAG64(NCBI,fNC.mBytesIn);
@@ -104,7 +110,38 @@ namespace MFM {
   int hartMainNC(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
+    HBPTAG(@,__FUNCTION__);
     return liveNC(hb);
   }
+
+  ////////
+  TEFResult TaskEpochFunction_NOC(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    switch (hei) {
+    case HE_BEGIN:
+      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+      HBNOTE(init NOC);
+      initNC();
+      break;
+
+    case HE_BORN0:
+      HBMARK;
+      break;
+
+    case HE_BORN1:
+      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+      HBMARK;
+      fNC.runHTFuncsNC(HTOC_INIT);
+      break;
+
+    case HE_GROW2:
+      MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+      return TEFR_HART_OUT;     // DONE
+
+    default:
+      FAIL(UNREACHABLE_CODE);
+    }
+    return TEFR_CONTINUE;
+  }
+
 }
 

@@ -16,6 +16,10 @@ project(
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+# Mon Jul  6 00:28:07 2026 No color in emacs *compilation* buffer okay
+# Mon Jul  6 11:22:33 2026 now handled by emacs filter?
+#set(CMAKE_COLOR_MAKEFILE OFF)
+
 # --- Define PRIMARY_CMAKE_RUNNING cache variable ---
 # It defaults to OFF if not passed via -DPRIMARY_CMAKE_RUNNING=1
 if(NOT DEFINED PRIMARY_CMAKE_RUNNING)

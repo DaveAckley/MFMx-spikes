@@ -3,6 +3,7 @@
 #include "CrossUtils.h"
 #include "AtomicLock.h"
 #include "Debug.h"
+#include "HartTasksLib.h" // for TEF stuff
 
 namespace MFM {
 
@@ -71,7 +72,7 @@ namespace MFM {
   }
   
   int initT2() {
-    LOGNOTE("INIT2");
+    //    HBNOTE("INIT2");
 
     extern HostBlock theHostBlock;
     HostBlock & hb = theHostBlock;
@@ -92,6 +93,9 @@ namespace MFM {
     }
 
     primePump(); // Note T2 doesn't call preloadT2Mailbox()
+
+    HBNOTE(CREAHUP);
+    mT2Serving = true;
 
     return 0;
   }
@@ -131,10 +135,7 @@ namespace MFM {
 
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
 
-    LOGNOTE(CREATIVITY UP);
-    HBNOTE(CREATIVITY HUP);
-    mT2Serving = true;
-
+    HBNOTE(PRNG LIVE);
     u32 spin = 0u;
     while (true) {
       fT2.fillRandomBuffer();
@@ -154,15 +155,52 @@ namespace MFM {
     return 0u; // NOT REACHED
   }
 
+  // ENTERED AFTER HartTaskerPrivate.run() returns!
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
-    mT2Serving = false; // should be unnecessary, and harmless
+    HBPTAG(@,__FUNCTION__);
     
     hb.hartbeat(fAll.mHartNum);
 
-    HBNOTE("T2LIV");
+    //    HBNOTE("T2LIV");
     
     return liveT2(hb);          // go do your hart t2 thing you
   }
+
+  ////////
+  extern HostBlock theHostBlock;
+  
+  TEFResult TaskEpochFunction_PRNG(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+    switch (hei) {
+    case HE_BORN0:
+      MFM_API_ASSERT_ON_HART(HARTNUM_T2);
+      HBNOTE(init PRNG);
+      initT2();
+      break;
+
+    case HE_BORN1:
+      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2);
+      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
+      //HBNOTE(prePRNG);
+      preloadT2Mailbox();
+      break;
+
+    case HE_GROW0:
+      MFM_API_ASSERT_ON_HART(HARTNUM_T2);
+      return TEFR_HART_OUT;
+
+    case HE_GROW1:
+      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_T2);
+      MFM_API_ASSERT_NOT_ON_HART(HARTNUM_NC);
+      HBPTAG(R1K,create(1000));
+      break;
+
+    default:
+      HBPTAG(TEFPRNG,getHartEpochName(hei));
+      break;
+    }
+    return TEFR_CONTINUE;
+  }
+  
 
 }

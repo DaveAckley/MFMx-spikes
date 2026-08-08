@@ -28,7 +28,7 @@ namespace MFM {
 
     u32 mAIClockFrequency;
 
-    typedef RingBuffer<u16,11u> LogBuffer;
+    typedef RingBuffer<u16,12u> LogBuffer;
     LogBuffer mLogBuffer;
 
     u16 mPerHartFailFileID[5];  

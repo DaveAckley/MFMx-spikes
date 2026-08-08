@@ -93,13 +93,14 @@ namespace MFM {
   }
 
   static u16 lowTicks() { return ticksElapsed()%10'000; }
+  static u16 lowMillis() { return millisElapsed()&0xffff; }
 
   void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag = 0) {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%p} \n",
                  fileid,lineno,
-                 lowTicks(),
+                 lowMillis(), //lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -115,7 +116,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%u,%u)} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -131,7 +133,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%d,%d)} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -147,7 +150,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s(%ld,%ld)} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -163,7 +167,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%d} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -179,7 +184,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s0x%lx'%08lx} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,
@@ -196,7 +202,8 @@ namespace MFM {
     constexpr u32 BUF_SIZ = 80;
     char buf[BUF_SIZ];
     npf_snprintf(buf,BUF_SIZ,"{%u:%u %u %u %d,%d h%c%s%s} \n",
-                 fileid,lineno,lowTicks(),
+                 fileid,lineno,
+                 lowMillis(),//lowTicks(),
                  theHostBlock.mChipNum,
                  theHostBlock.mNoC0.x,
                  theHostBlock.mNoC0.y,

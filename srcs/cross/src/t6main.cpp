@@ -5,6 +5,7 @@
 #include "Debug.h" 
 #include "DefaultLives.h" 
 
+
 // Baby RV Service APIs 
 #include "FastLocal.h"
 #include "FastB.h"   // for hartMainB
@@ -12,6 +13,7 @@
 #include "FastT1.h"  // for hartMainT1
 #include "FastT2.h"  // for hartMainT2
 #include "FastNC.h"  // for hartMainNC
+#include "HartTasksLib.h"  // for RCFlag
 
 namespace MFM {
   HostBlock theHostBlock __attribute__ ((section(".hostblock")));
@@ -33,12 +35,18 @@ namespace MFM {
     hb.mNoC0.x = ((node_id >> 0) & 0x3f);
     hb.mNoC0.y = ((node_id >> 6) & 0x3f);
     hb.mTLBI = U8C::makeTLBIFromNoCCoord({hb.mNoC0.x,hb.mNoC0.y});
-    hb.addBytes('t','6');
+    RCFlag flags = RCFlag::RC_ZERO;
+    hb.addBytes('t',flags?'6':'X');
     return 0;
   }
+
+  extern void setupHartTaskerInits(); // in allimg/src/HartTasks.cpp
+  extern void runHartTaskerInits(); // in allimg/src/HartTasks.cpp
+
   int t6otherinits(HostBlock &hb) { // RUNS ON HARTB ONLY
     hb.addBytes('o','i');
     t6InitPrinters(hb);
+    setupHartTaskerInits();
     return 0;
   }
 
@@ -83,7 +91,7 @@ namespace MFM {
     //setGlobalDebugHook(ouriba0OK);
     //HBPTAG(HOOKT,hartName(fAll.mHartNum));
 
-    doDefaultInit(hb);
+    runHartTaskerInits();
 
     //    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
     LOGMARK;
