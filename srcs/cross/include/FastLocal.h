@@ -29,7 +29,7 @@ namespace MFM {
     u8 mHartNum, mInspirationOnHand;
     U8C mNoC0;             // local copy of HostBlock.mNoC0
     u32 mCreativityBuffer; // see FastT2.h
-    ImageBlockHeader mIBH; // local copy of 0x14: ImageBlockHeader
+    ImageBlockHeader mIBH; // local copy of T6_IMAGE_BLOCK_ADDR: ImageBlockHeader
   };
 
   void sleepCycles(u32 cycles) ;

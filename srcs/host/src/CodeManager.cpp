@@ -581,6 +581,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       ++mLastTLBISlowScanned;
 
     u32 tlbi = mLastTLBISlowScanned;
+    //// vvvvv XXXX HACK ONLY SLOWSCAN at023
+    tlbi = 15;
+    //// ^^^^^ XXXX HACK ONLY SLOWSCAN at023
     U8C nocc = U8C::makeUxCNoCCoordFromTLBI(tlbi);
     OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
     const T6Image * t6ip = info.getDeployedImageIfAny();
@@ -606,9 +609,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       u32 word[4]; // peek at imageblock
       char flag[4];
       bool anyfail = false;
-      mOurTLBs.readFromWords(tlbi, 0x14, word, sizeof(word)>>2);
+      mOurTLBs.readFromWords(tlbi, T6_IMAGE_BLOCK_ADDR, word, sizeof(word)>>2);
       for (u32 i = 0u; i < 4u; ++i) {
-        flag[i] = word[i] == codewords[(0x14>>2)+i] ? ' ' : '>';
+        flag[i] = word[i] == codewords[(T6_IMAGE_BLOCK_ADDR>>2)+i] ? ' ' : '>';
         if (flag[i] == '>') anyfail = true;
       }
       if (false) Eprintf("BH%d:(%u,%u) %s %s"
@@ -620,10 +623,10 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
               mChipNum,nocc.x,nocc.y,
               anyfail ? "IXFAIL" : "IXGOOD",
               t6i.getName().c_str(),
-              flag[0], (0<<2)+0x14, word[0],
-              flag[1], (1<<2)+0x14, word[1],
-              flag[2], (2<<2)+0x14, word[2],
-              flag[3], (3<<2)+0x14, word[3]
+              flag[0], (0<<2)+T6_IMAGE_BLOCK_ADDR, word[0],
+              flag[1], (1<<2)+T6_IMAGE_BLOCK_ADDR, word[1],
+              flag[2], (2<<2)+T6_IMAGE_BLOCK_ADDR, word[2],
+              flag[3], (3<<2)+T6_IMAGE_BLOCK_ADDR, word[3]
               );
 
     }

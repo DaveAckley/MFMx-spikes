@@ -3,6 +3,7 @@
 #include "UxC.h"
 #include "S8C.h"
 //#include "Wrap8.h"
+#include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
 #include "ExtraConstants.h"
 #include "Printf.h"
 #include "EventWindow.h"

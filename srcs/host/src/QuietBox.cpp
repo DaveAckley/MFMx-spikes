@@ -121,9 +121,9 @@ namespace MFM {
   }
 
   const T6GridInfo & QuietBox::getT6GridInfoFor(const DG::Coord to) {
-    const U16C t6siz = DG::getSingleT6GridSize();
+    const U16C t6siz = DG::getSingleT6GridBaseSize();
     const T6GridIndex t6grididx = T6GridIndex(to.x / t6siz.x, to.y / t6siz.y);
-    const DG::Coord t6origin = DG::Coord(t6grididx.x * t6siz.x, t6grididx.y * t6siz.y);
+    const DG::Coord t6origin = DG::Coord(t6grididx.x * t6siz.x - 4, t6grididx.y * t6siz.y - 4); // HACK4XXX
     auto item = mT6GridInfoByCoordMap.find(t6grididx);
     if (item != mT6GridInfoByCoordMap.end()) return item->second; // Hit!
 

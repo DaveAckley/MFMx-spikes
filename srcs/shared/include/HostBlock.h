@@ -34,8 +34,8 @@ namespace MFM {
     u32 mCommonArgs[2];         // MUST BE BYTES 32..39
 
     u32 mPerHartWatchdog[5];    // spin counter for liveness checks
-    u32 mHostBaseAddrLo;
-    u32 mHostBaseAddrHi;
+    u32 mHostBaseAddrLo;        // Lo address of host EPs
+    u32 mHostBaseAddrHi;        // Hi address of host EPs
 
     u32 mAIClockFrequency;
 

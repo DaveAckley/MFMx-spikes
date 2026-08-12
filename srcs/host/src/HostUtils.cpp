@@ -76,6 +76,16 @@ namespace MFM {
   static std::string hostlogdir;
   static FILE * hostlogfile = NULL;
 
+  FILE * getHostLog() {
+    MFM_API_ASSERT_NONNULL(hostlogfile);
+    return hostlogfile;
+  }
+
+  std::string getSimDir() {
+    MFM_API_ASSERT_NONNULL(hostlogfile);
+    return hostlogdir;
+  }
+
   void initHostLogging() {
     std::string dt = dateTimeStamp();
 #ifndef PROJECT_SOURCE_DIR
@@ -92,7 +102,8 @@ namespace MFM {
     hostlogdir = "/tmp/" + std::string(spike) + "MFMX-" + dt + "/";
     // create dir to hold all the rest.
     std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
-    std::filesystem::create_directories(hostlogdir+"host/");  // for other BHTags
+    std::filesystem::create_directories(hostlogdir+"host/");  // for hc000 BHTags
+    std::filesystem::create_directories(hostlogdir+"misc/");  // for all other BHTags
     std::string logpath = hostlogdir + "all.mfmk";            // MFMxLogJumpr extension
     hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on
     fprintf(hostlogfile,"pid=%d,tid=%lu\n",
@@ -100,34 +111,32 @@ namespace MFM {
             std::hash<std::thread::id>{}(std::this_thread::get_id()));
   }
 
-  FILE * getHostLog() {
-    MFM_API_ASSERT_NONNULL(hostlogfile);
-    return hostlogfile;
+  static std::string getSimDirForKey(const BHTag & key) {
+    std::string keypath = hostlogdir;
+    const char * ext = ".mfmk"; // assume structured mark logging
+    if (key.mType == TagType::T6TADR) 
+      keypath.append("/tiles/");
+    else if (key.mType == TagType::HOSTCT)
+      keypath.append("/host/");
+    else {
+      keypath.append("/misc/");
+      ext = ".txt";             // or assume random unformatted text
+    }
+    keypath.append(key.to_string());
+    keypath.append(ext);
+    return keypath;
   }
 
   std::ofstream getOStreamLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED ofstream
-    std::string keypath = hostlogdir;
-    if (key.mType == TagType::T6TADR)
-      keypath.append("/tiles/");
-    else
-      keypath.append("/host/");
-    keypath.append(key.to_string());
-    keypath.append(".mfmk");
+    std::string keypath = getSimDirForKey(key);
       
     std::ofstream ofs(keypath, std::ios::app);
     ofs << "---" << runTimeSeconds() << "---" << std::endl;
     return ofs;
   }
 
-
   FILE * getHostLogForKey(const BHTag & key) { // CALLER MUST CLOSE RETURNED FILE *
-    std::string keypath = hostlogdir;
-    if (key.mType == TagType::T6TADR)
-      keypath.append("/tiles/");
-    else
-      keypath.append("/host/");
-    keypath.append(key.to_string());
-    keypath.append(".mfmk");
+    std::string keypath = getSimDirForKey(key);
       
     FILE * keylog = fopen(keypath.c_str(),"a"); // make then append
     static auto last = runTimeSeconds();

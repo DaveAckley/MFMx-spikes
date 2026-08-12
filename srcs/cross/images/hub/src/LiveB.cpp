@@ -55,18 +55,12 @@ namespace MFM {
     HBASSERT_LT(carindex, cars.getCarCount());
     EwpBlock & car = cars.getTC(carindex);
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
-    //    HBPTAG(hub/INSIZ,car.currentTCSize());
     EwpPayload & pay = car.payload();
 
-    //    LOGPTAG(EwpPay,carindex);
     fB.mGridManager.applyEWT(pay);
 
-    //    HBPTAG(plCODE,(u32) pay.mPayloadState.mPayloadCode);
     u32 paysize = pay.currentPayloadSize();
-    //    HBPTAG(plSize,paysize);
     car.closeTC(paysize); // ready to go
-    //    HBPTAG(hub/AFTCLOS,car.isComplete());
-    //    HBPTAG(hub/OUTSIZ,car.currentTCSize());
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     crbo.add(carindex);         // hand control back to comm
     return true;
@@ -82,14 +76,10 @@ namespace MFM {
       return false;             // wait a bit
     }
 
-    //    HBPTAG(PROCINTERHUB,ngbidx);
-    //    HBPTAG(pIHS,inside);
-
     using IHubData = T6EPL1Data<InterHubStorage,4>;
     IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[ngbidx];
     IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
     IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
-    //    HBPTAG(PRINHU-crbi,&crbi);
 
     memoryFence();
 
@@ -100,29 +90,16 @@ namespace MFM {
     HBASSERT_LT(carindex, cars.getCarCount());
     InterHubBlock & car = cars.getTC(carindex);
 
-    if (false) {
-      HBXTAG(ihub/prcHC,car.getHeader().getU32());
-      HBPTAG(tcmsiz,(u32) car.getHeader().mTCMSize);
-      HBPTAG(paycap,TCMarker::decodeTCMSizeToPayloadCapacityBytes(car.getHeader().mTCMSize));
-      HBPTAG(payovr,TCMarker::getPacketOverheadBytesForTCMSize(car.getHeader().mTCMSize));
-      HBPTAG(pktszb,TCMarker::decodeTCMSizeToPacketSizeBytes(car.getHeader().mTCMSize));
-      HBPTAG(pktwds,TCMarker::getPacketWordsFromTCMSize(car.getHeader().mTCMSize));
-      HBPTAG(futidx,TCMarker::getFooterWordIndex(car.getHeader().mTCMSize));
-      HBPTAG(aklidx,TCMarker::getAnkleWordIndex(car.getHeader().mTCMSize));
-      HBPTAG(ngbidx,ngbidx);
-      HBPTAG(caridx,carindex);
-    }
-
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
     InterHubPayload & pay = car.payload();
     pay.update(inside); // kilroy was here
+    char dirstr[2];
+    dir4ToByteCodeStr(dirstr,(Dir4) ngbidx);
+    SNAP(1'000,{LOGPTAG(IHUBdi,dirstr);LOGPTAG(IHUBac,pay.mOrigin);});
 
     car.closeTC(sizeof(pay)); // ready to go
-    //    HBPTAG(ihub/payat,&pay);
-    //    HBPTAG(ihub/carat,&car);
     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
     crbo.add(carindex);         // hand control back to comm
-    //    HBPTAG(ihub/AFTCLOS,&crbo);
     
     return true;
   }
@@ -138,7 +115,6 @@ namespace MFM {
 
   int liveB(HostBlock & hb) {
     HBNOTE("liveB");
-    //hb.addBytes('L',hartChar(fAll.mHartNum));
     if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
     u32 spin = 0u;
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
@@ -151,13 +127,6 @@ namespace MFM {
       const u32 LIM = (1<<BITS)-1;
       if ((++spin & LIM) == 0) {
         HBPTAG(horg,spin>>BITS); // generate some HB logging please?
-        //LOGPTAG(zorg,spin>>BITS); // generate SOME logging please?
-        //        LOGPTAG(hub/liveB,spin); // generate SOME logging please?
-        if (false) {
-          static bool once;
-          if (!once) theDLGridList.demo();
-          once = true;
-        }
       }
       if ((spin & 0x3ff) == 0)
         hb.hartbeat(fAll.mHartNum);

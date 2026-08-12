@@ -219,7 +219,7 @@ namespace MFM {
       !crbi.isEmpty() &&      // more empty cars are available and
       !crbo.isFull() &&       // more full cars are shippable and
       acl1.readyToClose();
-    EACH(10,{HBPX(keytest);HBPX(curacb);HBPX(crbi.isEmpty());HBPX(crbo.isFull());HBPTAG(ACBPCuC,acl1.readyToClose());});
+    EACH(1000,{HBPX(keytest);HBPX(curacb);HBPX(crbi.isEmpty());HBPX(crbo.isFull());HBPTAG(ACBPCuC,acl1.readyToClose());});
     if (keytest) {  // current car is ready to go
       bool got;
 

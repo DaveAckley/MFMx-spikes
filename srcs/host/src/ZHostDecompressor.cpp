@@ -108,6 +108,7 @@ namespace MFM {
           
             U16C c = DG::getChipOrigin(mChipNum); 
             U16C o = c + DG::getTLBIOrigin(mTLBI,stride); 
+      
             const T6GridInfo & t6i = qb.getT6GridInfoFor(DG::Coord(o.x,o.y));
             U16C gridc(t6i.mT6GridOrigin.x + ar.mCoord.x,
                        t6i.mT6GridOrigin.y + ar.mCoord.y);

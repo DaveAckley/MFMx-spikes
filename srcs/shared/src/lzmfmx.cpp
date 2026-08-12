@@ -168,14 +168,8 @@ namespace MFM {
 
     //    LOGPTAG(lzmencN,n);
     while (n > 0) {
-      if (true) {
-        static u32 spin = 0;
-        if ((spin++ & 0xff) == 0) {
-          HBPTAG(lzmenc,n);
-          //          LOGPTAG(lzmenc,n);
-        }
-      }
-
+      EACH(10'000,HBPTAG(lzmenc,n));
+      
       u32 ml = mMlen > n ? n : mMlen;
       if (ml <= MIN_MATCH) {
         //LOGXTAG(lzlit,(u32) mRing[r]);
@@ -192,7 +186,7 @@ namespace MFM {
         for (u32 i = 0; i < cptr; ++i)
           putNextByteBlocking(code[i]); // abstract: pack packets in here too
         //LOGPTAG(lzwrt,(u32) cptr);
-        HBPTAG(lz2wrt,(u32) cptr);
+        EACH(1'000'000,HBPTAG(lz2wrt,(u32) cptr));
         flags = 0;
         mask = 1;
         cptr = 1;

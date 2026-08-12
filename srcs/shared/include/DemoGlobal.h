@@ -89,14 +89,21 @@ namespace MFM::DG {
   static constexpr u32 BLACKHOLE_ACTIVE_HUB_WIDTH = BLACKHOLE_HUBS_WIDTH_2X2;
   static constexpr u32 BLACKHOLE_ACTIVE_HUB_HEIGHT = BLACKHOLE_HUBS_HEIGHT_2X2;
 
-  static constexpr u32 T6GRID_WIDTH =
+  static constexpr u32 T6GRID_BASE_WIDTH =
     (PER_BLACKHOLE_GRID_WIDTH + BLACKHOLE_ACTIVE_HUB_WIDTH - 1u) / BLACKHOLE_ACTIVE_HUB_WIDTH;
-  static constexpr u32 T6GRID_HEIGHT =
+  static constexpr u32 T6GRID_BASE_HEIGHT =
     (PER_BLACKHOLE_GRID_HEIGHT + BLACKHOLE_ACTIVE_HUB_HEIGHT - 1u) / BLACKHOLE_ACTIVE_HUB_HEIGHT;
+
+  static constexpr u32 T6GRID_OVERLAP_WIDTH = T6GRID_BASE_WIDTH/11;
+  static constexpr u32 T6GRID_OVERLAP_HEIGHT = T6GRID_BASE_HEIGHT/11;
+
+  static constexpr u32 T6GRID_WIDTH = T6GRID_BASE_WIDTH + 2*T6GRID_OVERLAP_WIDTH;
+  static constexpr u32 T6GRID_HEIGHT = T6GRID_BASE_HEIGHT + 2*T6GRID_OVERLAP_HEIGHT;
 
   static constexpr U16C getGlobalGridSize() {
     return U16C(DEMO_GLOBAL_GRID_WIDTH,DEMO_GLOBAL_GRID_HEIGHT);
   }
+  static constexpr U16C getSingleT6GridBaseSize() { return U16C(T6GRID_BASE_WIDTH,T6GRID_BASE_HEIGHT); }
   static constexpr U16C getSingleT6GridSize() { return U16C(T6GRID_WIDTH,T6GRID_HEIGHT); }
   static constexpr U16C getChipPositionInArray(u32 chipnumber) {
     return U16C(chipnumber % BLACKHOLE_CHIP_ARRAY_WIDTH, chipnumber / BLACKHOLE_CHIP_ARRAY_WIDTH);

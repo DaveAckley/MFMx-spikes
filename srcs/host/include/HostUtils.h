@@ -63,6 +63,7 @@ namespace MFM {
   FILE * getHostLog() ;
   FILE * getHostLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
   std::ofstream getOStreamLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
+  std::string getSimDir() ;
 
   template <typename... Args>
   auto stringFormat(std::string_view format, Args&&... args) -> std::string {

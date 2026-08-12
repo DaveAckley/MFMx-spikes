@@ -13,9 +13,25 @@ namespace MFM {
   static constexpr bool isValidT6GridC(U16C c) { return c.x < DG::T6GRID_WIDTH && c.y < DG::T6GRID_HEIGHT; }
 
   struct T6Grid {
+    static constexpr u32 FULL_WIDTH = DG::T6GRID_WIDTH;
+    static constexpr u32 FULL_HEIGHT = DG::T6GRID_HEIGHT;
+    static constexpr U16C SELF_ORIGIN = { DG::T6GRID_OVERLAP_WIDTH, DG::T6GRID_OVERLAP_HEIGHT };
+    static constexpr U16C SELF_MAX = { FULL_WIDTH - DG::T6GRID_OVERLAP_WIDTH, FULL_HEIGHT - DG::T6GRID_OVERLAP_HEIGHT };
 
-    P4Atom mT6Grid[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT]; //< canonical atoms for this T6
+    P4Atom mT6Grid[FULL_WIDTH][FULL_HEIGHT]; //< canonical atoms for this T6
     u32 mTotalChanges;          //< will wrap eventually but do we care?
+
+    static U16CRange getCacheRange(Dir8 d8) {
+      U16CRange ret;
+      switch (d8) {
+      case D8_NT: ret.init({SELF_ORIGIN.x,0},{SELF_MAX.x,SELF_ORIGIN.y-1}); break;
+      case D8_ST: ret.init({SELF_ORIGIN.x,SELF_MAX.y},{SELF_MAX.x,FULL_HEIGHT-1}); break;
+      case D8_ET: ret.init({SELF_MAX.x,SELF_ORIGIN.y-1},{FULL_WIDTH-1,SELF_MAX.y-1}); break;
+      case D8_WT: ret.init({0,SELF_ORIGIN.y},{SELF_ORIGIN.x-1,SELF_MAX.y-1}); break;
+      default: FAIL(INCOMPLETE_CODE);
+      }
+      return ret;
+    }
 
     static u32 getByteOffsetToT6GridAtom(const U16C c) {
       HBASSERT_EQ(isValidT6GridC(c),true);
@@ -24,7 +40,7 @@ namespace MFM {
 
     u32 getTotalChanges() const { return mTotalChanges; }
 
-    static U16C getGridSize() { return U16C(DG::T6GRID_WIDTH,DG::T6GRID_HEIGHT); }
+    static U16C getGridSize() { return U16C(FULL_WIDTH,FULL_HEIGHT); }
 
     void init() {
       memset_s(this,'\0',sizeof(*this));

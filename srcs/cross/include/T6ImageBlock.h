@@ -12,7 +12,7 @@ namespace MFM {
   struct T6CellO; // FORWARD
 
   struct T6ImageBlock {
-    static constexpr u32 IMAGE_BLOCK_ADDRESS = 0x14;
+    static constexpr u32 IMAGE_BLOCK_ADDRESS = 0x18;
 
     static ImageBlockHeader & getOurImageBlock() {
       return *(ImageBlockHeader*) (volatile u32*) IMAGE_BLOCK_ADDRESS;

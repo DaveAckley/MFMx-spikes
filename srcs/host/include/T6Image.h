@@ -29,9 +29,11 @@ namespace MFM {
 
     u32 getHostBlockAddr() const { return mHostBlockAddr; }
 
+    static constexpr u32 WORD_OF_PTR_TO_IMAGE_BLOCK_HEADER = 6;
+
     const ImageBlockHeader & getImageBlockHeader() const {
       MFM_API_ASSERT_NONNULL(mTheBinFile);
-      const u32 * pibh = &getBinFileWords()[5];
+      const u32 * pibh = &getBinFileWords()[WORD_OF_PTR_TO_IMAGE_BLOCK_HEADER];
       return *(const ImageBlockHeader*) pibh;
     }
 
@@ -68,7 +70,7 @@ namespace MFM {
       const ImageBlockHeader ibh = getImageBlockHeader();
       if (!ibh.isValid()) return 0;
       if (idx >= ibh.getEntriesCount()) return 0;
-      const u32 * ibaw = &getBinFileWords()[6+2*idx]; // HARDCODED IMAGEBLOCK ADDRESS
+      const u32 * ibaw = &getBinFileWords()[7+2*idx]; // HARDCODED IMAGEBLOCK ADDRESS
       return (const ImageBlockAddr*) ibaw;
     }
 

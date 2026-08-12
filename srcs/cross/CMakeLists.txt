@@ -34,7 +34,6 @@ target_sources(crosslib PUBLIC
   src/CrossUtils.cpp
   src/DefaultLives.cpp
   src/EP_Ewp.cpp
-  src/EP_InterHub.cpp
   src/EP_LogBlock.cpp
   src/FATAL.cpp
   src/FastB.cpp

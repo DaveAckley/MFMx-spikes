@@ -168,24 +168,39 @@ namespace MFM {
     };
   };
 
-    using U8C = UxC<u8>;
+  using U8C =  UxC<u8>;
   using U16C = UxC<u16>;
   using U32C = UxC<u32>;
 
   template <class UTYPEC>
   struct UxCRange {
     using UC = UxC<UTYPEC>;
-    UC start, end;
+    UC start;                   // INCLUSIVE
+    UC end;                     // EXCLUSIVE
 
     void reset() {
       start.reset();
       end.reset();
     }
 
+    void init(UC s) {
+      UC e = s+UC(1,1);
+      init(s,e);
+    }
+
+    void init(UC s, UC e) {
+      start = s;
+      end = e;
+    }
+
+    UC dims() const {
+      return UC(end.x - start.x, end.y - start.y);
+    }
+
     u32 area() const {
       return
-        (end.x - start.x +1) *
-        (end.y - start.y +1);
+        (end.x - start.x) *
+        (end.y - start.y);
     }
   };
 

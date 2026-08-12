@@ -1,5 +1,6 @@
 #pragma once        /* -*- C++ -*- */
 
+#include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
 #include "itype.h"
 #include "utils.h"
 #include "TTKMDStuff.h"

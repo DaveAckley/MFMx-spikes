@@ -7,6 +7,7 @@ target_sources(hub PRIVATE
   allimg/src/HartTasks.cpp
   images/hub/src/EP_ACBlock.cpp
   images/hub/src/EP_ACacheBlock.cpp
+  images/hub/src/EP_InterHub.cpp
   images/hub/src/EwpBlock.cpp
   images/hub/src/Grid.cpp
   images/hub/src/InterHub.cpp

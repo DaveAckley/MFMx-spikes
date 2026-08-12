@@ -403,7 +403,8 @@ class EWD(App):
     if animation_widget.refreshCount % 50 == 0:
       count = 25
       #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
-      self.slowScan(count)
+      #self.slowScan(count)
+      self.slowScan(1)
     if animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
       if random.randrange(3) == 0:
         self.fireCount = random.randint(1,10)

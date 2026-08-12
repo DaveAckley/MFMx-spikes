@@ -13,7 +13,7 @@ namespace MFM {
 
   bool LogBlockL1Control::writeMark(u16 fileid, u16 lineno, const char * msg) {
     /// ONLY LOG FROM T15!
-    if (theHostBlock.mTLBI != 15) return true;
+    // if (theHostBlock.mTLBI != 15) return true;
     //    HBMARK;
     constexpr u32 HDRBYTES = 8u;
     HostBlock & hb = theHostBlock;

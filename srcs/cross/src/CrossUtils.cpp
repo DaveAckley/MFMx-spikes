@@ -79,6 +79,24 @@ namespace MFM {
     markLogBlock(fileid,lineno,buf);
   }
 
+  void markLogBlock(u16 fileid, u16 lineno,const U8CRange r, const char * tag) {
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u]",
+                 tag?tag:"=",
+                 r.start.x,r.start.y,
+                 r.end.x,r.end.y);
+    markLogBlock(fileid,lineno,buf);
+  }
+
+  void markLogBlock(u16 fileid, u16 lineno,const U16CRange r, const char * tag) {
+    char buf[MARK_BUF_SIZ];
+    npf_snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u)",
+                 tag?tag:"=",
+                 r.start.x,r.start.y,
+                 r.end.x,r.end.y);
+    markLogBlock(fileid,lineno,buf);
+  }
+
   void markLogBlock(u16 fileid, u16 lineno,const S8C c, const char * tag) {
     char buf[MARK_BUF_SIZ];
     npf_snprintf(buf,MARK_BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);

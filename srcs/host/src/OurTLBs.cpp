@@ -286,9 +286,11 @@ namespace MFM {
     // configure and map all but the last three to the fleet - L1 uni
     for (unsigned i = AHAX_TLBI_L1_FIRST_UNI; i <= AHAX_TLBI_L1_LAST_UNI; ++i) {
       U16C nocc = U16C::makeNoCCoordFromTLBI(i);
+      U16CRange r;
+      r.init(nocc);             // defaults to nocc<nocc+(1,1)
 
       // configure as T6/L1 access window
-      void * ptr = configureL1Window(i,{nocc,nocc});
+      void * ptr = configureL1Window(i,r);
 
     }
   
@@ -378,7 +380,7 @@ namespace MFM {
       0x1000,              // HARTNUM_T2
       0x2000               // HARTNUM_NC
     };
-    const u32 STACK_CANARY =  0x11a2'b30d;  // see cross/src/_BUD.S
+    const u32 STACK_CANARY_VALUE =  STACK_CANARY;  // see cross/src/_BUD.S
 
     const u32 MAX_STACK_WORDS = 256;
 
@@ -450,7 +452,7 @@ namespace MFM {
   }
   
   void * OurTLBs::configureMulticastWindow(u32 tlbi, u32 address, bool wc) {
-    return configureWindow(tlbi, {{1,2},{16,11}}, address, wc);
+    return configureWindow(tlbi, {{1,2},{16+1,11+1}}, address, wc);
     //return configureWindow(tlbi, {{1,2},{1,11}}, address, wc);
   }
 
@@ -460,14 +462,14 @@ namespace MFM {
 
   void * OurTLBs::configureDebugWindow(u32 tlbi) {
     U16CRange range;
-    range.reset();
+    range.init({0,0},{1,1});
     return configureWindow(tlbi, range, RISCV_DEBUG_REGS_START_ADDR, false);
   }
 #if 0
   void * OurTLBs::reconfigureDebugWindow(u32 tlbi, U8C forNoC0) {
     U16CRange range;
     range.start = forNoC0;
-    range.end = forNoC0;
+    range.end = forNoC0+{1,1};
     return configureWindow(tlbi, range, RISCV_DEBUG_REGS_START_ADDR, false);
   }
 #endif
@@ -556,8 +558,11 @@ namespace MFM {
   }
 
   void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
+    ASSERT(range.area() > 0);
     unsigned ismulti = range.area() > 1u;
-    //LOGprintf(mChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
+    if (ismulti)
+      LOGprintf(mDevChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",
+                tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
     struct tenstorrent_configure_tlb confio;
     memset_s(&confio,0,sizeof(confio));
     struct tenstorrent_configure_tlb_in & cfin = confio.in;
@@ -567,8 +572,8 @@ namespace MFM {
     mTLBInfos[tlbi].mRemoteBaseAddress = address;
     struct tenstorrent_noc_tlb_config & cfnoc = cfin.config;
     cfnoc.addr = address&~AHAX_CONSTANT2M_MASK; // window starting address in (x,y) space?
-    cfnoc.x_end = range.end.x;
-    cfnoc.y_end = range.end.y;
+    cfnoc.x_end = range.end.x-1;                // -1 for inclusive end coords
+    cfnoc.y_end = range.end.y-1;                //  ditto
     cfnoc.x_start = range.start.x;     // need start and end for unicast?
     cfnoc.y_start = range.start.y;
     cfnoc.noc = 0u;
@@ -972,13 +977,26 @@ namespace MFM {
   }
 
   bool OurTLBs::updateTransports(bool includeEWs) {
+    u32 onphase = 0;
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       updateLogBlocks(tlbi);
       updateACacheBlocks(tlbi);
       if (includeEWs) updateEWCars(tlbi);
+      PHASER * rphase = (PHASER*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
+      if (rphase->mCmdSpinner == mShadowPHASER.mCmdSpinner) ++onphase;
     }
+    EACH(100'000,{
+      BHTag tag(TagType::HOSTCT,mDevChipNum);
+
+      if (onphase == 140) {
+        mShadowPHASER.mCmdSpinner++; // BANG THE PHASER DRUM
+        KTprintf(tag,"PHASER SHOT <%u>\n",mShadowPHASER.mCmdSpinner);
+        writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, 1);
+      } else 
+        EACH(1,KTprintf(tag,"ON REPHASER <%u> #%u\n",mShadowPHASER.mCmdSpinner,onphase));
+      });
     //XXX BURN BABY BURNNNNN:
-    sleepUsec(10);
+    //sleepUsec(10);
     return true;
   }
 

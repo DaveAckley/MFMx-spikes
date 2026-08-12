@@ -6,6 +6,8 @@
 
 #include "ImageBlock.h"
 
+namespace MFM {
+
   /////
   /// BEGIN: COUNT ENTRIES
 #define XIC_START_IMAGE_BLOCK(IMAGE_NAME) static constexpr u32 IMAGE_NAME##Entries = 
@@ -35,19 +37,4 @@
   /// END: DECLARE SUBCLASS
   /////
 
-#if 0
-  /////
-  /// BEGIN: DECLARE EXTERNS
-#define XIC_START_IMAGE_BLOCK(IMAGE_NAME) 
-#define XIC_BLOCKADDR(BLOCK_CODE, ARRAY_LEN, GLOBAL_VAR, VAR_TYPE) \
-    extern VAR_TYPE GLOBAL_VAR[ARRAY_LEN];
-#define XIC_END_IMAGE_BLOCK(IMAGE_NAME) 
-
-#include "ImageConfig.inc" // in per-image subdir
-
-#undef XIC_START_IMAGE_BLOCK
-#undef XIC_BLOCKADDR
-#undef XIC_END_IMAGE_BLOCK
-  /// END: DECLARE EXTERNS
-  /////
-#endif // 0
+}

@@ -109,6 +109,8 @@ class EWD(App):
     self.scriptDir = os.path.dirname(os.path.abspath(__file__))
     self.baseDir = os.path.abspath(f"{self.scriptDir}/../../../..")
     print("BASEDIR",self.baseDir)
+    self.simDir = MFMx.getSimDir()
+    print("SIMDIR",self.simDir)
     self.config = config
     print("BONGO",self.config)
     self.imageManager = MFMx.ImageManager()
@@ -178,7 +180,7 @@ class EWD(App):
       rlist.first().write(msg)     # write to onscreen log
 
     #MFMx.BHLog.log(msg)  # alt/2nd dest DEADLOCKY
-    with open(f"/tmp/nu1011-{key}.txt","a") as file:
+    with open(f"{self.simDir}misc/nu1011-{key}.txt","a") as file:
       file.write(msg)
     #print(msg,file=sys.stderr)                  # FOGIT
 
@@ -402,11 +404,11 @@ class EWD(App):
     animation_widget.refreshCount += 1
     #self.doRTMPFrame()
     self.doRTMPGraphicsFrame(elapsedns)
-    # if animation_widget.refreshCount % 5 == 0:
-    #   count = 2
-    #   #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
-    #   self.slowScan(count)
-    if animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
+    if animation_widget.refreshCount % 10 == 0:
+      count = 1
+      #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
+      self.slowScan(count)
+    if False and animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
       if random.randrange(3) == 0:
         self.fireCount = random.randint(1,10)
         self.fireBig = True;

@@ -1,3 +1,4 @@
+#include "T6Grid.h"
 #include "InterHub.h"
 #include "HartTasks.h" // for HTFuncPtr
 #include "T6CellO.h"
@@ -17,8 +18,7 @@ namespace MFM {
     RCFlag ret = RCFlag::RC_ZERO;
 
     if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
-
-      HBNOTE("IHUBARO");
+      
       //// ONE-TIME INITS
       theInterHubL1Data.reset(); // zero all
 
@@ -77,6 +77,7 @@ namespace MFM {
       }
 
     } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+      LOGPTAG(IHUBARO:MAX_ATOMS,InterHubPayload::MAX_ATOMS);
 
       HBNOTE(GOFIH);
       for (u8 d = D4_N; d <= D4_E; ++d) {
@@ -89,10 +90,25 @@ namespace MFM {
       HBMARK;
 
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+      SNAP(2,LOGPTAG(#IHUBARO:MAX_ATOMS,InterHubPayload::MAX_ATOMS));
       //      HBXTAG(IHLIV,0);
       //// LIVING
       for (u32 n = 0; n < 4; ++n) {
         InterHubEP & myIHEPNC = myInterHubEP[n];
+        EACH(10'000'000,{
+            Dir4 d4 = (Dir4) ((__EACHNUM__/10'000'000)%4);
+            Dir8 d8 = dir4ToDir8(d4);
+            LOGPTAG(IHUBAROHAROHARO:MAX_ATOMS,InterHubPayload::MAX_ATOMS);
+            LOGPTAG(d8,dir8ToByteString(d8));
+            LOGPX(T6Grid::FULL_HEIGHT);
+            LOGPX(T6Grid::FULL_WIDTH);
+            LOGPX(T6Grid::SELF_ORIGIN);
+            LOGPX(T6Grid::SELF_MAX);
+            LOGPX(T6Grid::getCacheRange(d8));
+            LOGPX(T6Grid::getCacheRange(d8).dims());
+            LOGPX(T6Grid::getCacheRange(d8).area());
+            LOGPTAG(cache/IHPax,(T6Grid::getCacheRange(d8).area()+InterHubPayload::MAX_ATOMS-1)/InterHubPayload::MAX_ATOMS);
+          });
         //        HBPTAG(IHUO*,&myIHEPNC);
         if (!myIHEPNC.isInitted()) continue;
 

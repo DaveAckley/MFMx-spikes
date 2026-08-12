@@ -19,6 +19,9 @@ PYBIND11_MODULE(MFMx, m) {
   // Init the HostUtils (logging, clock, ...) at module load time
   MFM::initHostUtils();         // (that's now, right?)
 
+  // Expose the simulation directory
+  m.def("getSimDir", &MFM::getSimDir);  
+
   // Expose the MFMx version string
   m.def("getVersion", &MFM::T6::getMFMxModuleVersion);  
 

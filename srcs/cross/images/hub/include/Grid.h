@@ -209,10 +209,7 @@ namespace MFM {
   struct GridManager {
     void init(T6Grid & grid, ACacheBlockL1Control & acbl1, DLGridList & gridlist) ;
 
-    U16C selectRandomSite() {
-      return U16C((u16) between(0u,DG::T6GRID_WIDTH-1),
-                  (u16) between(0u,DG::T6GRID_HEIGHT-1));
-    }
+    U16C selectRandomSite() ;
 
     S16C siteNumberToOffset(u32 sn) const {
       const MDist4 md;

@@ -18,7 +18,7 @@ namespace MFM {
              mIKey.c_str(),
              getImageCode(),
              getBinFileSize(),
-             getBinFileWords()[5]);
+             getBinFileWords()[WORD_OF_PTR_TO_IMAGE_BLOCK_HEADER]);
     return std::string(buf);
   }
 

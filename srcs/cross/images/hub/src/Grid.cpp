@@ -51,7 +51,7 @@ namespace MFM {
         HBNOTE("AUTOSEEDOMATIC");
         LOGNOTE("LOGOAUTOSEEDOMATIC");
       } else {
-        if ((mAutoseedWaitCount % 25) == 0)
+        if ((mAutoseedWaitCount % 1'000'000) == 0)
           LOGPTAG(WAITING,mAutoseedWaitCount);
         return false;
       }
@@ -68,6 +68,11 @@ namespace MFM {
       }
     }
     return false;
+  }
+
+  U16C GridManager::selectRandomSite() {
+    return U16C((u16) between(T6Grid::SELF_ORIGIN.x+4,T6Grid::SELF_MAX.x-4-1),
+                (u16) between(T6Grid::SELF_ORIGIN.y+4,T6Grid::SELF_MAX.y-4-1));
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {
@@ -91,14 +96,12 @@ namespace MFM {
 
   void GridManager::readEW(EventWindow & ew,U16C center) {
     T6Grid & g = *mT6GridPtr;
-    //    LOGPTAG(rEWc,center);
     S16C scenter(center);
     for (u32 sn = 0u; sn < EventWindow::ATOM_COUNT; ++sn) {
       S16C offc = siteNumberToOffset(sn);
       U16C gridc(scenter.x+offc.x,scenter.y+offc.y);
       ew.getAtom(sn) = g.getAtomOrInaccessible(gridc);
     }
-    //    LOGATOM(ew.getAtom(0));
   }
 
   u32 GridManager::writeEW(const EventWindow & ew,U16C center) {

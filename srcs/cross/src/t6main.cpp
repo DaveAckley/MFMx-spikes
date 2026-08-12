@@ -68,10 +68,10 @@ namespace MFM {
     static u32 shadow[SLOTS];
     static bool first;
 
-    //    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
-    //    const u32 *ibux14 = (u32*) 0x18;  // '= &theImageBlock+1;'
+    //    const u32 *ibux14 = (u32*) 0x18;  // '= &theImageBlock;'
+    //    const u32 *ibux14 = (u32*) 0x1c;  // '= &theImageBlock+1;'
     constexpr u32 OFFSET = 1;
-    const u32 *ibux14 = ((u32*) 0x14) + OFFSET;  // '= &theImageBlock+2;'
+    const u32 *ibux14 = ((u32*) 0x18) + OFFSET;  // '= &theImageBlock+2;'
 
     if (!first) {
       for (u32 i = 0; i < SLOTS; ++i)

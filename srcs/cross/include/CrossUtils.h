@@ -16,6 +16,10 @@ namespace MFM {
   void markLogBlock(u16 fileid, u16 lineno,const U8C c, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const S8C c, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const S16C c, const char * tag) ;
+
+  void markLogBlock(u16 fileid, u16 lineno,const U8CRange r, const char * tag) ;
+  void markLogBlock(u16 fileid, u16 lineno,const U16CRange r, const char * tag) ;
+
   void markLogBlock64(u16 fileid, u16 lineno,const u64 val, const char * tag) ;
 
   void markHostBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) ;

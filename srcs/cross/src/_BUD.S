@@ -1,4 +1,6 @@
-	.equ STACK_CANARY,0x11a2b30d
+#include "DefinedConstants.h"
+        
+        /*.equ STACK_CANARY,0x11a2b30d*/
         .section .jumpstart,"ax",@progbits
         .global _start
         .type   _start, @function
@@ -20,6 +22,10 @@ t2_setup: j t2_init             # T2 entrypoint must be addr 12 word 3
 nc_setup: j nc_init             # NC entrypoint must be addr 16 word 4
 	
 	.cfi_endproc
+	
+#        .section .data
+        .global PHASER
+PHASER: .word 0                 # PHASER is addr 20 word 5?
 	
 	# Not setting up gp until pretty late, so:
 	.option push
@@ -116,7 +122,7 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	sb s1,(t1)              # set fast[0] 0..7 to hartnum
         lhu t3,24(t2)           # get hb.mNoC0
         sh t3,2(t1)             # stash in fALL.mNoC0
-	li t2, 0x14             # get ImageBlockHeader address
+	li t2, T6_IMAGE_BLOCK_ADDR             # get ImageBlockHeader address
 	lw t3,(t2)              # get IBH
         sw t3,8(t1)             # stash in fALL.mIBH
 
@@ -205,3 +211,15 @@ estimateStackUsage:
         
 	.cfi_endproc
         
+	.global readPHASER
+        .type   readPHASER, @function
+	.section .text
+
+	.cfi_startproc
+readPHASER:
+        la t0, PHASER           # addr of host PHASER
+	lw a0,0(t0)              # read it
+	ret
+	.cfi_endproc
+
+

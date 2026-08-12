@@ -69,6 +69,12 @@ namespace MFM
     D4_E = 3,
   };
   
+  static u8 dir4ToByteCode(const Dir4 d4) { return (u8) "NWSE"[d4]; }
+  static const char * dir4ToByteCodeStr(char str[2],const Dir4 d4) {
+    str[0] = dir4ToByteCode(d4);
+    str[1] = 0;
+    return &str[0];
+  }
   static Dir4 nextCCWDir4(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
   static Dir4 nextCWDir4(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
   static Dir4 oppositeDir4(const Dir4 from) {  return (Dir4) ((from+2u)&0x3); }
@@ -84,7 +90,6 @@ namespace MFM
     D8_NE = 7,
   };
 
-  static u8 dir4ToByteCode(const Dir4 d4) { return (u8) "NWSE"[d4]; }
   static Dir8 dir4ToDir8(const Dir4 d4) { return (Dir8) (d4*2u); }
 
   static const char * dir8ToByteString(const Dir8 d8) {

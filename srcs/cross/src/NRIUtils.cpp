@@ -243,7 +243,7 @@ namespace MFM {
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
 
     //if (debug) HBPVAL(themct6);
-    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    const u32 *ibux14 = (u32*) 0x18;  // '= &theImageBlock;'
 
     bool ok = blockingL1ReadCT6(usct6, themct6,
                                 (u32) ibux14,
@@ -259,7 +259,7 @@ namespace MFM {
     if (!U8C::isNoC0CoordAT6(usnoc)) return ret;
     if (!U8C::isNoC0CoordAT6(fromnoc)) return ret;
 
-    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    const u32 *ibux14 = (u32*) T6_IMAGE_BLOCK_ADDR;  // '= &theImageBlock;'
     const u32 *iba = ibux14 + 1u + ibaindex*(sizeof(ImageBlockAddr)>>2u);
     if (false && usnoc == fromnoc) { // XXX short circuit self comm as test
       return *(ImageBlockAddr*) iba;
@@ -288,7 +288,7 @@ namespace MFM {
     if (!U8C::onBoardCT6Coord(themct6)) return ret;
     //if (debug) HBPVAL(themct6);
 
-    const u32 *ibux14 = (u32*) 0x14;  // '= &theImageBlock;'
+    const u32 *ibux14 = (u32*) T6_IMAGE_BLOCK_ADDR;  // '= &theImageBlock;'
     const u32 *iba = ibux14 + 1u + ibaIndex*(sizeof(ImageBlockAddr)>>2u);
 
     //    if (debug) HBPVAL(sizeof(ImageBlockAddr)>>2u);

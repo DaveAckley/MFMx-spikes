@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "HostUtils.h"
 
+#include "PHASER.h" // for struct PHASER
 #include "FATAL.h"
 #include "UxC.h" // for U16C
 #include "TTKMDStuff.h"
@@ -262,6 +263,7 @@ namespace MFM {
     size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 
     bool mDMABufferPretendDeleted;
     u64 mEWsShipped, mEWsReturned, mEWsCommitted;
+    PHASER mShadowPHASER;
   };
 } // namespace MFM
 

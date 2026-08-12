@@ -8,18 +8,20 @@
 */
 
 #include "itype.h"
+#include "PHASER.h" // everybody needs PHASER
 #include "CellBlock.h" // everybody needs CellBlock
 
 namespace MFM {
 
-#define BLOCKCODE_LIST()                        \
+#define BLOCKCODE_LIST()                                \
   XX(CELLBLOCK,CLBK,sizeof(CellBlock),CellBlock,1u)     \
+  XX(PHASER,PHSR,sizeof(PHASER),PHASER,1u)              \
   XX(LOGBLOCK,LGBK,4096,LogBlockStg,1u)                 \
   XX(ZOTBLOCK,ZTBK,256,ZotBlockStg,2u)                  \
   XX(EWHUB,EWHB,2048,EwpBlockStg,8u)                    \
   XX(EWPCARS,EWCR,2048,EwpBlockStg,1u)                  \
-  XX(INTERHUB,IHUB,8320,InterHubStorage,4u)             \
-  XX(T6GRID,T6G,178852,T6Grid,1u)                       \
+  XX(INTERHUB,IHUB,20800,InterHubStorage,4u)            \
+  XX(T6GRID,T6G,244948,T6Grid,1u)                       \
   XX(ACACHEBLOCK,ACB,3072,ACacheBlockStg,1u)            \
   //END OF BLOCK_CODE_LIST
 
