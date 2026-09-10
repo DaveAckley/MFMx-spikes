@@ -16,7 +16,7 @@
 #include "BlockCode.h"
 #include "T6ImageBlock.h"
 #include "T6Phaser.h"
-#include "TaskWorker.h"
+#include "TaskManager.h"
 
 
 namespace MFM {
@@ -115,7 +115,7 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     HBPTAG(@,__FUNCTION__);
-    TaskWorker::initTaskManager();
+    TaskWorker::initTaskManagerNC();
     return liveNC(hb);
   }
 

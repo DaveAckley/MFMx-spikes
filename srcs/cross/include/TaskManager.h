@@ -2,6 +2,7 @@
 #include "itype.h"
 #include "RingBuffer.h"
 #include "AtomicLock.h"
+#include "PHASER.h"
 
 namespace MFM {
   struct Task {
@@ -41,8 +42,23 @@ namespace MFM {
       return self().getXFerRBIfAny(hartNumFrom, hartNumTo);
     }
 
+    /*
+      \return >0 to respond to bolt and update lastseqno
+      \return ==0 to hold and not update lastseqno
+      \return <0 to drop bolt without response and update lastseqno
+     */
+    s8 maybeHandleBolt(PhaserBolt & bolt, u8 lastSeqNo) {
+      return self().maybeHandleBolt(bolt,lastSeqNo);
+    }
+
+    void updateHartTasks() {
+      self().updateHartTasks();
+    }
+
     // SERVICES
     Task * getCurrentTaskPtrIfAny(u8 hartNumber) ;
+
+    TaskXFerRB & getXFerRBOrDie(u32 hartNumFrom, u32 hartNumTo) ;
 
     bool routeTaskTo(u8 taskNumber, u8 hartNumber) ;
     void holdTaskHere(u8 taskNumber) ;
@@ -95,15 +111,11 @@ namespace MFM {
       return t;
     }
 
-    TaskXFerRB & getXFerRB(u32 hartNumFrom, u32 hartNumTo) {
-      TaskXFerRB * rbp = getXFerRBIfAny(hartNumFrom,hartNumTo);
-      MFM_API_ASSERT_NONNULL(rbp);
-      return *rbp;
-    }
-
-    
-
+    //// TaskWorker options
+    s8 checkPhaserDispatch() ;
   };
-
 }
+
+#include "TaskManager.tcc"
+
 

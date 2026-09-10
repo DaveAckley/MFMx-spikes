@@ -67,6 +67,7 @@ namespace MFM {
   }
 
   bool ZHostDecompressor::sinkByte(const u8 byte) {
+    QuietBox & qb = QuietBox::get();
     //    SNAP(50,KTprintf(mBHTag,"ZHDHARO OUT 0x%02x\n",byte));
     if (mQuitDecompressorThread.load()) { // should we quit?
       KTprintf(mBHTag,"ZHD %p GUDBYEEO %u\n",this,mTLBI);
@@ -117,7 +118,16 @@ namespace MFM {
             U16C gridc(t6i.mT6GridOrigin.x + ar.mCoord.x,
                        t6i.mT6GridOrigin.y + ar.mCoord.y);
 
-            EACH(1'000,{
+            if (qb.mDrawGrid) {
+              U16C nocacheo = o + DG::getGlobalGridOffset() + U16C(4,4); // (4,4) to get into EW center range
+              RGBPix fg(255,255,255), bg(0,0,0);
+              std::string label = mBHTag.to_string() + "\n" +
+                o.to_string() + "\n" +
+                t6i.mT6GridOrigin.to_string();
+              bgr.drawString(nocacheo,label,fg,bg,2,2);
+            }
+
+            EACH(1'000'000,{
                 KTprintf(mBHTag,"RNDER10 #%u t%u go = (%u,%u), ar = (%u,%u)\n",
                          mChipNum, mTLBI,
                          t6i.mT6GridOrigin.x, t6i.mT6GridOrigin.y,
@@ -127,9 +137,10 @@ namespace MFM {
                          o.x,o.y,
                          gridc.x,gridc.y);
               });
-
+            
             RGBPix color = renderPhysicsHACK(ar.mAtom);
             bgr.setPixel(gridc,color);
+            qb.setSimAtom(gridc,ar.mAtom);
           }
         }
 

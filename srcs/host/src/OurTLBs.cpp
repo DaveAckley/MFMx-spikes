@@ -4,6 +4,7 @@
 #include "TC.h"
 #include "BHLog.h"
 #include "XMark.h"
+#include "PHASER.h"
 
 // use the source AHAX ?
 #include <sys/ioctl.h>
@@ -39,6 +40,9 @@ namespace MFM {
   {
     memset_s(mTLBInfos,0u,sizeof(mTLBInfos));
     memset_s(&mPinnedHostBuf,0u,sizeof(mPinnedHostBuf));
+    // Set up mShadowPHASER to use as init for T6Image PHASER block
+    mShadowPHASER.init();
+    mShadowPHASER.payload().reinit(PhaserBolt::CMD_HOLD_AT_BIRTH);
   }
 
   void OurTLBs::allocateHostRAM(size_t sizePerT6) {
@@ -290,24 +294,33 @@ namespace MFM {
       r.init(nocc);             // defaults to nocc<nocc+(1,1)
 
       // configure as T6/L1 access window
-      void * ptr = configureL1Window(i,r);
+      void * ptr = configureL1Window(i,r, /*wc =*/ true);  // XXXX HAD BEEN IN EFFECT true ?
 
     }
   
-    // map last three
+    // map last four
     {
       void * ptr = configureMulticastWindow(AHAX_TLBI_L1_MULTI, 0x0, /*wc=*/ true);
-      //LOGprintf(mChipNum,"L1MULTI %u mapped at %p\n",AHAX_TLBI_L1_MULTI,ptr);
+      LOGprintf(mDevChipNum,"L1MULTI %u mapped at %p\n",AHAX_TLBI_L1_MULTI,ptr);
     }
     {
       void * ptr = configureMulticastWindow(AHAX_TLBI_DEBUG_MULTI, 0xFFB12000, false);
-      //LOGprintf(mChipNum,"DEBUGMULTI %u mapped at %p\n",AHAX_TLBI_DEBUG_MULTI,ptr);
+      LOGprintf(mDevChipNum,"DEBUGMULTI %u mapped at %p\n",AHAX_TLBI_DEBUG_MULTI,ptr);
     }
     {
       // 2M window with range to be set per-use, addressing
       // [RISCV_DEBUG_REGS_START_ADDR..RISCV_DEBUG_REGS_START_ADDR+2M)
       void * ptr = configureDebugWindow(AHAX_TLBI_DEBUG_UNI);
-      //LOGprintf(mChipNum,"DEBUGUNI %u mapped at %p\n",AHAX_TLBI_DEBUG_UNI,ptr);
+      LOGprintf(mDevChipNum,"DEBUGUNI %u mapped at %p\n",AHAX_TLBI_DEBUG_UNI,ptr);
+    }
+    {
+      // 2M window with range to be set per-use, with UC uncombining
+      // order and addressing L1 [0..2M), intended for atom cache
+      // readbacks during QuietBox-level InterHubHack sequences
+      U16CRange r;
+      r.init({0,0},{1,1});
+      void * ptr = configureL1Window(AHAX_TLBI_QB_UNI_UC,r,/* wc = */ false);
+      LOGprintf(mDevChipNum,"QB_UNI_UC %u mapped at %p\n",AHAX_TLBI_QB_UNI_UC,ptr);
     }
   }
 
@@ -387,7 +400,10 @@ namespace MFM {
     const u32 mappedStackBottomAddr = FASTRAM_SLOWPATHS[hartnum] + FASTRAM_SIZES[hartnum] - 4;
     const u32 fastramStackBottomAddr = MEM_LOCAL_BASE + FASTRAM_SIZES[hartnum] - 4;
 
-    Eprintf("(%u,%u) %s STACKBOT:0x%08x MAPSTACK:0x%08x\n",
+    BHTag tag(T6TADR,mDevChipNum,fromNoC0.x,fromNoC0.y);
+    Eprintf("<<%s>> #%u (%u,%u) %s STACKBOT:0x%08x MAPSTACK:0x%08x\n",
+            tag.to_string().c_str(),
+            mDevChipNum,
             fromNoC0.x,fromNoC0.y,
             hartName(hartnum),
             fastramStackBottomAddr,
@@ -456,8 +472,8 @@ namespace MFM {
     //return configureWindow(tlbi, {{1,2},{1,11}}, address, wc);
   }
 
-  void * OurTLBs::configureL1Window(u32 tlbi, U16CRange range) {
-    return configureWindow(tlbi, range, 0u, true);
+  void * OurTLBs::configureL1Window(u32 tlbi, U16CRange range, bool wc) {
+    return configureWindow(tlbi, range, 0u, wc);
   }
 
   void * OurTLBs::configureDebugWindow(u32 tlbi) {
@@ -809,173 +825,6 @@ namespace MFM {
     }
   }
 
-  void OurTLBs::updateEWCars(unsigned tlbi) {
-    //    ImageManager & im = ImageManager::getTheImageManager();
-    //    Layout & l = im.getLayouts().getItem(im.getActiveLayout()); // or bang
-    HostCommsMap & hcm = mHostCommsMap;
-
-    TLBInfo & info = getTLBInfo(tlbi);
-    const T6Image * image = info.getDeployedImageIfAny();
-
-    // Only send events to actual images..
-    if (!image) {
-      HNprintf(200,"EW skipping %u - no image\n",tlbi);
-      return;
-    }
-    // ..that have BC_EWCARS blocks
-    if (info.mEWTransportBlockStart == 0u) {
-      SNAP(5,HNprintf(200,"EW skipping BH%u/%u - no BC_EWPCARS\n",mDevChipNum,tlbi));
-      return;
-    }
-
-    //    void * hostewblock = hcm.getHostBlockAddress(tlbi, BlockCode::BC_EWCARS);
-    /*
-    pinned_host_buffer_t& buf = mPinnedHostBuf;
-    void * hostmem = buf.host_ptr;
-    u64 hostnocaddr = buf.noc_addr;
-
-    u32 t6offset = tlbi * mT6HostBufferSize + info.mEWTransportBlockStart; 
-
-    u8 chunkoff = hcm.getHostRAMChunkOffset(BlockCode::BC_EWCARS);
-    if (chunkoff == U8_MAX) {
-      HTprintf("NO CHUNKOFF? %u\n", tlbi);
-      return;
-    }
-    u32 hostoffset = chunkoff * HOST_COMMS_MAP_CHUNK_SIZE;
-    
-    void * hostewoffset = ((char*)hostmem) + hostoffset;
-    */
-    //    HTprintf("HOSTEW %u %p\n", tlbi, hostewblock);
-
-#if 0
-    EWCarStorage & stg = *(EWCarStorage*) hostewblock;
-    EWControl & ewc = EWControl::getTheEWControl();
-    
-    for (u32 car = 0u; car < EWCarStorage::CAR_COUNT; ++car) {
-      EWCarStorage::EWCar & ec = stg.mEWCars[car];
-      //      HTprintf("EWCAR %u %p\n", car, &ec);
-
-      EWBlock & eb = ec.getContent();
-      CarSig cs = ec.getHeader();
-
-      if (ec.getCarState() == CarState::UNUSED) { 
-        // start with all EW cars host side
-        ec.setCarState(CarState::OPEN, CarType::STANDARD);
-        continue;
-      }
-
-      U16C addr = U16C::makeNoCCoordFromTLBI(tlbi);
-      if (!ec.isComplete()) {
-        static u32 loops = 0;
-        if ((loops++ % 1000) == 0)
-          LOGprintf(mDevChipNum,"<%d> INCOM? %u #%d@(%d,%d)!\n",
-                    mDevChipNum, loops, car, addr.x, addr.y);
-        continue;
-      }
-
-      if (ec.getCarState() == CarState::INBOUND_DEPARTED) {
-        // Welcome To Host Central, The Centraliest Center Around
-
-        CarSig cs = ec.getHeader();
-
-        if (cs.mCarType != CarType::STANDARD) FAIL(UNSUPPORTED_OPERATION);
-          
-        BHTag tag(TagType::T6TADR,mDevChipNum,addr.x,addr.y);
-
-        /// TRY TO COMMIT RETURNED EW
-        ++mEWsReturned;
-
-        if (false)
-          LOGprintf(mDevChipNum,"<%d> RECEIVINGEW s%d/r%d/c%d from #%d@(%d,%d)!\n",
-                    mDevChipNum, mEWsShipped,mEWsReturned,mEWsCommitted, car,
-                    addr.x, addr.y);
-        s32 status;
-        if ((status = ewc.tryCommitEWCar(tag,ec))==0) ++mEWsCommitted;
-        if (false)
-          LOGprintf(mDevChipNum,"<%d> bop%d (%d,%d)\n",
-                    mDevChipNum, status, addr.x, addr.y);
-        ec.setCarState(CarState::OPEN,CarType::STANDARD); 
-        continue;
-      }
-      
-      if (ec.getCarState() == CarState::OPEN) {
-        //// HANDLE FILLING AN OUTBOUND EW
-        static u32 loops = 0u;
-        constexpr u32 PERIOD = 100'000u;
-
-        EWBlock & eb = ec.getContent();
-        if (ewc.tryLoadEWCar(ec)) {
-
-          if ((loops++ % PERIOD) == 0u) {
-            LOGprintf(mDevChipNum,"<BH:%d> %u OPNLODE EW#%d[%d,%d] @ %d (%d,%d)!\n",
-                      mDevChipNum,
-                      loops/PERIOD,
-                      car, 
-                      eb.mHiddenXPos,
-                      eb.mHiddenYPos,
-                      tlbi, addr.x, addr.y);
-          }
-
-          {
-            P4Atom a = eb.mOld.getAtom(0u);
-            if (a.getType() == P4Atom::START_TYPE)
-              HTprintf("<BH:%d> CLOSEEWSTART (%d,%d) ts=%f to noc(%u,%u)\n",
-                      mDevChipNum,
-                      eb.mHiddenXPos, eb.mHiddenYPos,
-                      secondsSinceStart(eb.mSTVLTime),
-                      addr.x, addr.y);
-          }
-
-          ec.setCarState(CarState::CLOSED,CarType::STANDARD);
-        }
-        continue;
-      }
-
-      if (ec.getCarState() == CarState::CLOSED) {
-        // IT'S TIME TO SHIP THIS MOFO
-        // BUT ONLY IF WE'RE EVENT WINDOWS ACTIVE
-        if (!ewc.isActive()) {
-          HNprintf(200,"<Blackhole:%d> tlbi%u: want to ship but not active\n",
-                  mDevChipNum, tlbi);
-        } else /*ewc.isActive()*/ {
-          ec.setCarState(CarState::OUTBOUND_DEPARTED,CarType::STANDARD); 
-
-          u32 destByteAddr = info.mEWTransportBlockStart + car * sizeof(ec);
-
-          writeToWords(tlbi, destByteAddr, (u32*) &ec, sizeof(ec)>>2); 
-          {
-            P4Atom a = eb.mOld.getAtom(0u);
-            if (a.getType() == P4Atom::START_TYPE) {
-              HTprintf("<BH:%d> SHIPTEWSTART (%d,%d) ts=%f to noc(%u,%u)\n",
-                      mDevChipNum,
-                      eb.mHiddenXPos, eb.mHiddenYPos,
-                      secondsSinceStart(eb.mSTVLTime),
-                      addr.x, addr.y);
-              LOGprintf(mDevChipNum,"<Blackhole:%d> %d SHIPPING EW#%d(%d) TO [0x%08x..0x%08x) @ %d (%d,%d)!\n",
-                        mDevChipNum, mEWsShipped,
-                        car, ec.getCarState(),
-                        destByteAddr, destByteAddr+sizeof(ec),
-                        tlbi, addr.x, addr.y);
-            }
-          }          
-          ++mEWsShipped;
-        }
-        continue;
-      }
-      if (ec.getCarState() == CarState::OUTBOUND_DEPARTED) {
-        static u32 loops = 0;
-        constexpr u32 MAX=1'000'000'000u;
-        if ((loops++ % MAX) == 0u)
-          LOGprintf(mDevChipNum,"<Blackhole:%d> ML%u WAITING ON CAR %d @ %d (%d,%d)!\n",
-                    mDevChipNum, loops/MAX, car, tlbi, addr.x, addr.y);
-        continue;
-      }
-      LOGprintf(mDevChipNum,"<Blackhole:%d> WHAT TYPE? %d @ %d (%d,%d)!\n",
-                mDevChipNum, ec.getCarState(), tlbi, addr.x, addr.y);
-    }
-#endif
-  }
-
   bool OurTLBs::updateTransports(bool includeEWs) {
     static bool first = true;
     BHTag tag(TagType::HOSTCT,mDevChipNum);
@@ -988,7 +837,7 @@ namespace MFM {
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       updateLogBlocks(tlbi);
       updateACacheBlocks(tlbi);
-      if (includeEWs) updateEWCars(tlbi);
+
       if (checkPhase) {
         BHTag t6tag(TagType::T6TADR,mDevChipNum,tlbi);
         PhaserBlock * rphase = (PhaserBlock*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
@@ -1005,7 +854,7 @@ namespace MFM {
                             pb.getCmd(),
                             tlbi,mOnPhase));
           } else 
-            EACH(1,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
+            EACH(100'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
                             rphase,
                             theirNonce,
                             pb.getSeqNo(),
@@ -1014,18 +863,6 @@ namespace MFM {
         } else EACH(10'000'000,KTprintf(t6tag,"NOPONGO! %u\n",__EACHNUM__));
       }
     }
-    if (false)
-    EACH(100'000,{
-
-      if (first || mOnPhase == 140) {
-        first = false;
-        mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // BANG THE PHASER DRUM (incrs nonce)
-        KTprintf(tag,"PHASER SHOT <%u>\n",mShadowPHASER.getHeader().getPacketNonce());
-        writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, 1);
-        mOnPhase = 0;
-      } else 
-        EACH(1,KTprintf(tag,"ON REPHASER <%u> #%u\n",mShadowPHASER.getHeader().getPacketNonce(),mOnPhase));
-      });
     //XXX BURN BABY BURNNNNN:
     //sleepUsec(10);
     return true;
@@ -1035,11 +872,15 @@ namespace MFM {
 
   void OurTLBs::shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) {
     BHTag tag(TagType::HOSTCT,mDevChipNum);
-    KTprintf(tag,"shootshootie %u %u\n",c,args.size());
+    HTprintf("%s shootshootie %u=%s %u\n",
+             tag.to_string().c_str(),
+             c,PhaserBolt::phaserCmdName(c),
+             args.size());
     u32 spin = 0;
     while (mOnPhase < 140) {
       if (++spin > 2'000) {
-        KTprintf(tag,"PHASE-IN AFTER %u WITH ONLY %u ONPHASE\n",spin,mOnPhase);
+        HTprintf("%s PHASE-IN AFTER %u WITH ONLY %u ONPHASE\n",
+                 tag.to_string().c_str(), spin, mOnPhase);
         break;
       }
       sleepUsec(10);
@@ -1047,29 +888,37 @@ namespace MFM {
     PhaserBolt & pb = mShadowPHASER.payload();
     for (u32 i = 0; i < args.size(); ++i) {
       if (!pb.setBoltDataWordIfAny(i,args[i])) break; // too many args?
-      KTprintf(tag,"stored PHASER arg %u 0x%08x\n",i,args[i]);
+      HTprintf("%s stored PHASER arg %u 0x%08x\n",
+               tag.to_string().c_str(),
+               i,args[i]);
     }
     mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // BANG THE PHASER DRUM (incrs nonce)
-    pb.reinit(c);
-    KTprintf(tag,"PHASER SHOT %uB <%u:%u:%u> #u:%u\n",
+    HTprintf("%s PHASER SHOT %uB <%u:%u=%s:%u> (was %u=%s)\n",
+             tag.to_string().c_str(),
              sizeof(mShadowPHASER),
              mShadowPHASER.getHeader().getPacketNonce(),
-             c,
+             c,PhaserBolt::phaserCmdName(c),
              args.size(),
-             mShadowPHASER.payload().getSeqNo(),
-             mShadowPHASER.payload().getCmd()
+             pb.getCmd(),
+             PhaserBolt::phaserCmdName(pb.getCmd())
              );
+    pb.reinit(c);
     writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, sizeof(mShadowPHASER)/4);
     mOnPhase = 0;
     spin = 0;
     while (mOnPhase < 140) {
       if (++spin > 2'000) {
-        KTprintf(tag,"PHASE-OUT AFTER %u WITH ONLY %u ONPHASE\n",spin,mOnPhase);
+        HTprintf("%s PHASE-OUT AFTER %u WITH ONLY %u ONPHASE\n",
+                 tag.to_string().c_str(),
+                 spin,mOnPhase);
         break;
       }
       sleepUsec(10);
     }
-
+    HTprintf("%s shotshottie %u=%s %u\n",
+             tag.to_string().c_str(),
+             c,PhaserBolt::phaserCmdName(c),
+             args.size());
   }
 
   void OurTLBs::resetTheFleet() {

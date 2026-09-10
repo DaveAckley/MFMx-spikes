@@ -162,6 +162,10 @@ namespace MFM {
     ImageManager & mTheImageManager;
     
   public:
+    void writeCacheSites(QuietBox& qb, u32 currentLeader, bool tofollowers) {
+      mCodeManager.writeCacheSites(qb, currentLeader, tofollowers);
+    }
+
     s32 scanHubGrid() { return mCodeManager.scanHubGrid(); }
     
     static void pybindings(py::module & m) {

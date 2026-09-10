@@ -203,10 +203,61 @@ namespace MFM {
     }
   };
 
+  struct L1GridManagerControl {
+    bool mEventProcessingSuspendRequest;     //< set by outside
+    bool mEventProcessingSuspendRequestSeen; //< set by GridManager
+    bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
+    u8 mSuperCellLeader;                     //< set by outside
+
+    u8 getSuperCellLeader() const {
+      memoryFence();
+      return mSuperCellLeader;  // U8_MAX == no leader?
+    }
+
+    void setSuperCellLeader(u8 val) {
+      mSuperCellLeader = val;
+      memoryFence();
+    }
+
+    bool isEPSuspReq() const {
+      memoryFence();
+      return mEventProcessingSuspendRequest;
+    }
+    bool isEPSuspReqSeen() const {
+      memoryFence();
+      return mEventProcessingSuspendRequestSeen;
+    }
+    bool isEPSuspStatus() const {
+      memoryFence();
+      return mEventProcessingSuspendStatus;
+    }
+    void setEPSuspReq(bool b) {
+      mEventProcessingSuspendRequest = b;
+      memoryFence();
+    }
+    void setEPSuspReqSeen(bool b) {
+      mEventProcessingSuspendRequestSeen = b;
+      memoryFence();
+    }
+    void setEPSuspStatus(bool b) {
+      mEventProcessingSuspendStatus = b;
+      memoryFence();
+    }
+
+    void init() {
+      memset_s(this,0,sizeof(*this));
+      mSuperCellLeader = U8_MAX; // no SCL to start
+    }
+  };
+
+  extern L1GridManagerControl theL1GridManagerControl;
+
   struct GridManager {
+    static constexpr u8 MAX_NGBS = 8;
+    
     void init(T6Grid & grid, ACacheBlockL1Control & acbl1, DLGridList & gridlist) ;
 
-    U16C selectRandomSite() ;
+    U16C selectRandomSite(U16CRange bounds) ;
 
     S16C siteNumberToOffset(u32 sn) const {
       const MDist4 md;
@@ -222,7 +273,7 @@ namespace MFM {
 
     u32 writeEW(const EventWindow & ew,U16C center) ;
 
-    void applyEWT(EwpPayload &ewt) ;
+    void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
 
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
@@ -234,6 +285,8 @@ namespace MFM {
     u32 mEWsCommitted;
     u32 mEWsObsoleted;
     u32 mTotalAtomicChanges;
+    u8 mEmptiesRun[MAX_NGBS];
+    u8 mSuperCellLeaderCode;  //< if there is a SCL, it's us if it's this
   };
 
   extern DLGridList theDLGridList; // defined in hub/LiveB.cpp

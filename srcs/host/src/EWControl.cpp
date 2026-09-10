@@ -401,6 +401,7 @@ namespace MFM {
 
   BGRImageHD & EWControl::renderGraphicsGridWindowToImage() {
     //BGRImageHD & bgr = ewGraphicsRenderBlock;
+    QuietBox & qb = QuietBox::get();
     BGRImageHD & bgr = QuietBox::getT6GridImage();
 
 #if 1
@@ -408,13 +409,13 @@ namespace MFM {
     U16C idx;
     RGBPix c,t;
     c.set(235u,245u,255u);
-    t.set(255u,200u,200u);
+    t.set(0u,0u,0u);
     for (idx.y = 0u; idx.y < size.y; ++idx.y) {
       for (idx.x = 0u; idx.x < size.x; ++idx.x) {
         if (false && idx.x % 100 == 0 && idx.y % 100 == 0)
           bgr.setPixel(idx, c);
         if (idx.x >= 10 && idx.y >= 10 && (idx.x-10) % 138 == 0 && (idx.y-10) % 108 == 0)
-          bgr.drawCross(idx, 10, c);
+          bgr.drawCross(idx, 10, qb.mDrawGrid ? c : t);
       }
     }
 #endif

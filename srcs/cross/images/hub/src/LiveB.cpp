@@ -21,11 +21,12 @@ namespace MFM {
   // L1 DATA
   T6Grid theT6Grid[1];
   DLGridList theDLGridList;
+  L1GridManagerControl theL1GridManagerControl;
 
   bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
     {
       static u32 spin = 0u;
-      if ((++spin & 0x3f'ffff) == 0) {
+      if ((++spin & 0x7f'ffff) == 0) {
         HBXTAG(hubPrcHC,spin);
         LOGXTAG(hubPrcHCL,spin);
       }
@@ -59,7 +60,7 @@ namespace MFM {
     HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
     EwpPayload & pay = car.payload();
 
-    fB.mGridManager.applyEWT(pay);
+    fB.mGridManager.applyEWT(pay,ngbidx);
 
     u32 paysize = pay.currentPayloadSize();
     car.closeTC(paysize); // ready to go
@@ -131,6 +132,7 @@ namespace MFM {
   int myInitB() {
     HBPTAG(INIT+,fAll.mNoC0);
     theDLGridList.init();
+    theL1GridManagerControl.init();
     fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
     // moved to T1 fB.mPACBControl.init(theACacheBlockL1Control,theDLGridList);
     HBPTAG(INIT-,fAll.mNoC0);

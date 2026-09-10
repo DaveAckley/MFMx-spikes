@@ -21,6 +21,12 @@ namespace MFM {
     P4Atom mT6Grid[FULL_WIDTH][FULL_HEIGHT]; //< canonical atoms for this T6
     u32 mTotalChanges;          //< will wrap eventually but do we care?
 
+    static u32 byteOffsetToAtomOrDie(U16C t6c) {
+      MFM_API_ASSERT(t6c.x < FULL_WIDTH && t6c.y < FULL_HEIGHT,ILLEGAL_ARGUMENT);
+      T6Grid * fakeptr = (T6Grid*) 0;
+      return (u32) ((u64) &fakeptr->mT6Grid[t6c.x][t6c.y]);
+    }
+
     static U16CRange getCacheRange(Dir8 d8) {
       U16CRange ret;
       switch (d8) {

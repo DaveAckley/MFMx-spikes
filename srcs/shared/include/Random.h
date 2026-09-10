@@ -53,7 +53,6 @@ namespace MFM
      */
     Random()
     {
-      //      static u32 counter = (u32) time(NULL);
       static u32 counter = (u32) 0;
       SetSeed(++counter);
     }

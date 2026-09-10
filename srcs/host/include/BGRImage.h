@@ -22,6 +22,14 @@ namespace MFM {
     u8 mRGB[3];
     u32 get() const { return (((mRGB[0]<<8)|mRGB[1])<<8)|mRGB[2]; }
     void set(u8 r, u8 g, u8 b) { mRGB[0] = r; mRGB[1] = g; mRGB[2] = b; }
+    bool operator==(const RGBPix o) const {
+      for (u32 i = 0; i < 3; ++i)
+        if (mRGB[i] != o.mRGB[i]) return false;
+      return true;
+    }
+    bool operator!=(const RGBPix o) const {
+      return !(*this == o);
+    }
     std::string to_repr() const {
       return std::string("<RGBPix")
         + " r=" + std::to_string(mRGB[0])
@@ -42,6 +50,8 @@ namespace MFM {
       ret.y = PIXHGT;
       return ret;
     }
+
+    void drawChar(u8 ch, U16C pixc, RGBPix fg) ;
 
     RGBPix getPixel(U16C coord) const {
       RGBPix ret;
@@ -69,6 +79,20 @@ namespace MFM {
         }
       }
     }
+
+    void drawChar(U16C coord, u8 ch, RGBPix fg, RGBPix bg, u8 scale) ; //< pass bg == fg for no bg drawing, scale=[1..4]
+
+    void drawString(U16C coord, const std::string& text, RGBPix fg, RGBPix bg, u8 scale, u16 spacing = 1) {
+      U16C at = coord;
+      for (char c : text) {
+        if (c == '\n') { at.x = coord.x; at.y += 7*scale + spacing; }
+        else {
+          drawChar(at, c, fg, bg, scale);
+          at.x += 5*scale + spacing; // 5 pixels + gap
+        }
+      }
+    }
+    
 
     void reset() ;
 

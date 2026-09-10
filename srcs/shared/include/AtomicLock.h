@@ -85,7 +85,7 @@ namespace MFM {
       releaseLockASM(&mLock);
     }
     bool tryLock() { return tryLockASM(&mLock); }
-    bool peekLock() const { return mLock != 0u; }
+    bool smellyPeekLock() const { return mLock != 0u; }
 
     //
     AtomicLock(const char * unusedName) : AtomicLock() { }
@@ -104,7 +104,7 @@ namespace MFM {
     void lock()  { mLock.lock(); }
     void unlock() { mLock.unlock(); }
     bool tryLock() { return mLock.tryLock(); }
-    bool peekLock() const { return mLock.mThreadLockerId != 0u; }
+    bool smellyPeekLock() const { return mLock.mThreadLockerId != 0u; }
 
     OurMutex & getMutex() { return mLock; }
     AtomicLock() : AtomicLock("HostAtomic") { }

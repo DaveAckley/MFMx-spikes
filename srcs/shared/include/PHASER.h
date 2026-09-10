@@ -9,12 +9,47 @@ namespace MFM {
   struct PhaserBolt {
     static constexpr u32 MAX_BOLT_SIZE = 40; //< for 64B packet size
 
-    enum Cmd : u8 { /// ENTRIES HERE SHOULD BE EXPORTED TO PYTHON IN QuietBox.h
-      CMD_CARRY_ON = 0,         //< no data
-      CMD_ALL_HARTS_PAUSE,      //< no data
-      CMD_SPIKE_PING,           //< boltword[0] :: S16C
+#define ALL_PHASER_COMMANDS() \
+    XX(CARRY_ON,0)            \
+    XX(HOLD_AT_BIRTH,0)       \
+    XX(ALL_HARTS_PAUSE,0)     \
+    XX(LOOP_BACK,0)           \
+    XX(SUSPEND_EWPS,1)        \
+    XX(SUPERCELL_LEADER,1)    \
+    XX(SPIKE_PING,2)          \
+
+    enum Cmd : u8 {
+
+#define XX(name,argc) CMD_##name,      
+      ALL_PHASER_COMMANDS()
+#undef XX
+
       CMD_COUNT
     };
+
+    static constexpr const char * allPhaserCommandNames[CMD_COUNT+1] = {
+#define XX(name,argc) #name,
+      ALL_PHASER_COMMANDS()
+#undef XX
+      "?"
+    };
+
+    static constexpr const char * phaserCmdName(Cmd cmd) {
+      if (cmd > CMD_COUNT) cmd = CMD_COUNT;
+      return allPhaserCommandNames[cmd];
+    }
+
+    static constexpr const u32 allPhaserArgCounts[CMD_COUNT+1] = {
+#define XX(name,argc) argc,
+      ALL_PHASER_COMMANDS()
+#undef XX
+      0
+    };
+
+    static constexpr u32 phaserArgCount(Cmd cmd) {
+      if (cmd > CMD_COUNT) cmd = CMD_COUNT;
+      return allPhaserArgCounts[cmd];
+    }
 
     enum Done : u8 {
       NONE_DONE = 0x00,

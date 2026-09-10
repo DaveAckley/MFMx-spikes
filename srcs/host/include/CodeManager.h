@@ -54,18 +54,21 @@ namespace MFM {
       HubValue()
         : mChangeCount(0)
         , mTLBI(U32_MAX)
-        , mChipNum(0)
       { }
 
-      void init(HubTLBI tlbi, u32 chipnum) {
-        mTLBI = tlbi;
-        mZHD.init(mTLBI,chipnum);
-      }
+      void init(HubTLBI tlbi, u32 chipnum ) ;
+
+      ZHostDecompressor mZHD;
       ChangeCount mChangeCount;
       HubTLBI mTLBI;
       u32 mChipNum;
-      ZHostDecompressor mZHD;
+      U8C mHubInGridCoord;
+      U8C mSuperCellCoord;
     };
+
+    void writeCacheSites(QuietBox& qb, u32 currentLeader, bool tofollowers) ;
+    void pushGlobalSitesToIHLeaderCaches(HubValue & hv) ;
+    void pushGlobalSitesToIHFollowerSites(HubValue & hv) ;
 
     void addHub(u32 tlbi,u32 chipNum) {
       MFM_API_ASSERT(!definedHubTLBI(tlbi),DUPLICATE_ENTRY);

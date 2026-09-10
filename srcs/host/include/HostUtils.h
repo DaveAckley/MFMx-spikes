@@ -56,6 +56,8 @@ namespace MFM {
 
   void interpretFailBits(u8 failbits, u8 * data, u32 count) ;
   void sleepUsec(u32 usec) ;
+  inline void sleepMsec(u32 msec) { sleepUsec(msec*1'000); }
+  inline void sleepSec(u32 sec) { sleepUsec(sec*1'000'000); }
 
   u32 millisElapsed() ;
   std::string dateTimeStamp() ;

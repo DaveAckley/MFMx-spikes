@@ -44,6 +44,7 @@ namespace MFM {
     u32 mAtFailRegFP;           // for stack dump purposes
 
     typedef RingBuffer<u16,13u> LogBuffer; //XXX waay big shrink to <=10u?
+    //typedef RingBuffer<u16,10u> LogBuffer; //stick around here for prod?
     LogBuffer mLogBuffer;
 
     u16 mPerHartFailFileID[5];  

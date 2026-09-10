@@ -19,7 +19,18 @@ namespace MFM {
     HBPTAG(T6GridSize,gsize);
     HBPTAG(T6GridSites,gsize.x*gsize.y);
 
+    // INIT AUTOSEEDING
     mAutoseedWaitCount = U32_MAX;
+
+    // INIT SUPERCELL POSITIONING
+    HostBlock & hb = theHostBlock;
+    U8C ct6 = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+    U8C tt(2,2);
+    
+    U8C hubInGridCoord = ct6 / tt;
+    U8C supercellc = hubInGridCoord % tt;
+    mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
+    
   }
 
   void DLGridList::init() {
@@ -32,26 +43,27 @@ namespace MFM {
 
   bool GridManager::seekRandomNonEmptySite(U16C & found) {
     if (mAutoseedWaitCount == U32_MAX)
-      mAutoseedWaitCount = create(1'000'000)+4'000'000;
+      mAutoseedWaitCount = /*create(1'000'000)+*/1'000'000;
     
     if (mAutoseedWaitCount > 0) {
       if (--mAutoseedWaitCount == 0) {
         MFM_API_ASSERT_NONNULL(mT6GridPtr);
         U16C ctr(DG::T6GRID_WIDTH/2,DG::T6GRID_HEIGHT/2);
         u16 type;
-        switch (create(10)) {
-        case 0:  type = 5; break;
-        case 1:
-        case 2:
-        case 3:
+        switch (create(50)) {
+          // LET'S TRY NO FB4: case 0:  type = 5; break;
+          //        case 1:
+          // ALMOST ALL DREG!
+          //case 2:
+          //case 3:
         case 4:  type = 4; break;
         default: type = 2; break;
         }
         mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
         //        grid.setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
         //        grid.setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
-        HBNOTE("AUTOSEEDOMATIC");
-        LOGNOTE("LOGOAUTOSEEDOMATIC");
+        HBPTAG("AUTOSEEDOMATIC",type);
+        LOGPTAG("LOGOAUTOSEEDOMATIC",type);
       } else {
         if ((mAutoseedWaitCount % 1'000'000) == 0)
           LOGPTAG(WAITING,mAutoseedWaitCount);
@@ -59,9 +71,39 @@ namespace MFM {
       }
     }
 
+    /// CHECK CURRENT EVENT BOUNDS
+    L1GridManagerControl & lgmc = theL1GridManagerControl;
+    EACH(100'000,{
+        LOGPTAG(SCLC-cur,(u32) lgmc.mSuperCellLeader);
+        LOGPTAG(SCLC-us,(u32) mSuperCellLeaderCode);
+      });
+
+    U16CRange ewbounds;
+    if (lgmc.mSuperCellLeader > 3) {
+      // there is currently no SCL: avoid the caches
+      ewbounds.start.x = T6Grid::SELF_ORIGIN.x+4; //inclusive
+      ewbounds.end.x = T6Grid::SELF_MAX.x-4;      //exclusive
+      ewbounds.start.y = T6Grid::SELF_ORIGIN.y+4; //inclusive
+      ewbounds.end.y = T6Grid::SELF_MAX.y-4;      //exclusive
+
+    } else if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) {
+      // we are currently the SCL: own the caches
+      ewbounds.start.x = 0+4;                     //inclusive
+      ewbounds.end.x = T6Grid::FULL_WIDTH-4;      //exclusive
+      ewbounds.start.y = 0+4;                     //inclusive
+      ewbounds.end.y = T6Grid::FULL_HEIGHT-4;     //exclusive
+
+    } else {
+      // we are currently an SCL follower: avoid our own edges
+      ewbounds.start.x = T6Grid::SELF_ORIGIN.x+DG::T6GRID_OVERLAP_WIDTH+4;  //inclusive
+      ewbounds.end.x = T6Grid::SELF_MAX.x-DG::T6GRID_OVERLAP_WIDTH-4;       //exclusive
+      ewbounds.start.y = T6Grid::SELF_ORIGIN.y+DG::T6GRID_OVERLAP_HEIGHT+4; //inclusive
+      ewbounds.end.y = T6Grid::SELF_MAX.y-DG::T6GRID_OVERLAP_HEIGHT-4;      //exclusive
+    }
+    
     constexpr u32 MAX_TRIES = 5'000u;
     for (u32 i = 0u; i < MAX_TRIES; ++i) {
-      U16C s = selectRandomSite();
+      U16C s = selectRandomSite(ewbounds);
       P4Atom a = mT6GridPtr->getAtom(s);
       if (!a.isEmpty()) {
         found = s;
@@ -72,9 +114,11 @@ namespace MFM {
     return false;
   }
 
-  U16C GridManager::selectRandomSite() {
-    return U16C((u16) between(T6Grid::SELF_ORIGIN.x+4,T6Grid::SELF_MAX.x-4-1),
-                (u16) between(T6Grid::SELF_ORIGIN.y+4,T6Grid::SELF_MAX.y-4-1));
+  U16C GridManager::selectRandomSite(U16CRange b) {
+    //    return U16C((u16) between(T6Grid::SELF_ORIGIN.x+4,T6Grid::SELF_MAX.x-4-1),
+    //                (u16) between(T6Grid::SELF_ORIGIN.y+4,T6Grid::SELF_MAX.y-4-1));
+    return U16C((u16) between(b.start.x,b.end.x-1),
+                (u16) between(b.start.y,b.end.y-1));
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {
@@ -131,17 +175,24 @@ namespace MFM {
     return g.getTotalChanges()-changes;
   }
 
-  void GridManager::applyEWT(EwpPayload &ewt) {
+  void GridManager::applyEWT(EwpPayload &ewt, u32 ngbidx) {
     /* (1) check if ewt applicable
            (1.1) if so, apply it
        (2) select new event if possible
            (2.1) load ewt. (have some kind 
                  of placeholder if not.)
      */
-    //    SNAP(100,HBNOTE(applyEWT));
+
+    /* but if EWs suspended, 
+       (1) Don't apply any returned EWTs, and
+       (2) Don't send any new non-empty EWTs
+    */
     U16C center;
-    // if has dest, try to apply
-    if (ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
+    L1GridManagerControl & lgmc = theL1GridManagerControl;
+    if (!lgmc.isEPSuspReq() &&
+        ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
+
+      // not suspended and it has a dest: try to apply
       center.x = ewt.mHiddenXPos;
       center.y = ewt.mHiddenYPos;
       SNAP(100,HBPTAG(ewtraply,center));
@@ -151,20 +202,24 @@ namespace MFM {
         writeEW(ewt.mNew,center);
       }
     }
+
     // all EWPCs come through here
-    EACH(10'000,HBNOTE(applyEWT-Seek));
-    if (seekRandomNonEmptySite(center)) {
+    EACH(100'000,HBPTAG(applyEWT-Seek,__EACHNUM__));
+    if (!lgmc.isEPSuspReq() && seekRandomNonEmptySite(center)) {
       SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;
       EACH(1'000'000,LOGPTAG(ewdisnew,center));
-    } else {                    // couldn't find a center
+    } else {                    // suspended or couldn't find a center
       ++mEWsEmptiesShipped;
       SNAP(10,HBPTAG(noCtr,mEWsEmptiesShipped));
-      if ((mEWsEmptiesShipped%100000)==0) LOGPTAG(ewdedhed,mEWsEmptiesShipped);
+      if ((mEWsEmptiesShipped%1'000'000)==0) LOGPTAG(ewdedhed,mEWsEmptiesShipped);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_EMPTY;
     }
+
+    if (lgmc.isEPSuspReq() != lgmc.isEPSuspReqSeen())
+      lgmc.setEPSuspReqSeen(lgmc.isEPSuspReq());
   }
 }

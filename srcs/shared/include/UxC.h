@@ -38,10 +38,17 @@ namespace MFM {
     }
     constexpr bool operator==(const UxC & other) const { return x==other.x && y==other.y; }
     constexpr bool operator!=(const UxC & other) const { return x!=other.x || y!=other.y; }
+
+    constexpr bool operator>(const UxC & other) const { return x>other.x && y>other.y; }
+    constexpr bool operator<(const UxC & other) const { return x<other.x && y<other.y; }
+    constexpr bool operator>=(const UxC & other) const { return x>=other.x && y>=other.y; }
+    constexpr bool operator<=(const UxC & other) const { return x<=other.x && y<=other.y; }
+
     constexpr UxC operator*(const UxC & other) const { return UxC(x * other.x, y * other.y); }
     constexpr UxC operator/(const UxC & other) const { return UxC(x / other.x, y / other.y); }
     constexpr UxC operator%(const UxC & other) const { return UxC(x % other.x, y % other.y); }
     constexpr UxC operator+(const UxC & other) const { return UxC(x + other.x, y + other.y); }
+    constexpr UxC operator-(const UxC & other) const { return UxC(x - other.x, y - other.y); }
     //    U8C operator+(const S8C & s8) const ;
     //    S8C operator-(const UxC & other) const { return S8C(((s32)x) - other.x, ((s32)y) - other.y); }
     //    bool addTo(const S8C & s8) ;
@@ -153,6 +160,21 @@ namespace MFM {
       return ret;
     }
 
+    static UxC makeSuperCellCoordFromLeaderCode(u32 leadercode) {
+      UxC ret;
+      ret.x = (leadercode>>1)&1;
+      ret.y = (leadercode>>0)&1;
+      return ret;
+    }
+
+    static u8 makeLeaderCodeFromSuperCellCoord(UxC sc) {
+      if (sc.x > 1 || sc.y > 1) return U8_MAX;
+      u8 ret = 0;
+      if (sc.x == 1) ret |= 1<<1;
+      if (sc.y == 1) ret |= 1<<0;
+      return ret;
+    }
+
     static UxC makeNoCCoordFromTLBI(u32 tlbi) {
       UxC ret = makeCT6CoordFromTLBI(tlbi);
       ret.x++;
@@ -178,6 +200,13 @@ namespace MFM {
     UC start;                   // INCLUSIVE
     UC end;                     // EXCLUSIVE
 
+    UxCRange() = default;
+
+    UxCRange(UC s, UC e)
+      : start(s)
+      , end(e)
+    { }
+
     void reset() {
       start.reset();
       end.reset();
@@ -201,6 +230,10 @@ namespace MFM {
       return
         (end.x - start.x) *
         (end.y - start.y);
+    }
+
+    bool contains(const UC c) const {
+      return c >= start && c < end;
     }
   };
 

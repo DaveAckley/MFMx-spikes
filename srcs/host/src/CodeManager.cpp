@@ -54,6 +54,25 @@ namespace MFM {
     return rvcode;              // CALLER TAKES OWNERSHIP
   }
 
+  void CodeManager::HubValue::init(HubTLBI tlbi, u32 chipnum) {
+    mTLBI = tlbi;
+    mChipNum = chipnum;
+    mZHD.init(mTLBI,chipnum);
+
+    ///XXX HARDCODING 2x2 SUPERCELL FOR NOW Sun Aug 30 17:12:45 2026 
+    U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
+    U8C tt(2,2);
+    
+    mHubInGridCoord = c / tt;
+    mSuperCellCoord = mHubInGridCoord % tt;
+    Eprintf("\n %s HUBVALUE tlbi%u -> ct6 (%u,%u) -> hig (%u,%u) + supercell (%u,%u)\n",
+            BHTag::t6adt(chipnum,tlbi).c_str(),
+            tlbi,
+            c.x, c.y,
+            mHubInGridCoord.x, mHubInGridCoord.y,
+            mSuperCellCoord.x, mSuperCellCoord.y);
+  }
+
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mChipNum, toTLBI);
@@ -127,38 +146,15 @@ namespace MFM {
             U8C stride = cb.mCellStride;
             U16C c = DG::getChipOrigin(mChipNum); 
             U16C o = c + DG::getTLBIOrigin(toTLBI,stride); 
-            U16C s = DG::getSingleT6GridSize();
+            U16C s = DG::getSingleT6GridBaseSize();
             U16C e = o+s;
             std::string rep = s.to_string()+"@"+o.to_string()+"-"+e.to_string();
             Eprintf("\n %s,HUBADDED at %p from 0x%08x noc[%u,%u] %s\n",
                     BHTag::t6adt(mChipNum,toTLBI).c_str(),t6gp,t6gridaddr,noc0.x,noc0.y,rep.c_str());
-            if (false) {
-              // MORE DEBUG
-              U16C globalsize = DG::getGlobalGridSize();
-              DG::Coord center(hostPRNG.Between(0,2),//globalsize.x-1),
-                               hostPRNG.Between(0,2));//globalsize.y-1));
-              DG::Address seedaddr = DG::mapCoordToAddress(center);
-              if (seedaddr.isValid()) {
-                Eprintf("HEWO QUIETBOX! %s\n",QuietBox::get().to_string().c_str());
-                bool q = QuietBox::get().storeP4Atom(center,P4Atom::makeStartAtom());
-                Eprintf("WANTED TO SEED (%u,%u) -> BH#%u cn<%u,%u> (%u,%u), AND %u\n",
-                        center.x,center.y,
-                        seedaddr.mChipNum,
-                        seedaddr.mCellNum.x, seedaddr.mCellNum.y,
-                        seedaddr.mT6GridC.x, seedaddr.mT6GridC.y,
-                        q);
-              } else {
-                Eprintf("WANT TO SEED (%u,%u) -> fail?\n",
-                        center.x,center.y);
-              }
-            }
           }
         }
       }
     }
-
-    // Waste Some Time OK
-    // sleepUsec(1'000'000);
 
     {
       bhl.printf(tag,"IBLI %s 24:0x%08x 32:0x%08x",
@@ -185,7 +181,7 @@ namespace MFM {
           LOGprintf(mChipNum,"IMGBLOCKREREAD 0x%x:0x%08x\n",word<<2u,data);
         if (codewords[word] != data) {
           ++misses;
-          LOGprintf(mChipNum,"{%d},%3d.   MISS %d @ 0x%x: got 0x%08x need 0x%08x\n",
+          LOGprintf(mChipNum,"{%d},%3d.   MISS#%d @ 0x%x: got 0x%08x need 0x%08x\n",
                     mChipNum, tlbi, misses, word<<2, data, codewords[word]);
         } else {
           ++hits;
@@ -378,7 +374,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
             if (hb.mPerHartStatus[i] == FAILCode::LIVING)
               ++living[tlbi];
           } else if (hb.mPerHartStatus[i] != 0)
-            LOGprintf(mCnipNum,"TLBI %u %s FAIL%d: %s\n",
+            LOGprintf(mChipNum,"TLBI %u %s FAIL%d: %s\n",
                       tlbi,hartName(i),hb.mPerHartStatus[i],
                       getFailCodeString((FAILCode) hb.mPerHartStatus[i]));
         }
@@ -504,6 +500,223 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     renderT6GridToImage(tmp,t6i);
   }
 
+  void CodeManager::writeCacheSites(QuietBox& qb, u32 currentLeader, bool tofollowers) {
+    HTprintf("QuBo::CoMa::writeCacheSites BH#%u cL%u tF%u\n", mChipNum, currentLeader, tofollowers);
+    /*
+      Iterate over the hub tlbis, consider the ones whose position
+      matches currentLeader. 
+
+      If !tofollowers (easier case?), iterate over the cache sites of
+      the currentLeader T6Grid, and push the corresponding atoms from
+      the qb global grid to the cache sites.
+
+      If tofollowers, iterate over the hub (Moore) neighbors of the
+      currentLeader hub, and for each one, push atoms (at the coords
+      of the currentLeader caches) from the global grid to the
+      follower owned sites.
+
+     */
+    U8C superc = U8C::makeSuperCellCoordFromLeaderCode(currentLeader);
+    u32 count = 0;
+    for (auto & item : mHubTLBIToHubValue) {
+      HubValue & hv = item.second;
+      if (hv.mSuperCellCoord == superc) {
+        ++count;
+        U8C noc0 = U8C::makeUxCNoCCoordFromTLBI(hv.mTLBI);
+        HTprintf("QuBo::CoMa::superCellLeader %u BH#%u  t%u (%u,%u) @(%u,%u)\n",
+                 count,
+                 mChipNum, hv.mTLBI,
+                 superc.x, superc.y,
+                 noc0.x, noc0.y);
+        if (!tofollowers)
+          pushGlobalSitesToIHLeaderCaches(hv);
+        else
+          pushGlobalSitesToIHFollowerSites(hv);
+      }
+    }
+    HTprintf("QuBo::CoMa::writeCacheSites DONE BH#%u cL%u tF%u\n", mChipNum, currentLeader, tofollowers);
+  }
+
+  void CodeManager::pushGlobalSitesToIHLeaderCaches(HubValue & hv) {
+    /* iterate over the (cache portions of the) coords of hv.mTLBI's
+       grid. for each coord, determine the global coord of that cache
+       site. push the global grid atom at that coord to that cace
+       site.
+
+     */
+    // First let's get some constants
+    QuietBox & qb = QuietBox::get();
+    const U16C c = DG::getChipOrigin(hv.mChipNum); // sitec of chip origin
+    const U16C h(hv.mHubInGridCoord.x,hv.mHubInGridCoord.y); // hubc of leader
+    const U16C o = c + h * DG::getSingleT6GridBaseSize();    // sitec of hub origin
+    const T6GridInfo & t6i = qb.getT6GridInfoByChipAndTLBI(hv.mChipNum,hv.mTLBI);
+    const U16C ho(t6i.mT6GridOrigin.x,t6i.mT6GridOrigin.y); // sitec of hub origin
+
+    HTprintf("QuBo::CoMa::pushGStoLC #%u c=(%u,%u) h=(%u,%u) o=(%u,%u) ho=(%u,%u)\n",
+             hv.mChipNum,
+             c.x, c.y,
+             h.x, h.y,
+             o.x, o.y,
+             ho.x, ho.y
+             );
+    
+    // OK, now we need the full T6Grid size, and the owned sites inside
+    const U16CRange selfSites(T6Grid::SELF_ORIGIN,T6Grid::SELF_MAX);
+    for (u32 x = 0; x < T6Grid::FULL_WIDTH; ++x) {
+      for (u32 y = 0; y < T6Grid::FULL_HEIGHT; ++y) {
+        U16C t6c(x,y);
+        if (selfSites.contains(t6c)) continue; 
+        // t6c is a cache site
+        U16C bc(ho+t6c);
+        if (bc >= selfSites.start) {
+          U16C gc(bc/*-selfSites.start OR NO?? */); // offset back for cache?
+          EACH(500,HTprintf("QuBo::CoMa::cache site (%u,%u) :: (%u,%u) grid site?\n",
+                            t6c.x,t6c.y,
+                            gc.x,gc.y
+                            ));
+          //^^^^ those numbers are wrong but let's try using them to see how ^^^^
+
+          // So now we want to copy the global grid site to the
+          // leader's cache site, which we are pretty sure is t6c. But
+          // we still have to map that to a physical address. Or no:
+          // We're going to do a separate NoC transaction for each
+          // atom? We have BH# & NoC0 addr & L1 base addr..
+          // something like:
+
+          /*
+            u32 l1addr = t6i.mT6GridL1Base + CACHEATOMPOS;
+            P4Atom & atom = qb.getSimAtomOrDie(gc); // or bc? or whotfk?
+            mOurTLBs.writeToWords(hv.mTLBI, l1addr, (u32*) &atom, sizeof(P4Atom)>>2u);
+          */
+
+          /* And how do we compute CACHEATOMPOS? It must be.. well, we
+             just made T6Grid::byteOffsetToAtomOrDie(U16C); like that.
+           */
+          {
+            u32 bytesToAtom = T6Grid::byteOffsetToAtomOrDie(t6c);
+            u32 l1addr = t6i.mT6GridL1Base + bytesToAtom;
+            U16C ac = gc;        // or bc? or whotfk?
+            if (DG::isValidDGC(ac)) { // could be off grid? how, exactly?
+              P4Atom & atom = qb.getSimAtomOrDie(ac);
+
+              EACH(1'000,HTprintf("QuBo::CoMa::W2W! t6c=(%u,%u) bTA=%u B l1a=%u ac=(%u,%u) p4p=%p\n",
+                               t6c.x, t6c.y,
+                               bytesToAtom,
+                               l1addr,
+                               ac.x,ac.y,
+                               &atom));
+              mOurTLBs.writeToWords(hv.mTLBI, l1addr, (u32*) &atom, sizeof(P4Atom)>>2u);
+            } else
+              EACH(500,HTprintf("QuBo::CoMa::OFFGRID ac=(%u,%u)\n",ac.x,ac.y));
+          }
+          
+        } else {
+          EACH(500,HTprintf("QuBo::CoMa::base site bc (%u,%u) < sss (%u,%u) XXX?\n",
+                           bc.x,bc.y,
+                           selfSites.start.x, selfSites.start.y));
+        }
+      }
+    }
+    //FAIL(INCOMPLETE_CODE);
+  }
+  
+  void CodeManager::pushGlobalSitesToIHFollowerSites(HubValue & hv) {
+    if (false)    { //PASTE AND HACK OF pushGlobalSitesToIHLeaderCaches
+
+    /* iterate over the (cache portions of the) coords of hv.mTLBI's
+       grid. for each coord, determine the global coord of that cache
+       site. 
+
+       THEN figure the hub that owns that global coord site. 
+
+       THEN push the global grid atom at that coord to that hub site.
+
+     */
+    // First let's get some constants
+    QuietBox & qb = QuietBox::get();
+    const U16C c = DG::getChipOrigin(hv.mChipNum); // sitec of chip origin
+    const U16C h(hv.mHubInGridCoord.x,hv.mHubInGridCoord.y); // hubc of leader
+    const U16C o = c + h * DG::getSingleT6GridBaseSize();    // sitec of hub origin
+    const T6GridInfo & t6i = qb.getT6GridInfoByChipAndTLBI(hv.mChipNum,hv.mTLBI);
+    const U16C ho(t6i.mT6GridOrigin.x,t6i.mT6GridOrigin.y); // sitec of hub origin
+
+    HTprintf("QuBo::CoMa::pushGS2FS #%u c=(%u,%u) h=(%u,%u) o=(%u,%u) ho=(%u,%u)\n",
+             hv.mChipNum,
+             c.x, c.y,
+             h.x, h.y,
+             o.x, o.y,
+             ho.x, ho.y
+             );
+    
+    // OK, now we need the full T6Grid size, and the owned sites inside
+    const U16CRange selfSites(T6Grid::SELF_ORIGIN,T6Grid::SELF_MAX);
+    for (u32 x = 0; x < T6Grid::FULL_WIDTH; ++x) {
+      for (u32 y = 0; y < T6Grid::FULL_HEIGHT; ++y) {
+        U16C t6c(x,y);
+        if (selfSites.contains(t6c)) continue; 
+        // t6c is a cache site
+        U16C bc(ho+t6c);
+        if (bc >= selfSites.start) {
+          U16C gc(bc-selfSites.start); // offset back for cache?
+          EACH(500,HTprintf("QuBo::CoMa::cache site (%u,%u) :: (%u,%u) grid site?\n",
+                            t6c.x,t6c.y,
+                            gc.x,gc.y
+                            ));
+          //^^^^ those numbers are wrong but let's try using them to see how ^^^^
+
+          // So now we want to copy the global grid site to the
+          // leader's cache site, which we are pretty sure is t6c. But
+          // we still have to map that to a physical address. Or no:
+          // We're going to do a separate NoC transaction for each
+          // atom? We have BH# & NoC0 addr & L1 base addr..
+          // something like:
+
+          /*
+            u32 l1addr = t6i.mT6GridL1Base + CACHEATOMPOS;
+            P4Atom & atom = qb.getSimAtomOrDie(gc); // or bc? or whotfk?
+            mOurTLBs.writeToWords(hv.mTLBI, l1addr, (u32*) &atom, sizeof(P4Atom)>>2u);
+          */
+
+          /* And how do we compute CACHEATOMPOS? It must be.. well, we
+             just made T6Grid::byteOffsetToAtomOrDie(U16C); like that.
+           */
+          {
+            u32 bytesToAtom = T6Grid::byteOffsetToAtomOrDie(t6c);
+            u32 l1addr = t6i.mT6GridL1Base + bytesToAtom;
+            U16C ac = gc;        // or bc? or whotfk?
+            if (DG::isValidDGC(ac)) { // could be off grid? how, exactly?
+              P4Atom & atom = qb.getSimAtomOrDie(ac);
+
+              EACH(1'000,HTprintf("QuBo::CoMa::W2W! t6c=(%u,%u) bTA=%u B l1a=%u ac=(%u,%u) p4p=%p\n",
+                               t6c.x, t6c.y,
+                               bytesToAtom,
+                               l1addr,
+                               ac.x,ac.y,
+                               &atom));
+              mOurTLBs.writeToWords(hv.mTLBI, l1addr, (u32*) &atom, sizeof(P4Atom)>>2u);
+            } else
+              EACH(500,HTprintf("QuBo::CoMa::OFFGRID ac=(%u,%u)\n",ac.x,ac.y));
+          }
+          
+        } else {
+          EACH(500,HTprintf("QuBo::CoMa::base site bc (%u,%u) < sss (%u,%u) XXX?\n",
+                           bc.x,bc.y,
+                           selfSites.start.x, selfSites.start.y));
+        }
+      }
+    }
+    //FAIL(INCOMPLETE_CODE);
+  }
+/*
+    QuietBox & qb = QuietBox::get();
+    const T6GridInfo & t6i = qb.getT6GridInfoByChipAndTLBI(hv.mChipNum,hv.mTLBI);
+    const U16C ho(t6i.mT6GridOrigin.x,t6i.mT6GridOrigin.y); // sitec of hub origin
+
+    EACH(1,HTprintf("QuBo::CoMa::pushGStoFS #%u (%u,%u)\n", __EACHNUM__, ho.x,ho.y));
+    //FAIL(INCOMPLETE_CODE);
+    */
+  }
+
   s32 CodeManager::scanHubGrid() {
     FAIL(DEIMPLEMENTED_CODE);
     /*
@@ -581,10 +794,12 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       ++mLastTLBISlowScanned;
 
     u32 tlbi = mLastTLBISlowScanned;
-    //// vvvvv XXXX HACK ONLY SLOWSCAN at023
-    if (tlbi == 15) tlbi = 16; // one ewp
-    else tlbi = 15;            // and one hub
-    //// ^^^^^ XXXX HACK ONLY SLOWSCAN at023
+    if (false) {
+      //// vvvvv XXXX HACK ONLY SLOWSCAN at023
+      if (tlbi == 15) tlbi = 16; // one ewp
+      else tlbi = 15;            // and one hub
+      //// ^^^^^ XXXX HACK ONLY SLOWSCAN at023
+    }
     U8C nocc = U8C::makeUxCNoCCoordFromTLBI(tlbi);
     OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
     const T6Image * t6ip = info.getDeployedImageIfAny();
@@ -597,6 +812,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mChipNum, tlbi);
+
+    Eprintf("%.03f <<%s>> %u %u,%u [%s] SLOWSCAN REGION SELECTED\n",
+            runTimeSeconds(),
+            tag.to_string().c_str(),
+            tag.mChip, tag.mNoC0.x, tag.mNoC0.y,
+            t6i.getName().c_str());
+
     //bhl.printf(tag,"IMCO %s sz%d hb0x%08x\n",
     if (false)
       Eprintf("%s[%s] IMCO sz%d hb0x%08x\n",
@@ -645,6 +867,12 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       return -2;
     }
 
+    Eprintf("%.03f <<%s>> %u %u,%u [%s] SLOWSCAN GOOD MAGIC\n",
+            runTimeSeconds(),
+            tag.to_string().c_str(),
+            tag.mChip, tag.mNoC0.x, tag.mNoC0.y,
+            t6i.getName().c_str());
+
     static constexpr u32 SNAPSHOTS=3;
     u32 pcSnapshots[SNAPSHOTS][5];
     for (u32 i = 0;i < SNAPSHOTS; ++i) 
@@ -691,6 +919,12 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         }
       }
     }
+    Eprintf("%.03f <<%s>> %u %u,%u [%s] SLOWSCAN PC SAMPLING COMPLETE\n",
+            runTimeSeconds(),
+            tag.to_string().c_str(),
+            tag.mChip, tag.mNoC0.x, tag.mNoC0.y,
+            t6i.getName().c_str());
+    
     bool anystuck = false;
     for (u32 hart = 0u; hart < 5u; ++hart) {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
@@ -806,6 +1040,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
       info.mHasBeenDumped = true;
     }
 
+    Eprintf("%.03f <<%s>> %u %u,%u [%s] SLOWSCAN LIVENESS CHECKING COMPLETE\n",
+            runTimeSeconds(),
+            tag.to_string().c_str(),
+            tag.mChip, tag.mNoC0.x, tag.mNoC0.y,
+            t6i.getName().c_str());
+    
+
     {
       HostBlock::LogBuffer & lb = hb.mLogBuffer;
       const u32 BUF_SIZE = sizeof(HostBlock::LogBuffer);
@@ -816,6 +1057,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         if (++idx >= BUF_SIZE)
           break;
       }
+      Eprintf("%.03f <<%s>> %u %u,%u [%s] HOST SLOWSCAN DUMP %u\n",
+              runTimeSeconds(),
+              tag.to_string().c_str(),
+              tag.mChip, tag.mNoC0.x, tag.mNoC0.y,
+              t6i.getName().c_str(),
+              idx);
+
       if (idx != 0u) {
         // UPDATE FLUSHED HostBlock!
         mOurTLBs.writeToWords(tlbi, hostblockaddr, (u32*) &hb, sizeof(hb)>>2u);

@@ -233,7 +233,7 @@ namespace MFM {
 
       {
         static u32 spin = 0;
-        if ((++spin & 0x3'ffff) == 0)
+        if ((++spin & 0xf'ffff) == 0)
           HBXTAG(logLive,spin);
       }
 

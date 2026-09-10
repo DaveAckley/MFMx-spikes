@@ -36,7 +36,7 @@ namespace MFM {
       mStdMutex.unlock();
     }
 
-    bool peekLock() const {
+    bool smellyPeekLock() const {
       return mThreadLockerId != 0u;
     }
   };

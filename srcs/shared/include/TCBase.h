@@ -47,6 +47,11 @@ namespace MFM {
 
     void setDepartingTC(TCState departingState) {
       TCMarker h = getHeader();
+      if (h.getTCState()!=TCState::CLOSED) {
+        HBPTAG(PREFAIL,getName());
+        HBPTAG(PREFAILsize,currentTCSize());
+        HBPTAG(PREFAILnext,departingState);
+      }
       HBASSERT_EQ(h.getTCState(),TCState::CLOSED);
       // tcmSize was set at closing
       h.mTCMNonce++;

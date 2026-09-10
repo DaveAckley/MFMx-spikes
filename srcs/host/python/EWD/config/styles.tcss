@@ -41,7 +41,7 @@ Header, Footer {
 
 #runbuttons {
     width: 1fr;
-    height: 5;
+    height: 8;
     border: none;
 }
 

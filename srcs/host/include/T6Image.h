@@ -4,6 +4,8 @@
 #include "CellBlock.h"
 #include "HostUtils.h"
 #include "BlockCode.h"
+#include "PHASER.h"
+#include "DefinedConstants.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
@@ -131,6 +133,10 @@ namespace MFM {
       return (CellBlock*) getPointerIntoTheBinFile(cpa);
     }
 
+    PhaserBlock & getPhaserBlockInBinFile() {
+      return *(PhaserBlock*) getPointerIntoTheBinFile(T6_PHASER_ADDR);
+    }
+
     u32 getAddressInBinFileIfAny(void * hostaddr) {
       const char * b = getTheBinFile();
       u32 bs = getBinFileSize();
@@ -147,6 +153,12 @@ namespace MFM {
         return false;           // already matches cb
       *rcp = cb;                // now matches cb
       Eprintf("CFCBIN: @0x%x %s\n",getAddressInBinFileIfAny(rcp),rcp->reportCellBlock().c_str());
+      return true;
+    }
+    
+    bool configurePHASER(const PhaserBlock & pb) {
+      PhaserBlock & pbp = getPhaserBlockInBinFile();
+      pbp = pb;                // now matches pb
       return true;
     }
     

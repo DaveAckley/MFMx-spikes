@@ -2,7 +2,13 @@
 
 namespace MFM {
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
-    //    HBXTAG(InHuInit,&l1data);
+    HBPTAG(IHPT,getNameFromIHPType(IHPT_PING));
+    HBPX(sizeof(IHPPing));
+    HBPX(sizeof(IHPPing::HopReport));
+    HBPX(sizeof(IHPAtoms));
+    HBPX(sizeof(InterHubPayload));
+    HBPX(sizeof(InterHubBlock));
+    HBPX(sizeof(InterHubStorage));
     this->initT6EP(srcEPA, isin, l1data);
   }
      

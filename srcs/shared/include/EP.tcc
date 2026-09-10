@@ -33,7 +33,7 @@ namespace MFM {
     bool isLogXX = (this->getName()[0] == 'A');
     constexpr u32 BS = 100;
     char buf[BS];
-    EACH(10'000,HBPTAG(EPuo,this->report(BS,buf)));
+    EACH(1'000'000,HBPTAG(EPuo,this->report(BS,buf)));
     //EACH(10'000,LOGPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     

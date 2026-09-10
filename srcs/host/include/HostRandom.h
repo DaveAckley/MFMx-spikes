@@ -1,4 +1,6 @@
 #pragma once  /* -*- C++ -*- */
+#include <thread>
+#include <functional>
 #include "Random.h"
 
 namespace MFM {
@@ -10,7 +12,8 @@ namespace MFM {
     result_type operator()() { return Create(); }
     
     HostRandom()
-      : Random((u32) time(NULL))
+      : Random(std::hash<std::thread::id>{}(std::this_thread::get_id()) // urg ai
+               + (u32) time(NULL))
     { }
   };
   extern thread_local HostRandom hostPRNG;

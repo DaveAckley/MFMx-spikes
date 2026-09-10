@@ -34,10 +34,10 @@ namespace MFM {
   struct Blackhole; // FORWARD
   
   struct T6GridInfo {
-    DG::Coord mT6GridOrigin;  //< where t6grid starts in HD
-    DG::Address mDGAddress;   //< physical address of P4Atom [0][0] (may be invalid)
+    DG::Coord mT6GridOrigin;    //< where t6grid starts in HD
+    DG::Address mDGAddress;     //< physical address of P4Atom [0][0] (may be invalid)
     u32 mTLBI;
-    u32 mT6GridL1Base;
+    u32 mT6GridL1Base;          //< T6Grid L1 block addr
   };
 
   struct QuietBox {
@@ -47,12 +47,31 @@ namespace MFM {
     QuietBox() ;
     ~QuietBox() { /* we do not own the BHs */ }
 
+    void init() {
+      initSimGrid();
+      setupInterHubHackThread();
+    }
+
     static ImageBlockAddr * findBCInCell(ImageManager & im,
                                          const BlockCode bc,
                                          const CellBlock cb,
                                          U8C & cellp) ;
 
     void loadMaps(ImageManager& im, u32 bhc) ;
+
+    void writeCacheSites(u32 currentLeader, bool tofollowers) ;
+
+    void _stopInterHubHackThread();
+    std::unique_ptr<std::thread> mInterHubHackThreadPtr;
+    std::atomic<bool> mQuitInterHubHackThread;
+    std::atomic<bool> mSuspendInterHubHacks;
+    AtomicLock mInterHubHackThreadMutex;
+    void suspendInterHubHacks(bool suspend) {
+      mSuspendInterHubHacks.store(suspend);
+    }
+
+    void setupInterHubHackThread();
+    void doAnIHHHack() ; // runs on IHHThread
 
     static BGRImageHD t6gridRenderBlock;
 
@@ -90,7 +109,7 @@ namespace MFM {
 
     const T6GridInfo & getT6GridInfoFor(const DG::Coord to) ;
 
-    bool storeP4Atom(const DG::Coord to, const P4Atom atom) ;
+    bool storeP4Atom(const DG::Coord to, const P4Atom atom) ; //< INTO A T6 HUB SITE!
     bool getT6GridOrigin(u32 chipNum, u32 tlbi, U32C & origin) ;
 
     void addBlackhole(Blackhole & bh) ;
@@ -113,11 +132,36 @@ namespace MFM {
     std::array<u8,4> mBHNumbers = {0,1,2,3};
     PhaserBlock mPhaserBlock;
 
+    std::array<u8,4> mBHNumbersForIHH = {0,1,2,3};
+    
+    bool mDrawGrid;
+
+    // HOST-SIDE FULL GRID
+    P4Atom mFullSimGrid[DG::DEMO_GLOBAL_GRID_WIDTH][DG::DEMO_GLOBAL_GRID_HEIGHT];
+    void initSimGrid() ;
+    P4Atom & getSimAtomOrDie(U16C gridc) {
+      MFM_API_ASSERT(gridc.x < DG::DEMO_GLOBAL_GRID_WIDTH &&
+                     gridc.y < DG::DEMO_GLOBAL_GRID_HEIGHT,
+                     ILLEGAL_ARGUMENT);
+      return mFullSimGrid[gridc.x][gridc.y];
+    }
+    bool setSimAtom(U16C gridc, const P4Atom newa) {
+      if (gridc.x < DG::DEMO_GLOBAL_GRID_WIDTH &&
+          gridc.y < DG::DEMO_GLOBAL_GRID_HEIGHT /* && newa!= olda? */) {
+        mFullSimGrid[gridc.x][gridc.y] = newa;
+        return true;
+      }
+      return false;
+    }
+
     static void pybindings(py::module & m) {
       py::class_<QuietBox> qb(m,"QuietBox");
       qb.def_static("get",&QuietBox::get, py::return_value_policy::reference);
       qb.def("__str__",&QuietBox::to_string);
       qb.def("__repr__",&QuietBox::to_repr);
+      qb.def_readwrite("mDrawGrid",&QuietBox::mDrawGrid);
+      qb.def("init",&QuietBox::init);
+      qb.def("suspendIHH",&QuietBox::suspendInterHubHacks);
       qb.def("shootPHASER",&QuietBox::shootPHASER);
       qb.def("getConstants",&QuietBox::getConstants);
       qb.def("onPhases",&QuietBox::onPhases);
@@ -128,9 +172,9 @@ namespace MFM {
       // Expose Cmd for 1st arg to shootPHASER
       py::class_<PhaserBolt> ph(m,"PhaserBolt");
       py::native_enum<PhaserBolt::Cmd>(ph,"Cmd","enum.Enum")
-        .value("CMD_CARRY_ON", PhaserBolt::Cmd::CMD_CARRY_ON)
-        .value("CMD_ALL_HARTS_PAUSE", PhaserBolt::Cmd::CMD_ALL_HARTS_PAUSE)
-        .value("CMD_SPIKE_PING", PhaserBolt::Cmd::CMD_SPIKE_PING)
+#define XX(name,argc) .value("CMD_" #name, PhaserBolt::Cmd::CMD_##name)
+      ALL_PHASER_COMMANDS()
+#undef XX
         .export_values()
         .finalize();
     }    

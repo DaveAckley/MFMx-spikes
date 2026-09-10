@@ -22,7 +22,7 @@ namespace MFM {
       if (ret) ++mEWsSucceeded;
       else ++mEWsFailed;
 
-      if (mEWsAttempted%1'000 == 0) {
+      if (mEWsAttempted%100'000 == 0) {
         HBPTAG(pewAt,mEWsAttempted);
         HBPTAG(pewSu,mEWsSucceeded);
       }
@@ -73,7 +73,7 @@ namespace MFM {
         } else ew.mAtoms[between(5u,8u)] = ca; // extra repro shot (Moore!)
       } else if (ca.mStg[1] >= 21 && oneIn(100'000)) { // old enough to drink..
         EACH(1,LOGPTAG(SPLAT!,__EACHNUM__));
-        ca.mStg[0] = between(10,100);
+        ca.mStg[0] = between(5,500);
         ca.mStg[1] += between(1'000,10'000); // jump in color space too
       }
 

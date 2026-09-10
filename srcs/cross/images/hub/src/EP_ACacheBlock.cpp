@@ -341,6 +341,19 @@ namespace MFM {
 
     case State::WAIT:
       {
+        // Check if we're go to suspend
+        if (!theL1GridManagerControl.mEventProcessingSuspendStatus && // not already suspended
+            theL1GridManagerControl.mEventProcessingSuspendRequest && // but a request has been made
+            theL1GridManagerControl.mEventProcessingSuspendRequestSeen && // and applyEWT has seen it
+            dl.getLength() == 0) { // and we have nothing more to send
+          theL1GridManagerControl.mEventProcessingSuspendStatus = true;
+          LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
+        } else if (theL1GridManagerControl.mEventProcessingSuspendStatus && // if already suspended
+                   !theL1GridManagerControl.mEventProcessingSuspendRequest) { // but no request is active
+          theL1GridManagerControl.mEventProcessingSuspendStatus = false;
+          LOGPTAG(HERBO_NOSUSPACH,dl.getLength());
+        }
+
         if (mNextFrameBogoMS <= millisElapsed()) {
           //          LOGPTAG(2NEXT,mNextFrameBogoMS);
           HBPTAG(2NEXT,mNextFrameBogoMS);

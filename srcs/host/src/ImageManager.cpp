@@ -37,6 +37,13 @@ namespace MFM {
       // <moved back here>
       ret &= bh.configureT6ImageForHostComms(t6i);
     }
+
+    {
+      // CONFIGURE PHASER from mShadowPHASER
+      OurTLBs & tlbs = bh.getOurTLBs();
+      PhaserBlock & pb = tlbs.getShadowPHASER();
+      t6i.configurePHASER(pb);
+    }
     return ret;
   }
 
@@ -70,7 +77,7 @@ namespace MFM {
     }
     Eprintf("Default ImageBlock: %s\n",t6i->reportImageBlock().c_str());
 
-    runtimeConfigureT6Image(*t6i,bh); // configure default image for bhchip and comms
+    runtimeConfigureT6Image(*t6i,bh); // configure default image for bhchip and comms (and PHASER?)
 
     bh.deployRISCVCodeFromImage(*t6i,U8_MAX); // multicast away!
 

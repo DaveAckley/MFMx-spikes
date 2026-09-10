@@ -333,10 +333,13 @@ class EWD(App):
     self.ewc = MFMx.EWControl.getEWControl()
     print("EWCONGA",self.ewc)
 
-    time.sleep(2)
     self.quietbox = MFMx.QuietBox.get()
+
     print("QBDONGA",self.quietbox)
     print("CONSTANKS",self.quietbox.getConstants())
+
+    self.quietbox.init()
+    print("QB-INI-TED")
 
     #MFMx.BHLog.setLogCallback(logcb)
 
@@ -352,22 +355,25 @@ class EWD(App):
     with Horizontal(id="horiz"):
       with Vertical(id="leftvert"):
         with Vertical(id="runbuttons"):
-          yield Checkbox(id="runcheck",label="run")
-          yield Checkbox(id="pausecheck",label="pause")
+          #yield Checkbox(id="runcheck",label="run",compact=True)
+          yield Checkbox(id="pausecheck",label="pause",value=False,compact=True)
+          yield Checkbox(id="ewpcheck",label="events",value=True,compact=True)
+          yield Checkbox(id="ihhcheck",label="iNteRHuBZ",value=False,compact=True)
           yield Button(id="stepbutton",label="step",compact=True)
-        with Vertical(id="scrollbuttons"):
-          for id,(label,arg) in EWD.ZOOM_BUTTONS.items():
-            b = Button(id=id,label=label,
-                       compact=True,
-                       action=f"app.changeZoom('{id}')")
-            b.active_effect_duration=0.1
-            yield b
-          for id,(label,dx,dy) in EWD.SCROLL_BUTTONS.items():
-            b = Button(id=id,label=label,
-                       compact=True,
-                       action=f"app.scrollGrid('{id}')")
-            b.active_effect_duration=0.1
-            yield b
+          yield Button(id="pingbutton",label="ping",compact=True)
+        # with Vertical(id="scrollbuttons"):
+        #   for id,(label,arg) in EWD.ZOOM_BUTTONS.items():
+        #     b = Button(id=id,label=label,
+        #                compact=True,
+        #                action=f"app.changeZoom('{id}')")
+        #     b.active_effect_duration=0.1
+        #     yield b
+        #   for id,(label,dx,dy) in EWD.SCROLL_BUTTONS.items():
+        #     b = Button(id=id,label=label,
+        #                compact=True,
+        #                action=f"app.scrollGrid('{id}')")
+        #     b.active_effect_duration=0.1
+        #     yield b
         with Horizontal(id="onphase"):
           yield Label("OnPhase:")
           yield Static("",id="currentonphase")
@@ -378,7 +384,10 @@ class EWD(App):
           yield Label("Log Data:")
           yield Static("",id="totallogbytes")
         with Horizontal(id="afline"):
-          yield Checkbox(id="autofire",label="Auto:",value=True,compact=True)
+          yield Checkbox(id="autofire",label="Auto:",value=False,compact=True) # WAS value=True
+          yield Static("",id="afcount")
+        with Horizontal(id="gridlabels"):
+          yield Checkbox(id="drawgrid",label="Grid",value=True,compact=True) # WAS value=False
           yield Static("",id="afcount")
         yield RichLog(id='richlog',max_lines=100)
       with Vertical(id="ctrvert"):
@@ -433,14 +442,24 @@ class EWD(App):
     afch = self.query_one("#autofire")
     if not afch.value: return
     if self.autofire_countdown == 0:
-      cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
-      args = (+1,-1)
+      cmd = MFMx.PhaserBolt.Cmd.CMD_LOOP_BACK
+      args = ()    #(+1,-1)
       self.quietbox.shootPHASER(cmd,args)
       logcb("AUTOF",f"UpAF>{cmd},{args},{self}")      
       self.autofire_countdown = 20
     self.autofire_countdown -= 1
     afl = self.query_one("#afcount")
     afl.update(f"#{self.autofire_countdown}")
+
+  def update_drawgrid(self):
+    dgch = self.query_one("#drawgrid")
+    self.quietbox.mDrawGrid = dgch.value
+    
+  def release_the_puppies(self):
+    print("RELEASE THE PUPPIES")
+    cmd = MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+    args = ()
+    self.quietbox.shootPHASER(cmd,args)
 
   def update_animation_content(self):
     curtime = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
@@ -460,7 +479,7 @@ class EWD(App):
       else:
         self.fireCount = random.randint(10,100)
         self.fireBig = False;
-    elif self.fireCount > 0:
+    elif False and self.fireCount > 0:  # NO AUTO NUKES
       self.action_nuke(self.fireBig)
       self.fireCount = self.fireCount - 1
       
@@ -484,7 +503,7 @@ class EWD(App):
 
     self.slowscan_updates = 0
     self.slowscan_tlbis_per_update = 1
-    self.slowscan_updates_per_second = 1
+    self.slowscan_updates_per_second = .5
     self.slowscan_timer = self.set_interval(1 / self.slowscan_updates_per_second,
                                             self.update_slowscans)
 
@@ -494,7 +513,15 @@ class EWD(App):
     self.autofire_timer = self.set_interval(1 / self.autofire_updates_per_second,
                                             self.update_autofire)
 
+    self.drawgrid_counts_per_update = 1
+    self.drawgrid_updates_per_second = 1
+    self.drawgrid_timer = self.set_interval(1 / self.drawgrid_updates_per_second,
+                                            self.update_drawgrid)
+
+    self.set_timer(3, self.release_the_puppies)
+      
     self.runEvents()
+
 
   def reset(self):
     print("NOBODILUBME?")
@@ -519,6 +546,7 @@ class EWD(App):
 
   def slowScan(self,count):
     for bh in self.bhs:
+      time.sleep(.2)
       bh.runSlowScans(count)
 
   @work(exclusive=True)
@@ -531,7 +559,7 @@ class EWD(App):
       for i in range(1000):
         time.sleep(1)
         #self.slowScan(140);
-        self.slowScan(1);
+        #self.slowScan(1);
         print("STOPPING EWPROC\n")
     time.sleep(1)
     self.ewc.setActive(False)
@@ -542,6 +570,15 @@ class EWD(App):
     runch = self.query_one("#runcheck")
     runch.value = False       # stepping ends running
     # trigger step
+
+  @on(Button.Pressed,"#pingbutton")
+  def pingbutton_pressed(self,event):
+    af = self.query_one("#autofire")
+    af.value = False       # ping ends autofire
+    # trigger step
+    cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
+    args = (+1,-1)
+    self.quietbox.shootPHASER(cmd,args)
 
   @on(Checkbox.Changed,"#runcheck")
   def runcheck_changed(self,event):
@@ -556,6 +593,22 @@ class EWD(App):
     cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
     self.quietbox.shootPHASER(cmd,[0])
     logcb("EWDA",f"PHASER>{id},{cmd}")
+
+  @on(Checkbox.Changed,"#ewpcheck")
+  def ewpcheck_changed(self,event):
+    id = event.checkbox.id
+    logcb("EWDA",f"EWP>{id},{event.value}")
+    cmd = MFMx.PhaserBolt.Cmd.CMD_SUSPEND_EWPS
+    self.quietbox.shootPHASER(cmd,[not event.value])
+    logcb("EWDA",f"EWPHASER>{id},{cmd}")
+
+  @on(Checkbox.Changed,"#ihhcheck")
+  def ihhcheck_changed(self,event):
+    id = event.checkbox.id
+    logcb("EWDA",f"IHH>{id},{event.value}")
+    suspend = not event.value;
+    self.quietbox.suspendIHH(suspend)
+    logcb("EWDA",f"IHH>{id},{suspend}")
 
   @on(Checkbox.Changed,"#autofire")
   def autofire_changed(self,event):
