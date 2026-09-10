@@ -1,0 +1,40 @@
+# Build Directories
+build_cross
+srcs/generated_headers
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Ignore emacs backup files
+*~
+
+# Ignore executables
+bin/*
+
+# Ignore build and lib dirs
+build
+lib/*
+
+# Ignore doxygen-generated output
+doc/ref
+
+# Ignore the code log
+codelog.txt
+
+# We don't want ppms
+*.ppm
+
+# Leave out unofficially '-held' files
+*-hold
+
