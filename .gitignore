@@ -1,6 +1,7 @@
 # Build Directories
 build_cross
 srcs/generated_headers
+__pycache__
 
 # Compiled Object files
 *.slo
