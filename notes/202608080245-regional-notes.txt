@@ -1,0 +1,4672 @@
+{301}  -*-  mode: text; fill-column: 32;  -*-
+[0:
+[7:
+
+Sat Aug  8 09:28:41 2026 Renamed
+this to 'regional'
+(202608080245-regional-notes.txt)
+to make its emacs buffer
+findable with '-r' instead of
+'-i' with conflicts with the
+previous 'initseq' notes.
+
+:7]
+Sat Aug  8 02:45:41 2026 OK,
+starting interhub-notes.txt
+here, for the 'obvious' purpose.
+[1:
+
+Sat Aug  8 02:49:16 2026 OK,
+cleaned up and did
+  cp -a spikes/init12/ spikes/ihub10
+
+and everything rebuild
+successfully and now AutoWash.sh
+triggered a restart and we're
+expecting to see the stream pick
+up at any moment.[2:
+
+Sat Aug  8 02:53:19 2026 Stream
+up! 
+
+:2]
+
+:1]
+
+:0]
+[3:
+
+Sat Aug  8 09:01:50 2026 So,
+let's think about some possible
+early goals in this short run to
+September One. Twenty-three Days
+To Go?
+
+ - A textual debug interface
+   replacing the current
+   nu1011.py top-level, focusing
+   on real-time monitoring and
+   debugging using the pc
+   sampling stuff
+
+ - Could it be linked to an
+   emacs so it could drive emacs
+   to addr2line resolutions?
+
+[4:
+
+Sat Aug  8 09:08:20 2026 Well,
+that. But the main event is
+spiking interhub. Could we say:
+
+  In fourteen days we will be
+  able to see a FB taking over
+  one entire Blackhole card's
+  worth of the matrix
+
+as an interim countdown? We have
+a bunch of non-mfmx stuff we
+have to deal with during that
+time, as well, but let's MAKE
+THAT CLAIM and see if we can hit
+it.
+
+So I've been thinking: You Know,
+Dave.. Couldn't we do something
+that would pick a subset of
+cells and declare them 'in
+charge' for a period of time,
+and while they are In Charge
+they can run events in their own
+space PLUS some distance into
+their neighbors space.
+
+The idea is slow-T6-locking
+rather than fast EW locking,
+with the intention of accepting
+some limited spatiotemporal
+anisotropies to amortize
+regional cache communication
+costs.
+
+And what we should do now is
+explore that possibility a bit
+more concretely via this list of
+things TODO:
+
+[67: Wed Aug 12 20:36:42 2026
+It's sending packets back and
+forth to whichever hub-ngbs
+exist in NSEW. RNGO is gone.
+DONE :67] - Review what the current
+   interhub stuff is doing.
+
+[68: Wed Aug 12 20:37:57 2026 It
+doesn't
+DONE :68] - Find out if that ends up
+   picking a temporary leader
+   for each corner of a tile.
+
+[69: SKIPPED  :69] - Maybe cook up some way to
+   display that corner
+   leadership info, so we can
+   
+[70: SKIPPED  :70] - build a little intuition
+   about how that works, 
+
+[71: SKIPPED  :71] - improve/tune it if intuition
+   seems encouraging.
+
+[72: SKIPPED  :72] - Make some kind of visible
+   representation of when a hub
+   Just By Luck happens to hold
+   all four corners.
+
+ - See what all that crap looks
+   like and try for a bit of
+   payoff!
+
+[73: Wed Aug 12 20:38:41 2026
+Done, although dimensioning is
+still buggy. But,
+DONE :73] - Also: Think about how much
+   space and code changes it
+   would take to build
+   overlapping T6Grids in each
+   hub.
+
+ - Possibly spike a 'cache
+   capable' version of T6Grid?
+
+[5: Sat Aug  8 09:23:31 2026
+DONE :5] - STOP MAKING MORE TO-DO RIGHT
+   NOW AND START DOING
+   SOMETHING. 
+
+:4]
+
+:3]
+[6:
+
+Sat Aug  8 09:23:43 2026 What is
+the current interhub doing?
+[11:
+
+Sat Aug  8 10:32:37 2026 Indeed,
+what is it doing?[12:
+[15:
+
+Sat Aug  8 10:46:52 2026 I mean
+really, what IS the current
+interhub Doing?
+
+:15]
+Sat Aug  8 10:33:59 2026 OK,
+EP_InterHub.h is in
+cross/include.. and it includes
+PT_InterHub.h.. which IS NOT in
+cross/include.
+
+Don't we think the whole
+'InterHub' concept should be in
+cross/images/hub ? Did it get
+pulled up by like a BlockCode
+problem or what?[13:
+
+Sat Aug  8 10:36:48 2026 Yeah,
+so PT_InterHub.h went all the
+way up to shared/ for some
+reason, and I'm inclined not to
+fuck with that for now. But
+could we push EP_InterHub down
+to hub/?[14:
+
+Sat Aug  8 10:45:00 2026 OK did
+that. Running with no 'InterHub'
+in cross/{include,src}. 
+
+YAKPOP
+
+:14]
+
+:13]
+
+:12]
+
+:11]
+:6]
+[8:
+
+Sat Aug  8 09:30:11 2026 So, I
+see some python-level log files
+popping up at /tmp level -
+
+      /tmp:
+      total used in directory 432 available 2 TiB
+      -rw-rw-r--  1 ackley ackley    998 Aug  8 09:26 nu1011-EWDA.txt
+      -rw-rw-r--  1 ackley ackley  12675 Aug  8 09:26 autowash.out
+      -rw-rw-r--  1 ackley ackley    538 Aug  8 09:26 nu1011-ZEYK.txt
+      -rw-rw-r--  1 ackley ackley    538 Aug  8 09:26 nu1011-KEYK.txt
+      -rw-rw-r--  1 ackley ackley   2132 Aug  8 09:26 nu1011-RT10.txt
+      drwxrwxrwt 20 root   root    86016 Aug  8 09:26 .
+      drwxrwxr-x  4 ackley ackley   4096 Aug  8 09:26 ihub10-MFMX-20260808-092600
+
+what's that about? Let's check
+for a minute..[9:
+
+Sat Aug  8 09:33:12 2026 OK,
+it's because of code that boils
+down to this:
+
+      def logkt(self,key,text):
+ ..     with open(f"/tmp/nu1011-{key}.txt","a") as file:
+          file.write(msg)
+
+Do we care? I think so. We don't
+want files lying around that are
+not associated with a particular
+run.
+
+Can we come up with the
+simulation directory easily, in
+that context?[10:
+
+Sat Aug  8 10:31:11 2026 OK, now
+we get like:
+
+      /tmp/ihub10-MFMX-20260808-102927/misc:
+      total used in directory 24 available 2 TiB
+      drwxrwxr-x 2 ackley ackley 4096 Aug  8 10:29 .
+      drwxrwxr-x 5 ackley ackley 4096 Aug  8 10:29 ..
+      -rw-rw-r-- 1 ackley ackley  499 Aug  8 10:29 nu1011-EWDA.txt
+      -rw-rw-r-- 1 ackley ackley  269 Aug  8 10:29 nu1011-KEYK.txt
+      -rw-rw-r-- 1 ackley ackley 1066 Aug  8 10:29 nu1011-RT10.txt
+      -rw-rw-r-- 1 ackley ackley  269 Aug  8 10:29 nu1011-ZEYK.txt
+
+and I like that better.
+
+YAKPOP
+
+:10]
+
+:9]
+
+:8]
+[16:
+
+Sat Aug  8 10:49:52 2026 So,
+wow, look at the InterHubPayload
+data members:
+
+        u32 mMAGIC;
+        S16C mOrigin;               //< origin relative coord, updates on transits
+        u16 mAtomInfoCount;
+        struct AtomInfo {
+          S16C mOffset;             //< position relative to mOrigin
+          P4Atom mAtom;
+        };
+        static constexpr u32 MAX_ATOMS = ((1u<<12) - sizeof(mOrigin)) / sizeof(AtomInfo);
+        AtomInfo mAtomInfos[MAX_ATOMS];
+        u32 mCIGAM;
+
+They're (potentially) really
+big! But I guess they've been
+going around empty so far.
+
+Aaand we remember that the whole
+EP/PT level is not the only
+thing that InterHub is up to.
+What can we review about the
+interhub token-passing scheme?
+[17:
+
+Sat Aug  8 10:56:27 2026
+hub/LiveB.cpp has
+processInterHubCars(..), but
+again, that's EP/PT level.[18:
+
+Sat Aug  8 11:03:07 2026 Well,
+I'm starting to question whether
+we're still doing interub
+RNGO-style token-passing at all,
+at the moment. [19:
+
+Sat Aug  8 11:07:24 2026 OK,
+indeed: We are not. The key name
+was 'CornerState', and
+ihub10/NRIUtils.h contains:
+
+    #include "EventWindow.h"
+    //#include "CornerState.h"
+    #include "ImageBlock.h"
+
+because we appeared to strip out
+the CornerState stuff at least
+as of the nu11/ spike back
+around March-April of this year.
+
+[20:
+
+Sat Aug  8 11:12:08 2026 So that
+means we Are Currently Under No
+Obligation to go that route for
+interhub purposes, Unless we
+want to.
+
+[21:
+
+Sat Aug  8 11:42:10 2026 So one
+possible take is certainly: How
+do we pick non-overlapping T6
+Moore neighborhoods, and declare
+their centers to be 'winners'
+for some period of time?
+
+And if we do say 'some period of
+time', doesn't that imply some
+level of synchronization?
+
+We were always unclear how
+corner RNGOs were going to
+compose up to T6Moore
+alternations..
+
+I'd really rather it be some
+kind of bottom-up opportunistic
+sync rather than (like
+host-based) top-down 'phases' or
+whatever.. But here in MFMx
+we're supposedly saying Speed Is
+King..
+
+(But we're thinking: Yeah But
+Watch Out For That First Step On
+That Fucking Slippery Slope.)
+
+[22:
+
+Sat Aug  8 11:47:33 2026 At
+least two cases:
+
+(1) Collect All Four corner
+    tokens and then do King Of
+    The Hill events for a while,
+    broadcasting the steps to
+    the neighbors, afterwards or
+    all the while or whatever.
+
+(2) Actually figure out some
+    per-corner cache reach -
+    something that preferably
+    turns into case (1) if we
+    happen to hold all four
+    corners. 
+
+[23:
+
+Sat Aug  8 11:50:06 2026 Give
+away the token, balanced:
+
+ - Keep track of how many hops
+   we are from the leader.
+
+ - With probability hops/3, take
+   the token as our own.
+
+Although better would be
+hops/4, so it could come back to
+us and we'd get to go again.
+
+But why not just do
+hops=between(0,3) at the leader,
+and announce the fucking result
+around the ring?
+
+It'd be fun to accelerate the
+rechoosing based on the
+failure-to-find-a-center rate of
+the EW assignments. As interhub
+leader, each time we fail to
+find a center we take a shot to
+abandon our leadership early..
+[24:
+
+Sat Aug  8 11:57:52 2026 It
+seems it would also be good if
+we could reuse our atom
+compression to send to the
+neighbors? But maybe not
+really.. Right now the T6s Ain't
+Got No Decompression Genes, and
+we might want to stay that way.
+
+But possibly we could filter the
+DL2D stream and build both host
+and ihub packets? Sounds scary.
+
+:24]
+:23]
+:22]
+
+:21]:20]
+
+:19]
+
+:18]
+
+:17]
+
+:16]
+[25:
+
+Sat Aug  8 15:33:01 2026 OK,
+back from afternoon cook. Got
+maybe a couple hours here.
+
+:25]
+[26:
+
+Sat Aug  8 15:33:59 2026 So I'm
+asking myself: Do I try to
+resuscitate CornerState, or do I
+try to extend PT_InterHub to do
+'next leader' processes as well
+as cache notifications?
+
+Really on the KISS principle we
+ought to screw the whole RNGO
+the corners and promenade
+business, and just work at T6
+markov blanket level.
+
+[27:
+
+Sat Aug  8 16:03:48 2026 Maybe
+let's take a look what might be
+involved in extending T6Grid to
+have a 'warning track' cache rim
+all the way around? What's our
+current hub size?[28:
+
+Sat Aug  8 16:06:40 2026 How
+much of a rim might we want?
+2xEW == 8 minimum? Maybe bigger?
+The leader still won't be able
+to schedule events less than
+four from the expanded boundary.
+[29:
+
+Sat Aug  8 16:08:42 2026 hub
+image size currently at 412KB.
+Let's try a 16 wide rim and see
+what happens..[30:
+
+Sat Aug  8 16:15:34 2026 What
+about if we didn't think of this
+in terms of 'cache', but just in
+terms of 'grid coordinates'.
+Meaning we would not try to
+maintain two separate indexing
+schemes, one including the cache
+and one not, but we'd 'always'
+use grid coords and [just] have
+the 'currently legal for EW
+centers' rectangle change as
+ownership of overlapping sites
+changes.
+
+So we'd increase
+DG::T6GRID_WIDTH and
+DG::T6GRID_HEIGHT to include
+private+overlapping areas, but
+we'd assign grid coords to hubs
+in a way that creates the
+overlaps between T6 Moore
+neighbors.[31:
+
+Sat Aug  8 16:26:24 2026 At the
+moment there's some issues:
+
+ - Hardcoded references to the
+   DG::W and H are used to
+   determine validity, and
+
+ - U16Cs are used to index into
+   the grid, so we couldn't
+   0-base on the private stuff
+   and use negative coords for
+   N and W cache regions.
+
+ - The absolute grid coord isn't
+   used anywhere? Which is like
+   good boy, good Dave, but
+   we're going to need some way
+   to distinguish what's valid
+   and what isn't at any given
+   point..
+
+[32:
+
+Sat Aug  8 16:34:33 2026 What
+would happen if we just expanded
+W and H and tried it, without
+trying to do the overlapping
+origins business?[33:
+
+Sun Aug  9 08:03:55 2026 So now
+I'm thinking:
+
+ - What if we were completely
+   disgusting and just had the
+   host to control the
+   leadership?
+
+ - We'd reserve a small 'host
+   control' L1 region L1 in all
+   T6s (not just hubs), and
+
+ - Host would multicast commands
+   to that region, which would
+   be ignored by images that
+   didn't need or know or match
+   the host control command du
+   jour. One tiny fucking
+   multicast (per BH) to reach
+   all the (in this case) hubs.
+
+ - Our first host control
+   command thing would be, say,
+   "interhub phasing". Interhub
+   Phasing would define, say:
+   
+ - A target+cmd byte (say),
+   maybe 4b of who this is for
+   (HUB) and 4b of cmd,
+
+ - A spinner byte (say) so
+   target can reliably recognize
+   when the host control command
+   changes, and
+
+ - Two bytes (say) of per-cmd
+   data.
+
+[34:
+
+Sun Aug  9 08:16:18 2026 And for
+the HUB/INTERHUB host control,
+the key argument would be the
+SUPERCELL PHASE, a number from
+0-9, say, indicating:
+
+ 9 : No new interhub activity
+
+ 0 : The cell at supercell
+     coords (0,0) is major
+
+ 1 : The cell at supercell
+     coords (1,0) is major
+
+2-8 : The cell at supercell
+      coords (2,0)..(2,2) is
+      major 
+
+[35:
+
+Sun Aug  9 08:38:48 2026 Not
+sure if 'major' is what we want
+for "the hub that can currently
+write its Moore neighborhood of
+other hubs", but that's the idea
+we're going for, anyway. (Were
+calling it 'leader' I think,
+before.)
+
+Now, I'm not sure if we might
+want to try to keep all ngbs
+'cache bumper' regions up to
+date all the time, or if we want
+to have subphases within a major
+phase, like:
+ - refresh major cache
+ - major runs superregion EWs + 
+   minors run subregions EWs 
+ - drain: nobody initiates any
+   superregion events
+[36:
+
+Sun Aug  9 08:56:28 2026 Or it
+might be a bit more complicated
+than that, maybe more like:
+
+(0) Drain: Nobody initiates new
+    superregion EWs, and
+    'all' old ones finish
+(1) New Major: Host broadcasts
+    supercell coords of the new
+    major (if any, maybe not?)
+(2) Cache refresh: ngbs send 
+    their relevant sites to the
+    new major, or to a hub
+    closer to the new major, for
+    forwarding to the new major
+    (to avoid a round the world
+    trip).
+    They copy the spinner seq#
+    to various places to signal
+    forwarding completion.
+
+[37:
+
+Sun Aug  9 11:10:37 2026 Hmm I
+guess that might suggest we
+should use full-on packet
+formatting for the cache
+refresh, and maybe the major hub
+should just hold the packets and
+do R/W to them for cache access?
+And maybe return the packets
+when done?
+
+If so, then the current mT6Grid
+expansion we did would not
+survive, and there'd be more
+complex expanded cache accessing
+code.. [38:
+
+Sun Aug  9 13:34:42 2026 And
+just reminding myself that the
+stuff that's 'cache' on one side
+is 'core' or whatever on the
+other side. Or at least most of
+it is - if we're considering
+bank shots to get the NE and SW 
+corners populated, that would be
+like
+
+ NE core->N(|E) cache-> C cache
+
+(using 'C' for 'center') and
+
+ SW core->S(|W) cache-> C cache
+ 
+but we could, perhaps do it
+directly? Not as a single
+packet, but in as many strips as
+is necessary given that an
+arbitrary subrectangle of an
+array is typically not
+contiguously stored, but
+consists of separated 'strips',
+each of which is contiguously
+stored.
+
+But again, that's assuming the
+NoC can deal with all those
+alignment issues, which the
+anonymous 'Tenstorrent experts'
+behind the scenes say I
+shouldn't assume. Gah.
+[39:
+
+Sun Aug  9 14:52:02 2026 I guess
+I'm going to hang my hat on "16B
+alignment" for L1<->L1 packets,
+which means arbitrary
+subrectangles of arrays really
+aren't going to be acceptable,
+even in strips.
+
+So if we are facing copying
+before and/or after
+transmission, that pushes me
+back toward ACB-like packets.
+
+Could we make a somewhat more
+general packet router segment,
+that would 'automatically'
+forward bank shot packets?
+
+The problem is always
+initiative: When can the sender
+be sure the next packet can be
+sent? That's why we keep
+ping-ponging packets between
+destinations: The next packet
+can be sent once the/an
+appropriate 'car' has returned
+to you, not before.
+[40:
+
+Sun Aug  9 14:57:43 2026 So what
+about N/S/E/W interhub endpoints
+- is that what we already
+have?[41:
+
+Sun Aug  9 15:02:28 2026 Yes,
+that's what we have. Right now
+we're just incrementing counters
+on packets or something, but the
+packets are, I think, moving
+back and forth.
+
+We note that doing a bankshot
+would require copying stuff from
+a NS car to an EW car or vv,
+which would require having both
+cars available at once, or
+blowing yet more space for a
+buffer. [42:
+
+Sun Aug  9 15:56:05 2026 OK,
+yes, the ihub packets are
+bouncing back and forth with
+their counts incrementing and
+stuff. [43:
+
+Mon Aug 10 00:43:19 2026 Might
+be a useful 'subspike' to see if
+we could ship atoms from our
+core to ngbs cache, with a
+particular eye towards
+supporting bank shots.
+
+Could we try integrating that
+into DL2D processing? But that's
+being driven by the compressor
+now..
+
+Could we have separate DL2D's
+for ngb caches? Writing atoms
+would insert onto all necessary
+lists, and each consumer could
+consume them as possible.
+[45:
+
+Mon Aug 10 11:43:30 2026 Okay,
+where are we here? Yeah, I think
+I need to stick to push to talk
+because otherwise it's going to
+blob it into, you know, I was
+saying search backwards, but
+then it stuck that crap in the
+middle of previous notes. 
+[46:
+
+Mon Aug 10 11:44:30 2026 How
+about going for a version of the
+inter hub packets that will
+handle forwarding to get around
+the northeast, southwest NoC
+limitations? Could we make some
+TODO list entries to help with
+that?
+
+ - Review PT_Interhub
+
+ - See if there's room for a
+   destination byte or
+   something.
+
+ - Plan a route to an
+   implementation.
+
+ - Do it
+
+ - Watch it for big fun
+
+ - POP THAT YAK
+[49:
+
+Mon Aug 10 12:18:45 2026 Okay,
+so again there's a question now
+whether the inter hub dot cpp
+code that was based on a host NC
+doing the tricky special magic
+load section are we do we
+believe we're not doing the
+special load section anymore and
+as a result should we aware of
+that. Where is it that NC
+initialization would be doing
+that stuff now. looks like in
+FastNC.CPP in the HE-BORN1
+epoch, which we believe has got
+to be live, there is FNC-1HT
+functions NC and again in GROW,
+OPEN and so forth. So is that
+not happening? Can we not see
+signs of that?
+
+Another problem with all this is
+I think we're not slow scanning,
+so we are not getting all of the
+HB marks that come by that
+route.
+:49]
+[50:
+
+Mon Aug 10 12:26:31 2026 So,
+okay, the current block size
+setup is max 255 atoms for the
+interhub packet for what good
+that does us.
+
+And how big are the cache
+regions on the current layout
+scheme?
+[51:
+
+Mon Aug 10 13:03:30 2026 Well,
+looks like this atm:
+
+    {23:99 132119 0 2,3 hn IHUBAROHAROHARO:MAX_ATOMS:255}
+    {23:100 132119 0 2,3 hn T6Grid::FULL_WIDTH:164}
+    {23:101 132119 0 2,3 hn T6Grid::FULL_HEIGHT:128}
+    {23:102 132119 0 2,3 hn T6Grid::SELF_ORIGIN:(13,10)}
+    {23:103 132119 0 2,3 hn T6Grid::SELF_MAX:(151,118)}
+    {23:104 132119 0 2,3 hn T6Grid::getCacheRange(D8_NT):[13,0:151,9]}
+    {23:105 132119 0 2,3 hn T6Grid::getCacheRange(D8_NT).area():1390}
+
+so 1390 atoms means (/ 1390
+255.0)==5.451 like six InterHub
+packets to send the whole
+region..
+[52:
+
+Mon Aug 10 13:07:15 2026 But
+let's redo InterHubPayload to
+send a range plus bare atoms,
+instead of AtomInfos.
+[53:
+
+Mon Aug 10 13:08:17 2026 But
+we'd really want a S16CRange for
+that, right? But we haven't
+implemented that yet.
+
+Nap time.
+
+(Or maybe an S16C + U16CRange..) 
+[54:
+
+Mon Aug 10 16:30:21 2026 Okay,
+so for this whole range
+business, in particular, UC 16C
+range, are we going to use
+inclusive ends, exclusive ends,
+inclusive at the bottom and
+exclusive at the top? That would
+be the most typical, but at the
+moment we're not really sure.
+
+I guess, yeah, let's go with
+inclusive at the bottom and
+exclusive at the top. So it's x
+equals bottom, while x less than
+top, and so forth. [55:
+
+Mon Aug 10 16:33:54 2026 We do
+need to be careful, though -
+we've got existing uses of
+U16CRange to consider, in
+host/OurTLBs, for example. 
+
+:55]
+
+:54]
+:53]
+:52]
+:51]
+:50]
+[47:
+
+Mon Aug 10 11:54:02 2026 So, an
+inter hub packet is basically a
+variable sized array of atom
+infos, each of which has an
+offset and an atom. We probably
+want to change that to just have
+an offset and make some kind of
+little rectangular block
+information for that, but we'll
+see.
+
+And again almost none of that
+stuff is hooked up in any
+legitimate way So there's a
+question of whether we think we
+should be able to Hack the hell
+out of this thing. I mean it's
+got magic code and it's got a
+magic footer and stuff like that
+which we're not even really sure
+if we need, given that it's
+gonna have packet framing which
+is gonna have its own headers
+and footers and ankles and so
+forth.
+
+[48:
+
+Mon Aug 10 11:58:43 2026 Okay,
+we're trying again with just a
+message to print out MAX_ATOMS
+so we can tell how big it is. 
+
+Okay, going... Again. meta F11
+is not defined so how do we eat
+the keystroke? Right now the
+META F11 is getting passed on to
+Emacs and then also being used
+to do the push to talk. 
+
+:48]
+
+:47]
+
+:46]
+:45]
+:43]
+
+:42]
+
+:41]
+
+:40]
+
+:39]
+:38]
+
+:37]
+
+
+:36]
+:35]
+
+:34]
+
+:33]
+
+:32]
+
+:31]
+
+:30]
+
+:29]
+
+:28]
+
+:27]
+
+:26]
+[44:
+
+Mon Aug 10 11:42:22 2026 So for
+the record I'm trying out Vocal
+Linux with its speech to text
+stuff which really works pretty
+good. So this comment that I'm
+putting right here, number 44 in
+the regional notes file is
+entirely me just speaking. 
+
+:44]
+[56:
+
+Tue Aug 11 10:32:12 2026 So,
+increasingly here, I'm thinking
+if I really want to commit to
+the bit (just go fast on QB/BH),
+I should embrace not GALS -
+"Globally Asynchronous, Locally
+Synchronous" - but LAGS -
+"Locally Asynchronous, Globally
+Synchronous".
+
+With the idea being that the
+host can multicast 'phase
+information' to the fleet and
+that's cheap. And the tiles can,
+each in their own time, react to
+the phase update and then push
+some confirmation back to the
+host. And the host can block
+until all confirmations are back
+or the cows come home or
+whatever the phase-end criteria
+ends up being in any given case.
+
+And the phases could be like
+
+1: SuperCell Hub (X,Y) Is Chosen
+   At Random By The Host
+
+2: Non-chosen hubs drain EWPs,
+   then send caches to Chosen,
+   and switch to doing hidden
+   EWPs
+
+3: Chosen hub receives all
+   caches and switches to Fish
+   In The Middle EWPs
+
+4: Host Says Nobody Fish In The
+   Middle: Chosen hub stops
+   doing in the middle EWPs and
+   acks when all have drained.
+
+5: Chosen hub pushes all caches
+   back to non-chosen hubs.
+
+6: Loop
+
+[57:
+
+Tue Aug 11 11:13:28 2026 Aand,
+we note, this is not a new
+Indefinite-Scalability-Crime,
+because after all, mfms has done
+the same thing for years -
+starting and stopping events
+globally, for rendering and
+statistics.
+
+[58:
+
+Tue Aug 11 11:15:29 2026 So I'm
+thinking a single word to
+scatter out, and a single word
+(per T6) to (push)gather back,
+maybe with a structure like:
+
+struct PhaseInfo {
+  u8 mSpinner;
+  u8 mPhase;
+  u8 mArg;
+  u8 mReserved; // or response maybe
+};
+
+And every T6 tile would have
+that stored in the SAME
+well-known place low in L1. We
+don't want to put it in the
+HostBlock because the HostBlock
+position - at the end of the
+image - depends on the image
+size. [59:
+
+Tue Aug 11 11:20:20 2026
+Thinking Phase/command 0 should
+always be PAUSE, which causes
+the T6 to ack the command and
+then sit on a memory fence until
+a non-0-command appears.[60:
+
+Tue Aug 11 11:22:50 2026
+Wondering if we could put
+HostCmd directly after nc_setup
+in _BUD.S, like
+
+            # B must be first, at addr 0, as RISCV B has fixed reset address of zero
+    b_setup: j b_init               # B entrypoint is addr 0 word 0
+    t0_setup: j t0_init             # T0 entrypoint must be addr 4 word 1
+    t1_setup: j t1_init             # T1 entrypoint must be addr 8 word 2
+    t2_setup: j t2_init             # T2 entrypoint must be addr 12 word 3
+    nc_setup: j nc_init             # NC entrypoint must be addr 16 word 4
+
+            .cfi_endproc
+
+            .section .data
+            .globl PHASER
+    PHASER: .word 0    # does this make sense here?
+
+            .section .text
+            # Not setting up gp until pretty late, so:
+            .option push
+            .option norelax
+
+[61:
+
+Tue Aug 11 16:17:36 2026 OK well
+I managed to do just about
+everything wrong at least twice,
+but now it appears I can
+multicast a "PHASER" blast from
+the host, and it looks like
+everybody sees it - in their own
+good time - which is, at the
+moment, during stepNC().
+[62:
+
+Tue Aug 11 16:22:14 2026 Now the
+question is: How can everybody
+report back that they saw it
+(without using logging doh)?
+
+I was wondering if I could use
+the BlockCode mechanism, and
+somehow create a blockcode that
+corresponds to a one-word
+packet, and then have host end
+up with an array of one-word
+packets..
+
+But I think that's almost surely
+a gross abuse of structure, to
+come into it that high, and we
+should instead look into how we
+might allocate a chunk of host
+ram around or alongside the
+blockcode stuff. Could we chop
+140*sizeof(PHASER) off the back
+of the hostram segments, maybe?
+Or the fuh-runt, evannnn?
+
+ - Review how hostram is chopped
+   up and allocated.
+[63:
+
+Tue Aug 11 16:29:17 2026 So we
+have
+
+  void OurTLBs::allocateHostRAM(size_t sizePerT6) {
+    doHostRAMAllocation(sizePerT6);
+    setHostMemoryBaseAddress();
+  }
+
+which allocates all the
+sizePerT6 memory that will be
+exposed to the T6s via the PCIe
+tile and NoCs.[64:
+
+Tue Aug 11 16:41:01 2026 And
+that amounts to:
+
+ {123:72 1 5 225,219 ht ->} Trying to allocate 2293760 [2293760 = 140 * 16384] for host RAM buffer for BH#0
+
+16KB per TLBI. How much of that
+are we using up? Could we afford
+to snarf one fucking word (or
+four, for 16B alignment) off the
+front?[65:
+
+Wed Aug 12 06:56:21 2026 Well,
+we seem to have gotten away with
+making an additional block code,
+with like:
+
+    #define BLOCKCODE_LIST()                                \
+      XX(CELLBLOCK,CLBK,sizeof(CellBlock),CellBlock,1u)     \
+      XX(PHASER,PHSR,sizeof(PHASER),PHASER,1u)              \
+ ..
+
+in BlockCode.h, and like:
+
+    extern u32 lastPHASER[1];
+
+    XIC_START_IMAGE_BLOCK(HUB)
+      XIC_BLOCKADDR(BC_PHASER, 1, lastPHASER, u32)
+      XIC_BLOCKADDR(BC_EWHUB, 8, theEwpL1Data.mTheTCStorages, EwpBlockStg)
+ ..
+
+in hub/ImageConfig.inc and
+similar. And now we are zinging
+multicast PHASER shots from the
+host, and waiting till 140 T6s
+have responded to them, and then
+zinging another.. and that all
+appears to be working..
+
+[66:
+
+Wed Aug 12 20:35:16 2026 So
+(flag moved), can we claim
+anything? 
+[74:
+
+Thu Aug 13 01:12:19 2026 Got a
+bit I guess.
+
+So.
+
+With PHASER in hand, two obvious
+goals TODO come to mind:
+
+(1) Brainstorm/draft/review
+    possible PHASINGS to
+    implement our interhub
+    controls
+
+(2) Review/design/implement a
+    first-take 'forwarding
+    system' allowing bankshots
+    to reach antidiagonal ngbs
+    without taking the long way
+    home. 
+
+The latter looks rather more
+immediate - albeit not directly
+PHASER-related. I guess the KISS
+formulation is to use the
+existing NESW ihub connections
+and make ALL traffic by this
+mechanism go by single
+orthogonal hops. Because we only
+have EPs for those four
+destinations (at present).
+
+So even if we could - even where
+we CAN in principle - route
+longer distances directly, how
+would we know where we could
+write to unless we had dedicated
+EPs for each route we might use?
+
+Now it would be nice if we could
+(eventually) get NoC-based
+memcpy working, so that when we
+decide to convert an
+arriving northbound packet into a
+departing eastbound packet, we
+could copy the packet from
+us->us reasonably rapidly.
+
+[75:
+
+Thu Aug 13 01:26:13 2026 So,
+could we have a relative lot of
+cars in each of these ihubs,
+like four each anyway, and could
+we fall towards having an even
+split of available cars at each
+end? To support mixed-initiative
+code transmission. Like when we
+discover it's 4-0 us, we
+immmediately ship something,
+empty or not. And if it's 3-0
+us, we ship after a delay or
+something. 
+
+(I wanted to say we ship
+randomly but hart NC doesn't
+have a mailbox so right now
+we're not serving it random#s.
+Which makes me think we could
+give NC and T2 and L1 ringbuffer
+so NC could get random#s that
+way.. At least if we thought NC
+wasn't going to use all that
+many..) 
+
+[76:
+
+Thu Aug 13 01:43:20 2026 Or we
+could just say: Ship an empty
+whenever it's N-0 and there's
+nothing else to do. Saying that
+3-1, 2-2, and 1-3 are all
+'equally good' stable states.
+
+Vs saying ship an empty whenever
+it's not N/2-N/2.. Could we have
+like five cars and say 2-3 and
+3-2 are both stable, but all
+other states ship an empty from
+the fuller to the less-full end.
+That way we'd have a bit of a
+buffer when the flow is heavily
+going in one direction.[77:
+
+Thu Aug 13 01:50:37 2026 ATM it
+looks like we're using ~8KB to
+do the four EP_InterHubs each
+with 2 InterHubBlocks of
+(perforce) ~1KB each.
+
+Now if we were willing to blow
+like ~20KB, we could have five
+cars each? (We're currently at
+501,856B in the hub image.)
+
+Hell let's try it. [79: DONE  :79]Let's go up
+to five 1KB packets, get that
+going, and then see where we
+are. [78:
+
+Thu Aug 13 02:52:41 2026 OK,
+that took stupidly too long, but
+now we have five InterHub cars
+per EP and four EP_InterHubs per
+hub image, and the hub image is
+now at 551'948B, and we still
+have ~900KB to blow, there..
+[80:
+
+Thu Aug 13 02:56:28 2026 So
+okay. Getting to nap time here,
+but, where are we?
+
+ - Right now, we're building on
+   PT_InterHub, which has no
+   notion of multihop
+   routability.
+
+ - We need to add, perhaps, a
+   S8C, to indicate where this
+   packet wants to go? Or
+   perhaps 2xS8C, where one
+   counts down hops remaining
+   and the other counts up hops
+   taken, so we always have
+   source and destination
+   properly represented in the
+   packet, always in local
+   coordinates as it
+   travels.[81:
+
+Thu Aug 13 02:59:57 2026 Well,
+InterHubPayload already has
+
+    S16C mOrigin;               //< origin relative coord, updates on transits
+
+which does seem overgenerous..
+We could replace it with
+
+    S8C mDestination;          //< destination relative coord, updates on transits
+    S8C mOrigin;               //< origin relative coord, updates on transits
+
+for zero bytes extra..[82:
+
+Thu Aug 13 03:04:00 2026
+Aaaallllthough that's supposed
+to be the grid origin measured
+in sites, not the hub origin and
+destination, measured in
+hub-hops.. It's not actually
+used for anything except
+counting demos, so far.
+
+Nap time.[83:
+
+Thu Aug 13 09:22:18 2026 So also
+I'm thinking that this 'local
+routing' system is going to want
+to be used more generally than
+just for cache updates, and so
+we'd like to redo PT_InterHub to
+have a more general content +
+routing structure, with
+InterHubPayload becoming like
+IHPCacheUpdate or whatever.
+
+Now I'm also thinking maybe I
+should pop a new spike for this
+even though ihub10 is only like
+five days old..
+[84:
+
+Thu Aug 13 09:43:13 2026 OK,
+doing first build in ihub11,
+after cleaning up.[85:
+
+Thu Aug 13 10:08:28 2026 First
+attempt at general data IHP
+close to building..built!
+
+:85]
+
+:84]
+:83]
+
+:82]
+
+:81]
+   
+
+:80]
+:78]
+
+:77]
+
+:76]
+:75]
+
+
+:74]
+:66]
+
+:65]
+
+:64]
+
+:63]
+:62]
+:61]
+:60]
+
+:59]
+
+:58]
+:57]
+:56]
+[86:
+
+Thu Aug 13 16:56:14 2026 About
+time to break for the evening.
+Current status:
+
+ - Now in spikes/ihub11
+
+ - InterHubPayload generalized
+   and building but not really
+   working. 
+
+ - Looks like we need to review
+   the initialization sequence
+   for the IHub stuff, because
+   it appears 'they all gone'..
+
+..EPuo:[IHEPi:IHUB:2] c5 h0o255 g5o0 S0 R0 fs3} 
+                         ^^     ^^
+                   none here   five gone
+
+ - We end up seeing one tile lit
+   up in each BH? (0 and 3
+   currently)
+[87:
+
+Fri Aug 14 14:54:58 2026 OK, I
+think ihub cars are moving, but
+I think they're all empty.
+
+ - Can we review what we thought
+   we wanted, here?
+
+ - What is supposed to happen
+   when an ihub arrives now?
+
+ - And who's supposed to do it? 
+
+ - We have a weird mixed
+   initiative angle here as
+   we're expecting multiple
+   senders and receivers, on a
+   single T6, for these ihub
+   packets. Our rb's are only
+   expecting single producer and
+   single consumer.. although we
+   could [just] lock on top and
+   hope for rain.
+
+
+:87]
+:86]
+[88:
+
+Fri Aug 14 15:45:54 2026 So we
+think we want:
+
+ - ihub routing handled
+   separately from packet
+   response.
+
+ - an ihub packet should
+   potentially be passed along
+   multiple hops before any
+   ihub-payload-specific touches
+   it.
+
+ - so we ought to go for a spike
+   just to show that part of it,
+
+ - with something somewhere to
+   kick off a packet routing -
+   say to any of our up-to-eight
+   ihub ngbs.
+
+ - And we'd like to see that
+   work.
+
+[89:
+
+Fri Aug 14 15:49:43 2026 What
+about doing a 'traceroute' ihub
+packet type, that's recognized
+by the routing level, and could
+be used, for example, for path
+discovery. Like, how is a given
+T6 hub even supposed to know
+whether it's got a NE ihub ngb?
+Sending traceroutes to all 8
+ngbs and seeing what comes back
+could do that.[90:
+
+Sat Aug 15 01:04:48 2026 Do we
+have the sender update the
+coords before sending to the
+recipient, or have the recipient
+update the coords after
+receiving from the sender?
+
+[91:
+
+Sat Aug 15 01:06:44 2026 Let's
+have the sender do it, I think.
+They're the ones who decided to
+send it our way.
+[92:
+
+Sun Aug 16 23:11:55 2026 OK, so
+we have somewhat credible 'all
+harts pause' and continue now
+exposed in python, connected to
+a checkbox. That is supposed to
+convince us our LAGS (Local
+Asynchronous, Global
+Synchronous) architecture is now
+implementable.
+
+What we don't have is reliable
+global confirmation, I guess,
+though. The 'mOnPhase' count
+isn't really working from
+python, though I'm not sure what
+got broken from an earlier
+smaller spike that seemed to
+work well enough.[93:
+
+Mon Aug 17 13:44:33 2026 So we
+do need a rethink of the phaser
+shot ack stuff. We're getting a
+lot of inconsistencies - for
+reasons I don't completely
+understand, I admit - between
+the acknowledgment stuff that
+the T6s are theoretically
+sending on their own, and the
+outgoing phaser shots from the
+host.
+
+I'm wondering if maybe having
+more frequent shots - even if
+unchanged except for the spinner
+- would help everybody get a
+chance to respond.[94:
+
+Mon Aug 17 15:59:53 2026 Well,
+sigh, it's starting to look like
+32 bit T6->host writes are just
+unreliable? What I currently
+have is only 4B aligned, also..
+
+I'm thinking my 'only choice'
+might be to push up to 64B
+outbound for phaser shots, and a
+separate 64B inbound for
+'hit reports' or 'ricochets' or
+whatever we'd end up calling the
+replies..[95:
+
+Mon Aug 17 23:03:46 2026 Fuck
+it. What about making PHASER be
+a packet type? That gives us
+isComplete and and sequence
+numbers and so on 'for free'. We
+just don't want to use that
+packet in an EP situation - at
+least not directly - because the
+whole point is to multicast it
+from the host.[96:
+
+Tue Aug 18 15:52:59 2026 OK well
+that apparently is going to take
+a day, but I think we're largely
+converted to PhaserBlock-as-TC.
+Or at least we're committed to
+that path and it's building and
+kind of running at this point.
+
+What we need TODO now is
+
+[147: Wed Aug 26 00:31:24 2026
+DONE :147] - Review status of signaling
+   mechanism:
+
+[148: as a PhaserBlock packet to
+a all-images dedicated address,
+so DONE :148] - How are we going to send a
+   signal?
+
+[149: Standard packet completion
+ so DONE :149] - How does T6 know when a new
+   signal has arrived?
+
+[177: Wed Aug 26 22:52:34 2026
+Thinking NO: :177] - Do we coordinate packet
+   nonces across BHs?
+[97:
+
+Tue Aug 18 16:19:16 2026 Well
+that's not really a to-do list
+but we'll see.
+
+So I'm thinking:
+
+1. Host decides to send
+   something. Let's say for now
+   that decision is at the
+   QuietBox level.
+
+2. Host builds a PhaserBlock in
+   a QuietBox level location.
+   With controlled incremented
+   nonce and whatever
+   particulars are needed.
+
+3. Host dishes that to each BH
+   (in a random order might be
+   nice) who multicasts it to
+   its fleet at the well-known
+   T6_PHASER_ADDR address.
+
+4. T6/hn sees a complete
+   PhaserBlock packet at the
+   T6_PHASER_ADDR address, with
+   a nonce different than its
+   last-known nonce.
+
+[98: Tue Aug 18 21:18:58 2026 
+
+5. hn takes first crack at the
+   PhaserBlock. Suppose it can
+   handle it completely on its
+   own.
+
+6. It does so, then marks the
+   PhaserBlock 'handled' in some
+   way, then sends the whole
+   thing back to the host.
+
+7. Once a PhaserBlock has been
+   marked 'handled', it is
+   ignored by everybody T6 side.
+   So it's okay to leave a
+   handled PhaserBlock at the
+   T6_PHASER_ADDR address.
+
+8. Host iterates over the
+   returns, counting how many
+   T6s have replied with the
+   current nonce.
+
+9. Host waits until the count is
+   full and then the phaserbolt
+   is complete.
+
+[99:
+
+Tue Aug 18 21:52:41 2026 Writing
+all that I'm not convinced I
+really want to screw with the
+packet nonces for phaserbolt
+sequencing. I've got 40B to burn
+like it or not - we could take
+2xu16 and say one is the nonce
+and the other has to be +1 of
+the first, so no constant value
+(like say all 0s) would be
+valid.
+
+:99]
+
+:98]
+
+:97]
+:96]
+
+:95]
+
+:94]
+
+:93]
+
+:92]
+
+:91]
+
+:90]
+
+:89]
+   
+   
+
+:88]
+[100:
+
+Fri Aug 21 14:57:26 2026 OK, so
+we did another round of
+rendering/ffmpeg tuning, and now
+stuff is looking quite a bit
+smoother. One key was getting
+the slowscan stuff off of the
+animation thread!
+
+[101:
+
+Fri Aug 21 15:01:55 2026 But
+slowscanning is how we collect
+HB logging, and HB logging is
+important, so I think we need to
+fire up a separate thread and
+try running slowscans on that,
+and see how it goes? Could we
+possibly do that without a lot
+of pain?[102:
+
+Fri Aug 21 15:33:49 2026 OK it
+seems like we're now
+slowscanning on a separate
+@work(thread=True,..) thing, and
+we have HB output in all.mfmk
+again without spinning balls in
+the livestream.
+
+So I think we're "go" for
+getting back to understanding
+and fixing our PHASER bolts.
+Let's check where we are there.
+[103:
+
+Fri Aug 21 15:37:47 2026 Well, I
+guess where we are is rechecking
+to see where the multihop
+InterHub stuff is at. I don't
+think we have that
+demonstrated..
+
+[104:
+
+Fri Aug 21 15:51:28 2026 WHAT WE
+HAVE DEMONSTRATED AND WHAT WE
+HAVE NOT DEMONSTRATED ABOUT
+INTERHUB MULTIHOP:
+
+ - Calling
+   InterHubPayload::update(bool)
+   - DEMONSTRATED
+
+ - Calling
+   InterHubPayload::tryRoute - 
+   NOT DEMONSTRATED
+
+[105:
+
+Fri Aug 21 15:57:22 2026 Well
+that didn't take long to find..
+So how are we going to improve
+tryRoute's current
+implementation? Which is:
+
+    bool tryRoute(Dir4 d4, bool inside) {
+      LOGPTAG(IHPtR,mIHPHeader.mHops2Dest);
+      char str[2];
+      LOGPTAG(IHPd4,dir4ToByteCodeStr(str,d4));
+      // XXX WRITE ME
+      return false;
+    }
+
+well for one thing, we never see
+either of those tags: tryRoute
+is not even being entered. So
+(push yak) we need a framework
+that will get that code path
+executed automatically, which
+is, I believe, currently NOT
+DEMONSTRATED.
+
+[106:
+
+Fri Aug 21 16:02:58 2026 Suppose
+we have the host just do a
+certain call - like 'ping your
+NE' - every so often? Don't care
+who's responded to the previous
+shot, etc, just do it on time or
+frames or whatever. Then get
+evidence that that is being
+received and then acted upon.
+[107:
+
+Fri Aug 21 16:12:03 2026 So.
+TODO that -
+
+[110: Fri Aug 21 16:21:41 2026
+DONE :110] - Review status of IHPT_PING
+
+[118: Sat Aug 22 01:20:43 2026
+DONE :118] - Review status of host PHASER
+   blasting.
+
+ - On the host, build a PHASER
+   bolt requesting an IHPT_PING
+   to the northeast. That's
+   (+1,-1) in NoC0-land?
+
+[119: DONE :119] - Try to fire that PHASER bolt
+   in some slow open-loop
+   fashion.
+
+[120: DONE  :120] - Try to see evidence of that
+   PHASER bolt arriving.
+
+[176: Wed Aug 26 22:52:06 2026
+DONE :176] - Come make more to-do.
+
+:107]
+
+:106]
+ 
+:105]
+:104]
+
+:103]
+:102]
+
+:101]
+
+:100]
+[108:
+
+Fri Aug 21 16:15:06 2026 Status
+of IHPT_PING:
+
+ - It exists.
+ - It has a name.
+ - It has a struct IHPPing
+ - It is not yet ever generated.
+ - It inherits from IHPBase
+ - IHPBase has no data members
+   or methods at present.
+
+Current question: Where is the
+IH routing information, again?
+It's got to be a level up, above
+the payload.[109:
+
+Fri Aug 21 16:18:35 2026 Not
+above the payload: Part of it.
+
+The IH routing info is in
+IHPHeader::mHopsDistance. And
+mIHPHeader is at
+
+  struct InterHubPayload {
+ ..stuf
+    IHPHeader mIHPHeader;
+    u8 mIHPData[MAX_BYTES];
+  };
+
+So we're saying
+'InterHubPayload' is like
+'Routable Data' or something -
+it's very general. 
+
+:109]
+
+:108]
+[111:
+
+Fri Aug 21 16:22:12 2026 Status
+of host PHASER blasting:
+
+exists:
+  void QuietBox::shootPHASER(PhaserBolt::Cmd cmd, u8 arg) {
+
+which calls
+
+  void OurTLBs::shootPHASER(PhaserBolt::Cmd c, u8 arg) {
+
+which also exists.
+[112:
+
+Fri Aug 21 16:57:30 2026 And
+ATM, nu1011.py calls it only
+via:
+
+      @on(Checkbox.Changed,"#pausecheck")
+      def pausecheck_changed(self,event):
+ ..     cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+        self.quietbox.shootPHASER(cmd,0)
+ ..
+
+and we want to automate that.
+
+But getting to be time to start
+cooking dinner..
+[113:
+
+Fri Aug 21 19:56:29 2026 OK,
+let's see if we can get a spike
+autofire going real quick here..
+
+:113]
+
+:112]
+
+:111]
+[114:
+
+Fri Aug 21 23:48:00 2026 OK we
+have an autofire timer counting
+down repeatedly in textual, and
+logging a message when the count
+expires. [115:
+
+Sat Aug 22 00:01:54 2026 OK, so
+how are we going to build and
+pass around an IHPPing or
+whatever? [116:
+
+Sat Aug 22 00:06:24 2026 So at
+the moment there's a distinction
+between a PhaserBolt, which is a
+40B packet destined to be
+multicast from the host to 0x40,
+the T6 universal phaser
+address..
+
+..and a 4KB InterHubPayload,
+which is to be unicast (perhaps
+in multiple steps) between
+neighboring T6 hubs.
+
+IHPPing is a payload for
+InterHubPayload, not for a
+PhaserBolt. 
+
+:116]
+
+:115]
+
+:114]
+[117:
+
+Sat Aug 22 01:18:37 2026 Well OK
+now! So we have
+
+ - phaser bolts firing, & being
+ - acknowledged on the T6s, &
+ - getting shot back to host, &
+ - leading to a 140 count for
+   each BH, clearing the way for
+   the next shot
+
+Sweet!
+
+[121:
+
+Sat Aug 22 01:21:06 2026 So
+okay. We still need to
+
+[122: Sat Aug 22 12:30:54 2026
+DONE :122] - pack an S8C (or S16C) into
+   the phaser bolt
+
+[123: Sat Aug 22 12:30:59 2026
+DONE :123] - unpack it T6 side, and
+
+ - create an IHPPing packet with
+   that ping dest, and
+
+ - release it onto the interhub
+   channels, and
+
+ - see it move.
+
+I guess I think we can
+acknowledge the bolt after we
+release the ihpping, and it goes
+open loop thereafter.
+[124:
+
+Sat Aug 22 19:14:02 2026 Still
+have the question of what to do
+if we have no IH packets
+available when the IHPPing is
+getting processed.. I guess we
+could just return early and
+encounter it again in a little
+while?
+
+:124]
+:121]
+:117]
+[125:
+
+Sat Aug 22 21:41:53 2026 So
+given that processInterHubCars
+is handled by hb, it really
+seems like we'd want hn to
+notify hb about the IHPPing
+request and let the latter
+notify hn back when the ping had
+been sent.
+
+Which sounds like another little
+pair of ringbuffers to pass the
+responsibility around. Or a
+pair of bits or bytes or words,
+anyway, given our existing infra
+can only handle one PhaserBolt
+at a time.
+
+Good thing about the rbs is we
+kind of recognize and understand
+them a little bit at this point.
+
+[126:
+
+Sat Aug 22 22:00:07 2026 So how
+could it go?
+
+ - hn sees the phaserbolt is
+   complete and its payload is
+   valid and its seqno is not
+   last seqno, and thus: An
+   unhandled phaser is present.
+
+ - hn discovers it's a
+   SPIKE_PING, and knows hb is
+   supposed to handle that. and
+
+ - hn somehow knows it has not
+   yet notified hb about this
+   bolt, so hn notifies hb, and
+   returns. 
+
+ - on subsequent updates, hn
+   somehow knows it is blocked
+   waiting for a reply from hn,
+   so it exits early
+
+MEANWHILE
+
+ - hb/processInterHubCars sees
+   the SPIKE_PING notification
+   from hb, so it starts to
+   handle that
+
+ - it..
+
+[127:
+
+Sat Aug 22 22:43:49 2026 I
+wonder if it might be worth
+having a Task object/abstraction
+that would represent the thing
+that is getting passed around.
+It could pull together the
+various data that have been
+assembled so far and make it
+'clear and fast' to determine
+who has responsibility at any
+given moment.
+
+Versus having hn continually
+rediscover that the current
+PhaserBolt is currently dished
+off to hn, say.
+
+Anyway. That's just the sort of
+yak push that makes me blow my
+goals for the next t2sday.
+[128:
+
+Sat Aug 22 22:48:04 2026 But
+conceivably, follow me here,
+couldn't we do a mini-spike-task
+kind of thing using phaserbolt
+processing as a demo?
+
+[129:
+
+Sun Aug 23 00:05:12 2026 Like, a
+TaskManager that hands out task
+numbers, and answers queries
+like "What is the most urgent
+task assigned to me, if any?"
+
+And we'd have hn and hb be
+potential 'me's, for starters,
+and perhaps TaskManager could
+maintain some crbs under the
+hood to pass around task
+numbers, so that question would
+be answered by is isEmpty() on
+the 'me'th crb in the TM.
+
+And each Task# would correspond
+to some Task object that TM
+would have a little array for.
+
+And this 'release an IHPPing
+task' would be an example task
+object.
+
+Can my CRBs give me a copy of
+the head element without popping
+it? [130:
+
+Sun Aug 23 00:14:57 2026 It
+cannot, at the moment. But it
+seems like it could..[131:
+
+Sun Aug 23 00:27:02 2026 OK now
+it has
+
+    bool peek(T& dest) {
+      if (isEmpty()) return false;
+      dest = mRingBuffer[mFirstUsedIdx & RING_BUFFER_MASK];
+      return true;
+    }
+
+    bool drop() {
+      if (isEmpty()) return false; // SHOULD FAIL INSTEAD
+      ++mFirstUsedIdx;
+      return true;
+    }
+
+FWIW. Yak pop.
+
+[132:
+
+Sun Aug 23 01:29:12 2026 OK back
+on an implementability track.
+Let's
+
+[134: Sun Aug 23 12:49:35 2026
+DONE (started) :134] - make a TaskManager.h/cpp with
+   a Task that has a number and
+   some few args.
+
+[135: spikes hb<->hn only but
+DONE :135] - give it rbs from everywhere
+   to everywhere? Start with hb
+   <-> hn
+
+[136:
+DONE :136] - RBs of task#, array of
+   taskinfo in taskmanager.
+
+[133:
+
+Sun Aug 23 12:49:22 2026 OK,
+where are we here?[137:
+
+Sun Aug 23 12:50:13 2026 So a
+current issue is: The basic
+PHASER stuff is - and must be -
+in crosslib, so we can shoot
+bolts and hit all images at once
+in the same place.
+
+But, at the moment anyway, the
+details of TaskManager are
+pretty much HUB-specific, even
+though TaskManager lives in
+crosslib along with PHASER..
+
+So what, for example, is
+ewp/stepB supposed to do with
+the taskManager? Ignore it? We
+need stepNC to route IHPs..
+wait, no we don't. IHPs only go
+hub-to-hub doh; kinda right
+there in the name..
+
+[138:
+
+Sun Aug 23 12:59:31 2026 So I
+guess there'd be a principle
+that all images should
+ignore-but-acknowledge phaser
+bolts that they don't handle?
+[139:
+
+Sun Aug 23 13:17:58 2026 And
+we'll need a per-image routing
+configuration of some kind to
+represent 'what they handle'..
+
+[140:
+
+Sun Aug 23 14:10:10 2026 So does
+that mean a CRTP-TaskManager?
+
+struct HubMgr : public TaskManager<HubMgr> {
+ ??
+}
+[141:
+
+Sun Aug 23 21:19:04 2026 OK so
+I'm trying to CRTP TaskManager,
+with the intent of having a
+per-image subclass.
+
+Current question is how to
+represent task routing
+decisions. [142:
+
+Sun Aug 23 21:58:52 2026 Well,
+what are our possible task
+action decisions?
+
+ - ROUTE: to hart (or other task
+   worker if we every have any)
+
+ - HOLD: do not route but remind
+   me about this again later
+
+ - DONE: this task is complete;
+   delete it and reclaim
+   resources
+
+That might be enough to get
+started.. And each possible task
+worker ought to be able ask the
+TM what's their current task, if
+any.
+
+And I guess we'd want to have at
+least ROUTE be able to fail (or
+turn into HOLD temporarily) if
+we get buffers full somewhere..
+[143:
+
+Mon Aug 24 01:41:12 2026 OK this
+is a big mistake, the day before
+the T2sday countdown starts, but
+I'm trying to CRTP the
+TaskManager.
+
+[144:
+
+Mon Aug 24 01:42:28 2026 So I
+guess each image defines its own
+theTaskManager and calls stuff
+on it, and the crosslib stuff is
+all template and can't refer to
+theTaskManager ever.
+
+:144]
+:143]
+:142]
+
+:141]
+:140]
+
+:139]
+:138]
+
+:137]
+
+:133]
+
+:132]
+
+:131]
+
+:130]
+
+:129]
+
+:128]
+:127]
+   
+  
+
+:126]
+:125]
+[145:
+
+Tue Aug 25 11:22:17 2026 Moving
+to ihub12 (and starting a new
+emacs, after the old emacs was
+taking multiple minutes to GC
+after I'd opened a couple of
+>5GB log files...)
+
+:145]
+[146:
+
+Wed Aug 26 00:22:14 2026 OK, so
+I guess we have finally fixed
+the grid geometry problems that
+came in with adding caches. At
+least, the coords are all
+looking plausible using the new
+write-text-on-grid functions we
+made as part of debugging this.
+
+For the record, the 'only'
+remaining oddity is that very
+occasionally - like 3 out of the
+140 regions, at the moment -
+something seems to go wrong at
+autoseed time and we get no
+atomreports ever emerging from
+those regions.
+
+Which aren't always three and
+seem to be different each time.
+
+Actually, also, we're still
+offsetting the entire display
+for the cache at the edges of
+the universe.. but I'm not 100%
+certain that they will never be
+used (though mfms never did use
+them, IIRC), so punting on that
+for now..
+
+Which means, YAK POP, we're
+heading back to phaser bolts and
+interhub? Can we claim anything
+first? 
+[150:
+
+Wed Aug 26 00:32:38 2026 Well
+claimed a few.. but since we
+were so bogus we never
+officially set out to-dos for
+the cache geometry problems, we
+don't get to claim anything for
+it now.
+
+So that, I guess, would be an
+example of a STEALTH YAK, that
+got pushed, worked on, and
+ultimately popped without any
+explicit acknowledgment of any
+of it in the work record.
+
+And, we suspect those critters -
+those STEALTH YAKS - are bad
+things. That getting to pop one
+persistently consumes more
+resource 'would have been
+needed' if the yak had been on
+the record.
+
+"ahem ahrm, well but that's a
+hypothetical, and we aren't
+going to play those kind of
+gotcha-games with you here.."
+
+:150]
+:146]
+[151:
+
+Wed Aug 26 01:12:01 2026 Well,
+this seems a bit disconcerting.
+Look at these log file sizes:
+
+  -rw-rw-r-- 1 ackley ackley  10650 Aug 26 01:10 at314.mfmk
+  drwxrwxr-x 5 ackley ackley   4096 Aug 26 01:02 ..
+  -rw-rw-r-- 1 ackley ackley    240 Aug 26 01:03 at0a9.mfmk
+  -rw-rw-r-- 1 ackley ackley    239 Aug 26 01:02 at0c7.mfmk
+  -rw-rw-r-- 1 ackley ackley    239 Aug 26 01:02 at0e5.mfmk
+  -rw-rw-r-- 1 ackley ackley    239 Aug 26 01:03 at1a5.mfmk
+  -rw-rw-r-- 1 ackley ackley    238 Aug 26 01:02 at0a3.mfmk
+  -rw-rw-r-- 1 ackley ackley    238 Aug 26 01:02 at0c3.mfmk
+  -rw-rw-r-- 1 ackley ackley    238 Aug 26 01:04 at3e9.mfmk
+  -rw-rw-r-- 1 ackley ackley    237 Aug 26 01:03 at3c5.mfmk
+  -rw-rw-r-- 1 ackley ackley    237 Aug 26 01:04 at3g7.mfmk
+
+here's the contents of at3g6: 
+
+    {142:265 1 5 129,64 ht ->} ZHD 0x5c4c60a5c7a0 HERE HALLO 83 HARIO MADE 126
+    {142:162 1 5 75,65 ht ->} 0x5c4c60a5c7a0 ZHDHARO IN 1
+    {142:162 1 5 75,65 ht ->} 0x5c4c60a5c7a0 ZHDHARO IN 0
+    {142:162 1 5 75,65 ht ->} 0x5c4c60a5c7a0 ZHDHARO IN 0
+
+and the others are analogous.
+And all of those nine tiles are
+no-shows in the display.
+
+Eeeeeew.
+
+Retrying 'for confirmation'.
+[152:
+
+Wed Aug 26 02:04:44 2026 OK, so
+after bringing back full
+coverage slowscanning, we can
+see these poor saps seem to be
+livelocked or something, looping
+on:
+
+    {155:36 799 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155:36 809 1 3,11 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S2 R2 fs3} 
+    {155:36 809 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155:36 819 1 3,11 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S2 R2 fs3} 
+    {155:36 819 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155:36 829 1 3,11 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S2 R2 fs3} 
+    {155:36 829 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155:36 839 1 3,11 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S2 R2 fs3} 
+    {155:36 839 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155:36 849 1 3,11 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S2 R2 fs3} 
+    {155:36 849 1 3,11 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3} 
+    {155>>>at13b[EWP]
+
+til the cows come home.
+
+So it's another unintended race
+of some kind.[153:
+
+Wed Aug 26 03:29:29 2026
+Aaaaaand so I added a bunch of
+HB logging to localize the
+behavior aaaaaaaand now the
+races are gone. Grand.
+
+Nap time.
+
+:153]
+
+:152]
+:151]
+[154:
+
+Wed Aug 26 09:19:04 2026 So,
+yes, back to phaser bolt
+handling, 'on the way' to
+interhub. Let's get down
+TODO-ing that again.
+
+[156: Wed Aug 26 09:45:28 2026
+DONE :156] - Review phaser bolt status
+   (which means we will need to)
+
+[160: Wed Aug 26 18:57:12 2026
+Let's say
+DONE :160] - Review TaskManager status
+
+[161: Wed Aug 26 18:58:44 2026
+Put in a updateHartTasks
+call-down.. say
+DONE :161] - Review TaskWorker status
+
+[164: Wed Aug 26 19:06:15 2026
+Thinking that's a bad idea;
+thinking of putting such 'tool'
+in TaskWorkers, so, saying
+DONE :164] - Review thoughts of providing
+   unified tooling (perhaps in
+   allimages/?) for use by
+   per-image TaskWorkers.
+
+[165: Wed Aug 26 19:07:10 2026
+NO, USE cross/TaskWorkers, so
+DONE :165] - Decide quickly if the
+   allimages path is worth
+   setting up now - or what the
+   alternative should be if not.
+
+[167: Wed Aug 26 19:11:24 2026 
+DONE :167] - Come claim some of this stuff
+   and lay out next steps.
+[166:
+
+Wed Aug 26 19:07:56 2026 OK so
+more steps TODO
+
+[171: Wed Aug 26 19:29:49 2026
+It's in TaskManager.tcc; let's
+say DONE  :171] - Review the code for returning
+   a phaser bolt,
+
+[172: Wed Aug 26 22:49:55 2026
+Seems like it doesn't, after
+considering TM's call-downs.. so
+DONE :172] - Determine if it depends on
+   anything important that's not
+   in cross/
+
+[173: Thinking not, so
+DONE :173] - If so, decide what to do
+   about that.
+
+[174: Moved it to
+TaskManager.tcc, so call it
+DONE :174] - Move that code to TaskWorker
+   or return here to update this
+   plan.
+
+[175: Wed Aug 26 22:51:29 2026
+DONE :175] - GOGOGO.
+
+:166]
+:154]
+[155:
+
+Wed Aug 26 09:42:23 2026
+shared/PHASER.h has
+
+ - PhaserBolt (a packet payload)
+
+ - PhaserBolt::Cmd,
+   PhaserBolt::Done, and
+   PhaserBolt::Header
+
+ - PhaserBlock, a subclass of TC
+   containing a PhaserBolt
+   payload
+
+ - And PhaserBlock is held at
+   64B by a static assert.
+
+:155]
+[157:
+
+Wed Aug 26 16:07:11 2026
+TaskManager now has a TaskCommon
+base class, and the
+non-template-dependent constants
+have been moved to TaskCommon.
+But there are no methods,
+virtual or otherwise, in
+TaskCommon. 
+
+ATM the only call-down method is
+    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
+
+where we're assuming the
+per-image class stores the
+XFerRB's and thus speaks for
+which ones are available.
+[158:
+
+Wed Aug 26 16:26:12 2026 But
+we'd really think there should
+be more than that? Let's look at
+TaskWorker and then reflect back
+here. 
+[159:
+
+Wed Aug 26 16:27:51 2026 So ATM
+we have:
+
+      namespace TaskWorker {
+        void initTaskManager(); //< one time init to be run by hart nc only
+        void updateHartTasks(); //< defined in image/../ImageTaskManager
+        u8 createTask(u8 taskType); //< "
+        Task& getTask(u8 taskNumber); //< "
+      }
+
+as the TaskWork entirety. So
+wouldn't that say we (could)
+want an updateHartTasks
+call-down in TaskManager?
+
+:159]
+:158]
+:157]
+[162:
+
+Wed Aug 26 18:59:27 2026 allimg/
+currently has
+
+  -rw-rw-r-- 1 ackley ackley 2083 Jul 29 01:54 HartTasks.h
+  -rw-rw-r-- 1 ackley ackley 1080 Aug 12 01:05 ImageConfig.h
+
+and I guess we could add
+
+TaskWorkerServices
+
+or something if we wanted to.
+But I'm wondering why not just
+put that in cross/ ? Both those
+allimg/ .h files refer to .inc
+files (ImageHartTasks.inc and
+ImageConfig.inc, respectively),
+and that's why they're in
+allimg.. Why would
+TaskWorkerServices need
+something like that?
+
+So that would argue we should
+just put our TaskWorkerServices
+- whatever they are - in
+TaskWorker.h, and let the loader
+decide which ones are needed?
+
+[163:
+
+Wed Aug 26 19:04:19 2026 Because
+there IS customization to happen
+on a per-image basis, here, but
+it's currently (and going to
+stay) happening via
+hub/HubTaskManager and
+ewp/EwpTaskManager, with no need
+- that I can see - for allimg
+participation. 
+
+:163]
+:162]
+[168:
+
+Wed Aug 26 19:12:06 2026
+Reviewing PHASER code.. 
+
+:168]
+[169:
+
+Wed Aug 26 19:16:43 2026 So it
+appears the code I was thinking
+about that tries to reply to
+host about a phaser bolt is
+currently called 'checkPhaser',
+in TaskManager.tcc:
+
+      template <class IMGTM>
+      s8 TaskManager<IMGTM>::checkPhaser() {
+
+And it seems to need updating
+because it doesn't know how to
+call down for an XFerRB.. but we
+believe we've now set up that
+API so we could just continue
+there..
+
+[170:
+
+Wed Aug 26 19:19:56 2026 We also
+have T6Phaser::handle() calls
+scattered around meant to be run
+by various harts.. which atm
+does just:
+
+  void T6Phaser::handle() {
+    while (true) {
+      PhaserBlock & pb = getPhaserBlock();
+      if (pb.payload().getCmd() != PhaserBolt::CMD_ALL_HARTS_PAUSE) break;
+      sleepCycles(100'000);
+    }
+  }
+
+
+:170]
+
+:169]
+[178:
+
+Wed Aug 26 23:00:00 2026 So
+okay. Claimed some shit. Let's
+try to get hub+nc, and then
+ewp+nc, responding to a minimal
+phaser bolt.
+
+I think we want something even
+more minimal than IHPPing, since
+that kind of ping presumes
+working interhub..[179:
+
+Wed Aug 26 23:02:39 2026 OK,
+trying to make
+
+      CMD_LOOP_BACK,            //< no data (?)
+
+to just instantly respond,
+nc->host, upon sight..
+
+Let's try it in HubTaskManager.
+What do we need TODO for that?
+
+[192: Thu Aug 27 00:59:55 2026
+DONE :192] - Review HubTaskManager and
+   recheck the current
+   call-downs from TaskManager. 
+
+[193: DONE  :193] - Implement immediately if
+   possible or return to push
+   yak
+
+[194: DONE  :194] - GOGOGO.
+ 
+:179]
+
+:178]
+[180:
+
+Wed Aug 26 23:09:35 2026 OK, atm
+HubTaskManager.cpp implements
+..[181:
+
+Wed Aug 26 23:24:27 2026 Alright
+well now I'm not sure if
+TaskManager::updateHartTasks
+wants to exist or not.
+
+We've got the whole TaskWorker
+line of free functions, whose
+job it is is to provide
+image-specific behaviors to
+crosslib code without virtual
+functions.. and it has
+crosslib-level:
+
+      namespace TaskWorker {
+    ..  void updateHartTasks();   //< defined in image/../ImageTaskManager
+
+with a hub-image level spike - 
+
+      void TaskWorker::updateHartTasks() {
+        switch (fAll.mHartNum) {
+        case HARTNUM_NC:
+          EACH(1'000'000,HBPTAG(TWuHTnc,__EACHNUM__));
+          break;
+        case HARTNUM_B:
+          EACH(1'000'000,HBPTAG(TWuHTb,__EACHNUM__));
+          break;
+        default:
+          EACH(1'000'000,HBPTAG(TWuHTdef,__EACHNUM__));
+        }
+      }
+
+backing it, atm. Do we need
+TaskManager::updateHartTasks()?
+
+[182:
+
+Wed Aug 26 23:28:35 2026 Maybe
+we should try to get case
+HARTNUM_NC, there, responding to
+CMD_LOOP_BACK, and see how that
+goes, before trying to commit to
+much more than we've got.[183:
+
+Wed Aug 26 23:30:36 2026 oookay,
+and INSTANTLY we arrive at:
+
+(1) We'd like to call
+    checkPhaser() in there
+    somewhere
+
+(2) checkPhaser is currently in
+    TaskManager.tcc, so
+    TaskWorker has to access
+    HubTaskManager to get to
+    it..
+
+(3) hub/TaskWorker can do that
+    because it's in the same
+    file as
+    HubImageTaskManager..
+
+[184:
+
+Wed Aug 26 23:41:15 2026 OK so
+we did this:
+
+  void TaskWorker::updateHartTasks() {
+    switch (fAll.mHartNum) {
+    case HARTNUM_NC:
+      EACH(1'000'000,HBPTAG(TWuHTnc,__EACHNUM__));
+      {
+        s8 ret = theTaskManager.checkPhaser();
+        LOGPTAG(checkPret,ret);
+      }
+      break;
+ ..
+
+and now we're seeing non-zero
+OnPhase reports in the TUI.
+Let's do it in EwpTaskManager
+too and see what we see.
+[185:
+
+Wed Aug 26 23:49:05 2026 OK so
+we did similar in Ewp. The
+onphase numbers are still
+jumping all over the place..
+even after I turn off autofire,
+so I'd have thought the
+processes would then be
+well-founded.
+
+So, we are setting up debugcamp
+here, I guess.
+
+WHY DOESN'T ONPHASE SETTLE WHEN
+NO MORE BOLTS ARE FIRED?[191:
+CUZ IT HADABUG  :191]
+
+TODO
+
+[188: Thu Aug 27 00:58:42 2026
+Only in the sense of lastSeqNo,
+but for the moment we're saying
+that's enough, so -
+DONE :188] - Review checkPhaser. Does it
+   try to resolve the bolt, so
+   it won't responds to it
+   again?
+
+[189: DONE  :189] - Instrument as needed to
+   believe checkPhaser is doing
+   something plausible.
+
+[190: DOING  :190] - Report back.
+
+:185]
+:184]
+
+:183]
+
+:182]
+
+:181]
+
+:180]
+[186:
+
+Thu Aug 27 00:36:35 2026 OK so
+here's the current status:
+
+ - We. Are Cloaked. no wait
+
+ - We are back to 140s onphase,
+   so that's great.
+
+ - after
+   TaskManager::checkPhaser
+   successfully returns fire, it
+   keeps doing a bunch of work
+   just to detect that the
+   contents of PHASER is
+   (1) complete
+   (2) valid
+   (3) but has the same seqno as
+       lastseqno
+
+ - Do we care about doing that
+   much work as phaser response
+   speeds? Maybe not.[187:
+
+Thu Aug 27 00:58:07 2026 OK,
+just depressed the logging until
+a seqno change ;)
+
+:187]
+
+:186]
+[195:
+
+Thu Aug 27 01:00:31 2026 OK, so
+I guess we're now back to
+IHPPing? To implement that, what
+is there TODO?
+
+[200: Thu Aug 27 01:49:28 2026
+DONE :200] - Review IHPPing status
+
+[202: Thu Aug 27 02:13:22 2026
+DONE :202] - Report back on its current
+   frontier
+
+[220: Thu Aug 27 16:54:48 2026
+DONE :220] - Make an on-demand TUI ping
+   button (since we redid the
+   checkbox for loop back)
+
+[221: Thu Aug 27 16:55:00 2026
+DONE :221] - See checkPhaser receive an
+   IHPPing
+
+[222: Thu Aug 27 16:55:10 2026
+DONE :222] - Get Ewp (or non-hub) to ack
+   the IHPPing even though hub
+   won't, and see that.
+
+ - Come make more to-do.
+
+:195]
+[196:
+
+Thu Aug 27 01:10:31 2026 status:
+
+ - IHPPing is a subclass of
+   IHPBase, declared in
+   shared/PT_InterHub.h
+
+ - It has a HopReport substruct,
+   that appears to be 7B long?,
+   and it claims to support up
+   to 255 HopReports?
+
+ - There's still lots of missing
+   code in PT_InterHub - we're
+   won't be just debugging here. 
+
+ - Nobody outside is yet calling
+   anything in PT_InterHub, as
+   far as I can see? [197: Thu
+   Aug 27 01:20:09 2026 Well,
+   maybe hub/EP_InterHub is a
+   little..   :197]
+
+:196]
+[198:
+
+Thu Aug 27 01:36:21 2026 So
+here's the shape of data at the
+moment:
+
+    {23:5 0 0 2,3 hn IHPT:PING(1)} 
+    {23:6 0 0 2,3 hn sizeof(IHPPing):1786} 
+    {23:7 0 0 2,3 hn sizeof(IHPPing::HopReport):7} 
+    {23:8 0 0 2,3 hn sizeof(IHPAtoms):4084}
+    {23:9 0 0 2,3 hn sizeof(InterHubPayload):4096} 
+    {23:10 0 0 2,3 hn sizeof(InterHubBlock):4160}
+    {23:11 0 0 2,3 hn sizeof(InterHubStorage):20800} 
+
+(* 7 255) -> 1785 + 1B length: IPPing
+
+[199:
+
+Thu Aug 27 01:49:18 2026 So okay
+that's enough IHPPing review.
+Let's make a Ping button; that's
+brainless. [201:
+
+Thu Aug 27 02:10:25 2026 OK
+never quite as brainless as one
+hopes (had to remember the
+existence of and then go fuck
+with styles.css) but now we have
+a ping button. At the moment all
+it does it turn off loopback
+autofire, but that's enough to
+see the button is working..
+[203:
+
+Thu Aug 27 02:13:34 2026 So,
+starting to run out of gas,
+here, but to push on a bit more:
+How do we send an 'actual' ping
+again, from python?[204:
+
+Thu Aug 27 02:14:30 2026 Oh
+yeah, shootPHASER(..)
+
+So we want, like:
+
+  cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
+  args = (+1,-1)
+  self.quietbox.shootPHASER(cmd,args)
+
+and then checkPhaser should see it.
+[205:
+
+Thu Aug 27 02:19:51 2026 And it
+should be logging something if
+it does see it, so going again
+with just python changes..[206:
+
+Thu Aug 27 02:21:34 2026 OK I
+tried clicking the ping button,
+and:
+
+(1) autofire did turn off, and
+(2) the onphase numbers went
+    crazy and continue to go
+    crazy..
+
+I wonder what if I turn autofire
+back on. Will that tame the
+phases? [207:
+
+Thu Aug 27 02:23:00 2026 It
+didn't.. But they seem to be
+going crazy a little slower,
+maybe..[208:
+
+Thu Aug 27 02:24:10 2026 Well I
+think that's just the host side
+onphase countdown timing out
+after trying for 140 onphase and
+failing..
+
+:208] 
+
+:207]
+
+:206]
+
+:205]
+:204]
+
+:203]
+:201]
+
+:199]
+:198]
+[209:
+
+Thu Aug 27 02:25:31 2026 OK so
+looking through the logs:
+
+ - the spike code creates a task
+   that (it appears) nobody ever
+   deletes?
+
+ - That code path ends with
+
+            n2brb.add(tn);
+            LOGPTAG(TKMG_2UHB,tn);
+
+   and then flows into the
+   return fire code that works
+   for loop back?
+
+[210:
+
+Thu Aug 27 02:30:47 2026 Looks
+like first issue might be that
+EwpTaskManager hadn't
+implemented the task-related
+TaskWorker callbacks - 
+
+      u8 TaskWorker::createTask(u8 taskType) {
+        u8 taskNumber = theTaskManager.createTask(taskType);
+        HBPX(taskNumber);
+        return taskNumber;
+      }
+
+      Task& TaskWorker::getTask(u8 taskNumber) {
+        return theTaskManager.getTask(taskNumber);
+      }
+
+      bool TaskWorker::deleteTask(u8 taskNumber) {
+        return theTaskManager.deleteTask(taskNumber);
+      }
+
+going again. (Also changed the
+checkPhaser code to try to clean
+up the tasks, just for a spike,
+instead of leaking them.)[211:
+
+Thu Aug 27 02:33:30 2026 So what
+the fuck was getting called in
+the EWP image when checkPhaser
+called createTask?[212:
+
+Thu Aug 27 02:39:22 2026 Who
+knows.. But now diagonalizing on
+the SPIKE PING checkPhaser code
+to narrow down where it loses
+the ability to respond onphase..
+[213:
+
+Thu Aug 27 02:46:31 2026 OK, now
+great-great super great! - we've
+got BH#2's onphase going crazy
+while 0, 1, and 3 are solid
+140s.. [214:
+
+Thu Aug 27 02:54:40 2026 OK it's
+double super extra large triple
+great double great, actually:
+BH#2 onphase is going crazy
+because one of its cells failed
+to boot, due to - we strongly
+suspect - the return of the
+race. This is at2eb.mfmk in its
+entirety: 
+
+    {142:267 1 5 140,138 ht ->} ZHD 0x598bba0d0970 HERE HALLO 137 HARIO MADE 104
+    {142:164 1 5 60,139 ht ->} 0x598bba0d0970 ZHDHARO IN 1
+    {142:164 1 5 60,139 ht ->} 0x598bba0d0970 ZHDHARO IN 0
+    {142:164 1 5 60,139 ht ->} 0x598bba0d0970 ZHDHARO IN 0
+
+[215:
+
+Thu Aug 27 02:57:22 2026 aand
+yup, here's the slowscan stuff
+that eventually came in:
+
+    {184:51 0 2 14,11 hn PREFAIL:EwpBlock} 
+    {184:52 0 2 14,11 hn PREFAILsize:16} 
+    {184:53 0 2 14,11 hn PREFAILnext:4}
+    {184:55 0 2 14,11 hn HBANG!:IC_HUB}
+    {184:55 0 2 14,11 hn =3} 
+    {184:55 0 2 14,11 hn =2} 
+
+and
+
+    CodeManager.cpp:701: 642.950 at2eb[HUB] NOFID {89:187 1 2 14,11 hn t6hang 0x0002a4}
+    CodeManager.cpp:710: 642.950 <<at2eb>> 2 14,11 [HUB] SLOWSCAN PC SAMPLING COMPLETE
+    CodeManager.cpp:728: 642.950 at2eb[HUB] STUCK? {184:55 1 2 14,11 hn DESCRIBED_FAILURE}
+
+OK. That proves it's nap
+  time.[216:
+
+Thu Aug 27 09:51:28 2026 I
+wonder if we could preconfigure
+the PHASER block - in the
+T6Image, before deployment -
+with an initial phaser bolt
+meant to hold the T6 just at the
+end of initialization?[217:
+
+Thu Aug 27 15:55:19 2026 OK so
+it looks like we have
+
+      CMD_HOLD_AT_BIRTH,        //< no data
+
+kind of working, and we need to
+fire another phaser bolt when
+it's time for the whole grid to
+go nuts.[218:
+
+Thu Aug 27 16:45:21 2026 OK,
+well, finding the right place to
+'release the puppies' in the
+python textual app boot sequence
+took awhile (ended up scheduling
+a one-shot timer to do it), but
+now -- wow! -- the tiles are
+coming up more closely in time,
+and (so far) without race hangs.
+
+So that's kind of a testament to
+the bittersweet effectiveness of
+our 'new new new' LAGS (Locally
+Asynchronous, Globally
+Synchronous) computing
+architecture.
+
+TOP-DOWN EVIL
+PURE AND SIMPLE
+FROM THE 8TH
+DIMENSION
+
+[219:
+
+Thu Aug 27 16:52:55 2026 and
+yet, of course, also:
+
+POP THE YAK
+IT'S FUN TO DO
+POP THE YAK
+THE TIME JUST FLEW
+
+POP!
+POP!
+POP THAT YAK!
+
+GET DOWN THAT ROAD
+AND DON'T COME BACK
+
+[223:
+
+Thu Aug 27 16:56:09 2026 OK,
+claimed a few things.
+
+And now, once again, of course,
+with the cool inevitability of
+night falling under a new moon
+we are back at IHPPing.
+
+[224:
+
+Thu Aug 27 17:14:24 2026 Let's
+try for some steps TODO here
+before having a bit of an
+evening..
+
+[233: Thu Aug 27 23:20:24 2026
+Well, briefly but perhaps
+sufficiently DONE  :233] - Review IHPPing code status
+
+ - Review what steps we imagine
+   the IHPPing packet is
+   supposed to take
+
+ - Implement something to log
+   the hops of a a given IHPPing
+   packet.
+
+ - Create 'deploy' and 'consume'
+   pseudohops for a packet.
+
+ - See that produce a log with
+   only deploy and consume
+   entries (perhaps change dest
+   to (0,0) for visibility.)
+
+ - Clap hands once
+
+ - Plan a spike to get the
+   IHPPing packet to move one IH
+   hop, get logged there, and
+   get consumed there.
+
+ - Implement that. Maybe have
+   just one T6 (per BH) respond
+   at first, so's to avoid
+   overlapping pings?
+
+ - See that run. 
+
+ - Clap hands twice and smile
+
+ - Plan a spike to get the
+   IHPPing packet forwarded to
+   its final (NE corner)
+   destination, adding
+   appropriate hops as it goes.
+
+ - Implement that.
+
+ - See that run.
+
+ - Clap hands thrice and say YES
+
+ - Reimplement to return to the
+   source after reaching the
+   dest, adding appropriate
+   hops.
+
+ - Consume and log it at the
+   source.
+
+ - See the round-trip hops in
+   the log file
+
+ - Stand up, jump up and down at
+   least twice, then leave the
+   keyboard and take a break.
+   smiling and feeling good.
+
+ - Come make more to-do
+
+:224]
+
+:223]
+:219]
+:218]
+
+:217]
+
+:216]
+
+:215]
+:214]
+
+:213]
+:212]
+
+:211]
+
+:210]
+
+
+:209]
+[225:
+
+Thu Aug 27 19:33:30 2026 OK
+let's get some checks.
+
+ - IHPPing is in shared/InterHub
+
+We imagine:
+
+ - IHPPing is to be created by
+   TaskManager<>::checkPhaser on
+   pay.getCmd() SPIKE_PING on
+   HUB
+
+ - Creation begins with making a
+   Task to get passed to HB.
+   Something like:
+
+            u8 tn = TaskWorker::createTask(Task::TTYPE_IHPPING);
+            t.mBArg1 = (u8) dest.x;
+            t.mBArg2 = (u8) dest.y;
+
+   But we have to get the NC->HB
+   XRB and ensure it's not full,
+   first.
+
+   Then we do n2brb.add(tn);
+   and the task is on its way.
+
+ - And then we respond to the
+   phaserbolt immediately?
+   That's what the current code
+   will do.. Well, suppose we
+   do.
+
+ - How does HB become aware
+   there's a task waiting for
+   it? Is that a TaskWorker
+   thing? [226:
+
+Thu Aug 27 19:44:46 2026 Could
+we do it on
+TaskWorker::updateHartTasks?
+That sounds vaguely plausible at
+least.
+
+But it does seem like we'd want
+a way to check all
+inbound-t0-say-hb tasks at once?
+I suppose for now we could make
+it explicit
+
+ if (hasTasksFrom(HB,HN)) { .. }
+
+and what, generically, will HB
+do if it has a task from
+HN?[227:
+
+Thu Aug 27 19:49:27 2026 Well,
+but it doesn't have to be
+generic, right? We're already
+inside either EwpTaskManager or
+HubTaskManager when we start
+dealing with
+TaskWorker::updateHartTasks..
+
+So, in the case of
+HubTaskManager, if we see a
+HN->HB task and we're HB, we go
+to some specific function that
+does something like:
+
+ {
+    Task * taskp = theHubTaskManager.getCurrentTaskPtrIfAny(NC);
+     if (taskp != nullptr) {
+       Task & mytask = *taskp;
+       if (mytask.mTaskType == Task::TTYPE_IHPPING) {
+         ..handleit..
+       }
+    }
+  ..stuf..
+ }
+
+[228:
+
+Thu Aug 27 19:58:41 2026 But
+we have to be able to stall on
+handling a task, if we can't
+currently do it. And it's not
+clear how that happens in the
+current RB formulation.
+
+But, nap time.
+[229:
+
+Thu Aug 27 22:54:29 2026 OK, had
+a nap. So at the moment,
+TaskManager::checkPhaser is in
+TaskManager.tcc and is (thus)
+shared by everybody who calls
+it.
+
+And ATM it has the beginnings of
+a response to a SPIKE_PING
+phaser bolt. But that would mean
+all callers would respond to a
+SPIKE_PING; but we don't want
+that. Could we want another
+call-down like perhaps
+
+ s8 phaserHit(PhaserBlock & pb) ;
+
+that's given a complete and
+valid - but not necessarily new?
+- PhaserBlock, and it returns
+
+  > 0 : 
+  = 0 : answer hazy try again later
+  < 0 :
+
+[230:
+
+Thu Aug 27 23:09:53 2026 Well,
+maybe returns nothing.. Don't
+fucking get ahead of myself
+here, me!
+
+But the point is to have a place
+for different images to respond
+differently to phaser bolts.
+
+And it raises the question of
+why are we thinking just of
+phasers here in Task land?
+
+[231:
+
+Thu Aug 27 23:12:21 2026 I'm
+wondering if we could drive
+around tasks for the next four
+days and just hack phaser bolts
+and IHPPing stuff.
+
+What if we renamed
+
+  s8 TaskManager<IMGTM>::checkPhaser() {
+
+to like
+
+  s8 TaskManager<IMGTM>::defaultPhaserResponse() {
+
+or something.. but no it's not a
+response, it's a checking for
+and then respond..
+
+So I think my original allimg
+notion was to provide default
+tools and stuff that per-image
+code could call rather than
+rewrite.. So what happened to
+that? [232:
+
+Thu Aug 27 23:17:08 2026 I note
+that at the moment, checkPhaser
+has nothing in it that
+explicitly depends on
+TaskManager.. because the stuff
+that was going to depend on it
+is currently diked out.
+
+Now I'm thinking if I'm really
+serious about IHPPing we should
+go for that first on some
+non-TaskManager spike, and then
+deal with potential
+superstructure after we have
+some substructure to build on.
+
+[234:
+
+Thu Aug 27 23:23:52 2026 Well
+so, look: hub LiveB already has
+
+  bool processInterHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+
+and that's pretty fucking
+obviously a place where IH
+routing should be taking place.
+So if we push the whole 'how
+does a routable packet get
+created' issue for now, we could
+look at 'how does a routable
+packet get routed' instead, and
+have substantial existing code
+to fit into.[235:
+
+Thu Aug 27 23:27:15 2026 I'm
+thinking processIHCs should:
+
+ - delay calling
+   TaskWorker::updateHartTasks(); //< FOR HART B 
+   until after considering its
+   own stuff.
+
+ - start using
+   crbi.peek(carindex) instead
+   of .remove, so we..
+
+[236:
+
+Thu Aug 27 23:29:32 2026 Well
+now I'm thinking what if we hack
+even harder: What if we ditch
+routable IHPs for this t2sup and
+focus on the doing events in the
+caches on a 'phased' basis - and
+then like USE THE FUCKING HOST
+or something to copy the cache
+atoms to their destinations?
+
+For example, 'how hard would it
+be' to keep the atoms from all
+the atom reports, in addition to
+scribbling their colors on the
+host-side image? Then if we let
+the atom reports drain, we could
+ship the cache contents back to
+their official owners during an
+'interleader' phase..
+
+Let's
+
+[237: Fri Aug 28 00:29:36 2026
+OK, did that, also had a snack,
+DONE  :237] - Save the atoms. That should
+   be instantly doable.
+
+[238: OK let's say sure,
+DONE :238] - Be thinking about phases for
+   selecting regional leaders
+   and stuff.
+
+[239: We don't have proof
+exactly but I'm pretty confident
+DONE :239] - Come back here when
+the atoms are saved.
+[240:
+
+Fri Aug 28 00:30:57 2026 So.
+Another step would be seeing if
+we can turn on and off event
+processing reasonably cleanly.
+How might we do that? Just have
+a flag that stops hub from
+issuing EWPs? Could we try to
+not respond to the packet until
+all the cows have come home?
+
+Let's take a look at that..[241:
+
+Fri Aug 28 00:41:56 2026 So,
+GridManager::applyEWT both
+applies a returned EWP and ships
+it back out.[242:
+
+Fri Aug 28 00:43:05 2026 It
+would be a complete waste of
+bandwidth, but I observe that it
+would be trivial to have
+applyEWT just ship empty EWPs
+rather than even trying to find
+a random non-empty center.. and
+thus no events would actually
+happen. Doh.
+
+How would we tell applyEWT if we
+wanted to do that? And how could
+or would it be able to tell us
+when all non-empties had been
+handled?
+
+ - A little counter somewhere?
+
+ - If it's zero it means
+   business as usual.
+
+ - If it's non-empty it means
+   just ship empties and
+   increment the counter up to a
+   max.
+
+ - Once the counter is maxed we
+   assume all EWPs are in?
+
+[243:
+
+Fri Aug 28 00:49:03 2026 Counter
+can't be in GridManager since
+GridManager lives in fB. But we
+could certainly do a fucking u8
+in L1 if we were ready to manage
+the concurrency crap.
+
+Again though: How do we know
+when all non-empty EWPs are in?
+
+processHubCars gets a ngbidx
+which says where to look now. If
+we got > C consecutive empties
+from each 'active' neighbor,
+for C EWP slots each, does that
+prove that neighbor is drained?
+
+It does, doesn't it?
+
+[244:
+
+Fri Aug 28 01:18:21 2026 Buuut,
+GridManager::applyEWT doesn't
+know what ngbidx a given EWT
+came from.. so it can't be
+deciding whether all ngbs are
+drained. We could pass the
+ngbidx.. do we want to?
+
+[245:
+
+Fri Aug 28 09:18:14 2026 After
+Lu Aug chat. [246:
+
+Fri Aug 28 09:18:59 2026 So I
+had the thought in bed that
+maybe event processing control
+happens in two places:
+(1) Releasing new EWPs vs just
+    sending empties, and
+(2) Checking when the DL2D list
+    is empty while shipping ACB
+    packets.
+
+And the fancy idea would be to
+delay responding to the suspend
+event processing phaser bolt
+until after the 'last' ACB had
+shipped.[247:
+
+Fri Aug 28 09:34:35 2026 OK,
+trying to make
+
+      CMD_EWPS_ACTIVE,          //< boltword[0] :: bool
+
+to let business proceed as usual
+except no new non-empty EWPs
+will be issued, and we won't
+respond until
+
+(1) sufficient empties have been
+    sent to and received from
+    each active EWP minion, and
+
+(2) the DL2D list is empty, and
+
+(3) a last-for-now, possibly
+    partial, ACB has been sent.
+    (This would've been a good
+    use for being able to end
+    and restart a compression
+    stream..)
+
+[248:
+
+Fri Aug 28 09:52:23 2026 So just
+thoughts on implementability.
+
+
+
+:248]
+
+:247]
+
+:246]
+
+:245]
+
+:244]
+
+:243]
+
+
+
+:242]
+
+:241]
+
+:240]
+:236]
+
+:235]
+
+:234]
+:232]
+
+:231]
+
+:230]
+
+:229]
+:228]
+
+:227]
+
+:226]
+   
+
+:225]
+[249:
+
+Fri Aug 28 14:38:23 2026 So, we
+made a start with
+
+  struct L1GridManagerControl {
+    bool mEventProcessingSuspendRequest; //< set by outside
+    bool mEventProcessingSuspendStatus;  //< set by GridManager
+    void init() { memset_s(this,0,sizeof(*this)); }
+  };
+
+and now we're wondering if we
+can condition on both arms of
+that: Like applyEWT checks the
+suspectRequest to see if it
+should try to issue real EWPs..
+
+Then the DL2D or ACB stuff will
+SET suspendStatus when the queue
+is drained, and then HN will
+condition on THAT to return the
+phase bolt when it sees it?
+
+Maybeee.[250:
+
+Fri Aug 28 14:59:35 2026 OK, so
+how is this 'counting enough
+empties' thing supposed to work?
+[251:
+
+Fri Aug 28 15:07:11 2026 Maybe
+reset a ngbidx counter to zero
+every time we see a real EWP,
+and increment it up to a max
+each time we see an empty.
+
+Or: turn it around? Set a ngbidx
+counter to a max each time we
+see a real EWP, and decrement it
+toward zero each time we see an
+empty. So that way a missing
+minion (on an incomplete cell,
+if we end up having such things)
+will default to 'ready to
+suspend', while minions that
+really do things will require a
+stream of empties before they're
+ready.
+
+We note, however, that this
+mechanism will be unreliable in
+sparsely populated tiles: I
+don't see why we might not send
+a bunch of empties just because
+we kept missing the few atoms
+that were there, and whenever we
+decide the empty stream is long
+enough, we might have just sent
+out a non-empty EWP microseconds
+ago..
+
+Well now wait a minute again,
+though: We don't have to apply
+EWPs if we don't want to, right?
+Why do we even need to count
+empties at all? Why don't we
+just
+
+(1) Stop sending out new EWPs,
+    while simultaneously
+
+(2) Stop applying any EWPs that
+    come back, and just waste
+    those transitions instead?
+
+(3) Then we only have to wait
+    for the DL2D list to drain
+    before responding?
+
+That seems a lot easier no?[252:
+
+Fri Aug 28 15:32:49 2026 OK made
+a start at that. Where do we
+pull from the DL2D list, again?
+
+[253:
+
+Fri Aug 28 16:48:31 2026 Well,
+put in first-cut code for all
+that. ATM have no way to trigger
+it or see it working,
+though..[254:
+
+Fri Aug 28 22:15:20 2026 So if
+we were going to add a button to
+try this shit out, what would
+the button do now? Just a
+checkbox of event processing?
+Maybe. 
+
+:254]
+
+:253]
+
+:252]
+
+:251]
+
+:250]
+
+:249]
+[255:
+
+Fri Aug 28 23:16:40 2026 OK, so
+we're in HubTaskManager
+
+    s8 maybeHandleBolt(PhaserBolt & bolt, u8 lastSeqNo) {
+
+and we've got a CMD_EWPS_ACTIVE
+and we know whether it's true or
+false for requestEwpsActive.
+What do we do with that info?
+
+Given
+L1GridManagerControl & lgmc = ..
+[258:
+
+Sat Aug 29 00:02:40 2026 Go
+again:
+
+ if reqSusEwps and !lgmc.isEPSuspReq()
+    lgmc.setEPSuspReq(true)
+ else if !reqSusEwps and lgmc.isEPSuspReq()
+.. well, is it just like
+
+ if reqSusEwps != lgmc.isEPSuspReq()
+   lgmc.setEPSuspReq(reqSusEwps)
+ else LOG(WTF)
+
+or at least isn't that the place
+to start?
+
+:258]
+
+ if requestEwpsActive and !lgmc.isEPSuspReq()
+   return 1; ? aka ignore
+
+[256:
+
+Fri Aug 28 23:57:27 2026 Do I
+want to reverse the cmd to like
+CMD_SUSPEND_EWPS before it gets
+too dug in?[257:
+
+Sat Aug 29 00:00:23 2026 Well,
+did that. We'll see: Still
+inverting at the edge so TUI
+still says "events" not "suspend
+events" or whatever.
+
+:257]
+
+:256]
+:255]
+[259:
+
+Sat Aug 29 09:48:22 2026 So,
+okay, it appears like
+
+(1) We can turn event processing
+    on and off from the TUI, and
+
+(2) It takes a LOOONG TIIIME for
+    the DL2D to drain,
+    especially in FB4 tiles.
+
+(3) (And, therefore, FWIW, the
+    ongoing FB4 displays we see
+    when events are running is
+    WERRRRY DIFFWENT than the
+    still image seen after
+    events drain.)
+[260:
+
+Sat Aug 29 09:52:36 2026 So, I
+think, as a tremendous
+disgusting hack, we could try
+going ahead with the "host
+centralized cache updating" idea
+to see if we could actually get
+an interhub spike running in the
+next 72 hours.
+
+[261: Sat Aug 29 09:53:53 2026
+(Actually, let's set up the
+t2sup dirs and check the exact
+wording of our goals for this
+month..[262:
+
+Sat Aug 29 09:57:31 2026 OK here
+they are. We haven't done very
+well (yet):
+
+    GOALS:
++-  DEBRIS CLEAN UP
+?   INTERHUB SPIKE(S) RUNNING
+x   AIM TO BENCHMARK AERHD!
+x   EXPOSE LIVESTREAM TO NET?
+v/  FUN FUN FUNGO FUN
+
+:262]) :261]
+
+:260]
+:259]
+[263:
+
+Sat Aug 29 09:59:14 2026 So,
+again, come on, TODO:
+
+ - Review host side T6 reading -
+   like reading the host block
+   and/or the T6 stack.
+
+ - Review the T6Grid layout.
+
+ - Imagine what reading the
+   caches (which involves
+   slicing 2D arrays in various
+   ways) from one T6 and writing
+   them to another could look
+   like.
+
+ - Think about whether it would
+   be worth R/W-ing whole tiles
+   to avoid that slicing.
+
+ - Decide how to proceed for the
+   next few hours, and report
+   back here.
+
+ - GOGOGOGOGO
+
+:263]
+[264:
+
+Sat Aug 29 10:03:33 2026 OK,
+looking at
+
+  u32 OurTLBs::readHartStackAfterFail(U8C fromNoC0, u8 hartnum, StackBlock & sb, u32 atfailsp, u32 * optBaseAddrPtr) {
+
+I see:
+
+ - It's reading one word at a
+   time,
+
+ - using debugReadWords, which
+
+ - uses configureDebugNoCOnly to
+   select the T6, which
+
+ - actually does an ioctl and an
+   mmap on each call? woah.
+
+ - So I'd think we'd want to
+   call configureDebugNoCOnly
+   once for all the reading or
+   writing from/to a given tile.
+
+ - Perhaps we could make
+   function(s) that take
+   = a host-side T6Grid as a
+     buffer, and
+   = a T6 NoC0 address, and
+   = a host-side rectangle on
+     that buffer, and
+   = a T6-side rectangle on the
+     remote T6, and it
+   = configures the debug tlb, and
+   = copies between the host and
+     the T6 rectangles as requested
+
+I guess actually a single
+rectangle plus just a starting
+coord for the other side would
+enforce the same-size-rectangles
+constraint.
+
+Something like:
+
+  OurTLBs::copyCacheT6ToHost(U8C fromnoc0, U16CRange rect, U16C offset)
+  OurTLBs::copyCacheHostToT6(U8C fromnoc0, U16CRange rect, U16C offset)
+
+with OurTLBs holding the T6Grid
+buffer (or using the whole grid
+atom buffer we just
+introduced?)[265:
+
+Sat Aug 29 11:01:58 2026 Well
+let's take a crack at using the
+whole grid. The scheme would be:
+
+(0) Suspend event processing
+
+(1) Wait a "long time" for
+    events to drain, because we
+    haven't implemented the
+    delay-til-drained phaser
+    reply that we wanted to.
+
+(2) Choose at random in
+    (0..1,0..1) to pick the
+    leader of each 2x2 supercell
+
+(3) Shoot that out to the fleet.
+    Each supercell hub
+    determines whether it is
+    leader, which tells it
+    whether it will shrink or
+    expand its event region.
+
+(4) Using the existing contents
+    of the full grid (which are
+    supposedly now up-to-date
+    globally), write to the
+    caches of each supercell
+    leader. We'd like it if we
+    could do that in parallel
+    across the BHs, which means
+    we want to tell a per-BH
+    thread to do the writing, I
+    guess.
+
+(5) After the writing is done to
+    all supercell leader caches,
+    resume event processing.
+    Leaders place event centers
+    no less than 4 (EW radius)
+    away from their cache
+    boundaries; followers place
+    event centers at least 4 (EW
+    radius) + 10 (cache width)
+    away from their local grid
+    boundaries.
+
+(6) Wait a loooong time for some
+    stuff to happen.
+
+(7) Suspend event processing and
+    wait AGAIN.
+
+(8) Using the existing contents
+    of the full grid (which are
+    now again supposedly up to
+    date, including the cache
+    regions the supercell
+    leaders were doing events
+    on), write the relevant
+    caches back to all the
+    follower hubs.
+
+(9) Go to (2) until the cows
+    come home.
+[271:
+
+Sun Aug 30 01:19:33 2026 OK
+trying a cut at that code.
+Realizing that current approach
+does not sync leader choices
+between cards, so it will not
+generalize to the full-grid LAGS
+architecture. Leaving that as is
+for now until we get some
+experience. [272:
+
+Sun Aug 30 01:22:37 2026 bbuuut
+in fact the current approach is
+fucked because it's using the
+quietbox shootPHASER when it
+needs to be using the BH
+version, and indeed the whole
+thread needs to be clearly
+per-BH. And should probably be
+IN BH instead of QB.
+
+But wait no.. the Whole Point
+was that this IS global
+grid-level stuff. It all DOES
+want to be QB level. And the
+read/write cache stuff, for
+example, wants to iterate over
+the cards, just like the QB
+shootPHASER does. Right? That
+was the fucking idea here right?
+
+BUTT KNOW: where would the
+parallelism across BHs come from
+if we iterate over them? We need
+to signal other threads to do
+these operations.
+
+OR FUCK THAT? point is to get
+interhub anything working here
+for the first time.
+
+Let's review the threads of QB
+and BH at least.[273:
+
+Sun Aug 30 02:02:40 2026 So, BH
+has the 'transport thread',
+which handles inbound log and
+atom cache blocks - and also
+counts onphase tiles. It just
+does that over and over til the
+cows come home. We should
+probably shuffle the order of
+the tlbis its scans but,
+whatever, for now.
+
+But something closer to the
+point: Handling ACBs means
+writing to the global grid,
+which could ahem 'interact' with
+stuff this quietbox ihhack
+thread is trying to do, right?
+
+[274:
+
+Sun Aug 30 02:08:30 2026 For
+example, are we even allowed to
+be doing multiple pcie
+transactions simultaneously from
+different threads? Oy let's see
+what AI says doh..[275:
+
+Sun Aug 30 02:49:38 2026 Well,
+the AI claims I'm mostly okay.
+We're already set up with a 2MB
+TLB for each T6 tile, so we
+never have to reconfigure those
+TLBs and so, supposedly, we can
+do at least multiple
+simultaneous writes through
+though those TLBs as long as we
+target different addresses.
+
+There's an issue about not read
+from TLBs that have
+write-combining set, which
+absolutely might be waiting to
+chew on my butt here; we shall
+see. [276:
+
+Sun Aug 30 02:53:46 2026 Looks
+like we have
+
+  void * OurTLBs::configureL1Window(u32 tlbi, U16CRange range) {
+    return configureWindow(tlbi, range, 0u, true);
+  }
+
+with
+
+  void * OurTLBs::configureWindow(u32 tlbi, U16CRange range, u32 address, bool wc) {
+    ASSERT(range.area() > 0);
+ ..
+     u64 offset = wc ?
+      mTLBInfos[tlbi].mAllocOut.mmap_offset_wc :
+      mTLBInfos[tlbi].mAllocOut.mmap_offset_uc;
+ ..
+
+
+
+:276]
+
+:275]
+
+:274]
+
+:273]
+
+:272]
+
+:271]
+:265]
+
+:264]
+[266:
+
+Sat Aug 29 14:41:42 2026 So, do
+we have per-blackhole threads
+already in use?[267:
+
+Sat Aug 29 15:09:04 2026 So,
+yes, we have
+Blackhole::mTransportThreadPtr
+which is running an open-ended
+loop that ends up doing:
+
+        this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
+
+which runs a loop over tlbis
+that does:
+
+          updateLogBlocks(tlbi);
+          updateACacheBlocks(tlbi);
+          if (includeEWs) updateEWCars(tlbi);
+
+and also counts how many t6s are
+onphase.
+
+So does that information help us
+in some way?
+
+It seems more like we'd like a
+single thread at the QuietBox
+level, that would run the loop
+sketched in :265: above.[268:
+
+Sat Aug 29 15:16:23 2026
+QuietBox does not appear to have
+a thread. Let's try to make
+one.[269:
+
+Sat Aug 29 16:05:35 2026 OK, we
+apparently have
+QuietBox::InterHubHackThread AKA
+QB::IHHThread now running, but
+doing nothing otherwise. I guess
+we want to do the :265: loop?
+[270:
+
+Sat Aug 29 16:07:50 2026 Well
+I'm going to want the ability to
+turn IHH on and off so maybe it
+would be good to get that
+plumbed-in early..
+
+:270]
+:269]
+
+:268]
+
+:267]
+
+:266]
+[277:
+
+Sun Aug 30 03:09:17 2026 So I
+think what I need to do is
+allocate an extra TLB,
+configured as UC, one for each
+BH card, and use it solely for
+reading on the IHHack thread,
+during which I reconfigure it
+for each TLBi, and that's safe
+because nobody else is using
+that TLBi.
+
+So the writes from host grid to
+T6 cache can go via the
+established per-T6 WC TLBs,
+while the reads from T6 grids to
+host grid go by reconfigured as
+we go.
+
+So, how many more TLBs do I need
+to set up, here? One more, per
+BH, for reading by the IHHack?
+
+That might be right. Let's take
+a look.[278:
+
+Sun Aug 30 10:09:44 2026 Well, I
+don't know, here. The AI claimed
+I can read reliably from a WC
+TLB, but it appears that's what
+I've been doing all along with
+'sanity check readbacks' and the
+famous slowscan hostblock
+reading.. And that's all been
+fine as far as I can tell.
+
+So I think I'll push ahead with
+the IHHack scheme and just use
+the preconfigured TLBs for both
+reading cache after leader
+retirement and for writing cache
+before leader inauguration.[279:
+
+Sun Aug 30 10:32:52 2026 OK now
+we're hitting the currently
+unimplemented readLeaderCache.
+(Now that we have an interhubs
+button in the TUI, and I clicked
+it.)
+
+Time to fuck with coordinates
+again.[280:
+
+Sun Aug 30 10:40:09 2026 OK, so,
+how do we iterate over the
+supercells? [281:
+
+Sun Aug 30 11:07:22 2026 Iterate
+over the hubs - we collected
+them, right? - and pick the ones
+on the right stride?[282:
+
+Sun Aug 30 11:08:47 2026 Yeah,
+in CodeManager we do:
+
+    void addHub(u32 tlbi,u32 chipNum) {
+      MFM_API_ASSERT(!definedHubTLBI(tlbi),DUPLICATE_ENTRY);
+      mHubTLBIToHubValue.try_emplace(tlbi);
+      mHubTLBIToHubValue[tlbi].init(tlbi,chipNum);
+    }
+
+where HubValue is like: 
+
+    typedef u32 HubTLBI;
+    typedef u32 ChangeCount;
+    struct HubValue {
+..
+      ChangeCount mChangeCount;
+      HubTLBI mTLBI;
+      u32 mChipNum;
+      ZHostDecompressor mZHD;
+    };
+
+and I'd think we could
+precompute and add U8C
+mSuperCellCoord to HubValue and
+check that in our iteration.
+
+But, I think, nap time. (Then
+need to schedule the
+livestream!) 
+
+:282]
+
+:281]
+
+:280]
+
+:279]
+
+:278]
+
+:277]
+[283:
+
+Sun Aug 30 22:47:03 2026 OK, we
+shined up the code a little -
+did an XX macro so we can see
+the phaser cmd names now
+finally, and so python can see
+them automagically - and now
+we're running out of ways to
+avoid actually diving into the
+cache filling and moving crap.
+
+comeon comeon comeon lets
+  goooo[284:
+
+Mon Aug 31 00:43:53 2026 OK now
+we're trying to find the mapping
+between BH#+tlbi <=> global grid
+coords. We look in
+ZHostDecompressor for
+that??[285:
+
+Mon Aug 31 00:45:40 2026 Well I
+kinda think so. Pasting the
+hideous code here, despite its
+length, for the relentless if
+imaginary basilisk gaze of
+History's Judgment (TM):
+
+      if (mHARIO.canGetObj()) {
+        AtomReport ar;
+        mHARIO.getObj(ar);        // produced an ar.
+        mHARIO.discardBytes();    // get ready to go again
+        u16 spin = (u16) (mAtomReportsReceived&0xffff);
+        bool arvalid = ar.isValid(spin);
+        bool atomvalid = ar.mAtom.isValid();
+        ++mAtomReportsReceived;
+        if (arvalid && atomvalid) {
+
+..we have a valid report from
+mChipNum at hub mTLBI
+
+          BGRImageHD & bgr = QuietBox::getT6GridImage() ;
+          QuietBox& qb = QuietBox::get();
+
+          Blackhole * bhp = qb.getBlackholeIfPresent(mChipNum);
+          MFM_API_ASSERT_NONNULL(bhp);
+          Blackhole & bh = *bhp;
+          OurTLBs & tlbs = bh.getOurTLBs();
+          OurTLBs::TLBInfo & info = tlbs.getTLBInfo(mTLBI);
+          const T6Image & image = info.getDeployedImageOrDie();
+          u32 ic = image.getImageCode();
+          if (ic == ImageCode::IC_HUB) {
+
+..really should be
+  MFM_API_ASSERT(ic == ImageCode::IC_HUB,ILLEGAL_STATE); 
+but here we are..
+
+            CellBlock cb = image.copyCellBlockOrDie();
+            U8C stride = cb.mCellStride;
+
+..couldn't cache the mCellStride
+somewhere earlier?..
+          
+            U16C c = DG::getChipOrigin(mChipNum); 
+            U16C o = c + DG::getTLBIOrigin(mTLBI,stride); 
+
+..okay that stuff's important;
+actually getting closer to real
+coordinates..
+      
+            const T6GridInfo & t6i = qb.getT6GridInfoFor(DG::Coord(o.x,o.y));
+            U16C gridc(t6i.mT6GridOrigin.x + ar.mCoord.x,
+                       t6i.mT6GridOrigin.y + ar.mCoord.y);
+
+..now do we know if
+mT6GridOrigin starts at the
+'owned' sites or the NW cached
+sites?.. LeT US ChecK.
+[286:
+
+Mon Aug 31 01:03:19 2026
+Bringing forward from :51:
+above:
+
+    {23:100 132119 0 2,3 hn T6Grid::FULL_WIDTH:164}
+    {23:101 132119 0 2,3 hn T6Grid::FULL_HEIGHT:128}
+    {23:102 132119 0 2,3 hn T6Grid::SELF_ORIGIN:(13,10)}
+    {23:103 132119 0 2,3 hn T6Grid::SELF_MAX:(151,118)}
+    {23:104 132119 0 2,3 hn T6Grid::getCacheRange(D8_NT):[13,0:151,9]}
+    {23:105 132119 0 2,3 hn T6Grid::getCacheRange(D8_NT).area():1390}
+
+which might still be current
+even though it's three weeks
+old??[287:
+
+Mon Aug 31 01:16:34 2026 Oops,
+it's not. Here's a fresh one:
+
+    {27:102 64562 2 14,9 hn d8:WT8}
+    {27:103 64562 2 14,9 hn T6Grid::FULL_HEIGHT:128}
+    {27:104 64562 2 14,9 hn T6Grid::FULL_WIDTH:158}
+    {27:105 64562 2 14,9 hn T6Grid::SELF_ORIGIN:(10,10)}
+    {27:106 64562 2 14,9 hn T6Grid::SELF_MAX:(148,118)}
+    {27:107 64562 2 14,9 hn T6Grid::getCacheRange(d8):[0,10<9,117)}
+    {27:108 64562 2 14,9 hn T6Grid::getCacheRange(d8).dims():(9,107)}
+    {27:109 64562 2 14,9 hn T6Grid::getCacheRange(d8).area():963}
+
+or
+
+    {27:102 112637 2 14,9 hn d8:NT8}
+ .. {27:107 112637 2 14,9 hn T6Grid::getCacheRange(d8):[10,0<148,9)}
+    {27:108 112637 2 14,9 hn T6Grid::getCacheRange(d8).dims():(138,9)}
+    {27:109 112637 2 14,9 hn T6Grid::getCacheRange(d8).area():1242}
+
+
+But in any case the SELF_ORIGIN
+suggests that the
+FULL_HEIGHT/WIDTH includes the
+caches? Which would make some
+sense - but is that the same
+base as T6GridOrigin? [288:
+
+Mon Aug 31 01:23:46 2026 Let's
+just say it is and see what
+happens? 
+
+:288]
+
+:287]
+
+:286]
+            if (qb.mDrawGrid) {
+              U16C nocacheo = o + DG::getGlobalGridOffset() + U16C(4,4); // (4,4) to get into EW center range
+              RGBPix fg(255,255,255), bg(0,0,0);
+              std::string label = mBHTag.to_string() + "\n" +
+                o.to_string() + "\n" +
+                t6i.mT6GridOrigin.to_string();
+              bgr.drawString(nocacheo,label,fg,bg,2,2);
+            }
+
+            EACH(1'000'000,{
+                KTprintf(mBHTag,"RNDER10 #%u t%u go = (%u,%u), ar = (%u,%u)\n",
+                         mChipNum, mTLBI,
+                         t6i.mT6GridOrigin.x, t6i.mT6GridOrigin.y,
+                         ar.mCoord.x,ar.mCoord.y);
+                KTprintf(mBHTag,"RNDER11 c = (%u,%u), o = (%u,%u), gc = (%u,%u)\n",
+                         c.x,c.y,
+                         o.x,o.y,
+                         gridc.x,gridc.y);
+              });
+            
+            RGBPix color = renderPhysicsHACK(ar.mAtom);
+            bgr.setPixel(gridc,color);
+            qb.setSimAtom(gridc,ar.mAtom);
+
+[289:
+
+Mon Aug 31 01:28:31 2026 So if
+it is what we're assuming, then
+gridc has the atom we should
+push to currentLeader's cache
+site somehow..
+
+:289]
+
+          }
+        }
+
+        //        EACH(1,KTprintf(mBHTag,"#%llu (%u=%u=%u%s) HAR@(%u,%u) = 0x%04x'%04x'%08x'%08x %s%s\n",
+        EACH(100'000,KTprintf(mBHTag,"#%llu (%u=%u=%u%s) HAR@(%u,%u) %s%s\n",
+                        mAtomReportsReceived,
+                        spin,ar.mSpin1,ar.mSpin2,arvalid?"":" XXX",
+                        ar.mCoord.x,ar.mCoord.y,
+                        //                        ar.mAtom.mParityAndType,ar.mAtom.mData0,
+                        //                        ar.mAtom.mStg[0],ar.mAtom.mStg[1],
+                        arvalid?"":"INVALID ",
+                        atomvalid? "GOOD" : "INVALID"));
+      }
+
+:285]
+
+:284]
+
+:283]
+[290:
+
+Mon Aug 31 01:36:18 2026 OK so
+now I think we want the t6i grid
+origin, and we're going to add
+that to the t6c cache site to
+get the global grid atom to push
+to the cache site.
+
+:290]
+[291:
+
+Mon Aug 31 03:21:57 2026 OK,
+getting there.. but time for a
+nap nap napito. 
+
+:291]
+[292:
+
+Mon Aug 31 13:29:24 2026 OK,
+well, we're solidly under 24
+hours now with no functional
+interhub spike, and yet and yet
+and yet i still haven't given
+up.
+
+We're arguably at a point now
+where what we need TODO is flesh
+out a bit more IHH-related stuff
+on the T6 side:
+
+ - Review T6 handling of
+   supercell leader: It doesn't
+   exist, right?
+
+ - Make it exist, and just
+   capture (and report) the
+   supercell information
+   somewhere.
+
+ - Try to make host-side cache
+   pushing do something.
+
+ - See where we are before nap
+   time.
+
+[293:
+
+Mon Aug 31 13:53:16 2026 OK, now
+we're stashing any provided
+supercell leader in u8
+L1GridManagerControl::mSuperCellLeader,
+hoping for the convention that
+U8_MAXVAL means there's no
+supercell leader.[294:
+
+Mon Aug 31 16:12:19 2026 OK, so:
+We still need the hubs to
+respect the mSuperCellLeader
+setting while they dispatch
+events, and to do that they have
+to know where they are in the
+supercell. [295:
+
+Mon Aug 31 16:19:19 2026 Well,
+it seems like the code that
+CodeManager is currently using:
+
+    ///XXX HARDCODING 2x2 SUPERCELL FOR NOW Sun Aug 30 17:12:45 2026 
+    U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
+    U8C tt(2,2);
+    
+    mHubInGridCoord = c / tt;
+    mSuperCellCoord = mHubInGridCoord % tt;
+
+would work about the same on the
+T6s?
+
+:295]
+
+:294]
+
+:293]
+
+:292]
+[296:
+
+Mon Aug 31 17:36:17 2026 OK,
+well, again "for the record", we
+just saw, for the first time,
+events - scheduled locally by a
+leader hub - taking place beyond
+the official 'owned' borders of
+a T6Grid.
+
+It looks quite wrong in a bunch
+of ways, but it's still the
+farthest we've ever got and
+closing in on a claim of an
+'interhub spike running'..
+
+:296]
+[297:
+
+Mon Aug 31 17:58:57 2026 OK,
+well just recorded a little
+segment of me trying 'interhubz'
+without the grid on-screen for
+the first time. Stashed the .mkv
+in the t2sup 3176 sources just
+in case.
+
+:297]
+[298:
+
+Mon Aug 31 18:00:26 2026 OK. So
+we have 'something' to look at.
+What I want to do first, here,
+is check what the state of the
+IHH host-side control really is,
+atm. [299:
+
+Mon Aug 31 22:40:04 2026 Doh, so
+I took a nap and the grid filled
+with FB4 while I was gone,
+except I could never see it
+happening. It always looked
+frozen.
+
+Because I had a
+seconds-vs-milliseconds bug in
+one of my delays. So Pro!
+
+:299]
+
+:298]
+[300:
+
+Thu Sep 10 09:05:43 2026 OK, so
+preparing to try folding all my
+spikes into a single git repo
+(and then cleaning the fuck out
+of the final result)..
+
+:300]

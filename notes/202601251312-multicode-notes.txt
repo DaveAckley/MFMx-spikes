@@ -1,0 +1,5915 @@
+{391}  -*-  mode: text; fill-column: 32;  -*-
+[0:
+
+Sun Jan 25 13:12:49 2026 And
+here we are, arriving from :678:
+of 202508240103-notes.txt.
+
+:0]
+[1:
+
+Sun Jan 25 13:13:54 2026 So.
+Let's start with some basic
+items TODO:
+
+[11: Sun Jan 25 20:46:55 2026
+DONE :11] - Review cross/ side multiimage
+   processing.
+
+[12:
+DONE :12] - Be able to explain in detail
+   how to add a new crossimage
+
+[39: Wed Jan 28 04:23:11 2026
+Considered, so
+DONE :39] - Consider renaming all this to
+   multicode, crosscode, and so
+   forth.
+
+[40: DONE :40] - Review specifically how
+   different crosscodes decide
+   which source files to use, in
+   particular, which are shared
+   among crosscodes and which
+   are unique per crosscode
+
+[41: DONE  :41] - Decide if that's at all
+   tolerable for current
+   purposes.
+
+[42: DONE  :42] - Try to make a plan, with
+   SMALL STEPS, to get (say) EWP
+   and HUB talking to each
+   other.
+
+[43: DONE  :43] - Demo EWP and HUB talking to
+   each other
+
+:1]
+[2:
+
+Sun Jan 25 13:19:39 2026 How to
+get EWP and HUB talking to each
+other:
+
+[44: Wed Jan 28 04:24:25 2026
+DONE :44] - Review ImageBlock code.
+
+[45: DONE  :45] - Make a spike where each T6
+   queries (say) its direct
+   neighbors and reports
+   information from the ngbs
+   ImageBlocks.
+
+[219: Sat Feb 21 02:32:16 2026
+PROMOTED TO :218: below :219] - Consider how to have a
+   crosscode learn the cell type
+   and cell position it is part
+   of.
+
+[220: PROMOTED TO :218:  :220] - Make a spike where each T6
+   reports that information as
+   well.
+
+[221: PROMOTED TO :228:  :221] - Make it run. Watch it run.
+   Run Watch Run.
+
+:2]
+[3:
+
+Sun Jan 25 13:32:24 2026
+Actually, maybe push to mpmd15
+first? It's been a while..
+[4:
+
+Sun Jan 25 13:37:39 2026 OK, now
+all rebuilt in mpmd15/, and with
+scores of emacs buffers
+deleted..
+
+:4]
+:3]
+[5:
+
+Sun Jan 25 13:38:46 2026 REVIEW
+OF CROSS/ SIDE MULTICODE
+PROCESSING.
+
+ - Focus on cross/CMakeLists.txt
+
+ - It uses
+     add_library(crosslib STATIC)
+   to build libcrosslib.a which
+   is meant to supply all the
+   crossinfra common to all
+   crosscodes.
+
+ - It also contains an
+     add_executable(FOO)
+   plus several FOO-related
+   stanzas, for each crosscode
+   FOO that we are building.
+
+ - At present we have
+   add_executable sections for
+   'ewp' and 'hub'
+
+ - We suspect but need to
+   confirm that the
+   per-executable target_sources
+   decl there determines which
+   files are shared? [6: Sun Jan
+   25 13:45:12 2026 "Well
+   actually," it seems nastier
+   than that. The idea is we're
+   going to try to leave the
+   Fast*.h/cpp files in
+   crosslib, and have
+   Live*.h/cpp codes "as needed"
+   in the per-image directory.
+
+   Buuut only ewp/src/LiveB.cpp
+   and hub/src/LiveB.cpp seems
+   to be implemented that way so
+   far.
+
+ - I guess we could have an
+   explicit
+   defaultLive*(HostBlock &hb)
+   in each Fast* file, and make
+   stub Live*.cpp files
+   per-image that just dish back
+   to defaultLive*(hb), and then
+   we can just hack to local
+   Live*.cpp files to do
+   whatever instead on a
+   per-image basis.
+
+Now, I'm sitting here thinking
+we should make a script to set
+up a new crosscode directory,
+and we should somehow centralize
+the determination of which
+crosscodes are to be built at
+any given point in the
+development.
+
+We could write a separate file
+per crosscode and somehow
+include them into
+cross/CMakeLists.txt, right?
+
+Let's flex our knuckles on
+seeing if we can make some
+progress there.[7:
+
+Sun Jan 25 14:34:49 2026 So
+okay. We don't have an
+auto-crosscode-creation script,
+but I believe we've refactored
+cross/CMakeLists.txt to use
+include() and such, and now we
+are building three crosscodes,
+including our newest member:
+
+  /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin:
+ ..
+  -rwxrwxr-x 1 ackley ackley 174720 Jan 25 14:31 zot
+  -rwxrwxr-x 1 ackley ackley 137060 Jan 25 14:31 zot.bin
+ ..
+
+Welcome zot!
+
+Aand just to be sure, let's try
+a dtoml configuration that uses
+zot!
+[8:
+
+Sun Jan 25 14:45:25 2026 OK a
+few more hand updates needed..
+
+  zot/include/ImageConfig.inc
+
+needs adjustments. And then most
+important and obnoxious of all:
+
+  srcs/shared/include/BlockCode.h
+
+needs to be updated with the
+hardcoded block code we're going
+to use. In this case:
+
+  enum ImageCode {
+ ..
+    IC_ZOT = 5,                //< another scratch image
+ ..
+
+and the dtoml has to identify
+that number properly:
+
+    [image.ZOT]
+      binfile="/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin/zot.bin"
+      code=5
+
+[9:
+
+Sun Jan 25 20:15:02 2026 Now I
+would just mention that the
+association of a image code with
+a binfile is no stronger than
+the dtoml file. So if we wanted
+to have a 'debug' code (or a
+few) we could certainly have
+multiple images that use the
+same code, as long as any given
+block code only appears once in
+the dtoml.[10:
+
+Sun Jan 25 20:37:13 2026
+Similarly, we could have
+variants of EWP and HUB all use
+the EWP and HUB codes, and count
+on dtomls to mix and match them
+appropriately.
+
+:10]
+
+:9]
+:8]
+
+:7]
+
+:6]
+
+:5]
+[13:
+
+Sun Jan 25 21:06:03 2026 I have
+to stay up til 10pm 'for medical
+reasons'. Let's see about
+reviewing/making some (more)
+ImageBlock utilities in
+crosslib..
+[14:
+
+Tue Jan 27 07:39:00 2026 OK,
+well, back from "medical
+reasons" (doing okay) and here
+we are in the countdown to
+T2sday, with an absolutely huge
+amount of dev to do if I'm to
+have any chance of an even
+vaguely non-sucky demo.
+
+:14]
+:13]
+[15:
+
+Tue Jan 27 07:41:39 2026 OK,
+possible ImageBlock utilities:
+
+ - ImageBlockHeader readHeader(S8C ngb)
+
+Could we demo just that? Let's
+try. [16:
+
+Tue Jan 27 07:45:01 2026 Oookay,
+where does cross/ specific
+ImageBlock code go? ImageBlock.h
+itself is in shared/.
+
+cross/CrossUtils.h?
+cross/ImageBlockUtils.h?
+cross/CrossImageBlock.h?
+cross/CrossImageBlockUtils.h?
+
+cross/T6ImageBlock.h, I guess.
+
+:16]
+
+:15]
+[17:
+
+Tue Jan 27 08:08:10 2026 So one
+question is: Should we allow
+cells to wrap on the BlackHole
+torus? I think we have to say
+no, so we need a way to know if
+a given 'cell neighbor' even
+exists.
+
+I'm making a struct T6Neighbor
+ATM, as a helper for
+T6ImageBlock, and wondering
+about its API. Currently saying
+
+    void init (U8C ournoc0c, S8C ngbc)
+
+where the U8C can come from
+hb.mPos. Thinking it should be
+
+    bool init (U8C ournoc0c, S8C ngbc)
+
+for one think. Probably want
+bool isValid() const too.
+
+But how do we tell, exactly, if
+ournoc+ngbc is a valid T6 on our
+same BH card? We've got a
+smattering of methods in U8C to
+draw on:
+
+    static U8C makeU8CRawT6CoordFromTLBI(uint32_t tlbidx) {
+    static U8C makeU8CNoCCoordFromTLBI(uint32_t tlbidx) {
+    static u32 makeTLBIFromRawU8CCoord(U8C c) {
+    static u32 makeTLBIFromNoC0Coord(U8C c) {
+    static u32 makeNoCNodeIdFromU8CCoord(U8C c) {
+    static U8C makeU8CFromNoCNodeId(u32 nodeid) {
+
+and I have to say I don't at
+present have confidence about
+the differences between
+'RawU8CCoord' and 'NoCCoord'.
+
+So let's look at that, "once and
+for all".
+
+[18:
+
+Tue Jan 27 08:24:29 2026 So we
+think that for us, 'raw U8C'
+coords means indexing just the
+tT6 tiles from (0,0) upper left
+to (13,9) lower right.
+
+Also, we think that our 'tlbi'
+numbers are the same as the 'T0'
+etc numbers in the isa diagrams,
+so TLBI from Raw U8C is just
+
+      u32 ret = c.y*14u + c.x;
+
+And we think that NoCCoord means
+NoC0 coords, where the upper
+left T6 is at (1,2) and the
+lower right T6 is at (16,11).
+
+And we think that NoCNodeId
+means
+
+  (u32) (((c.y&0x3f)<<6)|(c.x&0x3f));
+
+FWIW.
+
+[19:
+
+Tue Jan 27 08:29:53 2026 So,
+given all that we should be able
+to write bool onBoardRawU8Coord
+and bool onBoardNoC0Coord, if we
+don't have such already?
+[20:
+
+Tue Jan 27 08:34:38 2026 OK,
+made
+
+    static bool onBoardRawU8CCoord(U8C c) { return c.x < 14 && c.y < 10; }
+
+    static bool onBoardNoC0Coord(U8C nocc) { return nocc.x <= 16u && nocc.y <= 11u; }
+
+Such a master coder. So now we
+could do something like:
+
+  U8C ngbraw = usraw + sdelts;
+  if (!U8C::onBoardRawU8CCoord(ngbraw)) return false;
+  u32 ngbtlbi = U8C::makeTLBIFromRawU8CCoord(ngbraw);
+  U8C ngbnoc = U8C::makeNoC0CoordFromTLBI(ngbtlbi);
+
+..except
+U8C::makeNoC0CoordFromTLBI
+doesn't seem to exist?[21:
+
+Tue Jan 27 08:40:10 2026 And if
+we're making more new U8C.h
+stuff, maybe
+
+ U8C makeNoC0CoordFromRawT6Coord(U8C c)
+
+and not screw around with TLBIs
+in this context?
+
+And while we're screwing around
+in here, I have to (choose to)
+say that 'raw coord' seems a
+pretty awful name. Especially
+because it's sometimes called
+'rawT6' coord and sometimes
+called 'rawU8C' coord:
+
+    static U8C makeU8CRawT6CoordFromOtherNoC(U8C otherNoCCoord) {
+vs
+    static u32 makeTLBIFromRawU8CCoord(U8C c) {
+
+Could we do a fit of renaming
+here? A brief seizure of
+nomenclature perhaps?
+
+I'm feeling things like
+'compact' and 'T6'.
+
+T6Only coords? T6O?
+Compact T6 coords? CT6?
+
+CT6 maybe? Compact T6? All U8Cs.
+  [22:
+
+Tue Jan 27 09:03:12 2026 OK,
+converted everybody to CT6 or
+NoC coords. Now the only
+C++-side hit on 'raw' is:
+
+    find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \*.\[ch\]\* \) -exec grep --color -i -n --null -e raw /dev/null \{\} +
+    ./host/src/EWControl.cpp 301:    // draw grid tics
+
+and I feel better. YAKPOP
+
+:22]
+
+:21]
+
+
+:20]
+:19]:18]
+:17]
+[23:
+
+Tue Jan 27 10:26:41 2026 OK so
+we're getting down to the fact
+that we totally don't know how
+to do reads between T6 L1's. In
+particular, we don't know how to
+wait for the reply.
+
+The BHA0/NoC/Interrupts.md page
+says in part:
+
+    As a new feature in Blackhole,
+    software can opt to use NIU
+    interrupts to respond to NoC
+    transactions completing, rather
+    than having to poll counters.
+    Alternatively, software can
+    choose to poll
+    NIU_TRANS_COUNT_RTZ_SOURCE as a
+    more efficient alternative to
+    polling multiple
+    NIU_MST_REQS_OUTSTANDING_ID(i)
+    counters,
+
+So if we wanted a LESS efficient
+alternative, which might be
+easier to get working, we might
+want/need to be polling multiple
+NIU_MST_REQS_OUTSTANDING_ID(i)
+counters?
+[24:
+
+Tue Jan 27 11:36:23 2026 So it
+appears one key is the
+'transaction ID', which we have
+been ignoring until now:
+
+    If initiating several NoC
+    requests, software can either:
+
+    Use a different transaction
+    ID i for each request.
+
+[25:
+
+Tue Jan 27 11:48:21 2026 And I
+guess the main points are:
+
+ - We should pick a Transaction
+   ID to be used exclusively by
+   blocking inter-T6 read
+   requests. (Or perhaps also
+   write requests if we care
+   about blocking for them.)
+
+ - Block until low bit of
+   NOC_CMD_CTRL is clear
+
+ - We should configure for our
+   request.
+
+ - We should block until
+   NIU_MST_REQS_OUTSTANDING(id)
+   is zero (for simplicity
+   anyway; support only one
+   request in flight.)
+
+ - We should set for low bit of
+   NOC_CMD_CTRL
+
+ - We should read back
+   NOC_CMD_CTRL for memory
+   ordering(?) and then block
+   until
+   NIU_MST_REQS_OUTSTANDING(id)
+   is zero again?
+
+ - We should return the obtained
+   value? If we're just doing a
+   single word?
+
+ - We are done?
+[26:
+
+Tue Jan 27 12:21:42 2026 So what
+transaction ID should we pick? I
+had the idea that multiple
+transaction ids are required for
+sending large packets? Is that
+true? [27:
+
+Tue Jan 27 12:22:56 2026 Well on
+a related note there's this to
+remember: On a read request,
+
+    At the initiating NIU, as
+    software writes to
+    NOC_CMD_CTRL:
+
+    Increment
+    NIU_MST_REQS_OUTSTANDING_ID(NOC_PACKET_TRANSACTION_ID)
+    by max(1, ceil(NOC_AT_LEN_BE
+    / 16384.)).
+
+[28:
+
+Tue Jan 27 12:29:20 2026 I don't
+see transaction id restrictions.
+Maybe I was thinking of virtual
+channels.
+[29:
+
+Tue Jan 27 12:31:03 2026 So it
+looks like we're supposed to set
+the four bit field
+NOC_PACKET_TRANSACTION_ID in the
+NOC_PACKET_TAG word of the NRI?
+[30:
+
+Tue Jan 27 12:50:00 2026 OK, so
+the 'NIU counters' are at
+NIU_BASE+02x00. They are
+per-NIU, not per NRI, so when we
+allocate a Transaction ID that
+affects all the NRIs.
+
+[31:
+
+Tue Jan 27 12:53:15 2026 Well
+dammit I need to be hacking
+here. Let's draft transaction id
+14/0xe (not min, not max, not
+small) for our blocking reads on
+NRI 3 and hope nobody else is
+using that.
+
+:31]
+
+:30]
+
+:29]
+:28]
+
+:27]
+
+:26]
+:25]
+
+:24]
+
+:23]
+[32:
+
+Tue Jan 27 14:09:40 2026 Well we
+made a first cut
+NRI3::blockingL1Read(..). Let's
+have someone call it on some ngb
+and start seeing what
+happens..[33:
+
+Tue Jan 27 14:21:38 2026 And we
+haven't even got to run yet but
+we already made the easy easy
+fuckup:
+
+ ..stuff..
+        else {
+          NRI3 nri3;
+          u32 themibh = nri3.blockingL1Read(usct6, themct6, (u32) &theImageBlock);
+          DP.printf("BLIRD! (%u,%u)<-(%u,%u)==0x%08x\n",
+                    usct6.x, usct6.y, themct6.x, themct6.y, themibh);
+        }
+ ..stuff..
+
+which looked so fine at first
+but left looking like NO FUCKING
+WAY because blockingL1Read reads
+into NRI3.mDestL1, so we can't
+declare nri3 on the stack
+because the stack isn't in L1.
+
+Let's burn a static in NRI3
+instead.. [34:
+
+Tue Jan 27 14:37:34 2026 OK,
+everything just built for the
+first time. I think I'll take a
+little break before watching it
+blow up for the first time..
+[35:
+
+Tue Jan 27 14:57:12 2026 OK
+let's try it..[36:
+
+Tue Jan 27 14:59:08 2026 Well
+hell, better than I expected for
+a first go! In all.txt
+(eventually) we find stuff like:
+
+ ..
+    TESTBL1R (2,3)
+ ..
+    BLIRD! (1,1)<-(1,1)==0x0001f3f0
+ ..
+
+where the first line comes from:
+
+      DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
+
+and the second line comes from
+
+          NRI3 nri3;
+          u32 themibh = nri3.blockingL1Read(usct6, themct6, (u32) &theImageBlock);
+          DP.printf("BLIRD! (%u,%u)<-(%u,%u)==0x%08x\n",
+                    usct6.x, usct6.y, themct6.x, themct6.y, themibh);
+
+Did I fuck up operator+ in U8C?
+[37:
+
+Tue Jan 27 15:18:22 2026 Yes,
+unbelievably enough, I did fuck
+up operator+ in U8C. Gah.
+
+:37]
+:36]
+
+:35]
+
+:34]
+
+:33]
+
+:32]
+[38:
+
+Tue Jan 27 16:05:30 2026 Well, I
+think it might be kind of
+working. We now have behavior
+like this:
+
+When mpmd15.dtoml has like this:
+  image.1.1 = HUB
+  image.2.2 = ZOT
+
+inside cell C3X3, we get data
+like this:
+
+./at0a6.dat 3:BL1RX RVL1 GOT 0x0902011b (after 7)
+./at0d9.dat 3:BL1RX RVL1 GOT 0x0902011b (after 7)
+
+but when mpmd15.dtoml has like this:
+
+  image.1.1 = HUB
+  image.2.1 = ZOT
+
+we see this:
+
+./at0a6.dat 3:BL1RX RVL1 GOT 0x0d02051b (after 7)
+./at0d9.dat 4:BL1RX RVL1 GOT 0x0d02051b (after 7)
+
+In the first case, looking east
+from the HUB at 1,1 sees an EWP
+image, with image code 1
+
+    IC_EWP = 1,                //< Generic event Window processor
+
+and I believe that
+
+./at0a6.dat 3:BL1RX RVL1 GOT 0x0902011b (after 7)
+this byte right here:              ^^
+is that image code 1.
+
+In the second case, looking east
+from HUB sees a ZOT image, which
+is code 5:
+
+    IC_ZOT = 5,                //< another scratch image
+
+./at0a6.dat 3:BL1RX RVL1 GOT 0x0d02051b (after 7)
+and there is the fucking five .....^^
+right there.
+
+In both cases they are
+advertising 2 entries (the next
+byte), which we have not tried
+to read yet. But,
+
+HOT DAMN!
+INTER-L1 DATA HAS BEEN READ!
+
+:38]
+[46:
+
+Wed Jan 28 04:24:46 2026 OK, so:
+How can a crosscode learn the
+cell type and cell position it
+is part of?
+
+Possibilites:
+
+ - extend hostblock with cell
+   type & position? But then we
+   can't multicast the default.
+
+ - have privileged cell type
+   (like HUB) and have everybody
+   search for the nearest HUB.
+   But then we can have C7X2
+   without some EWPs finding the
+   wrong HUB.
+
+ - search for the nearest HUB
+   just to find a cell type and
+   implied EWP cell pos? And
+   then search/check again once
+   we find out we're not in the
+   cell whose HUB we found?
+
+ - just assume it's all
+   hardcoded? But it's not all
+   hardcoded, given the current
+   (and handy) .dtoml
+   configuration..
+
+ - have everybody query the host
+   on startup, and get told
+   their cell type and position?
+
+ - have the 'cell type' imply an
+   offset and a stride, so each
+   T6 can determine its cell pos
+   simply from its ct6c.
+
+ - include the cell type, offset
+   and stride in the hostblock
+   or the imageblock, noting
+   it's the same for everybody
+   so we can still multicast.
+
+ding ding ding.
+
+right? [47:
+
+Wed Jan 28 05:18:41 2026 Or do
+we 'need' a CellBlock to carry
+that info? It would need to be
+fixed size though. If we allowed
+four bits for image code and an
+8X8 max cell size, that could
+'only' be like nine words for a
+pretty general cell block.. It
+wouldn't contain an offical
+'cell type', but like:
+
+  u8 mCellWidth, mCellHeight;
+  u8 m..
+
+or even:
+
+  u8 mDefaultImage;
+  U4C mCellSize, mCellOrigin, mCellStride;
+  u4 mCellImageCodes[8][8];
+
+for still nine words. With an
+explicit default image included,
+it could make sense to have a
+cell stride that's bigger than
+the cell size, relying on the
+default image to cover the
+'intercellular material'.
+[48:
+
+Wed Jan 28 11:46:46 2026 OK so
+made some progress, uncovered
+some more aggravating
+  TENSTORRENT BLACKHOLE
+  DOCUMENTATION FAILS,
+and am now facing a mysterious
+bug where the ImageBlockAddr
+headers in the .bin files appear
+correct, but they seem to be
+zeroed out once they are in the
+live image on the T6s.
+
+Suspecting host-side malfeasance
+but taking a break for now.
+
+(This latest TENSTORRENT
+BLACKHOLE DOCUMENTATION FAIL,
+btw, concerns the source and
+destination data alignment
+requirements to do inter-L1
+reads. The Alignment.md page on
+the BlackholeA0 documentation is
+ANOTHER FUCKING 404, and I'd
+never gone over the WormholeB0
+equivalent, and so spent an hour
+or two debugging mysterious
+on-and-off failures that, I now
+think, depended on how the data
+layouts landed during each debug
+build. Gah.)[49:
+
+Wed Jan 28 14:12:18 2026 OK, the
+host-side loaded images look
+okay at the time of their
+loading.. Pushing forward..[50:
+
+Wed Jan 28 14:25:53 2026 Aaand,
+the readback of the ImageBlock
+in the downloaded images ALSO
+looks okay, after the
+downloading has occurred... So
+we're looking back on cross/
+side now?[51:
+
+Wed Jan 28 14:28:51 2026 And it
+is fucked pretty early in (HUB)
+LiveB.cpp, with this
+
+            u32 * ibu = (u32*) &theImageBlock;
+            DP.printf("OURIB 0x%x:0x%08x 0x%x:0x%08x 0x%x:0x%08x\n",
+                      &ibu[0],ibu[0],
+                      &ibu[1],ibu[1],
+                      &ibu[2],ibu[2]);
+
+producing this:
+
+    OURIB 0x14:0x0a02021b 0x18:0x00000000 0x1c:0x0001f5a0
+
+Can we push that output any
+  earlier?[52:
+
+Wed Jan 28 14:31:47 2026 Well
+it's still wrong (almost) at the
+beginning of liveB(..).
+[53:
+
+Wed Jan 28 14:54:02 2026 Well
+we're still hunting here.
+There's not a lot of room left.
+We're seeing this:
+
+    CodeManager.cpp:375: BH0:( 2, 3)HOBU<<!^HMBOURIB 0x14:0x0a02021b 0x18:0x000101ba 0x1c:0x0001f6e0
+    B#15(2,3)
+    T1@(2,3)
+    XHMBOURIB 0x14:0x0a02021b 0x18:0x000101ba 0x1c:0x0001f6e0
+
+where this                         ^^^^^^^^^^
+is fine and is being printed
+from FastB.cpp hartMainB(..),
+just before calling liveB(..)..
+
+    1 P2PEWP.upd call 0/4
+    +T2+nCEW+512,12 <0:00000000>
+    T6G(92,72)=79488
+    SZ6G(92x72)->79488
+    SEXHMBOURIB 0x14:0x0a02021b 0x18:0x00000000 0x1c:0x0001f6e0
+and this                             ^^^^^^^^^^
+is being printed very early
+in images/hub/src/LiveB.cpp
+int liveB(..)
+
+    POURIB 0x14:0x0a02021b 0x18:0x00000000 0x1c:0x0001f6e0
+    TESTBL1R (2,3)
+
+[54:
+
+Wed Jan 28 15:02:13 2026 We're
+at the smoking gun now, I think.
+These two lines:
+
+    SEXHMBOURIB 0x14:0x0a02021b 0x18:0x000101ba 0x1c:0x0001f710
+    +T2+nNOWAYSEXHMBOURIB 0x14:0x0a02021b 0x18:0x00000000 0x1c:0x0001f710
+
+are generated with only one line
+of code between them.
+
+What is that line of code?
+
+It is this:
+
+    preloadT2Mailbox();
+
+HMMMMMMMMMMMMMMMM.
+
+[55:
+
+Wed Jan 28 16:39:11 2026 So it
+appears I've spent the whole
+afternoon running this thing
+down, and I still don't yet have
+a definitive answer. But I do
+have one conclusion: If it's not
+too much of a pain, I should
+sequence the hart startups
+instead of going with the
+thundering herd that we
+currently have. Even if there's
+ultimately no race responsible
+for the current mess, the
+interlaced hart startup message
+makes locallizing fuckups an
+extra prime bitch.
+
+For example, consider this
+fascinatly passage of code:
+
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+which currently occurs on lines
+17 and 18 of FastB.cpp. That
+code sometimes generates this
+debug output:
+
+    mfmx/srcs/cross/src/FastB.cpp:17: XDBFN:[hBT,0] 0x14:0x0902011b 0x18:0x000101ba 0x1c:0x0001f570
+    mfmx/srcs/cross/src/FastB.cpp:18: XDBFN:[hBT,0] 0x14:0x0902011b 0x18:0x00000000 0x1c:0x0001f570
+
+and isn't that helpful.
+
+:55]
+
+:54]
+:53]
+
+:52]
+:51]
+
+:50]
+
+:49]
+
+
+:48]
+:47]
+
+:46]
+
+[56:
+
+Wed Jan 28 20:50:43 2026
+
+FastNC: We saw XXX_DEBUG go from
+good to fail inside the
+updateTransport loop, but after
+the first call to
+updateTransportBlock().. So we
+sort of think *maybe* FastNC is
+off the hook for creaming 0x20
+
+And we see XXX in FastT2 go from
+good to fail across the seedMT
+call, which could seem
+suspicious, but that also seems
+to happen if we comment out the
+seedMT line..[57:
+
+Wed Jan 28 20:55:54 2026 Just
+now we comment out the seedMT
+again and saw post-seed XXX be
+good. Kind of makes me think
+it's not hart T2 fucking things
+over.. though it could be some
+other hart running FastT2 code..
+
+Let's remind ourselves about
+FastT0.. [58:
+
+Wed Jan 28 21:08:28 2026 We see
+hT0 okay before
+preloadT2Mailbox(), and we see
+hT0 in the entry of
+preloadT2Mailbox, and then
+nothing until 0x18 is long
+creamed. Eventually we do hT0
+exit preloadT2Mailbox and
+continue, of course with 0x18
+creamed.
+
+So maybe we don't think it's
+hT0. Let's go back to hT2 for a
+bit. (Though we still have hBT
+to review too.)[59:
+
+Wed Jan 28 21:13:08 2026 This is
+hard:
+
+    mfmx/srcs/cross/src/FastT2.cpp:134:XDB[hT2,3]2 0x101ba
+    T1@(2,3)
+    mfmx/srcs/cross/src/FastT2.cpp:71:XDB[hT2,3]2 0x00000
+
+lines 134-135:
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    return liveT2(hb);          // go do your hart t2 thing you
+
+lines 70-71:
+  int liveT2(HostBlock & hb) {
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+Let's go hate on T1 some?[60:
+
+Wed Jan 28 21:16:51 2026 OK we
+shifted the front of T1 to
+
+lines 39-44:
+  int hartMainT1(HostBlock & hb) {
+>>  XXX_DEBUG_FUNC(__FILE__,__LINE__);
+    //DP.printf("T1@(%u,%u)\n", hb.mPos.x, hb.mPos.y);
+    MFM_API_ASSERT_ON_HART(HARTNUM_T1);
+    preloadT2Mailbox();
+    XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+and now we see
+
+>>  mfmx/srcs/cross/src/FastT1.cpp:40:XDB[hT1,2]2 0x101ba
+    mfmx/srcs/cross/src/FastT2.cpp:37:XDB[hT1,2]2 0x00000
+
+with lines 35-37 of FastT2.cpp:
+
+  void preloadT2Mailbox() { // run once at startup on each hart except NC
+    //DP.printf("&fT2=0x%08x+%d\n",&fT2,sizeof(fT2));
+>>  XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+so hT1 is showing dead before it
+gets into checking the
+randomServerReady() stuff.
+
+[61:
+
+Wed Jan 28 21:25:42 2026 Wow I
+stripped off some filename dirs
+and now we see a lot more stuff
+in the first log buffer:
+
+    20260128-212416[[gd000]](2,3)HB<!^B#15(2,3)
+    src/FastT0.cpp:72:XDB[hT0,1]2 0x101ba
+    src/FastT2.cpp:37:XDB[hT0,1]2 0x101ba
+    src/FastT1.cpp:40:XDB[hT1,2]2 0x101ba
+    src/FastB.cpp:19:XDB[hBT,0]2 0x101ba
+    src/FastT2.cpp:37:XDB[hT1,2]2 0x101ba
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x101ba
+    HUBSZ6G(92x72)->79488
+    images/hub/src/LiveB.cpp:105:XDB[hBT,0]2 0x101ba
+    src/FastNC.cpp:66:XDB[hNC,4]2 0x101ba
+    src/FastT2.cpp:37:XDB[hBT,0]2 0x101ba
+    src/FastT2.cpp:134:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:71:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:49:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:54:XDB[hT2,3]2 0x101ba
+    IT2:0[hBT] @0xffec0000
+    IT2:1[hT0] @0xffec1000
+    IT2:2[hT1] @0xffec2000
+    IT2:3[hT2] @0xffec3000
+    src/FastNC.cpp:29:XDB[hNC,4]2 0x101ba
+    src/FastT2.cpp:63:XDB[hT2,3]2 0x101ba
+    1 P2PEWP.upd call 0/4
+    src/FastT2.cpp:41:XDB[hT0,1]2 0x101ba
+    src/FastT2.cpp:41:XDB[hT1,2]2 0x101ba
+    src/FastT2.cpp:41:XDB[hBT,0]2 0x101ba
+    src/FastT2.cpp:44:XDB[hT0,1]2 0x00000
+    src/FastT2.cpp:44:XDB[hBT,0]2 0x00000
+    images/hub/src/LiveB.cpp:107:XDB[hBT,0]2 0x00000
+    POURIB 0x14:0x0a02021b 0x18:0x0>
+
+I notice that we never see a
+FastT2.cpp:44 that isn't
+creamed: Nobody has gotten out
+of preloadT2Mailbox()
+primePump() before creamage.
+
+
+:61]
+:60]
+
+:59]
+
+:58]
+
+
+:57]
+
+:56]
+[62:
+
+Wed Jan 28 21:37:22 2026 Ugh.
+Now it's happening here:
+
+    src/FastT2.cpp:49:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:54:XDB[hT2,3]2 0x00000
+
+with lines 48-54 being
+
+  static void initT2() {
+49: XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+    /// DRAIN ALL INBOUND MAILBOXES, THEN SET mT2Serving
+    u32 addr = MAILBOX_BASE;
+    bool canread;
+54: XXX_DEBUG_FUNC(__FILE__,__LINE__);
+
+so that seems to let hT2 off the
+hook. Now I'm wondering about
+inbound stuff from NC.
+[63:
+
+Wed Jan 28 21:41:01 2026 Is
+ANYBODY doing L1 writes, besides
+host/ code??[64:
+
+Wed Jan 28 21:43:48 2026 Now we
+see:
+
+src/FastT2.cpp:44:XDB[hBT,0]2 0x101ba
+src/FastT2.cpp:44:XDB[hT0,1]2 0x101ba
+src/FastT2.cpp:44:XDB[hT1,2]2 0x00000
+
+so between the time hT0 records
+finishing preloadT2Mailbox(),
+and the time hT1 records it's
+version of the same event, stuff
+gets creamed.[65:
+
+Wed Jan 28 21:46:23 2026 Let's
+hate on hBT some more.[66:
+
+Wed Jan 28 21:56:33 2026 OK, now
+we're seeing this:
+
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x101ba
+
+first time hNC gets going in  ^^
+P2P..::update(..), we're okay
+
+    src/FastT2.cpp:54:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:62:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x101ba
+
+first time hNC leaves
+::update(), we're still okay.
+
+    src/FastT2.cpp:64:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+but the second time hNC gets
+into ::update(), we're blown.
+
+    src/FastT2.cpp:41:XDB[hT0,1]2 0x00000
+    src/FastT2.cpp:44:XDB[hT0,1]2 0x00000
+[67:
+
+Wed Jan 28 22:07:45 2026 Triple
+ugh, now we're seeing this:
+
+    src/FastT2.cpp:65:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:41:XDB[hBT,0]2 0x101ba
+    src/FastT2.cpp:41:XDB[hT0,1]2 0x101ba
+    src/FastT2.cpp:103:XDB[hT2,3]2 0x00000
+
+How does hNC@P2P see blown while
+hBT and hT0 subsequently see
+good? Is this really repeatable?
+
+[68:
+
+Wed Jan 28 22:11:55 2026 Urgh.
+This time we see this mess:
+
+    src/FastT2.cpp:54:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x101ba
+    src/FastT2.cpp:41:XDB[hT1,2]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:65:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:41:XDB[hBT,0]2 0x101ba
+    src/FastT2.cpp:41:XDB[hT0,1]2 0x101ba
+    src/FastT2.cpp:103:XDB[hT2,3]2 0x00000
+    src/FastT2.cpp:44:XDB[hT1,2]2 0x00000
+
+I'd say we really have to sit
+down and replace mT2Serving with
+at least an atomic, or a real
+lock, but we don't see how that
+in itself can account for the
+creamage.
+[69:
+
+Wed Jan 28 22:28:40 2026 OK so I
+put a fucking lock around
+accesses to mT2Serving, and now
+we see:
+
+    src/FastT2.cpp:147:XDB[hT2,3]2 0x101ba
+    src/FastNC.cpp:29:XDB[hNC,4]2 0x101ba
+    src/FastT2.cpp:82:XDB[hT2,3]2 0x101ba
+    src/FastT2.cpp:60:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x101ba
+    src/FastT2.cpp:65:XDB[hT2,3]2 0x101ba
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+
+in which at least we don't see
+good-after-blown, although I'm
+far from ready to claim we
+can't..[72:
+
+Wed Jan 28 22:57:53 2026 (And
+yes I'm totally still seeing
+out-of-order stuff, but it's
+easy to expect because the
+printf routines evaluate their
+args before they try to grab the
+printer lock, so...)
+
+:72]
+[70:
+
+Wed Jan 28 22:39:25 2026 And
+later on, we see this:
+
+    CodeManager.cpp:351: BH0:( 2, 3)hBT STUCK? 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:351: BH0:( 2, 3)hT0 STUCK? 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:351: BH0:( 2, 3)hT1 STUCK? 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+and are we expecting that? Did
+we hack just those three badly
+enough to expect they're not
+beating their little harts out?
+
+[71:
+
+Wed Jan 28 22:45:51 2026 It
+none of the three of them ever
+make it back from
+preloadT2Mailbox..
+
+:71]
+
+    CodeManager.cpp:376: BH0:( 2, 3)HOBU<<src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:73:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/FastT2.cpp:126:XDB[hT2,3]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:89:XDB[hNC,4]2 0x00000
+    src/P2PEWElevatorPlatform.cpp:159:XDB[hNC>>UBOH
+
+
+:70]
+
+:69]
+:68]
+
+:67]
+
+:66]
+
+:65]
+
+:64]
+
+:63]
+:62]
+[73:
+
+Thu Jan 29 14:03:18 2026 Well,
+this all sucks. Big time. I fell
+back to a copy of mpmd14/
+(original saved in mpmd14-orig/)
+and added just the
+XXX_DEBUG_FUNC, and we're seeing
+fucked up behavior there too.
+
+Even more fucked up behavior,
+perhaps, than with mpmp15/ which
+is where XXX_DEBUG_FUNC
+originated.
+[74:
+
+Thu Jan 29 14:05:57 2026 I'm
+getting so desperate that I'm
+currently thinking of powering
+down the qb, letting it sit for
+a bit, and then starting
+everything up again. Might even
+update ubuntu while I'm at it.
+
+I don't seriously expect any of
+that to fix anything, but I'm
+getting pretty damn desperate
+for a THURSDAY AFTERNOON IN THE
+COUNTDOWN TO T2SDAY.
+[75:
+
+Thu Jan 29 14:08:32 2026 Some
+random stats for no reason:
+
+    (venv) ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd14/srcs/host/python$ uptime
+     14:08:04 up 32 days, 23:53,  9 users,  load average: 0.19, 0.64, 0.78
+    (venv) ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd14/srcs/host/python$ df -h
+    Filesystem      Size  Used Avail Use% Mounted on
+    tmpfs            51G  2.2M   51G   1% /run
+    /dev/nvme0n1p2  3.6T  862G  2.6T  25% /
+    tmpfs           252G  252K  252G   1% /dev/shm
+    tmpfs           5.0M     0  5.0M   0% /run/lock
+    efivarfs        128K   23K  101K  19% /sys/firmware/efi/efivars
+    /dev/nvme0n1p1  1.1G  6.1M  1.1G   1% /boot/efi
+    tmpfs            51G  112K   51G   1% /run/user/130
+    tmpfs            51G   92K   51G   1% /run/user/1001
+    (venv) ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd14/srcs/host/python$ free -h
+                   total        used        free      shared  buff/cache   available
+    Mem:           503Gi        19Gi        24Gi        11Mi       460Gi       480Gi
+    Swap:          8.0Gi       1.0Mi       8.0Gi
+    (venv) ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd14/srcs/host/python$
+[79:
+
+Thu Jan 29 15:10:00 2026 FWIW,
+now we see:
+
+    ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16$ uptime
+     15:09:44 up 11 min,  4 users,  load average: 0.00, 0.11, 0.15
+    ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16$ df -h
+    Filesystem      Size  Used Avail Use% Mounted on
+    tmpfs            51G  2.1M   51G   1% /run
+    /dev/nvme0n1p2  3.6T   76G  3.4T   3% /
+    tmpfs           252G  252K  252G   1% /dev/shm
+    tmpfs           5.0M     0  5.0M   0% /run/lock
+    efivarfs        128K   23K  101K  19% /sys/firmware/efi/efivars
+    /dev/nvme0n1p1  1.1G  6.1M  1.1G   1% /boot/efi
+    tmpfs            51G  112K   51G   1% /run/user/130
+    tmpfs            51G   96K   51G   1% /run/user/1001
+    ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16$ free -h
+                   total        used        free      shared  buff/cache   available
+    Mem:           503Gi        17Gi       484Gi        11Mi       1.5Gi       482Gi
+    Swap:          8.0Gi          0B       8.0Gi
+    ackley@roses-bh:/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16$
+
+suggesting I had around 0.8TB
+tied up in /tmp.. Oritee-then.
+
+:79]
+:75]
+:74]
+:73]
+[76:
+
+Thu Jan 29 14:11:30 2026 So
+okay, here's a reminder: Even
+though mpmd15/ and mpmd14/ are
+"TOTALLY SEPARATE DIRECTORIES"
+top to bottom, the FUCKING VENV
+that sits another directory
+above both of them is SHARED.
+
+I just tried running the mpmd15
+code again and had it blow up
+with a missing attribute error.
+
+[77:
+
+Thu Jan 29 14:19:49 2026 Fuck
+it. Rebooting.
+[78:
+
+Thu Jan 29 15:08:04 2026 OK,
+successfully powered down,
+powered up, and later rebooted
+again after apt upgrade, using
+the BMC KVM.
+
+Now getting set up again.
+
+Have pushed on to mpmd16/ (from
+mpmd15/) on general principles.
+[80:
+
+Thu Jan 29 15:21:48 2026 OK I'm
+still getting crazy behavior
+here -- like nuking, rebuilding
+all, and then seeing
+commented-out code still
+running, and I want to have some
+reliable way to print out the
+MFMx library version during
+ewd17.py startup. How shall we
+acquire that information?[81:
+
+Thu Jan 29 15:52:05 2026 OK now
+I'm suspecting CMake fuckuppery
+perhaps related to the newish
+multiple image building. Symptom
+is that doing './build_all nuke'
+does not appear to nuke
+everything, with the result that
+old source code manages to show
+up in new version wheel builds..
+
+The main 'nuke' command is
+
+rm -rf /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/build_host /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/build_cross /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/srcs/generated_headers
+
+rm -rf
+/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/build_host
+/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/build_cross
+/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/srcs/generated_headers
+
+what do we think that is
+  missing?[82:
+
+Thu Jan 29 15:54:58 2026 Maybe
+stuff like
+
+EWPL /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/srcs/cross/codes/ewp.cmake
+EWPS /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd16/srcs/cross
+
+?
+[83:
+
+Thu Jan 29 16:13:07 2026 No,
+those are hand-made..
+[84:
+
+Thu Jan 29 16:14:18 2026 Maybe
+
+srcs/host/python/__pycache__ ?
+and
+srcs/host/python/EWD/__pycache__ ?
+
+:84]
+:83]
+
+:82]
+
+:81]
+
+:80]
+:78]
+:77]
+
+:76]
+[85:
+
+Thu Jan 29 16:53:55 2026 Aahhh
+fuck I think I've got it. The
+damn dtoml is hardcoding the bin
+file paths:
+
+    [image.EWP]
+      binfile="/data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd15/build_cross/bin/ewp.bin"
+      code=1
+
+so no matter what the fuck i've
+been trying to do, it's still
+running the same ancient images.
+We Will Have To Fix That Before
+We Go Any Further.
+
+But first it's time for a
+cocktail..
+
+[86:
+
+Thu Jan 29 17:50:51 2026 OK back
+on task only slightly snockered.
+
+:86]
+:85]
+[87:
+
+Fri Jan 30 16:25:48 2026 OK
+jeebus. I fucking finally have
+some little clue about the
+scribbling-on-low-memory bug
+that I've been tracking for -- I
+guess a full day anyway,
+considering :85: above.
+
+The clue is this: The bug
+reliably tracks with hart NC. If
+I leave NC in reset, memory does
+not get scribbled on.
+
+Taking a break.
+[88:
+
+Fri Jan 30 18:16:57 2026 OK,
+after dinner. Let's run this
+fucker to ground.
+[89:
+
+Fri Jan 30 18:19:22 2026 Tests:
+
+(T1) Retry w/NC held in reset
+(R1) Pass (no bug) (3x, in 41104)
+
+(T2) Retry w/NC looped in hartNCMain(..)
+(R2) (41106) Pass
+
+(T3) Delete theT6ElevatorTransport.updateTransportBlock();
+     call in liveNC
+(R3) (41108) Pass
+
+(T4) Replace theT6ElevatorTransport.updateTransportBlock();
+     call in liveNC (want fail).
+(R4) (41110) Pass? (argh: bug in
+     test code)
+
+(T5) Replace theT6ElevatorTransport.updateTransportBlock();
+     call in liveNC (want fail).
+(R5) (41113) FAIL (as expected)
+
+(T6) Hang NC after one call on
+     updateTransportBlock
+(R6) (41115) PASS
+
+(T7) Hang NC after ~10 calls on uTB
+(R7) (41117) {Fail?} FAIL
+
+(T8) Hang NC after 2 calls on uTB
+(R8) (41119) FAIL
+
+(T9) Hang NC after 1 call on
+     uTB (retrying T6)
+(R9) (41121) PASS
+
+(T10) Delete mP2PLogTransport.update(*this) |
+      in UTB
+(R10) (41123) PASS (!)
+
+(T11) Delete mP2PEWTransport.update(*this)
+      in UTB
+(R11) (41125) FAIL
+
+(T12) Hang in second call to
+      P2PEWElevatorPlatform::update
+(R12) (41128) FAIL
+
+(T13) Hang in 1st call to
+      P2PEWElevatorPlatform::update
+(R13) (41130) PASS
+
+(T14) Hang after 1st car
+      processed in P2PEP::update
+(R14) (41132) PASS
+
+(T15) Hang after 2nd car
+      processed in P2PEP::update
+(R15) (41133) PASS
+
+(T15) Hang after 3rd car
+      processed in P2PEP::update
+(R15) (41137) PASS
+
+(T16) Hang after all cars
+      processed in P2PEP::upd
+(R16) (41138) PASS (?)
+
+(T17) Hang before returning from
+      uTB
+(R17) (41141) PASS
+
+(T18) Hang after returning from
+      uTB (retrying T9?)
+(R18) (41143) PASS
+
+(T19) Hang after sleepCycles in
+      liveNC
+(R19) (41145) PASS
+
+(T20) Hang just before 2nd entry
+      to uTB
+(R20) (41147) PASS
+
+XXdon't trust T21
+XX(T21) Hang just after 2nd return
+XX      from UTB
+XX(R21) (41148) {Fail?} PASS
+
+(T22) Hang just before 3rd entry
+      from uTB
+(R22) (41150) {Fail???} FAIL
+
+(T23) Hang after 2nd ret uTB
+      (retry T21)
+(R23) (41153) FAIL (!)
+      (41153x2) FAIL
+      (think T21 was fucked)
+
+(T24) Hang in 2nd entry
+      P2P::update
+(R24) (41157) FAIL
+
+(T25) Hang before 1st return
+      from P2P::udpate
+(R25) (41160) PASS
+
+(T26) Hang before 2nd return
+      from P2P::udpate
+(R26) (41160) {must fail?} FAIL
+
+(T27) Hang before 5th total car
+      checked in P2P::update
+(R27) (41166) FAIL
+
+(T28) Hang before 4th total car
+      checked in P2P::update
+(R28) (41168) {pass?} PASS
+
+(T29) Hang before 5th total car
+      checked in P2P::update
+      (retry T27)
+(R29) (41169) {fail} FAIL
+
+[90:
+
+Fri Jan 30 19:31:25 2026 Ugh,
+some tests buggered because I
+had an earlier hang that I
+failed to delete grrrr.
+
+(T30) Hang before 5th total car
+      checked in P2P::update
+      (retry T27)
+(R30) (41171) FAIL
+
+(T31) Hang before 4th total car
+      checked in P2P::update
+      (retry T28)
+(R31) (41173) PASS
+
+(T32) Hang after 2nd CLOSED car
+      shipped in EWupdate
+(R32) (41178) FAIL
+
+(T33) Hang after 1st CLOSED car
+      shipped in EWupdate
+(R33) (41179) FAIL
+
+(T34) Hang before 1st CLOSED car
+      ships in EWupdate
+(R34) (41180) FAIL
+
+(T35) Hang after 1st
+      ready-to-close car closes
+(R35) (41182) FAIL
+
+(T36) Hang before 1st
+      ready-to-close car closes
+(R36) (41183) FAIL
+
+(T37) Hang after 1st car set
+      opened
+(R37) (41184) FAIL
+
+(T38) Hang before 1st car set
+      opened
+(R38) (41186) FAIL
+
+(T39) Hang after 1st unused car
+      set inbound_departed
+(R39) (41189) PASS
+
+(T40) Hang after 2nd unused car
+      set inbound_departed
+(R40) (41191) PASS
+
+(T41) Hang after 3rd unused car
+      set inbound_departed
+(R41) (41192) PASS
+
+(T42) Hang after 4th unused car
+      set inbound_departed
+(R42) (41194) PASS
+
+(T43) Hang after 5th unused car
+      set inbound_departed
+(R43) (41196) {Fail? b/c 5th
+      never happens?} FAIL
+
+(T44) Hang zot::liveB before
+      trying any events
+(R44) (41200) {pass??} FAIL
+
+(T45) Hang zot::liveB on entry
+(R45) (41202) FAIL
+
+(T46) Hang hartMainB on exit
+(R46) (41205) FAIL
+
+(T47) Hang hartMainB on entrance
+(R47) (41207) FAIL
+
+(T48) Hang hartMainB on entrance+
+      hang liveNC after 3rd uTB
+(R48) (41209) FAIL
+
+(T49) Hang hartMainB on entrance+
+      hang liveNC after 2nd uTB
+(R49) (41211) FAIL
+
+(T50) Hang hartMainB on entrance+
+      hang liveNC after 1st uTB
+      (similar to T18?)
+(R50) (41212) PASS
+[91:
+
+Fri Jan 30 20:49:12 2026 Trying
+some extra logging host/ side,
+trying to see if we're maybe
+writing to the image block when
+we shouldn't, though it's
+unclear how that would go with
+NC-hanging stopping the fail..
+
+[92:
+
+Fri Jan 30 20:50:40 2026 So far
+only seeing
+
+    20260130-204934[[gd200]] Multicasting image 'ZOT' to the fleet
+    OurTLBs.cpp:294: (140) WRITONG 0x0d02051b to 0x20
+    OurTLBs.cpp:294: (140) WRITONG 0x000101ba to 0x24
+    OurTLBs.cpp:294: (140) WRITONG 0x0001f420 to 0x28
+    OurTLBs.cpp:294: (140) WRITONG 0x000102ba to 0x32
+
+when the whole grid in ZOT, and
+that looks fine.
+
+:92]
+
+:91]
+:90]
+
+:89]
+
+:88]
+:87]
+[93:
+
+Fri Jan 30 22:22:33 2026 OK I
+made a DIEWAY() macro checks the
+image block and dies if it's
+changes, while counting how many
+times each use of the DIEWAY()
+macro was executed.
+
+[94:
+
+Fri Jan 30 23:12:33 2026 I think
+I need to trace through the
+T6ElevatorTransport
+initialization and print out
+addresses there and make sure
+everything is shipshape.. I
+could easily believe I blew
+something there with the various
+block addresses changing under
+the multicode and ImageBlock
+stuff.
+
+But I have to take a break now.
+Cheezwatabichdizbohg
+
+:94]
+
+:93]
+[95:
+
+Sat Jan 31 09:02:55 2026 So
+okay. How do we check the
+elevator transport stuff?
+
+[96:
+
+Sat Jan 31 10:18:37 2026 Well
+will you look at that:
+
+    cross/src/T6ElevatorTransport.cpp:51:(1,2,hNC)SHD:theEWCarMetadata@0x1fb40=0x0/0
+    cross/src/P2PLogElevatorPlatform.cpp:107:(1,2,hNC)SHD:carmeta.mArrivalTime@0x0=0x0/0
+    cross/src/P2PLogElevatorPlatform.cpp:107:(1,2,hNC)SHD:carmeta.mArrivalTime@0x8=0x0/0
+    cross/src/P2PLogElevatorPlatform.cpp:107:(1,2,hNC)SHD:carmeta.mArrivalTime@0x10=0x0/0
+    cross/src/P2PLogElevatorPlatform.cpp:107:(1,2,hNC)SHD:carmeta.mArrivalTime@0x18=0x0/0
+    cross/src/P2PLogElevatorPlatform.cpp:108:(1,2,hNC)XGDIE#4
+    cross/images/zot/src/LiveB.cpp:141:(1,2,hBT)XGDIE#143
+
+The SHD lines referring to
+carmeta appear to show addresses
+(which are about to be stored
+into) including 0x18, which is
+our canary address that is
+checked for fuckage by
+XXX_DEBUG_FUNC.
+
+carmeta absolutely must be
+fucked. I Have Hope Here![97:
+
+Sat Jan 31 10:28:46 2026 OK we
+are getting extremely close to a
+smoking gun, here:
+
+    cross/src/P2PLogElevatorPlatform.cpp:74:(1,2,hNC)SHD:mCarMetadata@0x1faf4=0x0/0
+
+mCarMetadata is 0.
+[98:
+
+Sat Jan 31 10:32:35 2026 And
+adding
+    MFM_API_ASSERT_NONNULL(mCarMetadata);
+lines to the elevator::update
+methods dutifully gets us:
+
+    CodeManager.cpp:397: BH2:( 1, 2)hNC STUCK? 0x00000000 = FAIL-97:NULL_POINTER
+
+OK. So, pardon me sir, good day,
+top of the morning, one small
+question perhaps if I may? --
+
+WHERE THE FUCK IS THE FUCKING
+CAR METADATA SUPPOSED TO BE
+FUCKING INITIALIZED, YOU FUCKING
+FUCKHEAD FUCKER?
+[99:
+
+Sat Jan 31 10:37:46 2026 OK,
+quick coding quiz: In the
+following function, which
+parameter value appears not to
+be used?
+
+      void P2PEWElevatorPlatform::initCars(EWCar * stg, BaseCarMetadata * meta, u32 count, u64 remoteaddr, bool isIn) {
+        AtomicScopeLock guard(getPlatformLock());
+        MFM_API_ASSERT_ARG(count == 0u || stg != 0);
+        mCars = stg;
+        mCarCount = count;
+        mCurrentCarIdx = 0u;
+        mRemoteBaseAddress = remoteaddr;
+        mIsIn = isIn;
+        memset_s(mCars,0u,count*sizeof(EWCar));
+      }
+
+[100:
+
+Sat Jan 31 11:22:02 2026 OK, so
+that WAS the smoking gun for
+this main horrible diagnostic
+event. Plenty other issues to
+still wonder about - I need to
+recheck T2 and RND#s for
+example, but we are now working
+something like we expected to.
+
+Actually let's pop mpmd17 before
+we get too crazy again here.
+[101:
+
+Sat Jan 31 11:26:12 2026 OK,
+now into mpmd17/, with emacs
+buffers flushed.
+
+:101]
+:100]
+:99]
+:98]
+
+:97]
+
+
+:96]
+
+:95]
+[102:
+
+Mon Feb  2 06:42:07 2026 OK, so
+I spent Sunday mostly refreshing
+the video pipeline and getting a
+basic basic pixel level display
+running over it. And we've now
+got that. But between now and
+less than 30 hours from now, I'd
+like to be able to put text
+overlays on top of the pixel
+display, preferable with some
+kind of transparency. We shall
+see.
+
+[103:
+
+Mon Feb  2 12:15:32 2026 OK I
+just got plausible-looking
+suggestions from AI about how to
+return a numpy array built on
+top of a string_view, so let's
+see if we can get that to work.
+
+:103]
+:102]
+[104:
+
+Fri Feb  6 22:53:12 2026 OK so
+we're past t2sup3169 and
+subsequent first t2sday events.
+Need to review where we are here
+and plan our next steps.
+
+THINGS UNDONE
+
+ - Really diverge the code
+   between images.
+
+ - Understand more clearly about
+   overriding files/functions
+   from crosslib - can we do it?
+   how does it work?
+
+:104]
+[105:
+
+Fri Feb  6 23:20:18 2026 So, For
+The Record, dealing with the
+'uninitialized metadata bug' ran
+from some time before
+
+11:46AM on 1/28/26 to
+11:22AM on 1/31/26,
+
+for total of more than three
+fucking days almost surely.
+
+:105]
+[106:
+
+Fri Feb  6 23:33:14 2026 And
+back before that (call it :46:
+above) we were thinking about
+how a T6 localizes itself within
+a cell. And were concluding that
+we should make all tiles aware
+of
+
+ - the cell type,
+ - its layout offset,
+ - and its stride
+
+so they can figure out what cell
+they are part of (if that
+matters) and where they are
+within it (which surely will
+matter).
+
+But, at the moment, the cell
+informaiton is just defined by
+the config file. It's not
+hardcoded.
+
+What if we gave everybody a
+CellBlock that was like:
+
+ u8 mCellType, mCellWidth, mCellHeight;
+ u8 mLayoutOffsetX, mLayoutOffsetY, mStrideX, mStrideY;
+ u8 mImageMap[56];
+ u8 mChecksum;
+
+where we treat mImageMap like [mCellWidth][mCellHeight]
+up to 8x7 or 7x8 or any other
+shape with area <= 56.
+
+Then we can have the host figure
+out the cellblock given the
+config, and initialize the
+CellBlock before shipping each
+image.
+
+[107:
+
+Fri Feb  6 23:51:02 2026 Shall
+we give that a go? Something
+like TODO:
+
+[108: Fri Feb  6 23:55:58 2026
+DONE :108] - Note that we're still going
+   with hardcoded Image types;
+   this is just for checking
+   cell structures.
+
+[110: Sat Feb  7 01:59:08 2026
+DONE :110] - Create shared/CellBlock.h
+
+[111: Sat Feb  7 03:04:20 2026
+DONE :111] - Create an ImageBlock type
+   that points at the image's
+   cellblock
+
+[112: Sat Feb  7 03:04:31 2026
+DONE :112] - Get cross/ to generate that
+   ImageBlock entry
+
+[131: Sun Feb  8 23:42:07 2026
+DONE :131] - Create something like
+   host/ConfigureCellBlock that
+   reads the imageblock to find
+   the cellblock, and configures
+   each image's cellblock from
+   the dtoml.
+
+[132: Sun Feb  8 23:42:23 2026
+DONE :132] - Write some cross code to
+   check and report the
+   cellblock on startup.
+
+[109:
+
+Fri Feb  6 23:56:17 2026 OK
+going. We're in mpmd17.
+[113:
+
+Sat Feb  7 03:09:11 2026 OK
+second sleep. Good
+progress.[114:
+
+Sat Feb  7 04:24:44 2026 Or not
+second sleep. Let's screw around
+some more.
+
+:114]
+
+:113]
+  :109]:107]
+
+
+:106]
+[115:
+
+Sat Feb  7 06:13:11 2026 Trying
+again for nap. Current status:
+Need to
+
+[118: Sun Feb  8 10:20:48 2026
+DONE :118] - try configureCellBlock,
+
+[119: DONE  :119] - find a place to call it
+
+[120: DONE  :120] - once we know the struct Cell
+   that we're using.
+
+[121: Sun Feb  8 10:21:03 2026
+Thought about, could want in
+principle, not pursuing now, so
+DONE :121] - also think about whether we
+   have any interest in
+   supporting different cell
+   types on different BH cards.
+   if we do, we'll have to maybe
+   reconfigure the CellBlock in
+   the t6images between bh
+   cards.
+[116:
+
+Sat Feb  7 11:14:18 2026 So the
+existing 'layout' structure
+already affords different cells
+per BH card, given the 'card'
+decl in like:
+
+    [layout.allone]
+      bhcards = [2]
+      defaultImage = ZOT
+      card.all = C1X1_ONE
+
+is referring to cell types.
+
+I'd say we should just configure
+the T6Image CellBlocks on
+demand, but that will get
+aggravating given the desire for
+readback sanity checks and
+stuff. Is it worth having a
+bhc->CellBlock map inside each
+T6Image? Still extra hair.
+
+:116]
+:115]
+[117:
+
+Sat Feb  7 23:57:11 2026 OK
+let's get a few hours in here.
+
+:117]
+[122:
+
+Sun Feb  8 10:21:33 2026 OK so
+we have perhaps configured the
+default image before
+multicasting it to the fleet. We
+could begin testing that in
+cross/ now.
+
+We'd want to:
+[123: Sun Feb  8 12:49:26 2026
+DONE :123] - Find the cellblock in
+   ourselves, if any
+[124:
+DONE :124] - see if it's valid
+[125:
+DONE :125] - if it is, get some values
+   from it
+[126:
+DONE :126] - report our results..
+
+:122]
+[127:
+
+Sun Feb  8 12:49:58 2026 I
+claimed stuff there but we still
+need to configure the cellblocks
+of non-default images, so (for
+that and other reasons) ATM we
+don't see any valid CellBlocks
+on the cross/ side. Next after
+break. [128:
+
+Sun Feb  8 16:49:44 2026 Not
+seeing the configured CellBlocks
+showing up on the cross/ side.
+Suddenly now wondering: Are they
+getting wiped as bss during
+startup? I bet they are. And
+we'll need to put them in some
+special section to avoid that?
+Where does char * string data
+live in our ld setup? We must
+have some version of .rodata,
+right?
+
+Overdue to be cooking, but pick
+up there.[129:
+
+Sun Feb  8 23:19:53 2026 So,
+explicitly putting theCellBlock
+into .rodata worked, even though
+it seemed like _BUD.ld.in wasn't
+treating .rodata specially..
+[130:
+
+Sun Feb  8 23:39:38 2026 Well I
+made another 'me' section called
+.crossrodata to get rid of an
+assembler warning about changing
+flags when I used '.rodata', and
+now things seem quiet enough and
+our own CellBlocks appear to
+arrive properly initialized as
+we wanted.
+
+[133:
+
+Sun Feb  8 23:42:48 2026 I guess
+a sensible next step should be
+for T6s to localize themselves
+within their cell, building up
+some support code towards being
+able to say things like:
+
+[134: Mon Feb  9 02:08:47 2026
+DONE :134] - What is my cell pos?
+
+[135: DONE  :135] - What is my cellpos within my
+   cell?
+
+[136: Mon Feb  9 02:28:40 2026
+DONE :136] - What is the cellpos of an
+   ImageCode::IC_HUB t6 (in my
+   cell)?
+
+[137: Mon Feb  9 02:39:19 2026
+DONE :137] - What is the NoC0 address of
+   cellpos (x,y) (in my cell),
+   if it exists?
+
+ - What is the ImageBlockAddr
+   for BlockCode FOO in cellpos
+   (x,y) of my cell?
+
+and so on.
+
+:133]
+
+:130]
+:129]
+
+:128]
+
+:127]
+[138:
+
+Mon Feb  9 02:39:34 2026 OK time
+for a break, I think. Good
+progress in T6CellO. Next bigger
+steps TODO include:
+
+[140: Mon Feb  9 06:34:55 2026
+DONE :140] - Figure out how to have a
+   cellpos to intra-cellnumber
+   so that each (say) EWP can
+   know which array slot on
+   (say) a HUB it should use for
+   P2P comms. Challenge is what
+   to do about gaps in the
+   numbering, like for the hub
+   itself. [139: Mon Feb  9
+   04:37:51 2026 If we assume
+   only one kind of image will
+   map to one kind of imageblock
+   array, we can just count that
+   image type in raster order
+   and use that as the index. :139]
+
+[217: Sat Feb 21 02:28:01 2026 I
+guess we've popped yaks back to
+somewhere around here.. :217]
+
+[222: Sat Feb 21 02:36:40 2026
+Let's promote these.. :222] - Reconfigure HUB for 3x3 EWP
+   and work on an EWPTerminal
+   with (like) an array of 8
+   EWTs in it.
+
+[223: PROMOTED :218: below :223] - Print some info from that
+   configuration
+
+[224: PROMOTED  :224] - Get EWP to report to HUB via
+   its appropriate slot, using
+   some metadata hack (hrmph) in
+   an EWT to avoid having
+   multiple comm buffers between
+   an EWP and a HUB.
+
+[225: PROMOTED  :225] - Get HUB to report when a new
+   EWP has checked in.
+
+[226: Sat Feb 21 02:39:03 2026
+PROMOTED TO :218: below  :226] - See that work. Work see work.
+
+:138]
+[141:
+
+Mon Feb  9 08:44:28 2026 Hmm.
+It's kind of appearing that
+although we put an ARRAY_LEN
+into the whole ImageConfig and
+ImageBlockAddr stuff, nobody
+ever actually uses it? In
+particular, if it's != 1, the
+allocated object still has the
+same size as if it was 1?
+
+:141]
+[142:
+
+Mon Feb  9 09:49:50 2026 OK one
+issue to deal with eventually is
+in host/
+OurTLBs.updateTransports() which
+basically does just:
+
+    for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
+      updateLogCars(tlbi);
+      updateEWCars(tlbi);
+    }
+
+and the problem with that is
+we'd like to bring up logcar
+processing before we bring up
+ewcar processing.
+
+Right now, I'm seeing host/
+sometimes checking for ewcars
+before any image has been sent
+to some T6, and before the
+(final) image has been sent, in
+the case of non-default images.
+
+You'd think EW processing would
+be under a pretty basic
+flag/mode sort of thing, such
+that we wouldn't even enter
+updateEWCars until things are
+well advanced (and, for example,
+code deployment is complete..)
+[143:
+
+Mon Feb  9 13:01:24 2026 So
+BlackHole::Phase::HAS_T6_EVENT_WINDOWS
+is now used to decide whether to
+even go into updateEWCars. But
+somewhere along the way I broke
+GOF-host-based EWPs. I guess I
+should probably run that down
+even if we're heading away from
+host-based anyway..
+
+:143]
+:142]
+[144:
+
+Mon Feb  9 14:20:56 2026 OK went
+back and renamed all the
+PPMImage stuff to BGRImage since
+I don't use the PPM header stuff
+and it was causing obnoxious
+compiler warnings..
+[145:
+
+Mon Feb  9 14:45:13 2026 Well
+doing this
+
+    if (image->getImageCode() == ImageCode::IC_HUB)  // skip hubs only as a test
+      return;
+
+fixed things, vs doing this:
+
+    if (image->getImageCode() != ImageCode::IC_EWP)
+      return;
+
+in updateEWCards(..), so I guess
+I broke something in EWP? Or
+getImageCode() might be fucked?
+
+[146:
+
+Mon Feb  9 22:39:22 2026 So I
+suspect at some point the
+BlackHole phase retreat logic
+(and maybe advances) needs to
+move to like ImageManager, so
+that when multiple cards are in
+use, their phases retreat more
+or less in sync.
+
+Right now I'm running two cards
+and segfaulting during exit,
+apparently because
+T6Image::mTheBinFile is getting
+cleared before updateTransports
+has quit, so (the new) code
+
+    if (image->getImageCode() == ImageCode::IC_HUB)  // skip hubs only as a test
+      return;
+
+in updateEWCars blows up on
+getImageCode.. Now in this case,
+at the point of the segfault,
+both cards appear to be fully
+active, with like:
+
+    (gdb) p mCardNum
+    $17 = 1
+    (gdb) p mCurrentPhase
+    $18 = MFM::BlackHole::HAS_T6_EVENT_WINDOWS
+
+and
+
+    (gdb) p mCardNum
+    $19 = 2
+    (gdb) p mCurrentPhase
+    $20 = MFM::BlackHole::HAS_T6_EVENT_WINDOWS
+    (gdb)
+
+so that's not a real diagnosis
+here.. but thinking ahead.
+
+:146]
+
+:145]
+:144]
+[147:
+
+Tue Feb 10 02:16:12 2026 OK so
+we're shipping start symbol
+events out (once per second, as
+previous tries expire), but they
+never seem to be coming back,
+and I'm suspecting this line:
+
+          u32 destByteAddr = T6::transportblock_ew_start + car * sizeof(ec);
+
+at OurTLBs.cpp:548. That's
+relying on the 'good old
+t6-exports technology' which we
+now think is broken in our age
+of modern muli-image miracles.
+We think that needs to be
+rewritten TODO like this:
+
+[212: Sat Feb 21 02:27:08 2026
+DONE :212] (1) Find the relevant T6Image
+
+[213: DONE  :213] (2) Find its ImageBlockHeader
+     in its mBinFile
+
+[214: DONE  :214] (3) Find its BC_EWCARS
+     ImageBlockAddr, following
+     its ibh. Probably FAIL if
+     not found, because we
+     shouldn't have got here.
+
+[215: DONE  :215] (4) Compute the destination
+     address from the iba, with
+     something like:
+
+          u32 destByteAddr = iba.mBlockAddr + car * sizeof(ec);
+
+[216: Sat Feb 21 02:27:36 2026
+DONE :216] (5) Ship it and see what pops
+
+:147]
+[148:
+
+Tue Feb 10 03:44:17 2026 Should
+just kill t6-exports entirely
+and then follow the breakage..
+[149:
+
+Wed Feb 11 10:40:18 2026 OK
+we killed t6-exports mostly, and
+we've been following the
+breakage (to the degree we've
+been on task lately..), and now
+we're at an additional problem:
+
+Previous code assumed that both
+LOGCarStorage and EWCarStorage
+always existed AND were welded
+together so a single host-side
+block could shadow them.
+
+But current code is claiming a
+BC_LOGCARS block can exist with
+or without a BC_EWCARS block,
+and if they both exist, their
+addresses have no particular
+relationship to each other.
+
+So "the obvious" need is to have
+a per-T6Image mapping from u32
+cross-side blocks to u32
+host-side addresses within the
+host RAM buffer that we allocate
+for DMA.
+
+But that's not trivial because
+having a single host-side
+address for a host-bound
+destinations is built into the
+HostBlock structure, right? Or
+else how does cross-side know
+where to push logcars to?[150:
+
+Wed Feb 11 10:52:53 2026 Yes,
+cross/ ultimately uses HostBlock
+mHostBaseAddrLo and
+mHostBaseAddrHi to form the
+'noc' base address, and then
+relative mapping based on the
+shared/ TransportBlock to
+determine specific host/
+positions, with like:
+
+   mP2PLogTransport.initCars((LogCarStorage::LogCar*) tb.mLogCarStorageT6Ptr,
+                              &theLogCarMetadata.mLogData[0],
+                              LogCarStorage::CAR_COUNT,
+                              noc + (tb.mLogCarStorageT6Ptr - tb.mLogCarStorageT6Ptr),
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                              false);
+
+So what are we going to do about
+that?
+[151:
+
+Wed Feb 11 11:01:30 2026 Would
+a 'most official' thing be to
+have a host-side ImageBlock as
+well? I guess ATM the HostBlock
+subsumes that purpose. And I'm
+loathe to mess with the
+hostblock lightly.. If we had a
+fixed way of enumerating the
+cross-side blocks - like, for
+example, in ImageBlockAddr
+order, we could have host/ and
+cross/ agree that that was how
+the single host/ side block
+would be populated.
+
+Maybe that's not too horrible.
+[152:
+
+Wed Feb 11 12:31:20 2026 Except
+it's sad if we assume that
+host-side must map ALL
+cross-side ImageBlockAddrs. The
+whole point of BC_EWHUB is to
+advertise EWCar space available
+WITHOUT tying up host space.
+[153:
+
+Wed Feb 11 17:44:14 2026 What if
+we extended the ImageBlockAddr
+struct to have a u64
+mHostBlockAddrOpt to point at
+host block's end of this
+ImageBlock, if any? Or I guess
+actually it could easily be
+
+u32 mHostBlockOffsetOpt;
+
+if we made it implicitly
+relative to the host 'noc'
+address we already have in the
+HostBlock. Or if we assume a
+monster 64 byte alignment for
+all blocks (do we need/want
+that?) it could be
+
+  u8 mHostChunkOffsetOpt;
+
+and we could stick it in to
+replace the currently unused
+mFlagsOrSomeShit member,
+allowing like ~16KB offset
+range, which "ought to be
+plenty" "for any reasonable
+purpose".
+
+And the point would be that host
+would fill in those bytes while
+configuring a T6Image for
+deployment.
+
+[154:
+
+Thu Feb 12 02:40:44 2026 OK,
+we're trying to do that.
+Currently in OurTLBs, reviewing
+T6Image configuration. Thinking
+we're going to want something
+like a host image block.. How
+much like a host image block?
+What exactly does it need to
+supply?
+
+ map[BlockCode] -> mHostChunkOffsetOpt
+
+? Or
+
+ map[ImageCode,BlockCode] ->
+  mHostChunkOffsetOpt
+
+?
+
+I guess it would be easy enough
+to have a host config if we
+wanted it, although really not
+sure we would..[155:
+
+Thu Feb 12 11:45:05 2026 Because
+what would varying that config
+do? Kick in an out chunks of
+host/ code? I suppose maybe.
+
+Anyway. Let's think about
+
+ map[ImageCode,BlockCode] ->
+  mHostChunkOffsetOpt
+
+call it maybe mHostRAMMap ?
+
+And we'll build it during
+BlackHole config? And use it
+during T6Image deploy? Or build
+it during ImageManager
+config?[156:
+
+Thu Feb 12 12:24:04 2026 So,
+extend the layout dtoml to have
+a 'host' key? That would link to
+a [host.keyname] block? That
+would define which block codes
+the host will define in this
+layout. [157:
+
+Thu Feb 12 13:53:58 2026 So now
+we have like:
+
+    [layout.std3x3]
+      bhcards = [1,2]
+      defaultImage = EWP
+      fill = C3X3
+      host = feedEWP
+
+    [host.feedEWP]
+      terminals = [HostLOG, HostEWP]
+
+and what shall we do with that?
+We're sort of imagining HostLOG
+and HostEWP are hardcoded in
+host/? Or I guess really they
+should align with BlockCodes? So
+maybe it should be more like
+
+      terminalBlocks = [BC_LOGCARS, BC_EWCARS]
+
+? But that leaves the processing
+intent unspecified and just
+specifies data structures
+present or absent. Vs like?
+
+    [host.feedEWP]
+      terminals.BC_LOGCARS = HostAcceptLogging
+      terminals.BC_EWCARS = HostGenerateEWTs
+
+to associate data with some kind
+of processing indicator? Or
+maybe the other way around? --
+
+    [host.feedEWP]
+      process.AcceptLogging = BC_LOGCARS   # or [BC_LOGCARS]
+      process.OriginateEWs = [BC_EWCARS]
+
+or
+
+    [host.feedEWP]
+      module.AcceptLogging = BC_LOGCARS   # or [BC_LOGCARS]
+      module.OriginateEWs = [BC_EWCARS]
+
+with the notion that there will
+be C++ code with 'AcceptLogging'
+in the name that inherits from
+some kind of 'module' or
+'HostModule' or whatever base..
+
+Or push it even farther with
+like:
+
+    [host.feedEWP]
+      modules = [AcceptLogging, OriginateEWs]
+
+    [module.AcceptLogging]
+      blocks = [BC_LOGCARS]
+      option.flushdelay = 1
+      option.level = info  # or whatever etc
+
+    [module.OriginateEWs]
+      blocks = [BC_EWCARS]
+
+but maybe we should toddle
+before we jetpack.
+
+:157]
+
+:156]
+
+:155]
+
+
+  :154]And then "it would all just
+work.."
+
+(I don't know what's going on
+with my sudden "need to quote"
+everything.)
+
+:153]
+:152]
+
+:151]
+:150]
+
+:149]
+
+:148]
+[158:
+
+Fri Feb 13 01:56:38 2026 OK,
+flag moved. Where the heck are
+we in all this?[159:
+
+Fri Feb 13 01:57:05 2026 We're
+in
+
+ - mpmd18.dtoml
+
+ - latest config scheme is like:
+
+    [layout.std3x3]
+      bhcards = [1,2]
+      defaultImage = EWP
+      fill = C3X3
+      hostModules = [AcceptLogging,OriginateEWs]
+
+    [module.AcceptLogging]
+      blocks = [BC_LOGCARS]
+
+    [module.OriginateEWs]
+      blocks = [BC_EWCARS]
+
+ - none of the new stuff -
+   'hostModules', 'module.XX' -
+   is hooked up internally.
+
+Where do we think we should hook
+it up? Well where do we hook up
+the other dtoml business? It
+starts in python, right?[160:
+
+Fri Feb 13 02:00:57 2026 We're at
+ewd19.py:173:  def configureImageManager(self):
+
+with stuff like
+:221:vvvvv
+    layoutdict = self.config.hash['layout']
+    for k,l in layoutdict.items():
+      lay = im.makeLayout(k,l['defaultImage'])
+      for bhc in l['bhcards']:
+        lay.addBlackHoleCard(int(bhc))
+      defcell = l.get('fill')
+      if defcell:
+        cell = im.getCell(defcell)
+        lay.addCell(255, defcell)
+      cells = l.get('cell')
+      if cells:
+        for c,cellname in cells.items():
+          c = 255 if c == 'all' else int(c)
+          lay.addCell(c, cellname)
+
+[161:
+
+Fri Feb 13 02:14:25 2026 OK,
+we're iterating through the
+'module' dict in
+configureImageManager. Who
+should we call with the
+information we find?
+
+Something like
+
+ hmod = im.requireHostModule(k)
+
+and then some iteration over v
+like
+
+ for mod in v:
+   im.addCommBlock(hmod,mod)
+
+or something?
+
+[162:
+
+Fri Feb 13 02:39:27 2026 OK
+maybe time for a break. Can I
+claim stuff? [163:
+
+Fri Feb 13 02:40:38 2026 Well,
+not really. I'll just declare
+stuff instead:
+
+ - We have struct HostModule
+
+ - ewd19 builds up a map of
+   instances of HostModule via
+   ImageManager.makeHostModule()
+   calls.
+
+Next steps TODO (ahh now we're
+talking) include:
+
+[164: Fri Feb 13 10:57:55 2026 a u64..
+DONE :164] - add some kind of container of
+   comm block codes to
+   hostmodule.
+
+[165: Fri Feb 13 10:58:13 2026
+DONE  :165] - be able to register them via
+   ewd19.py
+
+[206: Sat Feb 21 02:25:01 2026
+DONE :206] - consider actual C++-side
+   semantics for a HostModule.
+   Does it do anything but
+[207: mostly what it does is
+setup up the pinned-host memory
+map addresses based on the
+active layout (etc) from the
+dtoml  :207]
+   = set a 'module active' bool
+     somewhere, and
+
+[208: DONE  :208]   = include any required
+     commblocks in the hostRAM
+     definition (mostly dealt
+     with in OurTLBs?)
+
+   ?
+
+[209: DONE  :209] - Thread 'module active'
+   awareness into Logging
+
+[210: DONE  :210] - Thread 'module active'
+   awareness into EWP
+
+[211: Sat Feb 21 02:26:56 2026
+DONE :211] - See some stuff run
+
+:163]
+
+:162]
+
+  :161]:160]
+
+:159]
+
+:158]
+[166:
+
+Sat Feb 14 09:09:03 2026 So
+okay, it seems like we have just
+about enough HostModule-related
+pieces now, and we're wondering
+when and where we get to do the
+actual modifications of selected
+ImageBlockAddrs within an
+ImageBlock (which is in turn, we
+assume, within a T6Image).
+
+We are currently trying to
+imagine what
+Layout::addHostModule(HostModule&)
+is supposed to do, if indeed it
+should exist at all.
+
+Maybe we should work backward
+from T6Image codes? Let's review
+that stuff anyway.
+
+:166]
+[167:
+
+Sat Feb 14 23:54:28 2026 OK,
+currently implementing
+
+  struct HostRAMConfig
+
+as a place to hold the computed
+host RAM chunk offsets.. but
+I've already implemented
+HostModule to hold the fact of
+which modules are required.. and
+it seems clear we could do both
+jobs in HostModule. So each
+HostModule would contain a
+chunk-offset map that answers
+both required? and where put?
+questions - even though only the
+HostModule chosen by the active
+layout would be used.[168:
+
+Sun Feb 15 00:34:14 2026 Yeah,
+let's rewrite HostModule to use
+an u8[] instead of a u64
+bitmaps.[169:
+
+Sun Feb 15 00:35:27 2026 Argh.
+Getting overextended here.
+Pushing on to mpmd18.[170:
+
+Sun Feb 15 00:39:19 2026 OK here
+we are in mpmd18. Shells cded.
+Emacs buffers purged.[171:
+
+Sun Feb 15 00:48:20 2026 OK
+rehacking HostModule to store
+chunk offsets. Issue now is how
+to we tell how big a BlockCode'd
+block actually is, to determine
+how many 64B chunks we need to
+map it.. The info has to come
+out of the ImageConfig.inc
+hijinks somehow, right? Where's
+the array of sizes?[172:
+
+Sun Feb 15 01:29:23 2026 So
+right now, ImageConfig.h is
+solely on the cross/ side. Do we
+want some/more of it in shared/
+? Do(n't) we? I guess if there
+are blocks that are solely meant
+to be inter-T6 than they don't,
+at least in principal, need
+shared/ space.
+
+Or looking this way: Given the
+BlockCodes that currently
+exist,where are the structs that
+determine their sizes currently
+located? [173:
+
+Sun Feb 15 01:35:11 2026 OK well
+wait now:
+shared/include/BlockCode.h DOES
+have some ImageConfig-ish
+shenanigans in it:
+
+    #define BLOCKCODE_LIST()                     \
+      XX(LOGCARS,LogCarStorage)                  \
+      XX(EWCARS,EWCarStorage)                    \
+      XX(CELLBLOCK,CellBlock)                    \
+      XX(EWHUB,EWHub[8])
+
+[174:
+
+Sun Feb 15 01:41:32 2026 But the
+XX macros never actually used
+their second argument.. I just
+now added like:
+
+    #define XX(NAME,TYPE) \
+      BC_SIZE_##NAME = sizeof(TYPE),
+
+      enum BlockCodeSize {
+        BC_SIZE_RSRV_ILL = 0,
+        BLOCKCODE_LIST()
+      };
+
+    #undef XX
+
+and now it's blowing up all over
+the place with like
+
+    In file included from /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd18/srcs/cross/include/T6CellO.h:5,
+                     from /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd18/srcs/cross/src/T6CellO.cpp:1:
+    /data/ackley/PART4/code/D/blackholeSpikes/spikes/mpmd18/srcs/shared/include/BlockCode.h:44:30: error: 'LogCarStorage' was not declared in this scope
+       44 |     BLOCKCODE_LIST()
+
+and so forth. So that will all
+need to be sorted out. But not
+right now.[175:
+
+Sun Feb 15 03:52:23 2026 I guess
+the likely notion is all
+BlockCode definition structs
+will have to move to shared/
+even if we have no interest in
+exposing them to host/?
+
+Or we could have a default that
+won't let host/ use the
+definitions that aren't in
+shared/?
+
+It seems like it would be best
+to have a level of abstraction,
+like a number of 64B aligned
+blocks required by the
+definition, and that would be as
+far as shared/'s awareness need
+go.
+
+:175]
+
+:174]
+
+:173]
+
+:172]
+
+:171]
+
+:170]
+
+:169]
+
+:168]
+
+:167]
+[176:
+
+Sun Feb 15 11:06:12 2026 OK
+taking a break to screw some
+angle brackets into the
+quietbox-shipping-box storage
+unit, to stiffen it up a bit.
+
+Status here: Need to write
+ImageManager::configureHostRAM(),
+and then see what blows up next.
+[177:
+
+Sun Feb 15 12:27:25 2026
+Actually maybe we don't need
+configureHostRAM() anymore?
+Because we're doing its job
+incrementally during HostModule
+configuration?
+[178:
+
+Sun Feb 15 22:37:46 2026 OK come
+on let's get this runnable and
+see what we have made.[179:
+
+Sun Feb 15 22:40:35 2026 OK well
+ATM we're actually getting all
+the way to updateEWCars before
+we blow up.[180:
+
+Sun Feb 15 22:52:51 2026 Urgh
+we've some kind of design
+mismatch here. C++'s HostModule
+supports a set of host-mapped
+imageblockaddrs (in effect).
+
+But the current dtoml layout
+acts as though each 'module' has
+a single block:
+
+    [module.AcceptLogging]
+    blocks = [BC_LOGCARS]
+
+    [module.OriginateEWs]
+    blocks = [BC_EWCARS]
+
+and then tries to merge them or
+something at the layout level:
+
+    [layout.std3x3]
+      bhcards = [1,2]
+      defaultImage = EWP
+      fill = C3X3
+      hostModules = [AcceptLogging,OriginateEWs]
+
+[181:
+
+Sun Feb 15 22:58:51 2026 So if
+we go with the dtoml's view of
+things, then we don't each
+'dtoml module' to be a 'C++
+HostModule', which is what we
+currently have.
+
+I guess we'd want to:
+
+ - make a 'C++ module' that
+   holds a list of blocks (for
+   now; perhaps additional
+   config later), but it does
+   not have a map of chunk
+   offsets.
+
+ - make a C++ 'host config' (or
+   whatever) object that holds
+   the map of chunk offsets.
+
+ - make the dtoml 'layout'
+   specify a single HostConfig
+   name.
+
+Something more like:
+
+[layout.std3x3]
+  bhcards = [1,2]
+  defaultImage = EWP
+  fill = C3X3
+  host = StandardEW
+
+[host.StandardEW]
+  modules = [AcceptLogging, OriginateEWs]	#this?
+  blocks = [BC_LOGCARS, BC_EWCARDS]  		#or this?
+
+[module.AcceptLogging]
+  blocks = [BC_LOGCARS]
+
+[module.OriginateEWs]
+  blocks = [BC_EWCARS]
+
+[182:
+
+Sun Feb 15 23:28:57 2026 So it's
+'how many indirects do we want
+here?'. Is there a worthy
+purpose for 'module' separate
+from 'block'?[183:
+
+Mon Feb 16 00:04:21 2026 If we
+keep the current indirects -
+arguing we might want module
+customizations also for cross/,
+for an excuse - than we do need
+a 'merge modules into map' thing
+at the host level.[184:
+
+Mon Feb 16 00:09:31 2026 ..I
+don't know.. Looking at the
+dtoml now, I want to go with
+basically the existing
+
+    [layout.std3x3]
+      bhcards = [1,2]
+      defaultImage = EWP
+      fill = C3X3
+      hostModules = [ AcceptLogging, OriginateEWs ]
+
+with a basically unnamed
+'hostModule'. How could that
+look to C++?
+
+[185: Mon Feb 16 01:03:01 2026
+Renamed it to CommsModule.. We
+shall see.. but call it
+DONE :185] - rename HostModule to Module?
+
+ - move the chunk map out of
+   Module into a like 'HostMap'?
+
+[186: Mon Feb 16 01:26:20 2026
+DONE :186]   = Instead Module, for now,
+     just has a list of
+     blockcodes?
+   = In the future, it could
+     blah blah blah as well
+
+[187: Mon Feb 16 02:17:54 2026
+DONE :187] - Put a single HostMap in each
+   Layout?
+
+[188:
+DONE :188] - Add Modules to HostMap to
+   construct the chunk map.
+
+:184]
+
+:183]
+
+:182]
+
+:181]
+
+:180]
+
+:179]
+
+:178]
+:177]
+:176]
+[189:
+
+Mon Feb 16 02:18:05 2026 OK I
+think we're back to needing the
+actual semantics of the
+commsmodules required by the
+host map..[190:
+
+Mon Feb 16 02:24:19 2026 No,
+we're at needing to finally
+configure the ImageBlockAddrs to
+get the (we believe now
+computed) chunk offsets into
+them.. Where is that supposed to
+happen now?
+[191:
+
+Mon Feb 16 02:45:03 2026 We'll
+be taking the single active
+layout, and then the
+HostCommsMap within that, and
+applying it to each T6Image that
+we deploy. "That's all". Maybe.
+[192:
+
+Mon Feb 16 14:36:44 2026 Well,
+we think we've done that
+plausibly, and now we need to
+review how we want that to be
+used. Because I'm Confused.
+
+Specifically, we've got struct
+TLBInfo, which has in part:
+
+    struct TLBInfo {
+ ..   const T6Image *  mDeployedImage;
+      u32 mLogTransportBlockStart;
+      u32 mEWTransportBlockStart;
+      u32 mRemoteBaseAddress;
+ ..
+
+and those 'XXBlockStart' members
+are used in updateXX-ish
+methods.
+
+So two questions:
+ - Exactly how are they used, and
+ - Exactly how are they set?
+
+[193:
+
+Mon Feb 16 14:42:08 2026 I guess
+let's start with 'log', since
+maybe that's kind of working
+atm.. [194:
+
+Mon Feb 16 14:43:14 2026 So,
+log..blockstart is used in:
+
+      u32 OurTLBs::getLogCarT6(u32 tlbi, u32 carnum) {
+        MFM_API_ASSERT_NONNULL(mMapAll);
+        const TLBInfo & info = getTLBInfo(tlbi);
+        u32 base = info.mLogTransportBlockStart; // WAS: MFM::T6::transportblock_log_start;
+        u32 logcarsize = sizeof(MFM::LogCarStorage::LogCar);
+        return base+carnum*logcarsize;
+      }
+
+which is used only by
+spikeMain.cpp, and there only
+for debug output..
+
+  MFM::u32 t6addr = ourTLBs.getLogCarT6(20,0);
+  MFM::Eprintf("  logcar(20,1) is at %p remote %d/0x%08x\n",c1,20,t6addr);
+
+So that's not a big help.
+
+But log..blockstart is also used
+in updateLogCars, as like:
+
+  void OurTLBs::updateLogCars(unsigned tlbi) {
+    pinned_host_buffer_t& buf = mPinnedHostBuf;
+ ..much stuff..
+    TLBInfo & tin = getTLBInfo(tlbi);
+ ..more stuff..
+         { // APPARENTLY IT'S TIME TO ACTUALLY SHIP THIS MOFO
+          u32 destByteAddr = tin.mLogTransportBlockStart + car * sizeof(lc);
+          // empty case is 2 words only - header + footer
+          if (true) // but for now let's NOT not and say we did
+            writeToWords(tlbi, destByteAddr, (u32*) &lc, 2u);
+ ..more stuff..
+
+and in that context "it's clear"
+that mLogTransportBlockStart is
+SUPPOSED TO BE the starting
+address of the logtransport
+block in the T6 L1 space -- of
+whatever image is running on the
+T6 at tlbi.
+
+Which makes us think that AT
+LEAST we want that code to be
+bailing quietly if mLog.. is 0,
+meaning that that T6 image, for
+whatever insane reason, chose
+not to have a logtransport
+block.. [195:
+
+Mon Feb 16 14:53:39 2026 I went
+looking to see if there was
+already such an escape in the
+code (it appears no), and I came
+across this stuff, which seems
+problematic:
+
+ ..
+    u32 t6offset = tlbi * mT6BufferSize;
+    void * pert6addr = ((char*)hostmem) + t6offset;
+ ..
+    LogCarStorage & stg = *(LogCarStorage*) pert6addr;
+
+which blithely assumes that
+LogCarStorage must absolutely
+begin at the beginning of the
+host-side per T6 L1 map. Which
+it used to, but which we should
+no longer be assuming.
+
+We should instead be calling
+some fogging method to return
+the L1 address of BC_LOGCARS for
+the current image, and - if that
+exists - using that as the
+offset into the host L1 map.
+
+AAaaand what method is that,
+that we should be calling?
+[196:
+
+Mon Feb 16 15:53:56 2026 Well
+the claim seems to be that we
+already computed that - in
+TLBInfo::setDeployedImage - and
+stored in in
+TLBInfo:mLogTransportBlockStart.
+So we should either use
+mLogTransportBlockStart
+directly, or call like
+getLogCarT6(tlbi,0u):
+
+  u32 OurTLBs::getLogCarT6(u32 tlbi, u32 carnum) {
+    MFM_API_ASSERT_NONNULL(mMapAll);
+    const TLBInfo & info = getTLBInfo(tlbi);
+    u32 base = info.mLogTransportBlockStart; // WAS: MFM::T6::transportblock_log_start;
+    u32 logcarsize = sizeof(MFM::LogCarStorage::LogCar);
+    return base+carnum*logcarsize;
+  }
+
+if we want the beginning of the block.
+
+:196]
+:195]
+
+:194]
+
+:193]
+:192]
+
+:191]
+
+:190]
+
+:189]
+[197:
+
+Mon Feb 16 16:14:01 2026 An'
+heah's anodda ting: In the
+blackhole genesis sequence we
+see:
+
+      HAS_TRANSPORT_THREAD,     // 6
+      HAS_T6_TILES_RESET,       // 7
+      HAS_T6_CODE_DEPLOYED,     // 8
+
+which means that the blackhole
+transport thread starts up
+BEFORE code is deployed to the
+T6s. Which is, I believe, why
+we're now seeing stuff like:
+
+    20260216-161053[[gd000]]NOLOGBLOCK? tlbi=0
+      [100 ==>> 242]
+     HB1 0x13ffffff 0xffee8000
+      [242 ==>> 100]
+    20260216-161053[[gd000]]NOLOGBLOCK? tlbi=1
+      [100 ==>> 242]
+    20260216-161053[[gd000]] Multicasting image 'EWP' to the fleet
+      [242 ==>> 100]
+    20260216-161053[[gd000]]NOLOGBLOCK? tlbi=2
+
+coming from updateLogCars.
+
+Is there ENNY chance we could
+just uhh rearrange the phases
+and start the transport thread
+after stuff ought to be ready
+for it?
+
+:197]
+[198:
+
+Wed Feb 18 14:32:56 2026 OK so
+this is fucked up for pretty
+much sure I think. From
+OurTLBs.cpp:406:
+
+        u32 t6logoffset = tin.mLogTransportBlockStart; // L1 addr of log block
+ ..stuff
+        LogCarStorage & stg = *(LogCarStorage*) (((char*)hostmem) + t6logoffset);
+ ..stuff
+
+So that's fucked because
+t6logoffset is the address IN T6
+L1 SPACE of where the remote T6
+LogCarStorage is to be found.
+
+But 'stg' is SUPPOSED to be the
+address in mmaped HOST SPACE
+where the LOCAL (HOST-SIDE)
+LogCarStorage is to be found.
+
+THAT information is in the
+HostCommsMap. We should be using
+something like:
+
+        u8 chunkoff = hostcommsmap.getHostRAMChunkOffset(BlockCode::LOGCARS);
+        if (chunkoff == U8_MAX) ..bail..
+        else {
+          LogCarStorage & stg = *(LogCarStorage*) (((char*)hostmem) + chunkoff*HOST_COMMS_MAP_CHUNK_SIZE);
+     ..stuff
+
+and that should be abstracted a
+little more cleanly, I'd think..
+
+:198]
+[199:
+
+Thu Feb 19 01:10:07 2026 OK
+we're still tracing through and
+running down consequences of
+host-side multiimage stuff.
+
+We've pulled several files -
+e.g. HostCommsMap, Layout,
+CommsModule - out of
+ImageManager.h in an attempt to
+see more clearly everything
+that's going on..
+
+Currently blowing up at
+HostCommsMap.cpp:81 because we
+haven't figured out where to
+call
+Layout::setHostMemoryBaseAddress
+from. Needs to happen after all
+HostCommsMap::requiredCommBlockForBlockCode
+calls are done.. And after
+BlackHole::allocateHostRAM is
+done.. [200:
+
+Thu Feb 19 01:23:23 2026 And
+definitely before
+OurTLBs::updateTransports is
+called, and preferably before
+BlackHole::startTransportThread
+is called.
+
+So.. call it at the end of
+BlackHole::layoutImages? Or the
+beginning of
+startTransportThread? End of
+layoutImages seems kind of
+logical.. is the end clean?[201:
+
+Thu Feb 19 01:26:13 2026 Well,
+it's
+
+  bool BlackHole::layoutImages() {
+    BHLOGprintf("Trying to deploy to BH#%u",mCardNum);
+    return mTheImageManager.deployTo(*this);
+  }
+
+and
+
+  bool ImageManager::deployTo(BlackHole & bh) {
+
+has a lot of early returns.. but
+they're all returning false.. so
+there is a clean bottom with
+only one successful return.
+[202:
+
+Thu Feb 19 01:50:47 2026 Aand
+where do we get the host memory
+base address?[203:
+
+Thu Feb 19 01:52:51 2026 I guess
+we get it from
+OurTLBs::hostRAMPtr, to stay
+close to its source.. And
+OurTLBs is a per-BlackHole
+structure, of course.
+
+:203]
+
+:202]
+:201]
+
+:200]
+
+:199]
+[204:
+
+Sat Feb 21 01:51:33 2026 OK, so
+roses-bh that damn quietbox
+locked up again, again so hard
+that my level of server-fu could
+not bring it back up remotely.
+
+And I lost over 24 hours and
+ended up coming back early to
+deal with it. (Granted, among
+dealing with other things. But
+stil.)
+
+[205:
+
+Sat Feb 21 01:53:28 2026 In any
+event, after I got the system
+back up (turn off physical power
+supply switch, let it sit a few
+minutes, turn on physical power
+supply switch, let it sit for
+ten minutes or so, and it's back
+up..) then in about twenty
+minutes I finished the hack on
+was working on when it crapped
+out and now t6-multi-image seems
+to be working in the sense of
+successfully running and
+returning events dispatched from
+the host.
+
+So there ought to be some shit I
+can claim, here, right?
+[218:
+
+Sat Feb 21 02:29:15 2026 Claimed
+a bunch. A couple of obvious
+in-progress yak shaves popped
+up. But let's just do some new
+if perhaps partially redundant
+TODO anyway:
+
+[236: Sun Feb 22 13:36:39 2026
+DONE :236] - Review status in cross/. In
+   particular, what's happening
+   in HUB?
+
+Next three {promoted from :44:
+above}
+
+[239: Sun Feb 22 13:45:43 2026
+DONE :239] - Consider how to have a
+   crosscode learn the cell type
+   and cell position it is part
+   of.
+
+[240:
+DONE :240] - Make a spike where each T6
+   reports that information as
+   well.
+
+[241: Sun Feb 22 13:46:06 2026
+DONE :241] - Make it run. Watch it run.
+   Run Watch Run.
+
+Rest {promoted from :138: above}
+
+[300: DONE  :300] - Reconfigure HUB for 3x3 EWP
+   and work on an EWPTerminal
+   with (like) an array of 8
+   EWTs in it.
+
+[301: DONE  :301] - Print some info from that
+   configuration
+
+ - Get EWP to report to HUB via
+   its appropriate slot, using
+   some metadata hack (hrmph) in
+   an EWT to avoid having
+   multiple comm buffers between
+   an EWP and a HUB.
+
+ - Get HUB to report when a new
+   EWP has checked in.
+
+ - See that work. Work see work.
+
+[227:
+
+Sat Feb 21 02:39:23 2026 OK
+that's plenty of stuff. Let's do
+some cross/ review for a few
+minutes.
+[228:
+
+Sat Feb 21 02:48:27 2026 Only
+things in cross/images/hub are:
+
+ - include/ImageConfig.inc, and
+
+ - src/LiveB.cpp
+
+LiveB.liveB(..) sends some
+startup messages:
+
+    DP.printf("HUBSZ6G(%ux%u)->%u\n", T6GRID_WIDTH, T6GRID_HEIGHT, sizeof(theT6Grid));
+    DP.printf("EWHUBSZ(%u) of %u\n", sizeof(theEWHub), sizeof(EWCarStorage));
+
+Do we see (all of) them in the
+logs? [229:
+
+Sat Feb 21 02:51:23 2026 Well,
+we see some at least. Let's
+stick the tlbi or noc address in
+there.
+
+:229]
+
+:228]
+:227]
+
+:218]
+:205]
+
+:204]
+[230:
+
+Sat Feb 21 02:57:02 2026 OK,
+well we've already triggered a
+new bug whiffing of eau-d-thinko
+on the host side, so we're back
+there..
+
+When we go (back) to multiple BH
+cards active, we die at
+HostCommsMap.h:29:
+
+        void setHostMemoryBaseAddress(void * hostbase) {
+          MFM_API_ASSERT(hostbase, ILLEGAL_ARGUMENT);
+          if (!mHostMemoryBaseAddress)
+            mHostMemoryBaseAddress = hostbase;
+          else
+here>       MFM_API_ASSERT(mHostMemoryBaseAddress == hostbase, ILLEGAL_STATE);
+        }
+
+because there's only one
+HostCommsMap, because it's a
+data member of (the active)
+Layout, and there's only one
+active layout for the entire
+simulation, but the allocated
+host ram is per-BlackHole.
+
+So we should fix that. But I'm
+in the mood for second sleep
+at this point.[231:
+
+Sat Feb 21 10:44:02 2026 So it
+seems clear we should push
+HostCommsMap out of Layout
+(which is ImageManager/sim-wide
+level) and into BlackHole.
+
+And I guess my next question is:
+Why don't we configure the
+HostCommsMap as soon as we
+allocate the host RAM? It's not
+like we're going to be going
+through the BlackHole genesis
+sequence before we know the
+details of the active layout?
+
+ - Move HostCommsMap DM to BH
+
+ - Relocate its config code and
+   do it as part of
+   allocateHostRAM().
+
+ - Get it working.
+
+:231]
+
+:230]
+[232:
+
+Sat Feb 21 13:20:35 2026 Do we
+actually want to push
+mHostCommsMap down through
+BlackHole and into OurTLBs? Does
+BH specifically care about
+actually using it?
+
+OurTLBs DOES care about using
+it, to find the comms blocks
+during updateTransports.
+
+Let's try pushing it down..
+
+:232]
+[233:
+
+Sun Feb 22 10:07:07 2026 Looks
+like someone is calling
+HostCommsMaps::init a second
+time and blowing the config that
+we absolutely did set up.
+Tracing in gdb..
+
+[234:
+
+Sun Feb 22 10:07:47 2026
+
+ - First HCM::init
+   python (ewd19.py:263) ->
+   phaseAdvance -> allocateTLBs
+   -> setDeviceInfo -> HCM::init
+
+ - Then HCM::requiredComm..Code
+   python (ewd19.py:269) ->
+   BH::addCommsModule ->
+   OurTLBS::aCM -> HCM::aCM ->
+   HCM::req.. (twice)
+
+ - Then (AHA!) SECOND HCM::init
+   ..
+
+:234]
+
+:233]
+[235:
+
+Sun Feb 22 13:33:32 2026 OK so
+we're running host-initiated
+EWTs again and it's waay past
+time to be moving forward
+towards regional hubs.
+[237:
+
+Sun Feb 22 13:37:43 2026 OK
+let's work on getting each T6 to
+report its cell position within
+its cell type. This is a
+facility everybody should have
+so we're targetting crosslib for
+this. [238:
+
+Sun Feb 22 13:42:50 2026 OK well
+we basically already did that,
+as currently running in
+FastB.cpp:
+
+        {
+          T6CellO cello;
+          if (cello.init()) {
+            U8C hubc = cello.getXYofImage(ImageCode::IC_HUB);
+            U8C hubnoc = cello.getNoC0ofXY(hubc);
+            DP.printf("T6CO"
+                      //" a=0x%x"
+                      " up=(%u,%u)"
+                      " c#=(%u,%u)"
+                      " cp=(%u,%u)"
+                      " h0=(%u,%u)"
+                      " ix=%u"
+                      "\n",
+                      //cello.mCellBlockAddr,
+                      cello.mUsCT6.x,cello.mUsCT6.y,
+                      cello.mCellNum.x,cello.mCellNum.y,
+                      cello.mUsCellPos.x,cello.mUsCellPos.y,
+                      hubnoc.x,hubnoc.y,
+                      cello.mImageTypeIndex
+                      );
+  ..
+
+yielding such as:
+
+    find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \* -o -name .\[\!.\]\* -o -name ..\?\* \) -exec grep --color -n --null -e T6CO /dev/null \{\} +
+    ./all.txt 280:20260222-112635[[gd200]](1,2)HB<!^T6CO up=(0,0) c#=(0,0) cp=(0,0) h0=(2,3) ix=0
+    ./all.txt 288:20260222-112635[[gd200]](2,2)HB<!^T6CO up=(1,0) c#=(0,0) cp=(1,0) h0=(2,3) ix=1
+    ./all.txt 296:20260222-112635[[gd200]](3,2)HB<!^T6CO up=(2,0) c#=(0,0) cp=(2,0) h0=(2,3) ix=2
+    ./all.txt 304:20260222-112635[[gd200]](4,2)HB<!^T6CO up=(3,0) c#=(1,0) cp=(0,0) h0=(5,3) ix=0
+    ./all.txt 312:20260222-112635[[gd200]](5,2)HB<!^T6CO up=(4,0) c#=(1,0) cp=(1,0) h0=(5,3) ix=1
+    ./all.txt 320:20260222-112635[[gd200]](6,2)HB<!^T6CO up=(5,0) c#=(1,0) cp=(2,0) h0=(5,3) ix=2
+    ./all.txt 328:20260222-112635[[gd200]](7,2)HB<!^T6CO up=(6,0) c#=(2,0) cp=(0,0) h0=(10,3) ix=0
+    ./all.txt 336:20260222-112635[[gd200]](10,2)HB<!^T6CO up=(7,0) c#=(2,0) cp=(1,0) h0=(10,3) ix=1
+
+So. That.
+
+Might be nicer to be able to
+report image names rather than
+'ix=1's.
+
+But the main point is we have
+some basic T6CellO.h/.cpp
+working already.
+[242:
+
+Sun Feb 22 13:51:12 2026 So that
+puts us at trying for a
+'EWPTerminal' that local EWPs
+could all talk to. I know we
+have a beginning of that, with:
+
+    XIC_START_IMAGE_BLOCK(HUB)
+     XIC_BLOCKADDR(BC_EWCARS,1,theEWCarStorage,EWCarStorage)
+     XIC_BLOCKADDR(BC_LOGCARS,1,theLogCarStorage,LogCarStorage)
+     XIC_BLOCKADDR(BC_CELLBLOCK,1,theCellBlock,CellBlock)
+>>   XIC_BLOCKADDR(BC_EWHUB,8,theEWHub,EWCarStorage)
+    XIC_END_IMAGE_BLOCK(HUB)
+
+and
+
+    #define BLOCKCODE_LIST()                     \
+      XX(LOGCARS,LogCarStorage)                  \
+      XX(EWCARS,EWCarStorage)                    \
+      XX(CELLBLOCK,CellBlock)                    \
+>>    XX(EWHUB,EWCarStorage[8])
+
+but, I believe, we have nobody
+trying to use EWHUB, and no
+evidence that the array notation
+is (going to be) workable in
+this context. So let's have HUB
+try to print something about
+that? [243:
+
+Sun Feb 22 13:55:14 2026 And
+again, at least some of that is
+already done. In hub/LiveB.cpp:
+
+    DP.printf("EWHUBSZ(%u) of %u\n", sizeof(theEWHub), sizeof(EWCarStorage));
+
+producing:
+
+    find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \*.txt \) -exec grep --color -i -n --null -e ewhubsz /dev/null \{\} +
+    ./all.txt 403:EWHUBSZ(16384) of 2048
+    ./all.txt 429:EWHUBSZ(16384) of 2048
+    ./all.txt 455:EWHUBSZ(16384) of 2048
+    ./all.txt 481:EWHUBSZ(16384) of 2048
+    ./all.txt 507:EWHUBSZ(16384) of 2048
+    ./all.txt 749:EWHUBSZ(16384) of 2048
+
+so that seems plausible as far
+as it goes. (It'd be better if
+we included coords there, I
+suppose..[244: Sun Feb 22
+13:57:48 2026 OK did that, for
+next time - not killing the
+current sim yet. :244])
+[245:
+
+Sun Feb 22 13:58:18 2026 So now,
+how about we try to get the EWP
+image to report how and where it
+should communicate with its HUB?
+I don't think we've done (much
+of) that yet, because there's no
+EWP/LiveB.cpp, right?[246:
+
+Sun Feb 22 13:59:25 2026 Well,
+yeah, there is..
+Reviewing..[247:
+
+Sun Feb 22 14:00:27 2026 Well,
+EWP/LiveB.cpp doesn't try to
+communicate with HUB, yet, so
+that's where we'll dig in.[248:
+
+Sun Feb 22 14:03:16 2026 So, OK:
+How do we interrogate a ngb's
+ImageBlock and find its EWHUB
+block? What kind of stuff to
+help with that has been written?
+(note lame-ass passive voice..)
+[249:
+
+Sun Feb 22 14:07:16 2026 OK,
+well, cross/T6ImageBlock exists,
+and has a method
+
+  ImageBlockHeader readHeader(T6Neighbor & ctn) ;
+
+which looks promising, with the
+implementation:
+
+  ImageBlockHeader T6ImageBlock::readHeader(T6Neighbor & ctn) {
+    ImageBlockHeader ret; // not yet initted => invalid
+    if (!ctn.isValid()) return ret;
+    FAIL(INCOMPLETE_CODE);
+  }
+
+so I guess: Here We Are.
+
+WTF is a 'T6Neighbor'
+  anyway?[250:
+
+Sun Feb 22 14:08:53 2026 It's:
+
+      struct T6Neighbor {
+..      bool init (U8C ournoc0c, S8C ngbc) {
+..
+        }
+
+        bool isValid() const {
+          return U8C::isNoC0CoordAT6(mNoC0Ngb);
+        }
+
+        S8C mNgbCellCoord;
+        U8C mNoC0Us;
+        U8C mNoC0Ngb;
+      };
+
+since you asked. And: Where is
+this used?[251:
+
+Sun Feb 22 14:10:37 2026 All and
+only in
+
+ImageBlockHeader readHeader(T6Neighbor & ctn) ;
+
+So maybe we could
+
+(1) Make some aspirational code
+    in EWP to call some
+    T6ImageBlock methods?
+
+(2) Implement enough to try
+    running that code?
+
+(3) Try running that code?
+
+:251]
+
+
+:250]
+
+
+:249]
+
+
+:248]
+
+
+:247]
+
+:246]
+
+:245]
+:243]
+
+:242]
+:238]
+
+:237]
+:235]
+[252:
+
+Sun Feb 22 15:06:06 2026 OK, so
+I'm getting to believe we have
+ngb hub coords and us ewp cell
+indexes, which should be enough
+to interrogate the ngb hub, find
+its EWHUB, and compute our
+EW(something) address within in.
+
+Can we reach that before it's
+time to cook? - In an hour or
+so? Hard part will be
+successfully reading the ngb's
+IBAs, I expect..
+[253:
+
+Sun Feb 22 15:12:44 2026 OK we
+have cross/NRIUtils, and it
+provides
+
+  bool NRI3::blockingL1Read(U8C ct6us, U8C ct6readfrom, u32 l1readaddr,
+                            u32 wordcount, u32 * destaddr) { //< creams NRI3!
+
+which is apparently called from
+hub/LiveB
+
+          bool ret = nri3.blockingL1Read(usct6, themct6,
+                                         (u32) &theImageBlock,
+                                         sizeof(themibh)>>2u, themibh);
+          DP.printf("BLIRD! %d (%u,%u)<-(%u,%u)==0x%08x\n",
+                    ret, us2.x, us2.y, themct6.x, themct6.y, themibh[0]);
+
+but so far we see no BLIRD sign
+in the log files.. Run that
+down, I guess.[254:
+
+Sun Feb 22 15:14:20 2026 Well,
+the
+
+     if (false) { // TEST BLOCKING L1 READS
+          DP.printf("TESTBL1R (%u,%u)\n",hb.mPos.x,hb.mPos.y);
+ ..
+
+might have something to do with
+that. Turning that (back?)
+on.[255:
+
+Sun Feb 22 15:15:47 2026 OK, now
+we see such as
+
+    0 T0#15 800MHz 0s 0 ticksBLIRD! 1 (1,1)<-(2,1)==0x0d03011b
+and
+    BLIRD! 1 (4,1)<-(5,1)==0x0d03011b
+
+and what do we think those
+things tell us?[256:
+
+Sun Feb 22 15:16:59 2026 Well,
+that last bit
+
+    BLIRD! 1 (4,1)<-(5,1)==0x0d03011b
+                           ^^^^^^^^^^
+
+is supposed to be some
+neighbor's IBH, and could we
+believe that?[257:
+
+Sun Feb 22 15:18:35 2026 well,
+maybe? It should be:
+
+      mIBMagic = littleendian[0];
+      mImageCode = littleendian[1];
+      mEntries = littleendian[2];
+      mIBCheck = littleendian[3];
+
+ 0d 03 01 1b
+  \  \  \  \-- IBMagic yes
+   \  \  \---- ImageCode 1
+    \  \------ Entry count 3 yes
+     \-------- IBCheck 0x01^(3<<2) yes
+
+So yes, we believe that's an
+image block header. Is ImageCode
+1 what we expect? We have:
+
+    IC_EWP = 1,                //< Generic event Window processor
+
+[258:
+
+Sun Feb 22 15:27:21 2026 And we
+see:
+
+        U8C themct6 = usct6 + S8C(1,0); // look east young man
+
+so we're looking one to the
+right of self (which is a HUB),
+and indeed that should be an
+EWP.
+
+So we believe that code is
+reading the ngb's IBH. Let's try
+to extend it to read a given
+IBA.[259:
+
+Sun Feb 22 16:38:35 2026 OK,
+time to cook. But I believe
+
+    ImageBlockHeader NRI3::blockingReadImageBlockHeader(const HostBlock & hb, S8C ct6off) const ;
+and
+    ImageBlockAddr NRI3::blockingReadImageBlockAddr(const HostBlock & hb, S8C ct6off, u32 ibaIndex) const ;
+
+are now credible. Next stop is
+EWP finding their slot in HUBs
+EWHUB, and then seeing what it
+would take for them to talk..
+
+:259]
+
+:258]
+
+
+:257]
+
+:256]
+
+:255]
+
+:254]
+
+:253]
+:252]
+[260:
+
+Mon Feb 23 00:40:50 2026 I note
+that host logging is fucked up
+too, here one day before the
+T2sday Countdown begins. Should
+really yave the shak I'm afraid.
+
+Let's see if we can't get it
+diagnosed in less than an hour.
+[261: Mon Feb 23 00:42:21 2026
+GO[262:
+
+Mon Feb 23 01:48:57 2026 Well,
+no: STOP. I'm still tired here,
+and want to go back to bed. But
+it seems clear that
+updateLogTransports still needs
+more conversion-for-multiimage.
+[263:
+
+Mon Feb 23 11:53:23 2026 OK,
+have redone updateLogCars (and
+surround) using our new
+HostCommsMap stuff - and also
+renamed some class members that
+had been confusing me - and now
+the logging code looks quite a
+bit cleaner and is working
+again.
+
+What if anything can we claim?
+[264:
+
+Mon Feb 23 11:59:29 2026 Well
+seems like nothing atm. But
+we're back to trying to get EWP
+demonstrably communicating with
+HUB. So let's review where we
+are there.
+[265:
+
+Mon Feb 23 12:40:53 2026 So we
+already have logs with like:
+
+    EWPT6CO u6=(13,8) c#=(4,2) cp=(1,2) u0=(16,10) h0=(16,9) ix=6
+
+with reasonable-looking numbers,
+coming from ewp/LiveB:
+
+      U8C hubc = fB.mCello.getXYofImage(ImageCode::IC_HUB); // intra-cell pos
+      U8C hubnoc = fB.mCello.getNoC0ofXY(hubc);             // full NoC0 of our hub
+      DP.printf("EWPT6CO"
+                //" a=0x%x"
+                " u6=(%u,%u)"
+                " c#=(%u,%u)"
+                " cp=(%u,%u)"
+                " u0=(%u,%u)"
+                " h0=(%u,%u)"
+                " ix=%u"
+                "\n",
+                //cello.mCellBlockAddr,
+                fB.mCello.mUsCT6.x, fB.mCello.mUsCT6.y,
+                fB.mCello.mCellNum.x, fB.mCello.mCellNum.y,
+                fB.mCello.mUsCellPos.x, fB.mCello.mUsCellPos.y,
+                hb.mPos.x,hb.mPos.y,
+                hubnoc.x,hubnoc.y,
+                fB.mCello.mImageTypeIndex
+                );
+
+but that doesn't get us all the
+way to answering "what is my
+EWCarStorage address inside my
+HUB?"
+
+[266:
+
+Mon Feb 23 12:52:21 2026 Well,
+that EWPT6CO line is followed
+immediately by:
+
+    [16,10] T6NGBINFO val=1, nct=(0,1), usn0=(16,10), ngbn0=(16,11)
+
+coming from:
+
+          T6Neighbor hubngb;
+          S8C tohub = S8C(hb.mPos) - hubnoc; //XXX?
+          hubngb.init(hb.mPos,tohub);
+          DP.printf("[%u,%d] T6NGBINFO val=%d, nct=(%d,%d), usn0=(%u,%u), ngbn0=(%u,%u)\n",
+                    hb.mPos.x,hb.mPos.y,
+                    hubngb.isValid(),
+                    hubngb.mNgbCellCoord.x, hubngb.mNgbCellCoord.y,
+                    hubngb.mNoC0Us.x, hubngb.mNoC0Us.y,
+                    hubngb.mNoC0Ngb.x, hubngb.mNoC0Ngb.y);
+        }
+
+and what-all does that tell us?
+
+[267:
+
+Mon Feb 23 13:03:34 2026 Think
+we need to rename
+
+    S8C T6Neighbor::mNgbCellCoord;
+
+to be something like
+
+    S8C T6Neighbor::mUsToNgbOffset;
+
+since that what it seems to be? 
+
+:267]
+
+
+:266]:265]
+:264]
+:263]
+:262]  :261]
+
+:260]
+[268:
+
+Mon Feb 23 14:04:25 2026 Getting
+cell pos coords and shit sorted
+out.. [269:
+
+Mon Feb 23 14:40:50 2026 OK,
+current things seem to be
+working and I was hypnotizing
+myself here watching the pixel
+view.. So what's next?
+
+We should have enough
+information to query the hub for
+its EWHUB address, right? Did we
+already do that? [270:
+
+Mon Feb 23 14:42:47 2026 Well,
+we have a somewhat credible
+'T6Neighbor hubngb' but we
+haven't done much with it.[271:
+
+Mon Feb 23 14:54:57 2026 OK,
+graduated T6Neighbor to its own
+files. 
+[274:
+
+Mon Feb 23 16:20:55 2026 So with
+NRIUtils + T6Neighbor we could
+have something like:
+
+ImageBlockAddr T6Neighbor::readImageBlockAddr(BlockCode bc) const ;
+
+maybe?[275:
+
+Tue Feb 24 02:00:22 2026 Or
+would a callback be completely
+overkill?
+
+  typedef bool (*HandleIBA)(const ImageBlockAddr & iba);
+  bool T6Neighbor::forIBAs(HandleIBA func) ..
+
+[276:
+
+Tue Feb 24 08:22:16 2026 OK so
+we just made
+
+   ImageBlockAddr T6Neighbor::findIBAIfAny(NRI3 & nri3, BlockCode bc) const ;
+
+with no iterators or lambdas or
+any such modrunity. And we may
+be reading the hub's EWHUB block
+address successfully from the
+neighbors, getting like this:
+
+    EWHUUB 1 bc=4 ba=0x8500 hco=255 al=8
+
+from this:
+
+        ImageBlockAddr iba = hubngb.findIBAIfAny(fB.mNRI3, BlockCode::BC_EWHUB);
+        DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d\n",
+                  iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
+                  iba.getHostChunkOffsetOpt(), iba.getArrayLength());
+
+
+So. Do we believe this
+arraylength == 8 business? How
+do we actually
+
+(1) Find OUR PIECE of the EWHUB,
+    and
+(2) CONFIRM we believe that
+    address?     
+[277:
+
+Tue Feb 24 08:37:19 2026 Well,
+we've already got like this:
+
+    (2,3) EWHUBSZ(16384) of 2048
+
+from this in hub/LiveB:
+
+      EWCarStorage theEWHub[8];
+
+      int liveB(HostBlock & hb) {
+ ..
+        DP.printf("(%d,%d) EWHUBSZ(%u) of %u\n",
+                  hb.mPos.x, hb.mPos.y,
+                  sizeof(theEWHub), sizeof(EWCarStorage));
+
+suggesting we can 'just do'
+sizeof(EWCarStorage)*cellidx to
+find OUR EWCarStorage..
+
+Then send something and see if
+we can get the hub to spot
+it..[278:
+
+Tue Feb 24 08:50:34 2026 OK, now
+we're seeing like:
+
+    EWHUUB 1 bc=4 ba=0x8500 hco=255 al=8 IX=7 AD=0xbd00
+
+from:
+          DP.printf("EWHUUB %d bc=%u ba=0x%x hco=%u al=%d IX=%u AD=0x%x\n",
+                    iba.isValid(), iba.getBlockCode(), iba.getBlockAddr(),
+                    iba.getHostChunkOffsetOpt(), iba.getArrayLength(),
+                    ourewpindex, ourhubaddr);
+
+and we kind think we could write
+to 0xbd00..+sizeof(EWCarStorage)
+and the hub would be able to see
+it.
+
+At some point, here, we're going
+to have to break the 'still
+running fine' centralized EWP
+that's driving the vidsrv
+display I'm still watching.
+
+Could we think now, 'earlyish',
+about some hack way to get some
+visibility on this new stuff?
+
+Taking a 3D printer break to
+make some gaskets for the
+humidifier hack..
+
+:278]
+
+:277]
+:276]
+
+:275]
+
+:274]
+:271]
+
+:270]
+
+:269]
+
+:268]
+[272:
+
+Mon Feb 23 15:53:38 2026 OK, I'm
+going to take a break here to
+reboot lcf5820c, following the
+T2sday Countdown admonition of
+REBOOT EARLY.
+
+Back in a few..[273:
+
+Mon Feb 23 16:00:13 2026 OK,
+setting back up on lcf.. sim
+running here on roses-bh didn't
+notice a thing; nice.
+
+:273]
+
+:272]
+[279:
+
+Tue Feb 24 10:04:05 2026 So. How
+could we centralize some 'hub'
+data for display?
+
+What if we mmaped another chunk
+of host ram.. nah..
+
+What if we slowscanned the atoms
+out of the hubs and stitched
+them together host-side?
+
+That sounds relatively
+non-invasive to the existing
+code, right? [280:
+
+Tue Feb 24 10:55:13 2026 OK so
+how could we try this? TODO
+
+[297: Thu Feb 26 01:03:34 2026
+DONE :297] - Review host-side as needed
+
+[292: Tue Feb 24 16:42:02 2026
+made BlockCode::BC_T6GRID
+DONE :292] - Create an ImageBlock to
+   expose HUBATOMS?
+
+[298: DONE  :298] - Find that block to scan from
+   the host?
+
+But if we're going that far
+could we just have the hub push
+the atoms and save some
+roundtrips?
+
+[299:
+DONE :299] - Alternate: Make some
+   disgusting hack to tell host
+   the addr+size of the hub-side
+   atoms, and just suck them out
+   like sucking hostblocks.
+
+[281:
+
+Tue Feb 24 11:09:29 2026 Based
+on
+
+    (2,3) HUBSZ6G(92x72)->79488
+
+we think the hub atom stg is
+80KB a pop?[282:
+
+Tue Feb 24 11:28:24 2026 Could
+we expand the host-side hostmap
+from 8KB/T6 to like 96KB/T6, and
+give everybody room to report?
+Or maybe, since we'd nail down
+std3x3 for this hack, we could
+have 80KB/9 ~= 10KB/T6, but have
+the hubs write to 9 consecutive
+slots, representing their entire
+cell? [283:
+
+Tue Feb 24 12:10:16 2026 OK,
+well, I tried kicking
+BlackHole's
+
+    static constexpr u32 HOST_RAM_PER_BH = 1u<<13;
+
+up to
+
+    static constexpr u32 HOST_RAM_PER_BH = 1u<<17; // XXX can we do 130KB*140?
+
+but then
+OurTLBs::doHostRAMAllocation
+blew up with errno 12 - "can't
+allocate" or something like
+that. [284:
+
+Tue Feb 24 12:15:44 2026 1<<16
+also fails..[285:
+
+Tue Feb 24 12:17:05 2026 1<<15
+also fails..[286:
+
+Tue Feb 24 12:19:25 2026 1<<14
+succeeds. So we could do 16KB/T6
+(instead of the 8KB that we had
+been doing..) - but does that
+help us much ATM?[287:
+
+Tue Feb 24 12:25:16 2026 Wow, it
+seems like changing JUST THIS:
+
+    static constexpr u32 HOST_RAM_PER_BH = 1u<<13;
+
+to this:
+
+    static constexpr u32 HOST_RAM_PER_BH = 1u<<14;
+
+causes the GUPS (good updates
+per second) to CRASH from like
+73Kgups to like <4Kgups!
+
+Let's try that again for
+confirmation.. With 1<<13,
+currently up to 81Kgups..
+
+Now rebuilding for 1<<14..[288:
+
+Tue Feb 24 12:27:44 2026
+restarting with 1<<14..
+
+..and it's obviously much
+slower.. took >10s ? to fill the
+zoom=1 window?? right now at
+1800gups and slowly rising.
+[289:
+
+Tue Feb 24 12:32:59 2026 And it
+grew so slowly it went EXTINCT
+once the bombs started.. barely
+ever having broken 3Kgups. WTF?
+
+Going back to 8KB for now..[290:
+
+Tue Feb 24 12:36:27 2026 And
+we're back to 66Kgups and
+rising.. I wonder what THE FUCK
+that is all about?
+[291:
+
+Tue Feb 24 15:31:15 2026 All
+right back after a humidifier
+hack break. Now have some caulk
+drying to hopefully get the
+joints water-tight.
+
+:291]
+:290]
+
+:289]
+:288]
+
+:287]
+
+:286]
+
+:285]
+
+:284]
+
+
+:283]
+
+:282]
+
+:281]
+:280]
+
+:279]
+[293:
+
+Wed Feb 25 00:51:23 2026
+Actually, pushing on to
+spikes/mpmd19/ before tearing
+into this too hard..
+[294:
+
+Wed Feb 25 01:04:19 2026 OK,
+now in mpmd19/. Have cleaned up
+emacs buffers and rebuilt.
+
+Now let's try to start pulling
+in T6Grids..[295:
+
+Wed Feb 25 17:38:30 2026 OK,
+well conceivably we have a list
+of all the T6Grids and where
+they are out in the T6 universe.
+Perhaps we should just have
+hub/LiveB increment the total
+count and see if host can see
+that change..[296:
+
+Thu Feb 26 01:01:42 2026 Well,
+that works. So, not to put to
+fine a point on it, but it's
+THURSDAY IN THE T2SDAY COUNTDOWN
+and we don't have hub events
+yet. Are we seriously still
+trying for that?
+[302:
+
+Thu Feb 26 01:04:51 2026 Well,
+claimed some to-dos. I guess now
+we're at getting EWP to report
+to HUB via its slot in BC_EWHUB.
+
+And where do we think the EWHUB
+cars are going to begin? Who
+talks first in EWP <-> HUB and
+how does the code implement
+that. [303:
+
+Thu Feb 26 09:15:02 2026 So,
+P2PEWElevatorPlatform turns
+CarState::UNUSEDs into
+::INBOUND_DEPARTED, which means
+"just departed" to cross/ and
+"just arrived" to host/. If we
+stuck with that I assume EWP
+would play the role of cross/
+and HUB would play the role of
+host/.
+
+Now are we going to make a whole
+new variant of
+P2PEWElevatorPlatform to handle
+EWP<->HUB? Let's review that
+code a bit more and see what we
+think. [304:
+
+Thu Feb 26 09:19:33 2026 With
+HUB (nee host/) moving first, it
+will have to send to an EWP
+without ever having heard from
+the EWP. Is that what we want?
+
+We could init to
+OUTBOUND_DEPARTED to have the
+EWPs move first, if we want.
+
+Continuing review.[305:
+
+Thu Feb 26 09:24:10 2026 It has
+a method P2PEWP::sendCar which
+is entirely deimplemented and
+unused. Just a little sand trap
+for the unwary.
+[306:
+
+Thu Feb 26 09:38:06 2026 Well I
+think we should COPYPASTA to
+some EWP2HUBPlatform or
+something, rather than try to
+generalize P2PEWElevatorPlatform
+before we understand the issues.
+
+[307:
+
+Thu Feb 26 10:00:17 2026 OK
+we're trying to get 'EWP2HUBEl'
+to build and load just within
+the image/ewp/ tree, and we've
+gotten as far as ld not finding
+it which we think might be due
+to CMake stuff? Is there some
+place we can review about that?
+Up at cross/image/ level
+perhaps, or cross/?[308:
+
+Thu Feb 26 10:04:35 2026 Ah, I
+think I found it.. Yup, updated: 
+
+  cross/codes/ewp.cmake
+
+to like
+
+    target_sources(ewp PRIVATE
+      src/ImageConfig.cpp
+      images/ewp/src/LiveB.cpp
+>>    images/ewp/src/EWP2HUBEl.cpp
+      ${S_FILES_LIST}
+      ${SHARED_SOURCES})
+
+and now we're building clean.
+And now the ewp build size has
+jumped up a bit:
+
+                                 vvvvv
+    1772076465 30768 11300 39237 81305 13d99 mpmd19/build_cross/bin/ewp "Wed 25 Feb 2026 08:27:45 PM MST"
+    1772091298 30768 11300 39237 81305 13d99 mpmd19/build_cross/bin/ewp "Thu 26 Feb 2026 12:34:58 AM MST"
+    1772124446 30768 11300 39241 81309 13d9d mpmd19/build_cross/bin/ewp "Thu 26 Feb 2026 09:47:26 AM MST"
+    1772125468 31876 11368 39297 82541 1426d mpmd19/build_cross/bin/ewp "Thu 26 Feb 2026 10:04:28 AM MST"
+
+where the +4 to 81309 was me
+adding an unused pointer to an
+EWP2HUBEl, and the +1232 to
+82541, we're pretty sure, is me
+actually declaring an EWP2HUBEl
+and referencing it.
+
+And all the while, other images,
+such as say zot/, stayed the
+same size:
+
+    1772076465 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Wed 25 Feb 2026 08:27:45 PM MST"
+    1772091298 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 12:34:58 AM MST"
+    1772124383 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 09:46:23 AM MST"
+    1772124408 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 09:46:48 AM MST"
+    1772124446 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 09:47:26 AM MST"
+    1772125167 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 09:59:27 AM MST"
+    1772125179 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 09:59:39 AM MST"
+    1772125468 30228 11216 39201 80645 13b05 mpmd19/build_cross/bin/zot "Thu 26 Feb 2026 10:04:28 AM MST"
+
+[309:
+
+Thu Feb 26 10:11:26 2026 So
+okay. We have EWP2HUBEl to hack
+on. How shall we come at this?
+TODO
+
+[341: Sat Feb 28 12:42:21 2026
+DONE :341] - Find a place in ewp/LiveB to
+   hook in EWP2HUBEl init.
+
+[388: Mon Mar  9 14:39:24 2026
+DONE? :388] - Review hub/LiveB to see where
+   we might detect EWP incoming?
+
+[389: DONE  :389] - Try to get ewp to send empty
+   cars to hub and report that.
+
+[390: DONE  :390] - Try to get hub to detect ewp
+   car arrivals and report that.
+
+ - Watch it run. Run watch run.
+
+:309]
+
+:308]
+
+:307]
+:306]
+:305]
+
+:304]
+
+:303]
+
+:302]
+:296]
+
+:295]
+
+:294]
+:293]
+[310:
+
+Thu Feb 26 12:33:59 2026 Ah! I
+finally figured out why changing
+the host RAM allocation from
+1<<13 to 1<<14 caused everything
+to slow down (?!). It's, DOH,
+because there were hardcoded
+1<<13 references in cross/
+causing it to send (at least?)
+half the log cars and ew cars to
+the wrong addresses.
+
+Given that, I'm kinda impressed
+it worked at all.
+
+But now, finally, we have
+created shared/SimConstants.h to
+pull such numbers together. And
+now we're running with 1<<14
+hostRAM with no apparent
+untoward consequences.
+
+:310]
+[311:
+
+Thu Feb 26 12:43:06 2026 Working
+to call EWP2HUBEl::initCars.
+Questions:
+
+ - Where is the actual L1
+   EWCarStorage data?
+   theEWP2HUBEl just has
+
+       EWCar *mCars;              // [0..mCarCount - 1]
+
+Well, where is the L1 data for
+other platforms?[312:
+
+Thu Feb 26 12:46:53 2026 Well,
+we have
+
+  EWCarStorage theEWCarStorage __attribute__ ((section(".transportblockew")));
+
+in crosslib/FastNC.cpp. (Not
+clear if anybody is currently
+caring about its special
+section.) Now if we were going
+to ditch host-based EWPs, "I'd
+think" we could repurpose that
+for EWP-HUB comms.
+
+But I guess let's try declaring
+a new one, for now
+
+[313:
+
+Fri Feb 27 09:33:58 2026 OK,
+well, we're getting pretty
+worried about the clock on the
+wall by this point, which makes
+us less interested in trying to
+do reviews and fundamentals and
+notes.. but we're getting
+ourselves confused again here
+and we think thrashing the code
+is not the way to deal with
+that..
+
+In particular we need to
+understand two new data
+structures we've made --
+T6Neighbor, and T6NgbL1Block --
+about how they get initialized
+and used. Because that's where
+we're current confused.
+[314:
+
+Fri Feb 27 10:21:59 2026 So.
+Foggin review.
+
+T6Neighbor:
+
+ - Meant to represent a T6 tile
+   that's in the same cell as us
+   but a different
+   position.[315:
+
+Fri Feb 27 10:24:47 2026
+Actually we think maybe it's NOT
+meant to be restricted to
+intra-cell addressing. In
+particular, we think we wanted
+(down the road) to be able to
+use T6Neighbors for inter-HUB
+comms as well, which are
+inter-cell by design.
+
+:315]
+
+ - Meant to support discovery
+   and communications with that
+   neighbor 
+
+- T6Neighbor::init takes
+  ournoc0c and an S8C CT6 offset
+  to the relevant neighbor.
+
+ - T6Neighbor state includes:
+    S8C mUsToNgbCT6Offset; //< ngb's CT6 pos relative to us
+    U8C mNoC0Us;       //< our NoC0 coord
+    U8C mNoC0Ngb;      //< our ngb's NoC coord?
+
+   which are all initialized by
+   the time init(..) returns
+   true. But we should be
+   checking that..
+
+[316:
+
+Fri Feb 27 12:21:46 2026 Aaand
+
+T6NgbL1Block:
+ - Meant to hold the
+   configuration to access a
+   specific block in the L1 of a
+   T6Neighbor
+
+ - Contains
+   = a T6Neighbor, plus
+   = L1 base address in ngb, plus
+   = block code item size, plus
+   = the IBA array length, plus
+   = IBA block size
+
+[317:
+
+Fri Feb 27 12:44:06 2026 An
+additional wrinkle on top of
+those two is the need
+for/presence of an NRI3, which
+is passed in to L1Block - and
+there simply assumed to be set
+up and configured if any setup
+is needed - and used to access
+the ngb's L1 in search of a
+given block code.
+
+So, Questions:
+
+[320: Fri Feb 27 13:05:56 2026
+NOT ANY MORE :320] - Does an NRI3 actually
+   maintain any state we need to
+   care about? I thought it did
+   but maybe we wrote that
+   out?[321: WE DID :321]
+
+ - Do we believe the nri3 uses
+   are working? Can we check
+   that?
+[318:
+
+Fri Feb 27 12:52:07 2026 So,
+NRI3 in NRIUtils.h is now, in
+fact, stateless. So we should be
+able to spin one up whenever we
+want - and we should, in fact,
+be able to make all its methods
+static, or convert NRI3 to a
+namespace. [319:
+
+Fri Feb 27 13:05:31 2026 OK now
+we're running again with NRI3 as
+a mere namespace.
+
+:319]
+
+:318]
+
+:317]
+:316]
+:314]
+
+:313]
+
+:312]
+
+:311]
+[322:
+
+Fri Feb 27 13:06:29 2026 OK so
+now let's review the uses of
+L1Block, and see what we'd need
+to debug or gain confidence in
+them. 
+[323:
+
+Fri Feb 27 13:07:34 2026 What
+we're seeing ATM is
+
+    T6NgbL1Block l1b;
+    if (!l1b.init(ournoc, offct6, BlockCode::BC_EWHUB))
+      DP.printf("L1B INVAL\n");
+
+producing L1B INVAL. With the
+fuller context being:
+
+    T6CO u6=(0,0) c#=(0,0) cp=(0,0) h0=(2,3) ix=0
+    0 T0#0 800MHz 0s 0 ticks+T1(1,2)+
+    CHUBA u0=1,2 hc=1,1 h0=2,3 uc=0,0 
+    T6NG uob1 u6=0,0 off6=1,1
+    T6NG2 nob1 n6=1,1
+    L1B INVAL
+    v0 HUBBA al=0 sz=0B addr=0x0 (0,0)->(1,1)
+[324:
+
+Fri Feb 27 14:29:21 2026 Fixed a
+bug in T6CellO::getNoc0ofUs()
+and now we seem to be moving
+forward again. At least our
+T6COs and CHUBAs and HUBBAs all
+look right:
+
+    20260227-141838[[gd200]](4,3)HB<!^T6CO u6=(3,1) u0=(4,3) c#=(1,0) cp=(0,1) h0=(5,3) ix=3
+    0 T0#17 800MHz 0s 0 ticks+T1(4,3)+
+    CHUBA u0=4,3 hc=1,1 h0=5,3 uc=0,0 
+    T6NG uob1 u6=3,1 off6=1,0
+    T6NG2 nob1 n6=4,1
+    T6NT u0(4,3) n6(1,0) v1 viba1 vngb1(5,3) AL8
+    v1 HUBBA al=8 sz=16384B addr=0x33d50 (3,1)->(4,1)
+
+..everything's valid and the
+HUBBA array length is 8 and so
+on.
+
+So. Any claims? [325:
+
+Fri Feb 27 14:32:20 2026 Not
+obviously. But we're yak-popping
+back to EWP2HUBEl is that right?
+
+TODO:
+[340: Sat Feb 28 12:41:59 2026
+DONE :340] - Review EWP2HUBEl status
+
+[326:
+
+Fri Feb 27 15:01:27 2026 So:
+EWP2HUBEl is a copypasta of like
+P2PEWPlatform or something,
+which we are supposed to rework
+to be the EWP-end of EWT comms
+between EWP<->HUB.
+
+So how far have we gotten along
+that road?[327:
+
+Fri Feb 27 15:02:53 2026 Well,
+ewp/LiveB.cpp is doing
+
+      EWP2HUBEl theE2HEl;
+
+and
+
+      void initForHubEWPs(HostBlock & hb, T6CellO & cello) {
+        theE2HEl.initCars(&theE2HCarStorage.mEWCars[0],
+                          &fB.mEWP2HUBMeta[0],
+                          EWCarStorage::CAR_COUNT,
+                          computeHUBAddressForCellIndex(hb,cello),
+                          false);
+        DP.printf("%s:%d: FINISH MEEEE %s\n",__FILE__ ,__LINE__, __FUNCTION__);
+      }
+
+So, how is that latter
+  looking?[328:
+
+Fri Feb 27 15:04:34 2026 Well,
+the full HUBBA picture is more
+like this:
+
+    CHUBA u0=4,3 hc=1,1 h0=5,3 uc=0,0 
+    T6NG uob1 u6=3,1 off6=1,0
+    T6NG2 nob1 n6=4,1
+    T6NT u0(4,3) n6(1,0) v1 viba1 vngb1(5,3) AL8
+    v1 HUBBA al=8 sz=16384B addr=0x33d50 (3,1)->(4,1)
+    mfmx/srcs/cross/images/ewp/src/LiveB.cpp:155: FINISH MEEEE initForHubEWPs
+
+so we're alive after
+E2HEl.initCars(..). Not sure
+what that should allow us to do,
+exactly.. But let's print some
+shit out, to get our feet wet
+again?[329:
+
+Fri Feb 27 16:12:06 2026 OK, now
+we have:
+
+    T6NT u0(1,2) n6(1,1) v1 viba1 vngb1(2,3) AL8
+    v1 HUBBA al=8 sz=16384B addr=0x33de0 (0,0)->(1,1)
+    <E2HL: rba=0x33de0 cp=8be0 cm=ffb00218 c#=2 cci=0 in=0
+    mfmx/srcs/cross/images/ewp/src/LiveB.cpp:157: FINISH MEEEE initForHubEWPs
+
+using our new
+EWP2HUBEl::to_repr(Printer&)
+method. (I've now added the
+'>'..)
+
+Now I'm not sure, right now, how
+to decide if 0x33de0 is
+plausible as a remote base
+address. It looks kind of
+familiar.. [330:
+
+Fri Feb 27 16:16:04 2026 Hey
+will you look at that:
+
+    $ /opt/tenstorrent/sfpi/compiler/bin/riscv32-tt-elf-objdump -dC -t hub
+ ..stuff..
+    00033de0 g     O .bss	00004000 MFM::theEWHub
+ ..stuff..
+
+Well Orighty Then.
+
+[331:
+
+Fri Feb 27 16:18:18 2026 What
+about those other numbers
+  cp=8be0
+and
+  cm=ffb00218
+?
+
+Well, cp is
+    EWCar *mCars;              // [0..mCarCount - 1]
+and cm is
+    BaseCarMetadata * mCarMetadata; // ditto
+
+aaand in .../riscv32-tt-elf-objdump -dC -t ewp
+I do find.
+
+    00008be0 g     O .bss	00000800 MFM::theE2HCarStorage
+
+which seems fine. And
+
+  cm=ffb00218
+
+means the metadata is in fast
+RAM, which seems right -- given
+the TT AI guy just reminded me:
+
+    On Blackhole Tensix tiles, all baby RISC‑V cores (B, T0, T1, T2, NC)
+    see their fast local data RAM starting at the same base virtual
+    address:
+
+        Base address (MEM_LOCAL_BASE): 0xFFB0_0000 for B, T0, T1, T2, and NC.
+
+So the metadata at +0x218 seems
+plausible if I don't immediately
+know what's before it in there..
+
+[332:
+
+Fri Feb 27 16:36:59 2026 SO
+OKAY, what can we do next?[333:
+
+Fri Feb 27 16:37:26 2026 Well, I
+see:
+
+      bool EWP2HUBEl::sendCar() {
+        FAIL(INCOMPLETE_CODE);
+ ..
+
+do we want that to live again at
+all? Or are we working around it
+already?
+
+I know: We should look at E2Hl's
+update() routine next.[334:
+
+Fri Feb 27 16:38:47 2026 Looks
+to me like it's directly
+implementing sendCar-ish
+behavior.. [335:
+
+Fri Feb 27 16:40:19 2026 Now, I
+see
+      bool EWP2HUBEl::update(T6ElevatorTransport & et) {
+.............................^^^^^^^^^^^^^^^^^^^
+
+are we still going to want that?
+Where is it used in
+update()?[336:
+
+Fri Feb 27 16:41:29 2026 Aside
+from using it for lots of debug
+printing, the money shot appears
+to be at the very end:
+
+      case CarState::CLOSED:
+        ret = et.ship(car, c); // success advances to departing state
+        break;
+
+[337:
+
+Fri Feb 27 16:42:33 2026 And,
+stripped of debugging fluff,
+that ship method is this:
+
+      bool T6ElevatorTransport::ship(EWCarStorage::EWCar & ewc, u32 carnum) {
+        if (!allClear()) {
+          DP.printf("EWNORG\n");
+          return false; // Opps not ready
+        }
+        u64 v = mHostBlockPtr->getHostNocAddr();
+        v += ((u64) mHostBlockPtr->mTLBI)*HOST_RAM_PER_BH // host side base address
+          + (mTransportBlockPtr->mEWCarStorageT6Ptr - mTransportBlockPtr->mLogCarStorageT6Ptr) // offset to EW
+          + carnum*sizeof(ewc);
+        CarSig csig = ewc.getHeader();
+        CarType ct = csig.getCarType();
+        ewc.setCarState(CarState::INBOUND_DEPARTED,ct);
+        u32 wordcount = (ct == CarType::EMPTY) ? 2u : sizeof(ewc)/4u;
+        s32 status = initiateWriteToHost((u32*) &ewc, wordcount, v);
+        if (false) LOG.printf("EWSHIP CAR%d(%d) IN @0x%llx\n",carnum,status,v);
+        return status==0;
+      }
+
+so there are member refs to 
+
+mHostBlockPtr
+mTransportBlockPtr
+
+that we'd be using alternate
+means to access.
+
+:337]
+:336]
+
+:335]
+
+:334]
+
+:333]
+
+:332]
+
+:331]
+:330]
+
+:329]
+
+:328]
+
+
+
+:327]
+
+:326]
+:325]
+
+:324]
+:323]
+:322]
+[338:
+
+Fri Feb 27 22:47:09 2026 So
+okay, it seems like at least the
+early setup of EWP2HUBEl is
+starting to look plausible.
+
+[339:
+
+Sat Feb 28 12:39:18 2026 Well
+now it's Saturday and there's
+less than 72 hours to air. And
+we don't have any regional hub
+events moving.
+
+But, fuck it, I'm not giving up
+yet, although that will
+inevitably mean I'll spend less
+time on the t2sday presentation
+itself.
+
+But COME ON LET'S GO GO GOOOOO
+
+:339]
+
+:338]
+[342:
+
+Sat Feb 28 13:41:29 2026 Saved
+hub/LiveB.cpp-hold-202602281340
+and now tearing out fluff.
+
+[343:
+
+Sat Feb 28 13:43:57 2026 So
+right now, hub/LiveB is still
+processing host EWPs.. But if I
+take away its BC_EWCARS
+ImageBlock declaration, is there
+any way the host will just
+ignore the hubs?[344:
+
+Sat Feb 28 13:45:29 2026 Looks
+like it does! host/ EWTs seem to
+be about as fast as with the 15
+extra hub processors.
+
+So okay, let's tear physics and
+ewcars out of hub/LiveB and see
+how cleaned up we can get it..
+[345:
+
+Sat Feb 28 14:20:54 2026 Make
+HUB2EWPEl in images/hub; it's
+just copypasta from EWP2HUBEl in
+images/ewp at the moment (but
+everything builds etc)..
+
+:345]
+
+:344]
+
+:343]:342]
+[346:
+
+Sat Feb 28 16:41:33 2026 OK so
+we might be at a point where if
+an EWP managed to send (say an
+empty) car to HUB, the hub might
+debug print something we could
+see. [347:
+
+Sun Mar  1 02:28:46 2026 So
+okay, how is HUB going to ship
+an EWCar to an EWP?
+
+ - How does it find the
+   destination address?
+
+   = You'd think T6CellO or some
+     ImageBlock thing
+
+ - So a EWHUB 'slot' is the same
+   as a T6CellO.mImageTypeIndex.
+
+ - So, right now, there's no
+   explicit block for EWPs to
+   receive EWCars from HUB
+   specifically. There's just
+   BC_EWCARS, which is already
+   in use for host-ewps.
+
+ - If we made a BC_EWPCARS or
+   something, we could have the
+   flows be side-by-side until
+   we were ready to cut over.. 
+   
+[348:
+
+Sun Mar  1 02:55:33 2026 OK, we
+made BC_EWPCARS with
+
+    #define BLOCKCODE_LIST()                     \
+      XX(LOGCARS,LogCarStorage)                  \
+      XX(EWCARS,EWCarStorage)                    \
+      XX(CELLBLOCK,CellBlock)                    \
+      XX(EWHUB,EWCarStorage[8])                  \
+>>    XX(EWPCARS,EWCarStorage)                   \
+      XX(T6GRID,T6Grid)
+
+
+but I ending up declaring
+theEWPCarStorage in
+cross/FastNC.cpp, so I think all
+images are getting that storage
+now.. Not positive. But it all
+builds at the moment.[349:
+
+Sun Mar  1 03:03:38 2026 So how
+does hub find the EWPs
+EWPCarStorage? [350:
+
+Sun Mar  1 09:25:30 2026 So, I
+did manage to move
+
+  EWCarStorage theEWPCarStorage;// __attribute__ ((section(".transportblockew")));
+
+out of FastNC and into
+ewp/LiveB, and now the non-ewp
+image sizes are reduced a bit.
+
+We're still not shipping cars to
+the hub, though.
+
+And yet, I'm going to take a
+break to see about refreshing
+the image-size vs time graphs
+we've been collecting all this
+time.
+
+it's looking more and more like
+a status/review episode might be
+our best bet, for
+approachability and for lack of
+the technical progress I wanted
+to show.
+
+TODO:
+[383: Mon Mar  9 14:38:19 2026
+DONE :383] - find the script(s) that
+   processes the
+   CROSS_HISTORICAL_DATA 
+[384: DONE  :384] - review it
+[385: DONE  :385] - get it working
+[386: DONE  :386] - expand it to handle multiple
+   images
+[387: Mon Mar  9 14:38:42 2026
+didn't use in the update, but
+DONE :387] - generate slide graphs
+
+
+[351:
+
+Sun Mar  1 09:30:23 2026 Data is
+located in
+
+blackholeSpikes/spikes/CROSS_BUILD_HISTORICAL/cross-builds.dat
+
+[352:
+
+Sun Mar  1 09:41:02 2026 So.. I
+can't seem to find any gnuplot
+scripts anywhere for this stuff?
+I found some PNG outputs in the
+t2sup 3164 episode dirs but
+that's it? gaaaah.[353:
+
+Sun Mar  1 09:51:02 2026 OK,
+hacking it up over on lcf5820c,
+in code/D/CROSS_BUILD_PLOTS/scripts
+[354:
+
+Sun Mar  1 16:01:47 2026 Well,
+spent much of the day
+copypasting AI outputs for a
+gnuplot script.. but hey my
+gnuplot script isn't bad, and I
+have a wrapper bash script to
+generate all the graphs I might
+use as slides come t2sday.
+
+But I'd like to take one more
+whack at trying to ship EWTs
+between EWP and HUB.
+
+Well, it's only been since Feb
+25 that we've been on mpmd19,
+but I want to push on to mpmd210
+anyway, so I have no excuse not
+to be really mashy and bashy on
+the code here.
+[355:
+
+Sun Mar  1 16:08:01 2026 OK, now
+in mpmd210/ with emacs buffers
+cleaned up.
+
+[356:
+
+Sun Mar  1 16:11:20 2026 OK,
+status check:
+
+ - ewp/LiveB: inits mCello
+   [357: Sun Mar  1
+   16:13:20 2026
+   DONE :357](which we should rename
+   mCellO to follow
+   T6CellO?) 
+   
+   = sets bool doHUB true if it
+     finds a hub in its cell
+   = does initForHuBEWPs(..) if
+     so
+     . which calls
+       theE2HEl.initCars(..)
+       with arguments we do not
+       yet trust.
+   = mucks around in hub's image
+     block and inits a
+     T6Neighbor, which it then
+     discards..
+   = and then enters its main
+     loop which
+     - calls processEWCar(..) to
+       handle EWPs from the host,
+       for old time's sake, Sam   
+     - and if doHUB, calls
+       processHubEWPs(..), which
+       should handle EWPs from
+       the hub in a 'very
+       analogous way'
+    = and at the moment, that
+      entire method is:
+
+      void processHubEWPs() {
+        theE2HEl.update();
+      }
+
+ - while hub/LiveB: also inits
+   mCellO, and
+   = prints all the ics in its
+     cell
+   = calls initHubForEWPs(..),
+     which does
+     fB.mH2EEP.initCars(..)
+     again with skeevy args,
+     including 0 for the
+     remoteAddress. 
+   = and then enters its main
+     loop, which mostly just
+     calls: updateHub(hb);
+   = which in turn is just:
+     void updateHub(HostBlock & hb) { updateHubH2E(hb); }
+   = which leads to
+      void updateHubH2E(HostBlock & hb) {
+        T6Grid & g = theT6Grid[0];
+        if ((++g.mTotalChanges % 10'000'000u) == 0u)
+          DP.printf("HUPD %u\n",g.mTotalChanges);
+        fB.mH2EEP.update();
+      }
+
+[358:
+
+Sun Mar  1 16:25:42 2026 So it
+seems we need content for EWP to
+replace this commented-out line:
+
+      case CarState::CLOSED:
+        //ret = et.ship(car, c); // success advances to departing state
+        C9printf("E2HU EWCLS ret = et.ship(car, c)\n");
+
+and we need essentially the same
+for HUB
+
+      case CarState::CLOSED:
+        //ret = et.ship(car, c); // success advances to departing state
+        C9printf("H2ELU ret = et.ship(car, c)\n");
+
+And how are we going to do that?
+Well, what do the 'et.ship(..)'s
+do back in host-land?[359:
+
+Sun Mar  1 16:30:07 2026 Well,
+umm, as We ALREADY SAY IN :337:
+ABOVE YOU DISTRACTED NORG, it
+does:
+
+      bool T6ElevatorTransport::ship(EWCarStorage::EWCar & ewc, u32 carnum) {
+        if (!allClear()) return false; // Opps not ready
+
+        u64 v = mHostBlockPtr->getHostNocAddr();
+        v += ((u64) mHostBlockPtr->mTLBI)*HOST_RAM_PER_BH // host side base address
+          + (mTransportBlockPtr->mEWCarStorageT6Ptr - mTransportBlockPtr->mLogCarStorageT6Ptr) // offset to EW
+          + carnum*sizeof(ewc);
+
+        CarSig csig = ewc.getHeader();
+        CarType ct = csig.getCarType();
+        ewc.setCarState(CarState::INBOUND_DEPARTED,ct);
+        u32 wordcount = (ct == CarType::EMPTY) ? 2u : sizeof(ewc)/4u;
+        s32 status = initiateWriteToHost((u32*) &ewc, wordcount, v);
+
+        return status==0;
+      }
+
+and we obviously need
+replacements for at least the
+'v' computation and the
+'initiateWriteToHost' call.
+
+[360:
+
+Sun Mar  1 16:37:39 2026 EWP
+write address. On first
+principles, it needs:
+
+ - NoC0 addr of HUB
+ - L1 addr of HUB's BC_EWHUB
+ - EWP's own cell index#
+ - The size of HUB's individual
+   EWCar items.
+
+and then EWP 'merely' computes:
+
+ u32 v = hubEWHubL1Address +
+         myOwnCellIdx *
+         sizeof(HubWECar); 
+
+and "that's it". Then, later, it
+will do what.. something like:
+
+        s32 status = initiateWriteToHost((u32*) &ewc, wordcount, v);
+
+except without the 'ToHost' in
+there. What could that be?[361:
+
+Sun Mar  1 16:45:00 2026 Well
+that seems to be a question,
+doesn't it? I wanted to find
+something in NRIUtils, but all
+we have is reads, there? That
+line above works its way to
+
+  s32 T6ElevatorTransport::initiateWrite(u32 * data, u32 wordCount, U16C xy, u64 destaddr) {
+
+which is implicitly a to-host/
+write. Could we want to make
+such a think for interT6 in
+NRIUtils? [362:
+
+Sun Mar  1 16:48:27 2026 WTF
+let's try. That's what we're
+here for..
+
+[363:
+
+Sun Mar  1 17:14:51 2026 Break
+for dinner. Currently in
+
+  s32 NRI3::initiateWriteToT6(u32 * sourcedata, u32 wordCount, U16C noc0, u32 destaddr) {
+
+[364:
+
+Sun Mar  1 18:17:13 2026 After
+dinner. So okay, how to we
+develop those args?
+
+sourcedata : ewp = E2HEP::getCurrentCarIfAny() 
+             with ewp nonnull..
+wordCount : sizeof(*ewp)/4u
+noc0 : hubnoc from the existing
+             ewp/liveB code
+destaddr :   ourhubaddr from
+             existing ewp/liveB
+             code..
+
+so it seems like we 'already
+have' the arguments we
+need?[365:
+
+Sun Mar  1 18:55:13 2026 But
+note the obvious place to call 
+initiateWriteToT6 is in
+E2HEEP.cpp, not directly in
+LiveB, so somethings need to get
+forwarded or redeveloped.
+
+:365]
+
+What about on the hub/ side?
+
+sourcedata : ewp = H2EEP::getCurrentCarIfAny() 
+             with ewp nonnull..
+             ..or &ewc from
+             hub/LiveB.cpp:63 
+
+wordCount : sizeof(*ewp)/4u
+
+noc0 : want to map from EWHUB
+       index. Maybe use
+       T6CellO::getNoCofCellP(U8C)
+       ? where do we get cellp
+       of a cell index from?
+
+destaddr :  [367:
+
+Mon Mar  2 01:34:47 2026 Also a
+question whether we want to
+maintain separate destaddrs per
+EWHUB index. In principle we
+could have multiple t6images
+that all present the BC_EWCARS
+block code, and we'd like HUB to
+be able to ship EWTs to all of
+them..
+
+So fuck it let's make a little
+struct for it, to try to get
+something going and clean it the
+fuck up later.
+
+:367]
+            
+[366:
+
+Sun Mar  1 19:42:37 2026 Well
+not clear if there's a
+mImageTypeIndex -> U8C cp
+mapping already rolled. Might be
+worth developing it into a
+little array on the stack in
+update() and then just pound it
+to death forever. If we can
+afford the stack space for a
+nominally biggest cell size..
+U8C noc0sByIndex[7*2];? Hell
+that's only 28 bytes, right?
+
+Maybe nap time.
+[368:
+
+Mon Mar  2 11:22:49 2026 OK
+coming down to 24 hours to
+T2sday here, and still trying to
+get some evidence of EWP<->HUB
+comms running. We're a lot
+closer but we have to keep
+pushing.
+
+Current status: I believe both
+sides now possibly have the
+information they need to ship an
+EWCar to the other.
+
+Let's try to get EWP to
+  ship.[369:
+
+Mon Mar  2 11:46:10 2026 OK, we
+have just finally now reached
+the place in the code where ewp
+wants to ship:
+
+    /ewp/src/E2HEP.cpp:119:[7] E2HU13 c#0 cs2
+    /ewp/src/E2HEP.cpp:149:[7] E2HU EWCLS ret = et.ship(car, c)
+
+from
+
+      case CarState::CLOSED:
+        //ret = et.ship(car, c); // success advances to departing state
+        //ret = NRI3::initiateWriteToT6(ARGS?);
+        C9printf("E2HU EWCLS ret = et.ship(car, c)\n");
+        break;
+
+and.. now the goal is to
+assemble the args to make a call
+to NRI3::initiateWriteToT6(..)?
+
+:369]
+
+:368]
+:366]            
+
+:364]
+
+:363]
+
+:362]
+
+:361]
+
+:360]
+:359]
+
+
+:358]   
+
+
+:356]
+
+:355]
+:354]
+
+:353]
+
+:352]
+
+:351]
+:350]
+
+:349]
+
+:348]
+:347]
+
+:346]
+[370:
+
+Mon Mar  2 15:43:36 2026 OK,
+well, theoretically I think we
+are now
+
+  for the first time in the
+  history of the universe
+
+actually initiating NoC packet
+writes to send EWCars from an
+EWP image to their local HUB
+image.
+
+There's no evidence the cars
+have arrived as yet, but at
+least there's also no evidence
+that the HUBs are getting
+stuck.. [371:
+
+Mon Mar  2 15:51:29 2026 Well,
+folks, I think that MAY be it - 
+
+    /hub/src/H2EEP.cpp:101:[1] H2ELAR 0x0009e990 1 @ 2
+
+- the first logfile evidence
+that an EWP-sent EWCar has
+arrived at a HUB and been
+noticed. Need more data.[372:
+
+Mon Mar  2 16:05:17 2026 OK no:
+Wait, flag on the play, checking
+the tape.. Looks like that
+H2ELAR might have been a
+self-stim due to bad
+initialization.
+
+Now again saying we are STILL
+for the first evidence of EWCar
+arrival at HUB.[373:
+
+Mon Mar  2 16:08:23 2026 Now
+I've got a pretty damn basic
+thinko question, here: Does
+H2EEP even know that there are
+eight different EWCarStorages to
+deal with? Where are we
+iterating over the eight
+possible EWP slots during hub
+update? WHERE I AX YOU?
+[374:
+
+Mon Mar  2 16:10:09 2026 Well,
+hub/liveB does
+
+    EWPNgbs theMinions;
+    theMinions.init(hb,fB.mCellO);
+
+and EWPNgbs has
+
+      struct EWPNgbs {
+        static constexpr u32 MAX_EWP_NGBS = 7u*2u;
+        u32 mEWBaseL1Addrs[MAX_EWP_NGBS];
+        U8C mNoC0s[MAX_EWP_NGBS];
+
+So You'd Think We'd Be Iterating
+Over The Minions AT SOME POINT.
+
+BUTTNO.
+
+[375:
+
+Mon Mar  2 16:12:11 2026 Do we
+want to be having an array of
+H2EEPs rather than a single one?
+
+[376:
+
+Mon Mar  2 16:13:23 2026 Sigh.
+This little bit, right...
+
+      void initHubForEWPs(HostBlock & hb, T6CellO & cello) {
+        fB.mH2EEP.init();
+        memset_s(&fB.mEWMeta[0],'\0',sizeof(fB.mEWMeta));
+        DP.printf("IHFE10\n");
+        fB.mH2EEP.initCars(&theEWHub[0].mEWCars[0],
+................................here^^^
+
+is initting our H2EEP to the
+zeroth slot of theEWHub, even
+though it's declared to be
+
+      static constexpr u32 EWSLOTS = 8u;
+      EWCarStorage theEWHub[EWSLOTS];
+
+[377:
+
+Mon Mar  2 22:42:18 2026 Well,
+we're now building an array of 8
+H2EEPs, getting increasingly
+believable signs that EWCars are
+actually moving EWP->HUB, at
+least in some cases. At least
+far enough that now we need code
+to send cars back from
+HUB->EWP.. 
+[378:
+
+Tue Mar  3 00:27:20 2026 Well,
+the next step appears to be
+initiating EWCar writes back to
+the EWPs.. We're printing out
+the args we've developed
+hub-side, and they appear
+plausible.. Here we go I guess.
+
+:378]
+:377]
+
+:376]
+
+:375]
+:374]
+:373]
+
+:372]
+
+:371]
+
+:370]
+[379:
+
+Mon Mar  9 14:12:46 2026 Well
+it's almost a week since T2sday
+and I'm just getting ready to
+dig back into this.
+
+It's going to have to begin with
+a lot of review. And maybe it
+should begin with a push..[380:
+
+Mon Mar  9 14:34:38 2026 OK, now
+we're cleaned up and pushed into
+blackholeSpikes/spikes/mpmd211/ 
+[381:
+
+Mon Mar  9 14:35:34 2026 In
+fact, let's also push to a new
+notes file.
+[382:
+
+Mon Mar  9 14:36:46 2026 OK,
+ending here, carrying on in
+202603091435-regions-notes.txt.
+
+:382]
+:381]
+:380]
+
+:379]

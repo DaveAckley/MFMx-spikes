@@ -1,0 +1,2151 @@
+{147}  -*-  mode: text; fill-column: 32;  -*-
+[0:
+
+Fri Jun  5 12:38:37 2026
+Starting this notes file for
+stuff related to the "T6 Viz
+Challenge", which is the
+question of how to display
+results from the T6 tiles that
+are as dynamic as possible while
+eating as little comm B/W as
+possible..
+
+[1:
+
+Fri Jun  5 12:39:45 2026 For
+starters, here, advancing from
+nu17 to viz10.[2:
+
+Fri Jun  5 12:43:08 2026 OK, now
+in viz10/ with emacs buffers
+cleaned up.[3:
+
+Fri Jun  5 12:50:28 2026 OK,
+viz10 builds and runs and we can
+see the stream at
+vidsrv:8888/live/ewd
+
+I was hoping to have a way to
+build little test things quickly
+but that ran up against wanting
+to have all the mfmx
+infrastructure to code against.
+
+[4:
+
+Sat Jun  6 10:52:34 2026 OK, so
+now working in
+
+  /data/ackley/PART4/code/D/mfmx-lzss11/
+
+but putting notes over here.
+
+We have a little side Makefile
+and we can build this spike
+against all the (at least
+headers-only) parts of share/
+and cross/.
+
+:4]
+
+:3]
+
+:2]
+
+:1]
+
+:0]
+[5:
+
+Sat Jun  6 10:56:04 2026 So, now
+we're supposed to think of how
+we are to come at this code.
+
+I'm certainly wishing it could
+be a fully-incremental state
+machine, so we could just push
+bytes into a ringbuffer for it
+and it would do the rest on its
+own schedule.
+
+But, we're thinking of giving
+this thing its own hart, so it
+doesn't really have to be a
+state machine. It could just
+block when it needs more data.
+
+But it still would need to be
+incremental. Could we work on
+doing just that much, maybe?
+
+The code's got this lookahead
+business, so we'd need to
+account for that..[6:
+
+Sat Jun  6 16:23:19 2026 OK so
+we've got our fake mainline for
+lzmfmx cross-compiling for arm
+via riscv32-tt-elf-c++ and being
+simulated successfully via
+riscv32-tt-elf-run, so I don't
+think we can avoid some actual
+design thinking for much longer
+here.
+
+(Except up at 5pm is Saturday
+cocktails so we'll have to see
+how that goes.)[7:
+
+Sat Jun  6 16:53:01 2026 so,
+maybe a little TODO before we
+break officially:
+
+[8: Sat Jun  6 23:45:09 2026
+DONE :8] - Make a getByte() abstraction
+
+[16: Sun Jun  7 15:02:40 2026
+DONE :16] - Try to port the lzmss-style
+   code to use that
+
+[17: DONE :17] - Get it running or see why
+   not.
+
+ - Report back and make more
+   to-do
+
+:7]
+
+:6]
+
+:5]
+[9:
+
+Sat Jun  6 23:45:22 2026 OK, my
+'null compressor' is running and
+producing correct results while
+achieving a full 0% compression.
+
+Will now try to bring in lzss
+stuff.
+[10:
+
+Sun Jun  7 00:46:49 2026 Fudge,
+I can't figure out how to use
+the riscv-gdb that's in
+/opt/tenstorrent. I've found
+'target sim' and 'file myprog'
+but I keep getting like:
+
+    Starting program: /data/ackley/PART4/code/D/mfmx-lzss11/bin/testit e ./srcs/src/lzmfmx.cpp
+    warning: No program loaded.
+    Warning:
+    Cannot insert breakpoint 1.
+    Cannot access memory at address 0x11390
+
+[11:
+
+Sun Jun  7 00:50:10 2026 Woah I
+guess I just needed to say
+'load' in there!
+
+Now I'm getting like:
+
+    $ riscv32-tt-elf-gdb
+    GNU gdb (tenstorrent/sfpi:6.18.0) 13.0.50.20230101-git
+ ..
+    (gdb) target sim
+    Connected to the simulator.
+    (gdb) file ./bin/testit
+    Reading symbols from ./bin/testit...
+    (gdb) load
+    Loading section .text, size 0x16a3c lma 10094
+ ..
+    Loading section .sdata, size 0xac lma 28ee8
+    Start address 100dc
+    Transfer rate: 805056 bits in <1 sec.
+    (gdb) r  e ./srcs/src/lzmfmx.cpp
+    Starting program: /data/ackley/PART4/code/D/mfmx-lzss11/bin/testit e ./srcs/src/lzmfmx.cpp
+    maingo
+    LZMFMX
+    Usage: /data/ackley/PART4/code/D/mfmx-lzss11/bin/testit e|d
+    [Inferior 1 (process 42000) exited with code 01]
+    (gdb)
+[12:
+
+Sun Jun  7 00:55:15 2026 Except
+I can't redirect stdin? At least
+I don't know..[13:
+
+Sun Jun  7 01:06:19 2026 So with
+riscv32-tt-elf-run I can use
+stdio and redirect from files,
+but in riscv32-tt-elf-gdb I
+cannot? Is that where I'm at?
+[14:
+
+Sun Jun  7 02:55:41 2026 OK well
+I'm debugging now without
+cross-compilation because
+cross-gdb seems just too busted.
+
+And debugging is where we're at
+at this point. Compression
+starts out plausibly, but falls
+off the rails somewhere in the
+middle, and decompression.. who
+knows, for now?[15:
+
+Sun Jun  7 15:01:49 2026 Had a
+little typoe (MAX_MATCH for
+MIN_MATCH) that was blowing us
+up; everything now appears to be
+working, in small tests.
+
+So: We think we have a
+(de)compressor that
+
+(1) Is incremental, and doesn't
+    require knowing the
+    uncompressed input size up
+    front.
+
+(2) Uses a ring buffer that can
+    be a non-power-of-2 size.
+
+(3) Its full state fits in under
+    3KB for a 348B buffer,
+
+which is the size of 29 P4
+atoms, which isn't terrible, and
+which will still leave 1KB for
+stack on say hart T1.
+[18:
+
+Sun Jun  7 15:23:50 2026 TODO
+
+[22: Sun Jun  7 16:21:44 2026
+DONE :22] - let's try one bigger test,
+   here on host-side, before
+
+[23: Sun Jun  7 16:21:54 2026
+DONE  :23] - thinking about incorporating
+   lzmfmx.h/cpp into the mfmx
+   'viz10' tree..
+
+[24: Sun Jun  7 16:59:52 2026
+DONE :24] - and then doing that.
+
+[19:
+
+Sun Jun  7 15:46:41 2026 Well,
+it handles its own code okay,
+but at 3174/5660 it only
+compresses to 56% of original..
+
+[20:
+
+Sun Jun  7 16:08:38 2026 And
+when we try it on
+202605071336-interhub-notes.txt
+it reduces only to
+
+24078/34066/.01 ~71%
+
+of original.[21:
+
+Sun Jun  7 16:11:24 2026 On the
+other hand, when we try
+/tmp/dumpity.dump , we get
+a reduction to
+
+90684/365032/.01 ~24%
+
+of original, which isn't awful..
+(Its compressability is in large
+part, I think, because of all
+the structured messages - like
+
+    {9:216 6 1 2,11 hb T6GridSize:(138,108)}
+    {9:217 5 1 2,11 hb T6GridSites:14904}
+
+- in the giantish HostBuffer in
+dumpity.dump..)
+
+:21]
+
+:20]
+
+:19]
+
+:18]
+:15]
+
+:14]
+
+:13]
+
+:12]
+:11]
+:10]
+:9]
+[25:
+
+Sun Jun  7 16:59:56 2026 Well,
+okay: So shared/lxmfmx is now
+building in the mfmx tree![26:
+
+Sun Jun  7 20:42:42 2026 So,
+more TODO, for after nap:
+
+[29: Mon Jun  8 00:57:50 2026 a
+little DONE  :29] - Review status of EWPs
+
+[30: a little
+DONE :30] - Review the DL2D atom cache
+   stuff we had just been
+   getting going.
+
+[33: Mon Jun  8 01:28:48 2026
+DONE :33] - Review and catalog the
+   current tasks of all harts,
+   both core and per-image, as a
+   checkpoint and as
+   documentation.
+
+[49: Mon Jun  8 03:55:55 2026
+Just did copy-paste according to
+the Fachan Rule, but
+DONE :49] - Consider if we want to
+   generalize the hartNC
+   init/step framework so other
+   harts, such as T1, could use
+   it.
+
+[50: Mon Jun  8 03:56:20 2026
+DONE :50] - Implement that or come up
+   with an alternate scheme to
+   add heterogeneous
+   functionality to non-NC
+   harts.
+
+ - Review the current cache
+   update packet structure, if
+   any.
+
+ - (Re)design the cache update
+   packet based on current
+   thinking.
+
+ - Get that building.
+
+ - Settle on a spike path toward
+   having h1 compress atoms and
+   ship packets to the host
+
+ - Consider if we could have the
+   lz ring buffers persist
+   across packets - perhaps
+   resetting them only once per
+   frame rather than each
+   packet.
+
+ - Demonstrate host-side
+   decompression.
+
+ - Implement the rest of the
+   spike path in the hub image.
+
+ - See compressed atoms arriving
+   at the host
+
+ - Spontaneous human combustion.
+
+:26]
+
+:25]
+[27:
+
+Mon Jun  8 00:13:41 2026 For the
+record, here's what one hub
+looks like ATM, site-count-wise:
+
+ at023,HUBADDED at 0x7ffee022c0f8 from 0x0002c0f8 noc[2,3] (138,108)@(0,0)-(138,108)
+
+138x108 == ~15K sites per hub.
+Plus three EWPs per hub. Getting
+that to go in the least fast is
+going to be a bitch. N-E-WAYS.
+
+:27]
+[28:
+
+Mon Jun  8 00:18:16 2026 So, we
+have pretty extensive
+PT/EP_ACacheBlock stuff
+implemented. Not sure how we'll
+interface to that existing
+stuff. May start a separate path
+for compressed stuff and see
+which lane withers first..
+
+The DL2D stuff is in hub/Grid.h.
+
+:28]
+[31:
+
+Mon Jun  8 00:58:17 2026 OK:
+
+[52: Superseded by :51: below
+:52]- CURRENT TASKS OF ALL HARTS
+
+-- CORE TASKS
+--- hb: -unassigned-
+--- h0: Clock; exposes in L1:
+         totalMillisElapsed,
+         t0TicksElapsed (~95Hz)
+        calls stepT0 once per ms
+--- h1: LogBlockControl
+--- h2: PRNG
+--- hn: Packet IO
+
+-- IMAGE EWP TASKS
+--- hb: processEwpCars
+
+-- IMAGE HUB TASKS
+--- hb: processHubCars (Ewp)
+        processInterHubCars
+
+[32:
+
+Mon Jun  8 01:16:17 2026 OK so
+that's a little useful maybe.
+Reactions to it:
+
+ - h1 is underused.
+
+ - wonder if stepT0 could be a
+   hook for stuff that wouldn't
+   take too long to run.
+
+ - For example, what if we did
+   LogBlockControl::step inside
+   of stepT0, and freed h1 of
+   core tasks entirely ?
+
+ - Or what if we did the
+   special-load-section trick a
+   la NC, but for T0, and
+   allowed 'places' to declare
+   tasks to run on the millis?
+   Might be a good way to feel
+   that out. And have the core
+   T0 stuff raise some kind of
+   stink if the stepT0 stuff
+   takes too long..
+
+[34:
+
+Mon Jun  8 01:29:01 2026 Let's
+try it. Reviewing the NC scheme:
+
+ - in FastNC.cpp, we have
+
+  extern "C" char __start_rodata_fp_table_nc[];
+  extern "C" char __end_rodata_fp_table_nc[];
+
+ - Right now we do
+   copyEPFuncsNC, which copies
+   the function ptrs elsewhere
+   in L1, and then runs them
+   from .. [35:
+
+Mon Jun  8 01:34:31 2026 Ah, no,
+it copies them to NC fast ram,
+which seems like a perfectly
+fine thing to do..[36:
+
+Mon Jun  8 01:35:47 2026
+
+ - And _BUD.ld.in does this:
+
+        .rodata_fp_table_nc :
+        {
+           . = ALIGN(4);
+           __start_rodata_fp_table_nc = .;
+           KEEP(*(SORT(.rodata_fp_table_nc*)))
+           __end_rodata_fp_table_nc = .;
+        } > L1
+
+   to collect entries and
+   generate the L1 function
+   pointer table..[37:
+
+
+Mon Jun  8 01:37:25 2026 And a
+'wide variety' of sites do like:
+
+      __attribute__((section(".rodata_fp_table_nc")))
+      EPFuncPtr ewpEPPtr = &manageEwpNC;
+
+to add a function pointer to
+that section.
+
+And each of those functions is
+presumed to have the signature:
+
+  static bool manageACacheBlockNC(bool doInit) {
+
+where it will be called once at
+startup with doInit==true, and
+then forever during life with
+doInit==false. [38:
+
+Mon Jun  8 01:40:09 2026 So if
+we wanted to carry that
+structure over to t0, we might:
+
+[39: Mon Jun  8 01:46:50 2026
+DONE :39] - dup to .rodata_fp_table_t0
+   in _BUD.ld.in
+
+[40: Mon Jun  8 01:55:11 2026
+DONE :40] - dup to copyEPFuncsT0 and
+   runEPFuncsT0 in FastT0
+
+[41:
+DONE :41] - have a strong initT0 like
+      int initT0() {
+        HBNOTE("initT0");
+        fT0.init();
+        return 0;
+      }
+
+[42:
+DONE :42] - have a strong stepT0 that
+   does like
+     fT0.runEPFuncsT0(false);
+[43: NOT DONE  :43]   and then checks timing.
+
+[44: Mon Jun  8 02:18:09 2026
+DONE :44] - then do a test by adding an
+   EPFuncT0 that just logs
+   something - maybe in image
+   ewp for a change.
+
+[45: Mon Jun  8 02:18:14 2026
+DONE! Fun!:45] - see that working.
+
+[46: Mon Jun  8 03:55:21 2026
+DONE! :46] - then move LogBlock stepping
+   from T1 to T0
+
+[47: Mon Jun  8 03:55:28 2026
+DONE! :47] - see that working
+
+[48: Mon Jun  8 03:55:35 2026
+DONE! :48] - big fun
+
+:38]
+
+:37]
+
+:36]
+
+:35]
+
+:34]
+
+:32]
+:31]
+[51:
+
+Mon Jun  8 10:43:36 2026
+
+- CURRENT TASKS OF ALL HARTS V11
+
+-- CORE TASKS
+--- hb: -unassigned-
+--- h0: Clock; exposes in L1:
+         totalMillisElapsed,
+         t0TicksElapsed (~95Hz)
+        runs HTFuncs once per ~ms
+        = HTFunc: LogBlockControl
+--- h1: -unassigned-
+--- h2: PRNG
+--- hn: Packet IO
+
+-- IMAGE EWP TASKS
+--- hb: processEwpCars
+--- h0: HTFunc EwpDemo
+
+-- IMAGE HUB TASKS
+--- hb: processHubCars (Ewp)
+        processInterHubCars
+
+:51]
+[53:
+
+Mon Jun  8 10:49:12 2026 I'd
+like to have the atom cache
+updates compression state span
+all the packets of a frame. So
+a revised atom cache payload
+might be something like
+
+ - u8 flags+compressedlenHi
+   = 0x80 first in frame
+   = 0x40 last in frame
+   = 0x20 rsrv1
+   = 0x10 rsrv2
+   = 0x08 rsrv3
+   = 0x07 complenHi 3b
+ - u8 compressedlenLo 8b
+ - u8 compressed atom reports
+
+where an atomreport is
+  P4Atom mAtom;
+  U8C mTilePos;
+
+which is 14B (16B if in an array
+but we might not do that).
+
+And maybe have like 3x1KB of
+these packets in the EP? And we
+might imagine averaging 8B per
+14B report, for up to about 128
+atomreports per packet?[54:
+
+Mon Jun  8 11:40:18 2026 And how
+are we dividing returned EWPs up
+into frames? Also: Are we going
+to allow splitting an atomreport
+between packets? If not, how do
+we signal 'good breaks' from the
+uncompressed byte source to the
+compressed byte sink? Especially
+considering the compressor
+itself can be batching a
+significant chunk of stuff..
+
+Maybe we do allow splitting
+atomreports across packets.
+Maybe we say it's just a dumb
+byte stream, period, with only
+the SoF/EoF markers to delimit
+compressions.
+[55:
+
+Mon Jun  8 11:48:12 2026 If we
+could somehow mark the DL2D
+position where time expired on
+the previous frame, we could use
+that to derive our EoF marker.
+But if we're jumping to the back
+on rechanges.. We'll see.
+
+:55]
+:54]
+
+:53]
+[56:
+
+Mon Jun  8 15:05:37 2026 OK, so
+reviewing the existing
+ACacheBlock structure.
+
+ - OurTLBs.cpp has a lot of
+   plausible structure. In
+   particular, it is examining
+
+        ACacheBlockPayload & acb = ac.payload();
+
+   and iterating over the (in
+   that case) uncompressed atom
+   reports.
+
+ - But it doesn't actually do
+   anything with the reports it
+   sees. That appears to be the
+   host side implementation
+   frontier.
+
+[57:
+
+Mon Jun  8 15:09:43 2026 Well,
+I'm scared enough of the
+existing work in *ACacheBlock*
+files that, even though it's
+early, I'm going to push to
+viz11 before starting to tear
+all this up..
+[58:
+
+Mon Jun  8 15:13:15 2026
+Actually, I'm also going to take
+this opportunity to start an new
+emacs, because this one has
+gotten so big I get substantial
+GC pauses:
+
+    $ ps wwwaxu | grep emacs
+    root        2554  0.0  0.0 187552 37220 pts/2    Sl+  Feb20   0:01 emacs
+    ackley    640938  0.0  0.0 195488 45356 pts/10   Sl+  Mar14   0:18 emacs
+>>  ackley   1714068  0.1  0.7 4266628 4094064 pts/5 Sl+  Apr21  81:41 emacs
+
+[59:
+
+Mon Jun  8 15:18:16 2026 OK,
+setting up in a fresh emacs,
+here.
+
+    $ ps wwwaxu | grep emacs
+    root        2554  0.0  0.0 187552 37220 pts/2    Sl+  Feb20   0:01 emacs
+    ackley    640938  0.0  0.0 195488 45356 pts/10   Sl+  Mar14   0:18 emacs
+>>  ackley   2892965  0.6  0.0 188020 37820 pts/5    Sl+  15:15   0:01 emacs
+
+Much better.
+
+:59]
+:58]
+:57]
+:56]
+[60:
+
+Mon Jun  8 15:22:07 2026 OK.
+Tearing into
+PT_ACacheBlock.h/cpp. We shall
+see.
+
+:60]
+[61:
+
+Mon Jun  8 16:11:49 2026 Well,
+the new ACB payload like this:
+
+  struct ACacheBlockPayload {
+
+    static constexpr u16 ACBP_BUFFER_SIZE = 994; // for 1KB final packets
+    static constexpr u16 ACBP_TOTAL_SIZE = ACBP_BUFFER_SIZE + 2;
+ ..
+    u16 mFlagsAndLen;
+    u8 mCData[ACBP_BUFFER_SIZE];
+ ..
+
+now builds.
+
+I think we need an uncompressed
+AtomReport I/O wrapper to
+simplify external interfacing.
+AtomReportSink and
+AtomReportSource? Maybe?
+
+[62:
+
+Tue Jun  9 04:48:16 2026 Well, I
+made various such things but not
+sure if any of them really make
+much sense. Nonetheless, at this
+point we have like:
+
+      template <class OBJ>
+      struct GObjIO { ..
+
+        // OBJ IO
+        bool canGetObj() ..
+        bool tryGetObj(Obj & o) ..
+
+        bool canPutObj() ..
+        bool tryPutObj(const Obj & o) ..
+
+        // BYTE IO
+        bool canGetByte() ..
+        bool tryGetByte(u8 & b) ..
+
+        bool canPutByte() ..
+        bool tryPutByte(const u8 & b) ..
+      }
+
+to convert between a byte stream
+and a stream of some given type
+of object. And we have
+
+      using AtomReportIO = GObjIO<AtomReport>;
+
+[63:
+
+Tue Jun  9 10:24:02 2026 And I
+guess, process-wise, we're
+thinking:
+
+ - h0 mstask pipelines atoms
+   from DL2D to AtomReportIO to
+   lzmfmx to PT_ACacheBlocks,
+   crbo-ing them to hn as they
+   fill or time out.
+
+ - Perhaps just that? And
+   at perhaps ~1Hz declare an
+   EOF/SOF pair to reset the
+   buffer?
+
+ - And let the host just render
+   whatever it's got come the
+   frame time?
+
+Is that pretty much executable
+in my head? Maybe have some
+limit how many atoms we try to
+take off the DL2D at a time (per
+'ms' I guess). Again, we're at
+138x108~=15Ksites, right? So
+we'd need to be able to pack 15
+AtomReports per mstick,
+sustained, if everything was
+changing.
+
+Yeah Right.
+[64:
+
+Tue Jun  9 11:54:27 2026 Well
+and how does that standalone
+pipeline interact with
+EP_ACacheBlock? Is the h0 mstick
+like a call on
+ACacheBlockPrivateControl::step() ?
+[65:
+
+Tue Jun  9 11:56:01 2026 Hmm it
+appears there is no actual
+implementation of
+ACacheBlockPrivateControl::step()..
+[66:
+
+Tue Jun  9 11:57:29 2026 Need to
+map the pipeline more explicitly
+into the existing appys. But,
+nap first.[67:
+
+Tue Jun  9 16:00:33 2026 So, we
+already have
+
+      __attribute__((section(".rodata_fp_table_nc")))
+      HTFuncPtr acbEPPtr = &manageACacheBlockNC;
+
+in hub/EP_ACacheBlock, which
+should handle the network side
+of things, leaving the new code
+to handle stuff from
+
+    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+to
+    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+
+[68:
+
+Tue Jun  9 16:16:52 2026 And I
+think the idea is that
+
+  int ACacheBlockL1Control::step(HostBlock & hb) {
+
+both
+
+(1) pulls an ACacheBlock off of
+    COMM2COMP and puts it into
+    mCurrentACacheBlock, and
+(2) takes a readyToClose
+    ACacheBlock off
+    mCurrentACacheBlock and
+    sends it off to COMP2COMM.
+
+But I'm not sure where step(..)
+is (supposed to be) called from.
+
+Is anybody calling it? Does it
+have an active tag?[69:
+
+Tue Jun  9 16:35:59 2026 It has
+ACB1CS10 and we don't see that
+in the log anywhere..
+[70:
+
+Tue Jun  9 16:36:48 2026 So it
+seems like
+ACacheBlockL1Control::step(..)
+could be one thing called on an
+h0 mstick.[71:
+
+Tue Jun  9 16:39:02 2026 Now, we
+also, sigh, have fB.mPACBControl
+which is an
+ACacheBlockPrivateControl, and
+which is getting initted in
+hub/LiveB init(..), but then
+never mentioned anywhere else.
+[72:
+
+Tue Jun  9 16:40:52 2026 And it
+declares
+
+    int step(HostBlock & hb) ;
+    void tryToSendFrame(HostBlock & hb);
+
+but appears to implement neither
+of them.
+[73:
+
+Tue Jun  9 17:07:31 2026 So we
+think the main ideas should be:
+
+ - ACacheBlockPrivateControl
+   runs on hub/h1. It pulls from
+   DLGridList and compresses to
+   ACacheBlockL1Control::mCurrentACacheBlock
+
+ - We don't use an h0 mstick for
+   anything in this flow?
+[74:
+
+Tue Jun  9 23:45:48 2026 OK, so
+let's go TODO
+
+[76: Wed Jun 10 02:07:08 2026
+DONE :76] - Get ACacheBlockPrivateControl
+   stepping on hub/h1
+
+[81: Wed Jun 10 15:43:11 2026
+DONE :81] - Get it accessing DLGridList
+   and logging results
+
+[82: Wed Jun 10 15:43:15 2026
+DONE :82] - Report back results
+
+ - Make more to-do.
+
+:74]
+:73]
+:72]
+
+
+:71]
+
+:70]
+:69]
+
+:68]
+:67]
+
+:66]
+
+:65]
+:64]
+:63]
+
+:62]
+:61]
+[75:
+
+Tue Jun  9 23:47:09 2026 So,
+when we're just adding a hart
+task, say in an image, where
+should we declare that? It
+doesn't seem right to make a
+zot/LiveT1 or whatever, since
+it's an "all standard" T1 life
+we're talking about, which just
+happens to include running its
+assigned hart tasks.
+
+Should we just name it on
+semantics? Like in this case,
+put the h1 HT into
+ACacheBlock.cpp - where
+
+  __attribute__((section(".rodata_fp_table_nc")))
+  HTFuncPtr ACacheBlockEPPtr = &manageACacheBlockNC;
+
+already resides?
+
+Well maybe so. It intermingles
+separate threads - which seems
+likely confusing at least - but
+unites the different threads
+that are collaborating in a
+given workflow..
+
+:75]
+[77:
+
+Wed Jun 10 13:50:23 2026 OK, so
+dinner is in the oven for a slow
+cook, and it's time to review
+hub-side EWP application and see
+about getting the DL2D grid
+loaded.. [78:
+
+Wed Jun 10 13:52:29 2026 It
+looks like GridManager::writeEW
+is trying to pass stuff to
+DLGridList, so I guess we need
+to trace backwards from
+there..[79:
+
+Wed Jun 10 14:55:23 2026 OK, now
+we're seeing the DL2D growing:
+
+    {14:56 21751 0 14,5 hb gmwEWc:(62,16)}
+    {14:65 21751 0 14,5 hb oldATOM:(62,16)}
+    {14:67 21751 0 14,5 hb ATOMS:4}
+    {9:164 21752 0 14,5 hb mroo:5}
+    {14:66 21752 0 14,5 hb newATOM:(61,16)}
+    {14:67 21752 0 14,5 hb ATOMS:5}
+    {11:70 21754 0 14,5 h1 ACBPCstep:3158}
+    {11:71 21754 0 14,5 h1 DGLLen:5}
+ ..
+    {14:56 225555 0 14,5 hb gmwEWc:(55,18)}
+    {14:65 225555 0 14,5 hb oldATOM:(55,18)}
+    {14:67 225555 0 14,5 hb ATOMS:638}
+    {14:65 225556 0 14,5 hb oldATOM:(54,18)}
+    {14:67 225556 0 14,5 hb ATOMS:638}
+    {11:70 225557 0 14,5 h1 ACBPCstep:32727}
+    {11:71 225557 0 14,5 h1 DGLLen:638}
+ ..
+    {11:70 3052339 0 14,5 h1 ACBPCstep:49555}
+    {11:71 3052339 0 14,5 h1 DGLLen:3680}
+    {14:56 3052339 0 14,5 hb gmwEWc:(113,13)}
+    {14:65 3052339 0 14,5 hb oldATOM:(113,13)}
+    {14:67 3052339 0 14,5 hb ATOMS:3680}
+    {9:164 3052340 0 14,5 hb mroo:3681}
+    {14:66 3052340 0 14,5 hb newATOM:(112,13)}
+
+[80:
+
+Wed Jun 10 15:23:42 2026 So now
+we're going forward again: Do we
+see the T1 HT running?
+
+..Yes we totally do, as above:
+
+    {11:70 3052339 0 14,5 h1 ACBPCstep:49555}
+    {11:71 3052339 0 14,5 h1 DGLLen:3680}
+
+are from
+ACacheBlockPrivateControl::step(..).
+
+..and so what is ACBPC::step
+actually supposed to do?
+[83:
+
+Wed Jun 10 22:49:11 2026 So the
+question I'm spinning on is:
+
+ - How should ACBPC::step know
+   when to stop trying to send
+   frames?
+
+It could make a snapshot of
+mLength when it decides to
+begin, and then count down
+sending up to that many atoms
+and call that the frame.
+
+Unless the frametime expires
+before that many have been
+sent, in which case it just
+reinitializes the count and
+keeps trying to catch up.
+
+That sounds almost plausible?
+Could I have thought of that a
+good number of hours ago?
+
+[84:
+
+Wed Jun 10 22:52:55 2026 So
+okay: Let's say we
+
+(1) wait til the beginning of
+    the next (apparent,
+    approximate) frame time,
+
+(2) then capture a local copy of
+    mLength and begin pulling
+    ARs off the front of DL2D
+    and feeding them into the
+    compressor.
+
+States:
+ 0 UNINIT
+ 1 IDLE (waiting for SoF)
+ 2 PACKING
+
+[85:
+
+Thu Jun 11 00:51:19 2026 OK, so
+where is the damn compressor
+now?[86:
+
+Thu Jun 11 01:53:13 2026 OK, so
+we have an AtomReport to pack,
+and we've instantiated lzmfmx in
+fast T1. How do we use
+AtomReportIO to connect
+them?[87:
+
+Thu Jun 11 02:26:57 2026 So now
+we've arrived at the fundamental
+initiative problem I'm been
+worried about: lzmfmx expects to
+read bytes in its own time, not
+have them pushed into it on
+external initiative. But
+external initiative is what we
+have..
+
+Going to take a rethink. Let's
+look at the lzmfmx code again
+and then push towards a nap.
+[88:
+
+Thu Jun 11 11:08:42 2026 OK so I
+really don't want to redo lzmfmx
+as a state machine if I can
+avoid it.
+
+Could I have hub/h1 dedicated
+entirely to encoding? Rather
+than running Hart Tasks there,
+and have say a h0 mstick that
+does the ACBP stuff to push
+bytes into an RB bound for h1
+and have h1 do the compression
+and the packing into packets
+bound for HC.
+
+Let's take a look at it.
+
+[89:
+
+Thu Jun 11 19:53:50 2026 OK so
+now we're getting like:
+
+    {12:126 3302 3 16,5 h0 PAKT:64}
+    {12:126 3302 3 16,5 h0 PAKT:0}
+    {15:56 3333 3 16,5 hb gmwEWc:(16,64)}
+    {9:164 3333 3 16,5 hb mroo:1}
+    {15:66 3333 3 16,5 hb newATOM:(16,64)}
+    {15:67 3333 3 16,5 hb ATOMS:1}
+    {12:129 3334 3 16,5 h0 PAKOUT:(16,64)}
+    {9:164 3335 3 16,5 hb mroo:1}
+    {15:66 3335 3 16,5 hb newATOM:(16,65)}
+    {15:67 3335 3 16,5 hb ATOMS:1}
+
+and the PAKOUT means we think
+lzmfmx is not consuming from its
+end of the bytesource..
+
+
+:89]
+:88]
+:87]
+
+:86]
+
+:85]
+
+:84]
+
+:83]
+:80]
+:79]
+
+:78]
+
+:77]
+[90:
+
+Fri Jun 12 09:50:21 2026 OK so I
+need a fucking diagram (or a
+few) here of the hart and task
+assignments and such. Among the
+things to be placed / related:
+
+ - Protocols: logblock, ewp,
+   interhub, acacheblock
+
+ - Components: PT, EP, publicL1,
+   privL1
+
+ - Images: HUB, EWP, "host"
+
+ - Harts: hb h0 h1 h2 hn
+
+ - FastRAM: fB fT0 fT1 fT2 fNC
+
+Maybe I'll try a spreadsheet.
+We'll see.
+
+:90]
+[91:
+
+Sat Jun 13 12:20:14 2026 OK,
+painfully filling out a
+spreadsheet and I've now run
+into the sort of problem I was
+increasingly sure was in here:
+
+I'm not sure if they're both
+active, but we've got (at least)
+two pieces of code trying to
+call ACacheBlockEP::updateOps():
+
+    ACacheBlock.cpp:47:
+          ACacheBlockEP & myACBEPNC = myACacheBlockEPNC;
+          if (!myACBEPNC.isInitted()) FAIL(INCOMPLETE_CODE);
+          if (myACBEPNC.updateOps()) {
+            ret = true;
+          }
+  which is part of ACacheBlock.cpp:145
+  static bool manageACacheBlockNC(bool doInit) ..
+
+  and is apparently enabled by:
+      __attribute__((section(".rodata_fp_table_t0")))
+      HTFuncPtr ACacheBlockEPPtrT0 = &manageACacheBlockT0;
+
+and
+
+      if (myACacheBlockEPNC.updateOps()) {
+        ret = true;
+      }
+  which is part of
+  EP_ACacheBlock.cpp:114:
+    static bool manageACacheBlockNC(bool doInit) ..
+
+  and is apparently enabled by:
+
+  __attribute__((section(".rodata_fp_table_nc")))
+  HTFuncPtr acbEPPtr = &manageACacheBlockNC;
+
+[92:
+
+Sat Jun 13 12:28:19 2026 Sooooo
+are they both trying to runnnn?
+
+And can we tell from the loggs?
+[93:
+
+Sat Jun 13 12:51:43 2026 Gah,
+these two marks are right after
+each other --
+
+    {13:144 5 0 2,3 hn eacbACT:3}
+    {12:23 3 0 2,3 hn "ACBARO":IC_HUB}
+
+and the first one is from
+EP_ACacheBlock.cpp:144:
+
+    HBPTAG(eacbACT, theACacheBlockL1Data.getPublicEPState(0));
+
+while the second one is from
+ACacheBlock.cpp:23:
+
+      HBNOTE("ACBARO");
+
+and if both inits are running I
+can pretty safely assume both
+updates are running as well.
+
+Doh.
+[94:
+
+Sat Jun 13 15:15:08 2026 So
+okay. Dinner is in the oven and
+which of these
+manageACacheBlockNC's do we want
+to keep?
+
+I do remember I had some
+confusion about whether
+EP_ACacheBlock and ACacheBlock
+really wanted to both exist. I
+guess we should revisit that
+hunh.
+
+[95:
+
+Sat Jun 13 15:36:55 2026
+
+ACacheBlock.h has
+  struct ACacheBlockPrivateControl
+and that's about it..
+
+EP_ACacheBlock.h has
+
+  struct ACacheBlockEP : public T6EP<ACacheBlockEP,ACacheBlockStg,HACB_BLOCKS,HARTNUM_NC> {
+
+and
+
+  struct ACacheBlockL1Control {
+
+and I don't much see why we
+couldn't push
+ACacheBlockPrivateControl in
+there too.
+
+[96:
+
+Sat Jun 13 16:16:18 2026
+
+EP_ACacheBlock.cpp has L1 defines:
+
+  T6EPL1Data<ACacheBlockStg,1> theACacheBlockL1Data;
+  ACacheBlockL1Control theACacheBlockL1Control;
+
+and fastram defines:
+
+  FAST_LOCAL(ACacheBlockEP,myACacheBlockEPNC,n);
+
+and ACacheBlockL1Control methods
+and ACacheBlockEP methods
+
+[97:
+
+Sat Jun 13 16:28:31 2026 I guess
+we should really smash them
+together, with the
+EP_ACacheBlock files surviving.
+[98:
+
+Sun Jun 14 11:25:04 2026 OK
+fixed that and a couple of
+stupid bugs and now we're seeing
+plausible ewts and plausible
+atomreport compressions.
+
+Now it's stalling, I think, when
+the compressed output ringbuffer
+runs out of space, so the next
+goal will be stashing the
+compressed output directly into
+an ACacheBlock and handing them
+off once it's fullish.
+
+But nap first.[99:
+
+Sun Jun 14 14:40:55 2026 OK,
+hack a little, cook a little,
+let's goooo.
+
+:99]
+
+:98]
+
+:97]
+
+:96]
+
+
+:95]
+:94]
+:93]
+:92]
+:91]
+[100:
+
+Wed Jun 17 08:56:34 2026 OK,
+moved the flag again. Current
+status, I think, is: We're
+plausibly packing compressed
+atoms into a ACacheBlock, then
+stalling when the packet is full
+because we don't have a way to
+ship it.
+
+[101:
+
+Wed Jun 17 09:56:09 2026 To get
+going again here, let's have a
+SNAP log message when we run out
+of space..[102:
+
+Wed Jun 17 10:03:48 2026 OK so
+indeed that's what we see.
+
+And we were thinking that we
+should be having h0
+ACacheBlockPrivateControl::step(..)
+ -> ACBPC::tryToSendFrame(..)
+somehow be monitoring the
+current packet size and swapping
+for new packets when possible
+and readyToClose.[103:
+
+Wed Jun 17 10:09:31 2026 OK well
+it appears we are not packing an
+ACBP yet after all; we're just
+filling an RB then stalling:
+
+  static bool compressedByteSink(u8 byte) { return l1dLZBytesOut.add(byte); }
+
+So that's our design frontier I
+guess.
+[104:
+
+Thu Jun 18 12:26:44 2026 OK,
+well, now we're filling an
+actual ACBP packet and then
+stalling. I'm quite confused
+about the purposes and functions
+of
+  int ACacheBlockL1Control::step(..)
+vs
+  int ACacheBlockPrivateControl::step(..)
+
+[105:
+
+Thu Jun 18 14:45:36 2026 From
+logging, the idea was supposed
+to be that multiple users might
+want to access the public side -
+the ACacheBlockL1Control object
+- so that goes in L1 and
+everybody is supposed to take
+ACacheBlockL1Control.mLock
+before they mess with anything.
+
+So there's a question of WTH
+would there be a step(..) method
+there, rather than just action
+methods for users.
+
+On the other hand,
+ACacheBlockPrivateControl is
+supposed to be for a single user
+on a single hart, so it's in
+fast RAM.[106:
+
+Thu Jun 18 16:57:58 2026 And it
+kind of seems like the guts of
+ACacheBlockL1Control::step more
+properly belong in
+PrivateControl::step
+anyway.[107:
+
+Thu Jun 18 16:59:47 2026 We
+don't want to kill
+ACacheBlockL1Control entirely,
+because its
+writeByteToCurrentACB(u8 byte)
+method is a model citizen of
+stuff we DO want to be
+presenting for harts to use.
+It's just its step method we
+should kill.
+
+
+:107]
+
+:106]
+
+:105]
+
+:104]
+
+:103]
+
+:102]
+
+:101]
+
+:100]
+[108:
+
+Sat Jun 20 00:12:11 2026 OK
+let's bash some code. Like, set
+RCLOSE on the current packet
+when time expires. Let's just
+try to do that.[109:
+
+Sat Jun 20 01:19:45 2026 OK well
+at long last it's possible that
+we're shipping ACacheBlocks to
+the host. Is the host checking
+for them at all?[110:
+
+Sat Jun 20 16:16:58 2026 OK I
+think I can no longer avoid
+trying to document my intent for
+how the whole ACB system is
+supposed to initialize, across
+the various harts that are
+involved in the process.[111:
+
+Sun Jun 21 05:47:58 2026
+
+SETTING: THE HUB IMAGE
+
+THE PLAYERS:
+ - manageACacheBlockNC on hn
+   ROLE SUMMARY
+    manages network
+    communication of
+    ACacheBlocks.
+   INIT: "MACBARO"
+    = reset theACacheBlockL1Data
+    = init the ACacheBlock
+      objects in
+      theACacheBlockL1Data.mTheTCStorages
+    = init, configureDest, and
+      EP::activate (==
+      setFastEPState(ACTIVE))
+      the ACacheBlockEP
+      myACacheBlockEPNC in
+      FAST_LOCAL
+   LIVING
+    = myACacheBlockEPNC.EP::updateOps()
+      - take lock
+      - recvTC(..) on cars
+        arrived from NoC
+      - shipTC(..) on closed
+        cars (taken from L1Data
+        COMP2COMM)
+
+ - manageACacheBlockT0 on h0
+   INIT: "ACBT0ARO"
+     = reset myPACBControlH0, a
+       ACacheBlockPrivateControl
+       in FAST_LOCAL
+       - which inits AtomReportIO
+         mARIO.
+   LIVING
+   = runs as 1KHz 'mstick' task
+   = myPACBControlH0.step(..)
+     -> updateCars(..)
+        = ships current car
+          (adds to COMP2COMM)
+          and advances to next
+          car (takes from
+          COMM2COMP) if:
+          (1) has an empty
+          (2) room for full
+          (3) readyToClose
+     -> tryToSendFrame(..)
+
+        = steps mState machine,
+          whose job (among other
+          things) it is to pull
+          atom (coords) off of
+          DLGridList and pack
+          AtomReports for them
+          into mARIO, and then
+          xfer as many bytes as
+          possible from mARIO to
+          l1dLZBytesIn, and it
+          BLOCKS IN-FUCKING-
+          DEFINITELY if
+          l1dLZBytesIn is full
+
+        = and note we're on a
+          shared h0 mstick task,
+          so blocking
+          indefinitely blocks
+          all such...
+
+        = which, ahhh, includes
+          manageLogBlockT0, so
+          logging also stops at
+          that point.
+
+ - applyEWT on hb
+
+ :111]
+
+:110]
+
+:109]
+
+:108]
+[112:
+
+Sun Jun 21 12:28:46 2026 So
+okay:
+
+ - We need tryToSendFrame never
+   to block indefinitely, so
+
+ - We need to be able to
+   dispatch "fractional mARIOs"
+   during a step. And
+
+ - We need to finish the review
+   in :111: above, to
+   understand:
+   = the reading of l1dLZBytesIn
+   = and the filling and closing
+     of ACBs
+
+But let's see how bad fractional
+mARIOs needs to be.[113:
+
+Sun Jun 21 12:34:41 2026 So one
+problem with fractional mARIOs
+is that time might expire on the
+frame and then we'd be left with
+a partial AtomReport at the end
+of a packet. And that seems bad.
+
+Is there some reasonable way we
+could check if there are room
+for N more objects in an RB, and
+not just N==1?[114:
+
+Sun Jun 21 12:40:43 2026 Well,
+except for wrapping at U32_MAX,
+the RB members
+  mFirstFreeIdx and
+  mFirstUsedIdx
+
+just keep counting up. So I
+think in fact something like
+
+  bool roomForNMore(u32 n) const {
+    MFM_API_ASSERT(n < RING_BUFFER_SIZE/2, ILLEGAL_ARGUMENT);
+    if (unlikely(WRAP PROBLEMS)) {
+     ..
+    } else {
+     return mFirstFreeIndex + n <= mFirstUsedIndex;
+    }
+  }
+
+should maybe actually work.. So
+we could maybe avoid blocking
+without risking a partial
+AtomReport that way.
+
+:114]
+
+:113]
+
+:112]
+[115:
+
+Sun Jun 21 13:12:01 2026 OK
+we're now not blocking the h0
+tasks, but we're still not
+shipping ACBs either, because we
+still have
+
+    {11:165 90001 2 16,7 h0 !crbi.isEmpty():0}
+
+which I believe means there are
+no empty ACB cars waiting for us
+to fill.
+[116:
+
+Sun Jun 21 13:14:15 2026 And
+who, exactly, again, was
+supposed to be initting the ACB
+cars?
+[117:
+
+Sun Jun 21 13:15:31 2026 I think
+this code?
+
+    } else if (curacb == 0 && !crbi.isEmpty()) { // ready to init?
+      HBMARK;
+      acl1.setupNewCar(crbi) ;
+    } // else not ready for anything
+
+but no that's fucked up because
+it already assumes crbi is
+non-empty.
+
+So who is supposed to fill the
+ACB COMM2COMP RB? Has to be an
+NC task, right?
+
+:117]
+:116]
+:115]
+[118:
+
+Sun Jun 21 16:41:15 2026 So, in
+the middle of cooking, here, but
+noticing
+
+  void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING
+
+is expecting to pull the 'new
+car' off of crbi, which seems a
+little surprising to me at this
+point. Why is it on a crbi if
+it's just arrived from the noc?
+Or why are we just setting it up
+now if it's already on a
+crbi?[119:
+
+Sun Jun 21 16:44:07 2026 So,
+
+  bool ACacheBlockEP::recvTC(ACacheBlock & car, u8 carindex) {
+
+eventually does
+
+    crbi.add(carindex);
+
+and that's how ACBs get onto
+COMM2COMP. But then I still
+don't understand why setupNewCar
+would be called except by
+whoever is legitimately removing
+from COMM2COMP.
+
+And who does call it, now?[120:
+
+Sun Jun 21 17:35:45 2026
+recvTC(..) is called by
+EP<..>::updateOps()
+
+:120]
+
+:119]
+
+:118]
+[121:
+
+Tue Jun 23 07:30:13 2026 Could
+the/a ACB problem be we have TWO
+rbs - COMM2COMP and COMP2COMM -
+but we have THREE harts involved
+in ACacheBlock processing - hn,
+h0, and h1?
+
+    host ---[NoC]--->  hn
+    hn   --COMM2COMP-> h0
+    h0   --COMP2COMM-> hn
+    hn   ---[NoC]--->  host
+
+And we're considering h1 like an
+appendage off of h0, with h0 and
+h1 grabbing at the same lock
+(which is ACBL1Control::mLock?)
+to coordinate.
+
+[122:
+
+Tue Jun 23 07:41:12 2026 Would
+it help to have a third rb in
+this process? Like a COMP2COMP
+meaning COMPute-to-COMPress?
+[123:
+
+Tue Jun 23 08:09:27 2026 What
+might that look like?
+
+noc -> hn -> h0 -> h1 -> hn -> noc
+
+and h0 releases cars based on
+time? and h1 just compresses til
+the cars full and ships it, and
+then blocks until another car
+has arrived? How would h0 know
+when the 'current frame' has
+ended?
+
+[124:
+
+Tue Jun 23 08:16:01 2026 This
+discussion such as it is still
+suggests to me that two RBs
+should be enough, and h0 should
+own the ACB while h1 is filling
+it, and we shouLd jUSt FUCkign
+DEBuG THAt DAMMEW.
+[125:
+
+Tue Jun 23 08:41:53 2026 So we
+declare the init shall be:
+
+(10) hn: manageACacheBlockNC
+     inits, zeros stuff etc,
+     gets as far as marking all
+     ACBs as OUTBOUND_DEPARTED
+     (which is done by
+     ACacheBlock::init, which is
+     done by
+     manageACacheBlockT0(true)?
+I Think I Better Think It Out Again.
+
+(10) hn: manageACBNC(true)
+     first zeroes stuff.
+(11) hn: then it does ACB::init
+     on all cars
+(12) hn: which sets all cars to
+     OUTBOUND_DEPARTED
+
+WITH THE RESULT THAT:
+
+ all cars are ready to be
+ received by recvTC (to happen
+ later in manageACBNC(false)),
+ which will put the cars onto
+ COMM2COMP.
+
+(20) h0: manageACBT0(true)
+     blocks until NC is set.
+(21) h0: Then it does
+     myPACBControlH0.init(..),
+(22) Which does acbl1.init(),
+     which just zeros stuff
+
+[126:
+
+Tue Jun 23 11:28:49 2026 So
+okay, we believe the ACBs are
+getting put on COMM2COMP during
+startup.. where are they coming
+off? How do we see that?[127:
+
+Tue Jun 23 11:30:46 2026 OK it
+seems nobody is calling
+
+      void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING FROM COMM2COMP
+        u8 newcarindex;
+        bool got = crbi.remove(newcarindex);
+
+and who do we think should be
+calling it?[128:
+
+Tue Jun 23 12:09:08 2026 OK,
+we've got ACB init tasks
+interleaving between h0 and hn
+and it's pretty confusing, at
+least:
+
+hn init begins -
+    {11:353 3 0 2,3 hn "MACBARO":IC_HUB}
+    {60:38 5 0 2,3 h0 ptrC:2}
+    {11:364 5 0 2,3 hn carsACBS:0}
+    {60:51 5 0 2,3 h0 fncInit:0}
+    {11:368 5 0 2,3 hn acbState:4}
+
+h0 init begins -
+    {11:331 3 0 2,3 h0 "ACBT0ARO":IC_HUB}
+
+hn initting ACBs -
+    {11:369 5 0 2,3 hn mGoneCount1:0}
+
+h0 priv init begins -
+    {11:143 3 0 2,3 h0 acbpriv2pubinit:IC_HUB}
+    {11:17 5 0 2,3 h0 ACB1INITGO:20}
+    {11:368 5 0 2,3 hn acbState:4}
+    {8:110 5 0 2,3 hb DL2Dinit:0}
+    {11:149 5 0 2,3 h0 PACBinit:48}
+    {11:369 5 0 2,3 hn mGoneCount1:0}
+
+and so on. I think we should
+stall h0 init until hn init
+finishes. How shall we do that?
+[131:
+
+Tue Jun 23 15:20:43 2026 Let's
+make flags.
+
+:131]
+:128]
+
+:127]
+
+:126]
+:125]
+:124]
+
+:123]In
+'proper' T6 terms that would be
+like compute-to-pack and would
+be completely official.
+
+(Although don't they support as
+little as two-deep packet flows?
+Then how would they keep a whole
+unpack-compute-pack pipeline
+full? Anywaze.)
+
+:122]
+:121]
+[129:
+
+Tue Jun 23 12:14:58 2026 Taking
+a break to set up this new
+monitor that just arrived.[130:
+
+Tue Jun 23 13:25:42 2026 Aaand
+the new monitor looks great! And
+finally we have 2x4K in front of
+us instead of 1x4K+1xHD.
+
+:130]
+
+:129]
+[132:
+
+Wed Jun 24 12:34:24 2026 Well so
+I've been screwing around trying
+to improve visibility between
+HUB and host. I've gotten
+KTprintf's adding to the
+appropriate tile file, so we can
+see the (all empty) ACBs going
+back and forth now.
+
+But the front problem is still
+in the init sequence, and
+
+:132]
+[133:
+
+Thu Jun 25 10:33:46 2026 So
+okay. We finally appear to be
+shipping some non-empty ACBs to
+the host. (And returning them
+for reuse.) There's still lots of
+problems for sure, but we need
+to start thinking about actually
+trying to decompress and display
+some of these packets on the
+host.
+[134:
+
+Thu Jun 25 11:37:16 2026 Let's
+think TODO:
+
+[140: Thu Jun 25 14:46:43 2026
+DONE :140] - review ACB code host side
+
+ - try a host decompression spike
+
+ - review host atom display
+
+ - formulate implementation plan
+   and WRITE IT HERE: _________[141:
+
+Thu Jun 25 14:47:10 2026 OK, I'm
+thinking:
+
+ - make a method to hold
+   ACB->T6Grid code. Perhaps
+   make an object if needed.
+
+ - Consider if we might want to
+   buffer decompressed
+   AtomReports into a DL2D to
+   allow locking only the DL2D
+   while letting the t6g get
+   rendered, without
+   encountering half-written
+   atoms/colors. For starters
+   probably apply straight to
+   the image.
+
+ - Implement that or stuff like
+   it dammit I've written enough
+   here let's hack hack hack.
+[142:
+
+Thu Jun 25 15:39:54 2026 OK but
+we're going to need a separate
+host thread for decompression,
+right, so we can just flow the
+ACB contents together into some
+decompressForever(..) thing?
+
+And that thread will produce
+AtomReports to apply to T6g or
+DL2D or whatever..
+
+I don't think we can avoid that.
+Let's make it an object.
+
+:142]
+   :141]
+
+:134]
+:133]
+[135:
+
+Thu Jun 25 12:15:07 2026 OK
+reviewing host side. Action
+centers on
+
+  void OurTLBs::updateACacheBlocks(unsigned tlbi)
+
+which is currently called by
+
+  bool OurTLBs::updateTransports(bool includeEWs)
+
+which is called from the
+per-BlackHole 'transport thread'
+
+      bool Blackhole::startTransportThread() {
+     ..
+        mTransportThreadPtr = std::make_unique<std::thread>([this]() {
+     ..
+          for (MFM::u64 i = 0u; ++i != 0u; ) {
+     ..
+            this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
+          }
+
+(And why that loop is planning
+on falling out after counting to
+2**64 I'm sure I don't know.)
+
+[136:
+
+Thu Jun 25 12:24:11 2026 Anyway,
+that approach seems plausible
+enough to keep for now, so let's
+
+[138: Thu Jun 25 14:46:10 2026
+DONE :138] - check where we'd intervene to
+   USE an arrived ACB, and
+
+[139: Thu Jun 25 14:46:24 2026
+DONE :139] - check how we're currently
+   drawing atoms.
+
+:136]
+
+:135]
+[137:
+
+Thu Jun 25 12:31:16 2026
+
+nu1010.py:
+
+  def doRTMPGraphicsFrame(self,simnanos):
+        ewc = self.ewc
+        if self.animation_frame_count % 2 == 0:
+          chip = self.animation_frame_count//2 % 4
+          ewc.scanHubGrid(chip)
+        img = ewc.renderGraphicsGridWindowToImage()
+        frameNP = img.asNP()
+        #frameNP[1080//2,:,:] = (255,0,0) # scribble on image
+        #frameNP[:,1920//2,:] = (0,255,0) # scribble on image
+        self.theRTMPFeed.sendGraphicsFrame(frameNP,simnanos,f"{self.scriptName}/{self.mfmxVersion}")
+
+EWControl.cpp:
+
+      BGRImageHD & EWControl::renderGraphicsGridWindowToImage() {
+        BGRImageHD & bgr = QuietBox::getT6GridImage();
+        return bgr;
+      }
+
+QuietBox.h:
+
+        static BGRImageHD & getT6GridImage() {
+          return t6gridRenderBlock;
+        }
+
+CodeManager.cpp:
+
+      BGRImageHD & CodeManager::renderT6GridToImage(const T6Grid& t6g, const T6GridInfo & t6i) {
+        BGRImageHD & bgr = QuietBox::getT6GridImage();
+        U16C t6origin(t6i.mT6GridOrigin.x,t6i.mT6GridOrigin.y);
+     ..
+        RGBPix c;
+        U16C size = T6Grid::getGridSize();
+        for (u32 x = 0u; x < size.x; ++x) {
+          for (u32 y = 0u; y < size.y; ++y) {
+            U16C atomc(x,y);
+            c.set(15u,10u,5u); // assume blackish (empty)
+            P4Atom a = t6g.getAtom(atomc);
+            u16 t = a.getType();
+            switch (t) {
+            case P4Atom::EMPTY_TYPE:
+              break; // render all sites including empties, since we're not resetting the img..
+     ..     case 2u: // (DReg)
+     ..     case 3u: // (Res)
+     ..
+        return bgr;
+      }
+
+and
+
+      void CodeManager::readAndDisplayT6Grid(T6Grid &t6g, u32 tlbi) {
+        OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);
+        u32 t6gridaddr = info.mT6GridStart;
+
+        MFM_API_ASSERT(t6gridaddr != 0, ILLEGAL_STATE);
+>>      // Reread whole t6grid
+>>      T6Grid tmp;
+>>      mOurTLBs.readFromWords(tlbi, t6gridaddr, (u32*)&tmp, sizeof(t6g)>>2);
+        //    mOurTLBs.readFromWords(tlbi, t6gridaddr, (u32*)&t6g, sizeof(t6g)>>2);
+        QuietBox & qb = QuietBox::get();
+        const T6GridInfo & t6i = qb.getT6GridInfoByChipAndTLBI(mChipNum,tlbi);
+        Eprintf("BH#%u totalchanges %u %u HD(%u,%u) dga(%u,%u)\n",
+                mChipNum, tmp.mTotalChanges, t6i.mTLBI,
+                t6i.mT6GridOrigin.x, t6i.mT6GridOrigin.y,
+                t6i.mDGAddress.mT6GridC.x, t6i.mDGAddress.mT6GridC.y);
+        renderT6GridToImage(tmp,t6i);
+      }
+
+and that's certainly one place
+we'll intervene. We're going to
+
+ - write 'directly' to t6g from
+   updateACacheBlocks
+
+ - make like
+   CodeManager::displayCurrentT6Grid
+   or something, which skips the
+   rereading, but then
+
+ - calls renderT6GridToImage
+
+:137]
+[143:
+
+Sun Jun 28 09:05:52 2026 OK
+that's it. I give up. I have
+offffffficially spent waaay too
+much time trying to debug this
+latest init-time fuck-up that's
+causing hub images to fail to
+start sending log packets to the
+host.
+
+We have to make a proper, "ccr
+style" init sequence, and
+linearize everything with any
+shred of dependency on anything
+else, so we have some actually
+clear intention for what order
+all the init shit is to happen.
+[144:
+
+Sun Jun 28 13:40:28 2026 Going
+from spike viz11 to spike
+init10.
+
+[145:
+
+Sun Jun 28 13:46:19 2026 OK,
+made init10. Also going to
+
+ - apt upgrade
+ - reboot
+ - start a new initseq notes
+   file.
+ - start a fresh emacs
+[146:
+
+Sun Jun 28 15:59:29 2026
+Continued in:
+
+/data/ackley/PART4/code/D/blackholeSpikes/notes/202606281558-initseq-notes.txt
+
+:146]
+:145]
+
+:144]
+
+:143]

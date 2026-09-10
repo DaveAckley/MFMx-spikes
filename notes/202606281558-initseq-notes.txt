@@ -1,0 +1,4205 @@
+{246}  -*-  mode: text; fill-column: 32;  -*-
+[0:
+
+Sun Jun 28 15:58:47 2026 OK,
+roses-bh rebooted, and starting
+up here.
+
+:0]
+[1:
+
+Mon Jun 29 03:04:35 2026 So I've
+been wandering through the ccr
+source code for a while here,
+looking at the 'RCon' run
+configuration stuff and the
+'RunLevel' init sequence stuff,
+and trying to imagine applying
+it to T6 program images.
+
+One main challenge is ccr's
+RConChangeRunLevel(..) function
+seems very single-threaded.
+It's callback-based, with a
+table keyed by the new runlevel.
+[2:
+
+Mon Jun 29 09:23:10 2026
+Overall, I'm not sure how to
+carry that framework over to the
+T6s.
+
+I'm wondering if I should maybe
+try to review and clean up the
+existing init/live 'arduino'
+style code we have now, with the
+goal of adding more structure to
+the init side, and documenting
+dependencies and an intended
+linearization or DAGification of
+the whole schmear.
+
+[3:
+
+Mon Jun 29 09:27:24 2026 Key
+steps:
+
+ - HARD(ware) START: entry
+   points jumping into the BUD.S
+   startup code. Represents (at
+   least) five events counting
+   each hart separately.
+
+   = say HardStartB..HardStartN
+     perhaps
+
+   = HardStateB should set up
+     and own the 'lifetime
+     monitoring system' (or
+     'autonomous lifetime
+     monitoring system', with
+     'autonomous' maybe to mean
+     conceptually separate from
+     the HostBlock status
+     reporting. Or not.)
+
+ [4:
+
+Mon Jun 29 09:34:41 2026 I
+wonder if we should begin
+initialization 'in the mind of
+god' - in the host - and have
+'program image shipped' as one
+of the steps along the way, with
+that flag set by the time
+HardStartB runs. (And then
+'program image received' would
+be one of the first flags
+HardStartB itself sets..)
+[5:
+
+Mon Jun 29 09:40:32 2026 More
+events to place/note:
+
+ - init host block: sets mNoC0
+   and mTLBI
+
+ - init printers (must be just
+   very low-level printers,
+   right?) will need separate
+   HBPRINT vs LOGPRINT epochs
+   for sure..
+
+
+[6:
+
+Wed Jul  1 07:47:02 2026 OK
+dammit we're well into the
+countdown now and I've spent the
+last two days on the roof
+working on the swamp cooler..
+
+Anyway, so I think we have to
+build up from the existing
+arduino-style init rather than
+trying to leap to a ccr-style
+epoch system.
+
+So let's just imagine init
+getting split into a couple
+three stages and try to lay out
+our stuff among them.
+
+INIT ORDER
+
+ - hb starts running
+   = sets up its stack
+   = zeros bss (all)
+   = inits hostblock
+   = runs 't6otherinits'
+   = releases h0 h1 h2 hn (the rest)
+
+ - everybody else sets up their
+   own stack
+   = and sets up their fALL
+ - then each calls t6main(HB&)
+[8:
+
+Wed Jul  1 12:25:42 2026 Then
+t6main takes over and does
+
+ - doDefaultInit(..) which
+   (currently asynchrously)
+   dishes to initB, initT0, ..
+   initNC
+
+   = then does a big wait on all
+     harts EXCEPT hn, eew, then
+
+ - returns to t6main, which then
+   dishes (currently
+   asynchronously) to hartMainB,
+   hartMainTo, ...
+
+[9:
+
+Wed Jul  1 15:07:33 2026 So I
+want to impose a more-or-less
+linear ordering on the inits at
+least, imposing structure based
+on what we are actually
+committed to doing (and not)
+during our init sequences.
+
+Let's also talk about 'early' vs
+'late' inits
+
+and maybe 'levels' or something?
+functionality organized by
+spatial scale?
+
+  level A - host?
+  level B - hb only
+  level C - harts collectively
+ ..
+
+RC_B_START
+
+EARLY B:
+  0.0.0: hb startup
+  0.0.3:
+  0.0.9: release the harts
+
+  0.1.0: harts startup
+         [each init stack]->flags
+  0.1.1: hb early inits
+  0.1.2: h0 early inits:
+         - init clock
+  0.1.3: h1 early inits:
+         - ?
+  0.1.4: h2 early inits:
+         - init prng
+  0.1.5: hn early inits
+
+
+LATE B:
+ - release the harts
+
+EARLY C:
+
+ - h0 initting just clock
+   (earliest?)
+
+
+ - h2 inits PRNG? The PRNG does
+   not require other services,
+   right?
+
+:9]
+
+:8]
+:6]
+
+:5]
+:4]
+
+:3]
+
+:2]
+:1]
+[7:
+
+Wed Jul  1 12:24:39 2026 Hey we
+should be able to same the PC of
+each hart via the debug stuff.
+That might give us clues in some
+cases.. though not in others
+like what we're dealing with
+now..
+
+:7]
+[10:
+
+Sat Jul  4 01:05:00 2026 OK it's
+fucking countdown Saturday and
+we don't have any half decent
+demo to show.
+
+We are still on the initseq but
+have been dicking around a lot
+rather than managing to commit
+to code long enough to getting
+things running again.
+
+I'm now planning to extend
+cross/FastB with a BootSequencer
+object (or InitSequencer or
+something) and have hb run the
+InitSequencer before entering
+the business of its life.
+
+It's meant to coordinate all the
+harts moving through the
+runlevels however they end up
+being defined.
+
+And it's meant to simplify my
+mental model of what is supposed
+to happen on startup, even if
+that means it takes longer and
+is more inflexible than it
+'needs' to be.[11:
+
+Sat Jul  4 02:53:42 2026 So if
+hb is running things, the other
+harts need a 'follower mode' - a
+thing that they (each (but hb?))
+call, so that it's running on
+the correct hart, which watches
+for signals from hb to move on
+to running additional init
+steps.
+
+Only when the initseq completes
+do we expect the 'follower mode'
+method to return.. or maybe it
+never does return, we'll see.
+[12:
+
+Sat Jul  4 08:14:33 2026 So,
+everybody should be in initseq
+right from the get-go, and
+they'll determine their
+leader/follower roles and move
+orders from that.
+
+Could we have a single "table of
+events" or something that would
+be (fundamentally) declarative
+and represent that information?
+Assign numbers to services and
+such and have a matrix or
+linearization or something.
+[13:
+
+Sat Jul  4 09:22:24 2026 Let's
+go for some version of this..
+PeeRONTO.
+
+And we're going to lean away
+from 'level' as the
+organization. It's going to be
+just like HartTasks again, with
+tasks named functionally and
+organized in some XX/YY
+table.[14:
+
+Sun Jul  5 11:26:12 2026 So
+we're going to say the tasks in
+a given epoch can be done
+simultaneously? I think? And the
+only constraint is that all
+tasks from prior epochs must be
+completed before any tasks from
+the current epoch can be
+considered.
+
+And we're going to have a
+'completed' flag per task/epoch
+combination? I guess.. And maybe
+-- first among equals -- hb's
+job is to assess when all other
+tasks are done and advance the
+epoch.
+
+So that would mean only hb has
+to check the flags? Everybody
+else just does their thing, sets
+their flag, and then waits?
+Observing that their epoch/tasks
+are already done?
+
+[15:
+
+Sun Jul  5 11:46:55 2026 And
+again, when we say epoch/task
+that's not necessarily a single
+thing. Any given hart will look
+through the whole current epoch
+column, looking for any task
+codes that
+(1) match their hartnum, and
+(2) don't yet have their flag
+    set.
+and will 'run that task' and
+then 'set that flag'.[16:
+
+Sun Jul  5 15:23:04 2026 OK, we
+are sequencing through 'tasks'
+and 'epochs' (and harts) in a
+vaguely plausible fashion, and
+now we need somehow to dispatch
+to actually do things at these
+plausible space-time coords.
+
+[17:
+
+Sun Jul  5 15:30:48 2026 But
+first I think I should break to
+set up the livestream.. my goal
+for that is Sun noon and we're
+clearly past that..[18:
+
+Sun Jul  5 16:04:46 2026 OK,
+scheduled.. Seems like a new
+version of obs I needed to do
+some config on.. We shall see.
+
+:18]
+
+:17]
+
+:16]
+
+:15]
+
+:14]
+
+:13]
+:12]
+:11]
+
+:10]
+[19:
+
+Sun Jul  5 16:05:20 2026 So, I
+guess the simplest thing I can
+think of is one giant fucking
+function to call for all
+epoch-tasks on all harts? That
+certainly seems embarrassing.
+
+Or we could imagine some
+associativeish array of function
+pointers that we search to see
+who to call? But that kind of
+undercuts the whole 'task table'
+notion.
+
+I guess one thing we hoped to
+get out of this was a 'task
+oriented' view of stuff, rather
+than mostly just a hart-oriented
+view. So how about a function
+per task, that gets run on
+different harts at different
+moments?
+
+At least it feels a little bit
+different.. Let's go for it.[20:
+
+Sun Jul  5 16:31:17 2026 Aand
+what is its signature?
+
+  void hartEpochTask(u8 hartnum, HartEpochIndex hei, HartTaskIndex hti)
+
+or something? Ptr to a that?[21:
+
+Sun Jul  5 16:57:13 2026 OK well
+some XX hackery progress. Time
+to go deal with dinner and stuff
+but now we're dying with:
+
+    HartTasks.cpp:(.rodata+0x4): undefined reference to `MFM::TaskEpochFunction_INIT(MFM::HartTaskIndex, MFM::HartEpochIndex, unsigned char)'
+    /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/bin/ld: HartTasks.cpp:(.rodata+0x8): undefined reference to `MFM::TaskEpochFunction_HBPRINT(MFM::HartTaskIndex, MFM::HartEpochIndex, unsigned char)'
+    /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/bin/ld: HartTasks.cpp:(.rodata+0xc): undefined reference to `MFM::TaskEpochFunction_CLOCK(MFM::HartTaskIndex, MFM::HartEpochIndex, unsigned char)'
+    /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/bin/ld: HartTasks.cpp:(.rodata+0x10): undefined reference to `MFM::TaskEpochFunction_PRNG(MFM::HartTaskIndex, MFM::HartEpochIndex, unsigned char)'
+    /opt/tenstorrent/sfpi/compiler/bin/../lib/gcc/riscv32-tt-elf/12.4.0/../../../../riscv32-tt-elf/bin/ld: HartTasks.cpp:(.rodata+0x14): undefined reference to `MFM::TaskEpochFunction_NOC(MFM::HartTaskIndex, MFM::HartEpochIndex, unsigned char)'
+
+because indeed we haven't
+written them yet.[22:
+
+Sun Jul  5 18:31:58 2026 OK
+after dinner. Let's generate
+weak implementations for all of
+them that just fail if
+called.[23:
+
+Sun Jul  5 19:07:18 2026 OK have
+that. Next step is a biggie - to
+bring in some kind of actual
+content for one of our tasks. I
+guess we'll start with
+TaskEpochFunction_INIT and see
+how it goes..[24:
+
+Sun Jul  5 23:56:01 2026 Well,
+we're working on it.. and now
+we've come up against a
+limitation of our framework: We
+assumed that only one hart would
+need to handle a given
+task-epoch combination.
+
+But that's pretty desirably not
+true. The case at hand is: For
+the PRNG task, in either the
+BORN or GROW epoch, we want all
+three of hb, h0, and h1 to call
+preloadT2Mailbox().
+
+But we can't currently express
+that because we have a single
+char matching a single hart in
+each epoch position:
+
+    #define ALL_HART_TASKS                     \
+      XX(b,x,x,x,x,BOOT)                       \
+      XX(x,0,x,x,x,CLOCK)                      \
+      XX(x,2,x,2,x,PRNG)                       \
+      XX(x,x,n,x,x,NOC)                        \
+
+So I'm thinking we 'actually'
+want a bitmask in each position,
+so it would be something like:
+
+  static constexpr u8 Hart_x = 0
+  static constexpr u8 Hart_b = 1<<HARTNUM_B;
+  static constexpr u8 Hart_0 = 1<<HARTNUM_T0;
+  static constexpr u8 Hart_1 = 1<<HARTNUM_T1;
+  static constexpr u8 Hart_2 = 1<<HARTNUM_T2;
+  static constexpr u8 Hart_n = 1<<HARTNUM_NC;
+  static constexpr u8 Hart_b01 = Hart_b|Hart_0|Hart_1;
+
+    #define ALL_HART_TASKS                     \
+      XX(  b,  x,  x,  x,  x, BOOT)            \
+      XX(  x,  0,  x,  x,  x, CLOCK)          \
+      XX(x,2,x,2,x,PRNG)                       \
+      XX(x,x,n,x,x,NOC)                        \
+
+or something..[25:
+
+Mon Jul  6 00:28:47 2026 OK,
+that's starting to look
+plausible. Went in easier than
+I'd expected. Currently dying at
+
+    {64:26 0 0 1,2 hn UNHANDLED TEF:NOC.4:GROW.3}
+ ..
+    CodeManager.cpp:627: 61.470 at012[EWP] hNC STUCK?
+    srcs/cross/src/HartTasks.cpp:27: UNSUPPORTED_OPERATION
+
+as it should.
+
+The task table now looks like
+this:
+
+    #define ALL_HART_TASKS                     \
+      XX(  b,  x,  x,  x,  x, BOOT)            \
+      XX(  x,  0,  x,  x,  x, CLOCK)           \
+      XX(  x,  2,b01,  2,  x, PRNG)            \
+      XX(  x,  x,  n,  x,  x, NOC)             \
+
+and we are indeed sometimes
+running given task-epoch
+handlers on multiple harts.
+
+[26:
+
+Mon Jul  6 02:09:46 2026 So,
+another issue: I wanted to have
+harts b01 demonstrate they could
+get random numbers as part of
+the initseq, but once t2 enters
+liveT2(), it never returns to
+HartTaskerPrivate, and so that
+epoch never finishes and the
+whole initseq hangs there.
+
+Thinking about it, it seems like
+each hart should have the option
+to exit the initsequence when
+they want to, and we should move
+the liveT2() call out of the
+initsequence entirely.
+
+Thinking about using the return
+type of HTFuncPtr (currently
+void) to signal 'want exit'..
+And the initseq public state
+would somehow record who is out,
+and any further attempts to run
+TEFs on such a hart would fail.
+
+[27:
+
+Mon Jul  6 02:18:49 2026
+
+And the initseq ends when
+everybody is out (which can
+still be at the end of the whole
+table if we don't want to bother
+short-circuiting.)
+
+But sleep now.
+[28:
+
+Mon Jul  6 09:03:50 2026 OK, so,
+now we're seeing our 'proof of
+life' for PRNG service:
+
+    {63:191 0 0 1,2 h2 HART T2 OUT:IC_EWP}
+    {64:129 0 0 1,2 hb END EPOCH:GROW}
+    {63:166 0 0 1,2 h2 "T2LIV":IC_EWP}
+    {64:132 0 0 1,2 hb START EPOCH:LIVE}
+    {63:139 0 0 1,2 h2 PRNG SERVER START:IC_EWP}
+    {64:105 0 0 1,2 h0 runTEF:PRNG.3:LIVE.4}
+    {64:105 0 0 1,2 h1 runTEF:PRNG.3:LIVE.4}
+    {64:105 0 0 1,2 hb runTEF:PRNG.3:LIVE.4}
+    {63:198 0 0 1,2 h0 RND1K:410}
+    {63:198 0 0 1,2 h1 RND1K:217}
+    {63:198 0 0 1,2 hb RND1K:559}
+    {64:129 0 0 1,2 hb END EPOCH:LIVE}
+
+and I'm thinking (here at <27hrs
+to air, naturally) we need to be
+porting more of the old initseq
+to the new framework.
+
+"Let's Try The NoC"[29:
+
+Mon Jul  6 09:18:06 2026 Are we
+sposed/going to merge the
+existing HTFuncs structure into
+HartPrivateTasker?
+
+So like perhaps:
+ - initNC() would call
+   copyHTFuncs during BORN
+ - [30:
+
+Mon Jul  6 11:50:01 2026 And run
+them as a step function later in
+liveNC? [31:
+
+Mon Jul  6 15:43:40 2026 OK, in
+IC_EWP we're seeing
+
+    {138:36 0 0 1,2 hn EPups:[EwpO] c0 h0o0 g0o0 fs0 S0 R0}
+
+from
+      template<class SUBEP, class SUBTC>
+      bool EP<SUBEP,SUBTC>::updateOps() {
+ ..     EACH(5'000,HBPTAG(EPups,this->report(BS,buf)));
+
+and all those 0s suggest that
+EwpO hasn't been initted
+before managing to get to
+EP::updateOps. Can we find out
+why not?
+
+Well is it because maybe we
+copied the HTFuncs NC but never
+ran their inits?[32:
+
+Mon Jul  6 16:42:40 2026 OK, so:
+Who is supposed to call
+LogBlockL1Control::step(..) and
+when are they supposed to call
+it. Seems like nobody is.
+
+Is that supposed to be on a
+mstick timer on h0? What's the
+story with them?[33:
+
+Mon Jul  6 18:07:56 2026 Well so
+we're calling
+LogBlockL1Control::init() now,
+during LOG->BORN, and it appears
+to (still) be racing with the
+inits in NOC->BORN..[34:
+
+Mon Jul  6 18:47:27 2026 Aand
+who's supposed to be calling
+
+  int LogBlockL1Control::step(HostBlock & hb)
+
+in here now? Again, h0 mstick?
+
+:34]
+
+:33]
+
+:32]
+
+:31]
+
+:30]
+
+:29]
+
+:28]
+:27]
+
+:26]
+:25]
+
+:24]
+
+:23]
+
+:22]
+
+:21]
+
+:20]
+
+:19]
+[35:
+
+Mon Jul 13 09:56:43 2026 OK so
+looks like we (again) lost
+almost a week after T2sday.. but
+here we are.  TODO
+
+ - Review: WTF are we?
+ - Quick goals check: WTF we want?
+ - Make more to-do
+
+:35]
+[36:
+
+Mon Jul 13 09:58:43 2026
+
+One issue is rethinking the
+whole split public/private
+concept and naming: We do not
+really understand what needs to
+happen where. And that's related
+to
+
+ - "Who is supposed to call
+   LogBlockL1Control::step(..)
+   and when are they supposed to
+   call it. Seems like nobody
+   is." from :32: above
+
+ - How is the mstick timer
+   supposed to work now?
+
+ - Do we want to expand the
+   epoch table? Is it worth
+   spending any time looking at
+   variadic macros to try to
+   support e.g.
+
+#define TOTAL_EPOCH_COUNT 6
+
+  -type stuff?
+
+[46: Mon Jul 13 14:42:30 2026
+Now in init11
+DONE :46] - Do we want to pop a new spike
+   here before we hack? (yah
+   think sooooo)
+
+[43: Mon Jul 13 14:38:05 2026
+DONE! :43] - Do we want to finally hack
+   mfmx-log-jumpr to handle
+   skipping ahead to the next
+   mark with same noc+hart (yah
+   think sooooo)
+
+[44: DONE  :44] - And make mfmx-log-jumpr mode
+   sticky over specific tile
+   file reloads? (maybeee).
+
+[45: DONE  :45] - Maybe we should make a
+   special extension for log
+   jumpable files? Like .mfmk or
+   something? A smash-up of MFM
+   and mark? (yes do it do it)
+
+:36]
+[37:
+
+Mon Jul 13 10:47:12 2026 OK
+let's make .mfmk, as a way to
+ease a couple small pain points
+and get us back into stuff.
+
+TODO:
+
+[38: Mon Jul 13 10:53:05 2026
+All are now .mfmk so
+DONE :38] - Unify file naming: 'all.txt'
+   vs 'tiles/at023.dat'
+[39: Mon Jul 13 14:35:10 2026
+DONE :39] - Get emacs to apply logMFMx
+   mode to all .mfmk files by
+   default
+[40: DONE  :40] - Have fun seeing that work
+[41: DONE  :41] - Pop That Yak
+[42:
+Mon Jul 13 14:35:29 2026 also
+DONE - Tell AI to implement
+       jumping to next matching
+       BH+NoC+hart for me and
+       see the code work
+       basically first time
+
+:42]
+
+
+:37]
+[47:
+
+Mon Jul 13 16:15:53 2026 Well,
+I'm going to expand the epoch
+table just with the existing
+approach. On the argument that
+(1) the table has helped so far,
+(2) but we're still a mess,
+(3) so let's get room for longer
+    initseqs..
+
+Wondering about going to
+numbered epochs instead of
+trying for names, eeee.[48:
+
+Mon Jul 13 16:19:45 2026 Maybe
+compromise with like
+
+BEGIN
+BORN0
+BORN1
+GROW0
+GROW1
+GROW2
+GROW3
+LIVE
+
+[49:
+
+Mon Jul 13 16:58:41 2026 OK,
+about time for cocktails and
+such, but we've got an expanded
+task table now starting to run.
+(Here in init11/.) Still all
+kinds of issues, but room to
+work anyway:
+
+    #define ALL_HART_TASKS                         \
+      /* BEG BO0 BO1 GR0 GR1 GR2 GR3 LIV TASK */   \
+      XX(  b,  _,  _,  _,  _,  _,  _,  _, BOOT)    \
+      XX(  0,  _,  _,  _,  _,  _,  _,  _, CLOCK)   \
+      XX(  _,  _,  _,  0,  _,  _,all,  _, LOG)     \
+      XX(  _,  2,b01,  2,b01,  _,  _,  _, PRNG)    \
+      XX(  n,  n,  n,  _,  _,  n,  _,  _, NOC)     \
+
+
+:49]
+:48]
+
+:47]
+[50:
+
+Tue Jul 14 03:36:07 2026 OK, the
+current (and probably extant
+since pre-t2sup) bug is that
+
+  int ACacheBlockPrivateControl::step(HostBlock & hb) {
+    MFM_API_ASSERT_NONNULL(mDLGridList);
+    MFM_API_ASSERT_NONNULL(mACBL1Control);
+
+is getting called while
+mDLGridList and mACBL1Control
+are both still 0.
+
+Who's supposed to be initting
+them? [51:
+
+Tue Jul 14 03:56:08 2026 this
+guy:
+
+      void ACacheBlockPrivateControl::init(ACacheBlockL1Control & acbl1, DLGridList & dll1) {
+        HBNOTE(acbpriv2pubinit);
+        memset_s(this,'\0',sizeof(*this)); // init all
+        mACBL1Control = &acbl1;
+        mDLGridList= &dll1;
+        mARIO.init();
+        HBPTAG(PACBinit,sizeof(*this));
+      }
+
+and I can find no
+acbpriv2pubinit in the log file
+so that fits..
+
+[52:
+
+Tue Jul 14 04:02:31 2026 OK, now
+I'm wondering if we are missing
+a whole ACB task in that task
+table. But then only hub images
+would want to include that line.
+
+So we have arrived at needing
+a per-image task table that
+somehow automatically syncs into
+the main one..
+[53:
+
+Tue Jul 14 09:30:36 2026 So I'm
+thinking:
+
+[57: Tue Jul 14 14:55:13 2026
+DONE :57] - Rename the
+   ALL_{HART|EPOCHS}_* stuff to
+   CORE_ stuff
+
+ - Maybe make
+   XIC_START_IMAGE_EPOCHS(HUB) and
+   XIC_EPOCH_NAME(ACB) and
+   XIC_END_IMAGE_EPOCHS(HUB)
+
+ - And
+   XIC_START_IMAGE_TASKS(HUB)
+   and
+   XIC_END_IMAGE_TASKS(HUB)
+
+ - And have the image author
+   stick CORE_HART_TASKS in
+   there somewhere, wherever
+   they want the core rows to
+   land relative to
+   image-specific rows being
+   declared.
+[54:
+
+Tue Jul 14 09:38:07 2026 And
+then where do the tables and
+stuff finally get defined? Can't
+stay in
+cross/src/HartTasks.cpp.[55:
+
+Tue Jul 14 09:45:30 2026 So how
+does all this really work? We
+have ImageConfig.inc in
+'per-image subdir', but
+ImageConfig.cpp is in cross/src
+and ImageConfig.h is in
+cross/include. But the result of
+that can't go into
+libcrosslib.a, right?
+
+How does ImageConfig.cpp get
+pulled into the image builds,
+and get excluded from the lib
+build? [56:
+
+Tue Jul 14 10:45:50 2026 Well,
+it's the pretty obvious thing, I
+guess: cross/CMakeLists.txt
+never mentions ImageConfig, but
+(e.g.) cross/codes/ewp.cmake has
+like:
+
+    add_executable(ewp)
+    target_sources(ewp PRIVATE
+      src/ImageConfig.cpp
+      images/ewp/src/EwpBlock.cpp
+
+so we can declare and define all
+the tables via
+cross/include/ImageConfig.h and
+cross/src/ImageConfig.cpp and
+cross/images/IMGNAME/include/ImageConfig.inc
+
+[58:
+
+Tue Jul 14 15:26:09 2026 So
+we're saying all of
+HartTasks.h/.cpp have to either
+move to ImageConfig files, or be
+handled like ImageConfig files,
+and the lib code will just see
+some extern stub like
+
+ extern void runHartTaskerInits() ;
+
+which will end up getting
+defined in ImageConfig-type
+files as something like
+
+  void runHartTaskerInits() {
+    HartTaskerPrivate udaMan;
+    udaMan.init(theHartTaskerPublicState);
+    udaMan.run();
+    HBNOTE(<<EIS>>);
+  }
+
+and t6main will call that and
+that will be that for
+everybody..
+
+[59:
+
+Tue Jul 14 15:32:21 2026 I'm
+wonder if it's worth creating a
+folder for not-in-lib-but-
+shared-by-all-images files.
+[60:
+
+Tue Jul 14 23:50:32 2026 OK well
+I couldn't unsee the idea so now
+we have
+
+srcs/cross/allimg/include/ImageConfig.h
+srcs/cross/allimg/src/ImageConfig.cpp
+
+and stuff is building again.
+
+Now to move HartTask.h/.cpp
+  there.[61:
+
+Wed Jul 15 00:22:50 2026 OK it
+was a little harder than that:
+We have split HartTasks up and
+created HartTasksLib.h/.cpp
+(which lives in cross/) and
+contains EPOCH declarations and
+definitions, which we are now
+declaring to be 'lib level' and
+unchangeable across images.
+
+But all the TASK declarations
+and definitions are moved to
+allimg/ HartTasks, where we (are
+soon to) merge CORE_HART_TASKS
+with IMAGE_HART_TASKS and
+generate the table for
+everybody.
+
+So, saying that, we'd really
+rather keep the CORE_HART_TASKS
+macro definition in
+HartTasksLib.h, even though it
+will never mention it
+directly?[62:
+
+Wed Jul 15 00:40:18 2026 OK did
+that: CORE_HART_TASKS is in
+cross/HartTasksLib but is only
+used in allimg/HartTasks.
+
+So now it's time to create
+IMAGE_HART_TASKS and merge it
+with CORE_HART_TASKS, to create
+ALL_HART_TASKS, which will
+define the final task table.[63:
+
+Wed Jul 15 01:42:22 2026 OK so
+we have ewp's
+ImagetHartTasks.inc, containing:
+
+    /* -*- C++ -*- */
+    #define IMAGE_HART_TASKS                       \
+      /* BEG BO0 BO1 GR0 GR1 GR2 GR3 LIV TASK */   \
+      XX(  b,  b,  b,  b,  b,  b,  b,  b, EWPT)    \
+
+and indeed its demo handler
+
+  TEFResult TaskEpochFunction_EWPT(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum)
+
+is getting called properly
+during each epoch.
+
+So now we can implement ACBT or
+ACBTASK or HUBACB or HACB or
+whatever we're going to call it.
+
+But:
+Relax first.
+Good work, Dave.
+You Popped That Yak.
+
+:63]
+
+:62]
+
+:61]
+
+
+:60]
+:59]
+
+:58]
+
+:56]
+
+:55]
+
+:54]
+:53]
+
+:52]
+:51]
+
+
+:50]
+[64:
+
+Wed Jul 15 09:29:39 2026 OK,
+and, how do we want hub task
+HACBT to work? It ought to be
+something like LOG? Let's look
+what that's doing.
+[65:
+
+Wed Jul 15 09:32:58 2026
+
+It's got
+  TEFResult TaskEpochFunction_LOG(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {
+in EP_LogBlock.cpp. And
+  RCFlag manageLogBlockT0(HTOpCode htoc) {
+in FastT0.cpp.
+
+Aand who, again, is involved in
+HACBT processing?[66:
+
+Wed Jul 15 09:36:12 2026 h1 is
+to end up running
+compressForever for image hub..
+
+:66]
+
+:65]
+:64]
+[67:
+
+Thu Jul 16 00:08:21 2026 So,
+okay, the task epoch table is
+not magic and I'm still messing
+myself up, because I still don't
+understand what all the ACB
+stuff is currently trying to do
+and what I should ultimately
+want it to do.
+
+But my current concern is more
+prosaic: the HB log is not
+giving me useful information to
+understand where the initseq is
+falling off the rails in the HUB
+image.
+
+For h0, we see the GROW0 epoch
+ending, and then some
+bookkeeping, and then nothing:
+
+..  {3:115 0 0 2,3 h0 -:HACT->GROW0}
+..  {3:126 0 0 2,3 h0 @t:6}
+..  {3:127 0 0 2,3 h0 @e:4}
+    {3:132 0 0 2,3 hb BM0:IC_HUB}
+    {3:128 0 0 2,3 h0 (u32)ps.mEpochTaskDoneFlags[t][epoch]:0x2}
+
+Much later in the log, we see:
+
+    CodeManager.cpp:637: 71.465 at023[HUB] hb NOFID? 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:637: 71.465 at023[HUB] h0 NOFID? 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:637: 71.465 at023[HUB] h1 NOFID? 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:637: 71.466 at023[HUB] hn NOFID? 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+which is also exceedingly
+useless for much diagnosis.
+
+So. Now, having written that
+out, I'm thinking what I should
+do is: (Under circumstances
+TBD,) I should use the debug
+interface to get a snapshot of
+the T6 hart PCs and report them
+in the log as well.
+
+Let's just do that. It's
+concrete, it's 'reasonably
+minor' (hoho) and it'll give us
+some new info to consider now
+and some new capability to have
+going forward.
+
+TODO
+
+[218: Sun Aug  2 15:41:10 2026
+DONE :218] - review the debug area memory
+   mapping.
+
+[219: DONE  :219] - review the OurTLBs stuff
+   (probably) to find a place to
+   intervene
+
+[220: DONE  :220] - try to access and report PC
+   samples (perhaps in the
+   NOFID) context
+
+[221: DONE  :221] - see what that looks like
+
+[222: Sun Aug  2 15:41:25 2026
+DONE!  :222] - see about possible
+   automations for PC
+   interpretation..
+
+:67]
+[68:
+
+Thu Jul 16 00:23:19 2026 OK, in
+tt-isa-doc we eventually find:
+
+    Address         Contents
+    0xFFB1_3138     RISCV B pc snapshot
+    0xFFB1_313C     RISCV NC pc snapshot
+    0xFFB1_3140     RISCV T0 pc snapshot
+    0xFFB1_3144     RISCV T1 pc snapshot
+    0xFFB1_3148     RISCV T2 pc snapshot
+
+so it seems we ought to be able
+to slurp up 0xFFB1_3138+0x10 in
+one PCIe read.
+
+There's lots of warnings about
+how the reported PC values might
+be misleading - like it might be
+a branch speculation that never
+commits - but we're just hoping
+for A Better Than Nothing Clue
+about what the harts are up to.
+
+:68]
+[69:
+
+Thu Jul 16 00:46:04 2026 Well
+hmm, the first attempt at
+reading the PC snapshots gets us
+this:
+
+    CodeManager.cpp:640: 71.465 at023[HUB] hb NOFID@0x195b338c -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.465 at023[HUB] h0 NOFID@0x5dabaf29 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.465 at023[HUB] h1 NOFID@0x24e9d61d -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.465 at023[HUB] hn NOFID@0xb3e8f7a5 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+where the PCs are theoretically.......................^^^^^^^^
+but they don't look too
+plausible right off the bat as
+L1 addressess.. lost in MMAP
+space?
+
+[70:
+
+Thu Jul 16 00:53:08 2026 If I
+jump ahead to a later report for
+at023, though, we do see:
+
+    CodeManager.cpp:640: 121.712 at023[HUB] hb NOFID@0x195b338c -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 121.712 at023[HUB] h0 NOFID@0x5dabaf29 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 121.712 at023[HUB] h1 NOFID@0x24e9d61d -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 121.712 at023[HUB] hn NOFID@0xb3e8f7a5 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+    CodeManager.cpp:640: 181.476 at023[HUB] hb NOFID@0x195b338c -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 181.476 at023[HUB] h0 NOFID@0x5dabaf29 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 181.476 at023[HUB] h1 NOFID@0x24e9d61d -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 181.476 at023[HUB] hn NOFID@0xb3e8f7a5 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+    CodeManager.cpp:640: 241.456 at023[HUB] hb NOFID@0x195b338c -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 241.456 at023[HUB] h0 NOFID@0x5dabaf29 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 241.456 at023[HUB] h1 NOFID@0x24e9d61d -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 241.456 at023[HUB] hn NOFID@0xb3e8f7a5 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+so if they're wild pointer
+chases, at least the stopped the
+PCs?
+[71:
+
+Thu Jul 16 00:56:05 2026 oh oh
+oh but wait a minute, can
+readFromWords even hit these
+nowhere-close-to-L1 addresses?
+well yeah i think it can - it
+reconfigures each time? let's
+double check.[72:
+
+Thu Jul 16 01:04:18 2026 I don't
+think readFromWords can deal
+with the debug addresses, and it
+should probably FAIL about that
+but it isn't at the moment.
+readFromWords just goes to the
+per-T6 MMAP, which is only like
+2MB (0x20'0000) long or so?
+
+[73:
+
+Thu Jul 16 01:12:38 2026 OK now
+
+    u32 pcSnapshots[5];
+    mOurTLBs.readFromWords(tlbi, RISCV_DEBUG_B_PC_SNAPSHOT, pcSnapshots, 5);
+
+fails in the host, I think. But
+what are we going to do instead?
+OurTLBs must give us other
+tools, right?[74:
+
+Thu Jul 16 01:15:51 2026 OK,
+well we've got stuff like:
+
+    const MFM::u32 data[][2] = {
+      {RISCV_DEBUG_REG_TRISC0_RESET_PC, 4u},
+      {RISCV_DEBUG_REG_TRISC1_RESET_PC, 8u},
+      {RISCV_DEBUG_REG_TRISC2_RESET_PC, 12u},
+      {RISCV_DEBUG_REG_NCRISC_RESET_PC, 16u},
+      {RISCV_DEBUG_REG_TRISC_RESET_PC_OVERRIDE, 0x1|0x2|0x4}, // use custom start addrs for T0,T1,T2
+      {RISCV_DEBUG_REG_NCRISC_RESET_PC_OVERRIDE, 0x1},        // use custom start addr for NCRISC
+    };
+
+    for (MFM::u32 i = 0u; i < sizeof(data)/sizeof(data[0]); ++i) {
+      write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI, data[i][0], data[i][1]);
+    }
+
+which writes into debug space
+using the special
+MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI
+tlbi we set up pretty much just
+for that purpose.. but we ought
+to be able to do read32's
+against those addresses as well?
+[75:
+
+Sat Jul 18 23:52:46 2026 OK we
+did a bunch more debug tooling
+and now we are sampling T6
+program counters and (with less
+than complete success) mapping
+the values back to source code
+file and line numbers, getting
+stuff like:
+
+    CodeManager.cpp:646: 72.408 at033[EWP] LIVE {62:14 1 0 3,3 hb PCs 0x005598}
+    CodeManager.cpp:646: 72.418 at033[EWP] LIVE {62:14 1 0 3,3 hb PCs 0x005598}
+    CodeManager.cpp:646: 72.429 at033[EWP] LIVE {62:14 1 0 3,3 hb PCs 0x005594}
+    CodeManager.cpp:637: 72.438 at033[EWP] LIVE h0 PCs 0x0098b8
+    CodeManager.cpp:637: 72.448 at033[EWP] LIVE h0 PCs 0x0098a4
+    CodeManager.cpp:637: 72.458 at033[EWP] LIVE h0 PCs 0x008ed4
+    CodeManager.cpp:646: 72.467 at033[EWP] LIVE {56:4 1 0 3,3 h1 PCs 0x003f64}
+
+where 62:14 is in FastLocal.cpp:
+
+      void sleepCycles(u32 cycles) {
+        volatile u32 reg = cycles|1;
+>>      while (--reg != 0u) { }
+      }
+
+which is potentially useful, and
+56:4 is in DefaultLives.cpp:
+
+    #include "DefaultLives.h"
+    #include "FastLocal.h"
+    #include "Debug.h"
+>>
+    namespace MFM
+
+which is not. (And PC == 0x8ed4,
+for example, turns out to be in
+gcc math stuff:
+
+    00008dbc <__udivdi3>:
+..
+        8e90:	00a76733          	or	a4,a4,a0
+>>      8e94:	000a0913          	mv	s2,s4
+        8e98:	00877e63          	bgeu	a4,s0,8eb4 <__udivdi3+0xf8>
+        8e9c:	00e98733          	add	a4,s3,a4
+        8ea0:	fffa0913          	addi	s2,s4,-1
+        8ea4:	01376863          	bltu	a4,s3,8eb4 <__udivdi3+0xf8>
+        8ea8:	00877663          	bgeu	a4,s0,8eb4 <__udivdi3+0xf8>
+..
+
+which my code doesn't currently
+even try to resolve..)
+
+[76:
+
+Sun Jul 19 00:06:14 2026 But I
+can't avoid it any longer. It's
+time to write some kind of
+fucking design document for ACB
+stuff, detailing what all the
+pieces and involved harts are
+actually supposed to do.
+
+Today. Sunday. Fucking do it you
+procrastinating piece of
+machinery.
+
+But sleep first wah hah.
+
+:76]
+
+:75]
+
+:74]
+
+:73]
+:72]
+
+:71]
+
+
+:70]
+and:
+
+    CodeManager.cpp:640: 71.526 at043[HUB] hb NOFID@0x00178116 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.526 at043[HUB] h0 NOFID@0x52822962 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.526 at043[HUB] h1 NOFID@0xc599b6b2 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.526 at043[HUB] hn NOFID@0x43820088 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+
+    CodeManager.cpp:640: 71.603 at063[HUB] hb NOFID@0x00cd8c81 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.603 at063[HUB] h0 NOFID@0x244560b7 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.603 at063[HUB] h1 NOFID@0xff61cf69 -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+    CodeManager.cpp:640: 71.603 at063[HUB] hn NOFID@0x1809705f -> 0x00000000 = FAIL0:Unknown FAILCode 0?
+ ..
+and so on..
+
+:69]
+[77:
+
+Mon Jul 20 11:44:00 2026 Moving
+to init12 for a cleanup /
+reimplementation attempt on
+ACacheBlock, calling it
+ACBlock.[78:
+
+Mon Jul 20 12:29:05 2026 OK we
+want to try ditching
+ACBlockPrivateControl entirely
+until we really know we need it.
+It's a big old mess of a state
+machine that's mostly not used
+and mostly not understood.
+
+:78]
+
+:77]
+[79:
+
+Tue Jul 21 02:51:59 2026 What if
+we try to make an all-L1 version
+of EP_ACBlock, just to simplify
+shit further and maybe get to
+something we can actually get
+our head around.
+
+So then it would be:
+ - PT_ACBlock for cars
+ - EP_ACBlock for endpoints
+ - and that's it. Methods in PT_
+   and EP_ for everything
+   anybody needs to do
+
+And what might people need to
+do?
+
+ - hn: recv empty acbs
+ - hn->h1 push empty acbs
+ - h1: get empty ACB or block
+ - h1: get ARs from DL2D or block
+ - h1: fill ACB with compressed ARs
+ - h1->hn push full acbs
+ - hn: ship full acbs
+
+could we fold all that behavior
+up into a TEF-ish function, so
+all the functionality could be
+in one place?
+
+If we [just] label the methods?
+ - hnRecvEmptyACB
+ - hnXferEmptyACB
+ - h1GetEmptyACBBlocking
+ - h1GetAReportBlocking
+ - h1CompressForever
+ - h1XFertFullACB
+ - hnSendFullACB
+
+but that still doesn't express
+or represent the dependencies
+between harts, and therefore the
+coordination points are still
+implicit and that's bad.
+
+c/should we have a mstick flag
+saying ship the current ACB even
+if it's not full? So display
+won't get too outdated on thinly
+populated tiles? but that means
+h1 'blocking' on i/o isn't
+really absolute; it has to be
+checking the 'ship now flag'
+too.
+
+:79]
+[80:
+
+Tue Jul 21 23:51:57 2026 Just
+code you fuck. Start with empty
+files. [81:
+
+Wed Jul 22 10:12:07 2026 And
+then discover you just can't
+can't can't stand to do that.
+There's just too too too much
+existing structure to fit into,
+that you don't remember clearly
+enough to regenerate from
+scratch.
+
+So, continuing to thrash here,
+but trying to go back to
+debugging the existing init
+sequence code, and trying to
+reboot the brain on the
+structures as we go.
+
+Key question for today: What
+additional information would
+help diagnoze task+epoch
+function failures? Is there some
+way to automate the matching of
+callback functions to the task
+table? [82:
+
+Wed Jul 22 10:17:19 2026 Could
+we [just] call back every task
+function for every epoch? And
+skip all the places we don't
+have anything to do? That would
+concentrate all the info in the
+TEFs, which are going to be big
+compared to the table, so that's
+bad.
+
+Could we call all the TEFs for
+all epochs, and have them return
+"don't want" for the misses, and
+then match the "don't wants" to
+zero bits in the table? Wouldn't
+that let us confirm that the
+table entries match the TEF
+cases during init?[83:
+
+Wed Jul 22 10:30:01 2026 Let's
+review the table code.[84:
+
+Wed Jul 22 10:32:26 2026 Well,
+one general issue we need to
+face is how TEF is supposed to
+interact with the 'special
+rodata hack' managehart
+functions..
+[85:
+
+Wed Jul 22 12:25:49 2026 We kind
+of think we should ditch the
+rodata hack and just fold its
+init+live structure into
+TEF.[86:
+
+Wed Jul 22 13:07:04 2026 OK so
+we're trying to do the
+call-all-TEFs for all TEs and
+have them say no thanks when
+they didn't want it..
+
+And we need to know how this
+idea is supposed to interact
+with the 'HART_OUT' concept.
+
+I guess the obvious approach
+says:
+
+for the current hart
+  if memask&HART_OUT, fail (we
+  shouldn't be here)
+
+otherwise:
+ for each epoch
+  for each task
+   TEFR result = call TEF
+   if memask&whomask!=0
+     if result==CONTINUE, continue
+     else if result==HART_OUT, return
+   else // memask&whomask==0
+     if result==NO_THANKS, continue
+   FAIL(INCONSISTENT_TEF)
+
+
+
+:86]
+
+:85]
+:84]
+
+:83]
+
+:82]
+
+:81]
+
+:80]
+[87:
+
+Thu Jul 23 02:30:58 2026 OK, we
+did the call-on-everything-and-
+have-the-TEF-say-NO_THANKS and
+now we're mopping up mismatches
+and punching up the debug output
+for a hopefully brighter future.
+
+Current issue is given the space
+in the hostblock, we can't
+include a custom message on
+failure, only a failcode.
+
+We had been getting around that
+by HBPTAG'ing (or whatever) the
+relevant values before blowing
+an HBASSERT, but these STUCK?
+marks we now generate show up in
+the log miles from any 'inlined'
+marks - which might or might not
+even be in the log at all.
+
+I wonder if it'd be worth it to
+have a way to disable HB logging
+entirely once any hart blows an
+HBASSERT. The argument being
+that ought to make it much more
+likely that the pre-blow marks
+would be findable in the log.
+
+Are there any hostblock flags
+that host could set?[88:
+
+Thu Jul 23 02:55:30 2026 Well
+not at the moment but there are
+three bytes currently reserved.
+
+Fuck it let's draft one to be
+mHostFlags.[89:
+
+Thu Jul 23 11:59:53 2026 OK well
+mHostFlags didn't really help
+much (so far) but just grinding
+through the logs (and increasing
+the HB ringbuffer to 8KB gah)
+finally gets us to this -
+
+This PRNG line:
+ .. /* BEG BO0 BO1 GR0 GR1 GR2 GR3 LIV TASK */   \
+ .. XX(  _,  t,bzo,  _,  t,bzo,  _,  _, PRNG)    \
+
+says (among many other things)
+that hart T2 ('t') has business
+to do during the PRNG task in
+the GROW1 epoch. Which it does,
+as can be seen from FastT2.cpp:
+
+    case HE_GROW1:
+      if (hartnum!=HARTNUM_T2) return TEFR_NO_THANKS;
+      return TEFR_HART_OUT;
+
+meaning that hart T2 now wants
+to leave the HartTasks initseq
+entirely, and go start serving
+rnd#s to folks full time.
+
+Fine. We do that. T2 is out:
+
+    {3:181 0 0 1,2 h2 <<EIS>>:IC_EWP}
+
+and it duly adds its mask bit
+(0x8) to mHartsOut before it
+goes:
+
+ ..      if (result == TEFR_HART_OUT) {
+           ps.mHartsOut |= memask;        // AAAND MY HART'S INITSEQ IS FINISHED
+           HBNOTE(HART OUT);
+           return;
+         }
+
+BUT! Other harts are still
+active in the PRNG-GROW1 task
+epoch, and they check to ensure
+that all the harts needed for a
+TEF are still present, or they
+die:
+
+        u8 whomask = hartTaskTable[t][epoch];
+ ..     if ((whomask & ps.mHartsOut) != 0) { // ded if we need any out monkeys
+          HBPTAG(dedWhen,getHartEpochName((HartEpochIndex) epoch));
+          HBPTAG(dedWhat,getHartTaskName((HartTaskIndex) t));
+          HBXX((u32) memask);
+          HBXX((u32) whomask);
+          HBXX((u32) ps.mHartsOut);
+          HBASSERT_EQ((whomask & ps.mHartsOut),0);
+        }
+
+aaaand, in this case, they do
+die, because they see that 't' -
+is required to be in. Why? So
+that it can tell us it wants to
+be out.
+
+[90:
+
+Thu Jul 23 12:31:30 2026 So,
+there's a couple ways to look at
+this.
+
+Way 1: We are currently,
+deliberately, only syncing at
+epoch changes, which means we
+explicitly allow unspecified
+ordering of TEF executions
+within a single epoch. And in
+this case T2's HART_OUT executes
+before say, NC's TEF, which
+therefore goes bang:
+
+    {3:105 0 0 1,2 hn dedWhen:GROW1}
+ .. {3:106 0 0 1,2 hn dedWhat:PRNG}
+    {3:107 0 0 1,2 hn (u32) memask:0x10}
+ .. {3:108 0 0 1,2 hn (u32) whomask:0x8}
+ .. {3:109 0 0 1,2 hn (u32) ps.mHartsOut:0x8}
+ .. {3:110 0 0 1,2 hn HBANG!:IC_EWP}
+
+
+So, Way 1 says: We should
+synchronize all (non-out) harts
+on every task and epoch, not
+just every epoch.[91:
+
+Thu Jul 23 12:38:12 2026 Buut
+will that actually solve it?
+Everybody's on PRNG:GROW1 when
+this goes bad. Let's push on:
+
+Way 2: In the table entries, we
+used to label T0, T1, T2 as '0',
+'1', and '2', but we relabeled
+them to 'z'ero, 'o'ne, and 't'wo
+- specifically so we could
+distinguish between z o t and Z
+O T. And the intention was that
+the lowercase entries were
+supposed to expect TEFR_CONTINUE
+results, while the UPPERCASE
+ENTRIES expected TEFR_HART_OUT
+results.
+
+We have not, so far, implemented
+that idea. But it kind of seems
+like it would allow us to solve
+this exact case, right? Whether
+the other harts had done
+PRNG:GROW1 or not, they wouldn't
+think T2 was required because it
+was marked 'T' rather than 't'.
+[92:
+
+Thu Jul 23 15:33:17 2026 Well so
+if we tried this, what exactly
+would we try?[93:
+
+Thu Jul 23 15:38:57 2026 If we
+expanded
+
+  extern const u8 hartTaskTable[HART_TASK_COUNT][HART_EPOCH_COUNT];
+
+to like
+
+  extern const u16 hartTaskTable[HART_TASK_COUNT][HART_EPOCH_COUNT];
+
+(which seems easier than like
+
+  extern const u8 hartTaskTable[2][HART_TASK_COUNT][HART_EPOCH_COUNT];
+)
+
+then we could have two groups of
+five bits in each table entry,
+for TEF_CONTINUE vs TEF_HART_OUT
+
+
+:93]
+
+:92]
+:91]
+
+:90]
+
+:89]
+
+:88]
+
+:87]
+[94:
+
+Thu Jul 23 16:29:37 2026 Well,
+by the disgusting hack of
+turning the 'out monkeys' assert
+into a 'warning note', we are
+past that problem, for now, and
+now seeing a new and perhaps
+more contentful problem: In the
+HUB image, hb is dying with
+
+    CodeManager.cpp:668: 72.392 at023[HUB] STUCK? {14:200 1 0 2,3 h0 ILLEGAL_STATE}
+
+which is:
+
+      MFM_API_ASSERT(mLength > 0,ILLEGAL_STATE);
+
+in DL2D's:
+
+    void _remove(U8C c, bool fromFront) {..
+
+in Grid.h.
+
+And it's making me wonder: What
+about capturing a stack dump
+from a hung hart by using the
+'slow path' to the hart's fast
+RAM? Without even parsing the
+stack we could just look for
+numbers that addr2line
+recognizes, and print them out.
+
+It might be quite a bit better
+than the 'nothing' that we have
+today.
+
+Let's take a quick look.
+
+TODO:
+[214: Sun Aug  2 15:40:17 2026
+Long since
+DONE :214] - Refresh on where the stack is
+   in the T6 harts
+[215: DONE :215] - Refresh where the slow path
+   to fast ram is
+[216: DONE  :216] - Refresh host-side debug
+   support to understand how we
+   could read the stack.
+[217: DONE  :217] - 'Ask the AI' if there's some
+   canned RISC-V stack decoding
+   in some accessible place.
+
+:94][95:
+
+Thu Jul 23 16:49:44 2026
+
+Stack positions:
+ hb nc: __stack_top8K
+ t0 t1 t2: __stack_top4K
+
+refs:
+
+    ./src/_BUD.ld.in 48:    PROVIDE(__stack_top4K = ORIGIN(PER_HART_GLOBALS) + 4K);
+    ./src/_BUD.ld.in 49:    PROVIDE(__stack_top8K = ORIGIN(PER_HART_GLOBALS) + 8K);
+
+    ..
+        PER_HART_GLOBALS : ORIGIN = MEM_LOCAL_BASE, LENGTH = 4K
+    ..
+    #define MEM_LOCAL_BASE 0xFFB00000
+
+all amounting to
+
+                0x00000000ffb01000                PROVIDE (__stack_top4K = (ORIGIN (PER_HART_GLOBALS) + 0x1000))
+                0x00000000ffb02000                PROVIDE (__stack_top8K = (ORIGIN (PER_HART_GLOBALS) + 0x2000))
+
+(from hub.map)
+
+:95]
+[96:
+
+Fri Jul 24 02:33:51 2026 OK so
+we're reading the stack region
+plausibly, but there's a lot of
+crap in it. And, unless we can
+get $sp, we don't even know
+where the top of the stack is.
+Can we get $sp without a ton of
+pain? [97:
+
+Sat Jul 25 05:08:55 2026 OK I
+have to admit this is kinda
+fucking great:
+
+    CodeManager.cpp:681: 72.345 at023[HUB] STUCK? {14:200 1 0 2,3 h0 ILLEGAL_STATE}
+    CodeManager.cpp:688: 72.345 at023 HUB REGZ sp: 0xffb00e70, ra: 0x000012dc, fp: 0xffb00e90
+    OurTLBs.cpp:386: (2,3) h0 STAKBOT:0xffb00ffc MAPSTAK:0xffb18ffc
+    CodeManager.cpp:716: 72.363 at023 HUB h0 0xffb00e8c!sp[16] = 0x000012dc {14:190 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.363 at023 HUB h0 0xffb00e90>sp[17] = 0x000000f6 '....'
+    CodeManager.cpp:716: 72.374 at023 HUB h0 0xffb00f1c!sp[52] = 0x00001fe0 {18:247 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.379 at023 HUB h0 0xffb00f20>sp[53] = 0x3a36367b '{66:'
+    CodeManager.cpp:716: 72.392 at023 HUB h0 0xffb00f3c!sp[60] = 0x000021c4 {18:400 1 0 2,3 h0 caller?} '.!..'
+    CodeManager.cpp:727: 72.397 at023 HUB h0 0xffb00f40>sp[61] = 0x6820332c ',3 h'
+    CodeManager.cpp:716: 72.410 at023 HUB h0 0xffb00f5c!sp[68] = 0x00012e10 {66:50 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.410 at023 HUB h0 0xffb00f60>sp[69] = 0x00000000 '....'
+    CodeManager.cpp:716: 72.421 at023 HUB h0 0xffb00f8c!sp[80] = 0x0000952c {66:88 1 0 2,3 h0 caller?} ',...'
+    CodeManager.cpp:727: 72.433 at023 HUB h0 0xffb00f90>sp[81] = 0x0005c480 '....'
+    CodeManager.cpp:716: 72.444 at023 HUB h0 0xffb00f9c!sp[84] = 0x00009690 {66:119 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.444 at023 HUB h0 0xffb00fa0>sp[85] = 0x00000000 '....'
+    CodeManager.cpp:716: 72.456 at023 HUB h0 0xffb00fdc!sp[100] = 0x00009828 {66:146 1 0 2,3 h0 caller?} '(...'
+    CodeManager.cpp:727: 72.456 at023 HUB h0 0xffb00fe0>sp[101] = 0x00000000 '....'
+    CodeManager.cpp:716: 72.464 at023 HUB h0 0xffb00fec!sp[104] = 0x00000184 {79:139 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.469 at023 HUB h0 0xffb00ff0>sp[105] = 0x11a2b30d '....'
+
+[98:
+
+Sat Jul 25 05:16:52 2026 Where
+that all unpacks, via
+mfmx-log-jumpr, into something
+like this:
+
+    CodeManager.cpp:681: 72.345 at023[HUB] STUCK? {14:200 1 0 2,3 h0 ILLEGAL_STATE}
+
+      d.setNone();
+      MFM_API_ASSERT(mLength > 0,ILLEGAL_STATE);
+      --mLength;
+
+
+    CodeManager.cpp:688: 72.345 at023 HUB REGZ sp: 0xffb00e70, ra: 0x000012dc, fp: 0xffb00e90
+    OurTLBs.cpp:386: (2,3) h0 STAKBOT:0xffb00ffc MAPSTAK:0xffb18ffc
+
+ void _remove(U8C c, bool fromFront) {
+   DL2D & d = _get(c);
+>  MFM_API_ASSERT(d.isOccupied(),ILLEGAL_STATE);
+   if (mRoot == c) {
+     U8C newroot = (fromFront ? d.getNextC() : d.getPrevC());
+
+    CodeManager.cpp:716: 72.374 at023 HUB h0 0xffb00f1c!sp[52] = 0x00001fe0 {18:247 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.379 at023 HUB h0 0xffb00f20>sp[53] = 0x3a36367b '{66:'
+
+ int ACacheBlockPrivateControl::step(HostBlock & hb) {
+.. updateCars(hb);
+   HBNOTE(ACBS13);
+>  tryToSendFrame(hb);
+   HBNOTE(ACBS14);
+
+    CodeManager.cpp:716: 72.392 at023 HUB h0 0xffb00f3c!sp[60] = 0x000021c4 {18:400 1 0 2,3 h0 caller?} '.!..'
+    CodeManager.cpp:727: 72.397 at023 HUB h0 0xffb00f40>sp[61] = 0x6820332c ',3 h'
+
+ RCFlag manageACacheBlockT0(HTOpCode htoc) {
+..
+   ACacheBlockPrivateControl & privcH0 = myPACBControlH0;
+>  privcH0.step(hb);
+   EACH(1'000,HBPTAG(ACBLOV,__EACHNUM__));
+
+    CodeManager.cpp:716: 72.410 at023 HUB h0 0xffb00f5c!sp[68] = 0x00012e10 {66:50 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.410 at023 HUB h0 0xffb00f60>sp[69] = 0x00000000 '....'
+
+  void stepHTFuncsT0() {
+..
+     if (epf) {
+>      (*epf)(HTOC_LIVE);
+     }
+
+    CodeManager.cpp:716: 72.421 at023 HUB h0 0xffb00f8c!sp[80] = 0x0000952c {66:88 1 0 2,3 h0 caller?} ',...'
+    CodeManager.cpp:727: 72.433 at023 HUB h0 0xffb00f90>sp[81] = 0x0005c480 '....'
+
+  int MYstepT0(HostBlock & hb) {
+    SNAP(3,HBPTAG(@,__FUNCTION__));
+ >  fT0.stepHTFuncsT0();
+
+    CodeManager.cpp:716: 72.444 at023 HUB h0 0xffb00f9c!sp[84] = 0x00009690 {66:119 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.444 at023 HUB h0 0xffb00fa0>sp[85] = 0x00000000 '....'
+
+  int liveT0(HostBlock & hb) {
+ ..
+          // CALL STEPT0 ONCE PER ~MILLI!
+>          MYstepT0(hb);
+        }
+ ..
+    CodeManager.cpp:716: 72.456 at023 HUB h0 0xffb00fdc!sp[100] = 0x00009828 {66:146 1 0 2,3 h0 caller?} '(...'
+    CodeManager.cpp:727: 72.456 at023 HUB h0 0xffb00fe0>sp[101] = 0x00000000 '....'
+
+  int hartMainT0(HostBlock & hb) {
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
+>   return liveT0(hb);          // go do your hart t0 thing you
+  }
+
+    CodeManager.cpp:716: 72.464 at023 HUB h0 0xffb00fec!sp[104] = 0x00000184 {79:139 1 0 2,3 h0 caller?} '....'
+    CodeManager.cpp:727: 72.469 at023 HUB h0 0xffb00ff0>sp[105] = 0x11a2b30d '....'
+
+    runmain:
+ ..
+ >         call t6main
+ ..
+
+
+:98]
+
+:97]
+
+:96]
+[99:
+
+Sat Jul 25 22:48:57 2026 OK, so
+now homemade-ish our stack dump
+looks like this:
+
+    CodeManager.cpp:697: 73.862 at0a3[HUB] STUCK? {14:200 1 0 10,3 h0 ILLEGAL_STATE}
+    CodeManager.cpp:704: 73.862 at0a3 HUB REGZ sp: 0xffb00e70, ra: 0x000012dc, fp: 0xffb00e90
+    OurTLBs.cpp:386: (10,3) h0 STAKBOT:0xffb00ffc MAPSTAK:0xffb18ffc
+    CodeManager.cpp:733: 73.876 at0a3 HUB h0 0xffb00e8c!sp[16] = 0x000012dc {14:190 1 0 10,3 h0 MFM::DLGridList::_remove(MFM::UxC<unsigned char>, bool)} '....'
+    CodeManager.cpp:744: 73.876 at0a3 HUB h0 0xffb00e90>sp[17] = 0x000000f6 '....'
+    CodeManager.cpp:733: 73.885 at0a3 HUB h0 0xffb00f1c!sp[52] = 0x00001fec {18:247 1 0 10,3 h0 MFM::ACacheBlockPrivateControl::step(MFM::HostBlock&)} '....'
+    CodeManager.cpp:744: 73.890 at0a3 HUB h0 0xffb00f20>sp[53] = 0x3a36367b '{66:'
+    CodeManager.cpp:733: 73.901 at0a3 HUB h0 0xffb00f3c!sp[60] = 0x000021d0 {18:400 1 0 10,3 h0 MFM::manageACacheBlockT0(MFM::HTOpCode)} '.!..'
+    CodeManager.cpp:744: 73.906 at0a3 HUB h0 0xffb00f40>sp[61] = 0x20332c30 '0,3 '
+    CodeManager.cpp:733: 73.917 at0a3 HUB h0 0xffb00f5c!sp[68] = 0x00012e28 {66:50 1 0 10,3 h0 MFM::FastT0::stepHTFuncsT0()} '(...'
+    CodeManager.cpp:744: 73.917 at0a3 HUB h0 0xffb00f60>sp[69] = 0x00000000 '....'
+    CodeManager.cpp:733: 73.929 at0a3 HUB h0 0xffb00f8c!sp[80] = 0x00009538 {66:88 1 0 10,3 h0 MFM::MYstepT0(MFM::HostBlock&)} '8...'
+    CodeManager.cpp:744: 73.943 at0a3 HUB h0 0xffb00f90>sp[81] = 0x0005c4a0 '....'
+    CodeManager.cpp:733: 73.954 at0a3 HUB h0 0xffb00f9c!sp[84] = 0x0000969c {66:119 1 0 10,3 h0 MFM::liveT0(MFM::HostBlock&)} '....'
+    CodeManager.cpp:744: 73.954 at0a3 HUB h0 0xffb00fa0>sp[85] = 0x00000000 '....'
+    CodeManager.cpp:733: 73.967 at0a3 HUB h0 0xffb00fdc!sp[100] = 0x00009834 {66:146 1 0 10,3 h0 MFM::hartMainT0(MFM::HostBlock&)} '4...'
+    CodeManager.cpp:744: 73.967 at0a3 HUB h0 0xffb00fe0>sp[101] = 0x00000000 '....'
+    CodeManager.cpp:733: 73.975 at0a3 HUB h0 0xffb00fec!sp[104] = 0x00000184 {79:139 1 0 10,3 h0 runmain} '....'
+    CodeManager.cpp:744: 73.981 at0a3 HUB h0 0xffb00ff0>sp[105] = 0x11a2b30d '....'
+
+which has more than a few
+confusing aspects but also is
+amazing and wonderful after the
+pitiful information vaccuum I've
+been hacking in here for so
+long.
+
+Let's take a run at the bug
+itself for a few minutes,
+instead of trying to push still
+further on the debug tooling.
+
+Question: Did we even still want
+h0 being involved in ACB
+operations? What did our 'design
+document' say before it fizzled
+out? [100:
+
+Sat Jul 25 22:56:32 2026 Well it
+says in part:
+
+    ### AtomCacheBlock High-level Status & Intentions
+ ..
+     - HUB also creates a 1ms tick h0 task called `manageACacheBlockT0` by
+       declaring a pointer to it in load section `.rodata_fp_table_t0`
+       - Exactly what that does and should do is up for grabs.
+ ..
+
+What say we defeat
+manageACacheBlockT0 as a test
+and see if something else breaks
+informatively.
+
+Is it enough just to not stick
+in the special section?[101:
+
+Sat Jul 25 23:06:29 2026 Well
+yes 'it is enough' in the senses
+that:
+
+(1) HUB h0 apparently no longer
+    hangs, and
+(2) tiles/ files start appearing
+    again [but not for HUBs?]
+[102:
+
+Sat Jul 25 23:29:42 2026 And
+this says:
+
+    {22:35 4516 0 2,3 hb hPROCBLOC:0}
+    {22:36 4516 0 2,3 hb EPS:CFG}
+
+that ewp car 0 is in state
+'configure' which means
+(1) it's not state 'active',
+(2) so events are not going to
+    move.
+
+So who was supposed to activate
+the EwpBlocks, when and
+where?[103:
+
+Sat Jul 25 23:43:54 2026 Looks
+like manageHubNC(HTOC_OPEN)
+wants to do it. That is
+(supposedly?) called via the
+magic nc table:
+
+  __attribute__((section(".rodata_fp_table_nc")))
+  HTFuncPtr hubEPPtr = &manageHubNC;
+
+and the HTOC_OPEN case appears
+to be called nowhere:
+
+    -*- mode: grep; default-directory: "/data/ackley/PART4/code/D/blackholeSpikes/spikes/init12/srcs/" -*-
+    Grep started at Sat Jul 25 23:46:18
+
+    find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name \*-hold-20\* -o -name \*-hold-20\*\] -o -name \*-hold\[0-9\]\[0-9\] -o -name \*-hold\[0-9\] -o -name \*-hold -o -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \* -o -name .\[\!.\]\* -o -name ..\?\* \) -exec grep --color -n --null -e runHTFuncsNC /dev/null \{\} +
+    ./cross/src/FastNC.cpp 68:    RCFlag runHTFuncsNC(HTOpCode htoc) {
+    ./cross/src/FastNC.cpp 94:    RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
+    ./cross/src/FastNC.cpp 133:      fNC.runHTFuncsNC(HTOC_INIT);
+
+    Grep finished with 3 matches found at Sat Jul 25 23:46:18
+
+[104:
+
+Sat Jul 25 23:47:11 2026 And
+where would we want it to be
+called? Right after calling
+HTOC_INIT, perhaps?[105:
+
+Sat Jul 25 23:48:13 2026 Um
+except runHTFuncsNC Is Not
+Interested In That Idea:
+
+    RCFlag runHTFuncsNC(HTOpCode htoc) {
+      if (htoc==HTOpCode::HTOC_LIVE)
+        SNAP(2,HBPTAG(@,__FUNCTION__));
+      else if (htoc==HTOpCode::HTOC_INIT)
+        HBPTAG(init@,__FUNCTION__);
+>>>   else FAIL(UNREACHABLE_CODE);
+
+[106:
+
+Sun Jul 26 00:22:22 2026 OK, now
+we're about to go from
+
+  __attribute__((section(".rodata_fp_table_nc")))
+  HTFuncPtr acbEPPtr = &manageACacheBlockNC;
+
+to
+
+  //__attribute__((section(".rodata_fp_table_nc")))
+  HTFuncPtr acbEPPtr = &manageACacheBlockNC;
+
+because we're increasingly
+thinking we want to ditch the
+whole magic (nc) table at
+least.. because it causes
+everything that NC knows about
+to get initted (etc) in the same
+epochs.
+
+:106]
+:105]
+
+:104]
+
+:103]
+
+:102]
+:101]
+
+:100]
+
+:99]
+[107:
+
+Mon Jul 27 00:57:35 2026 So had
+a Great Doh Breakthrough and now
+EWTs are running much much
+faster. Already told e about it
+so I'm not going to write about
+it now.
+
+I just want to record here that
+currently it appears that the
+only epf on the T0 mstick is
+checking LogBlocks.
+
+This apropos of our now-again-
+being-returned-to goal of
+understanding why ACBs still
+don't seem to be moving.
+[108:
+
+Mon Jul 27 01:01:50 2026 And
+let's dig into that a little bit
+more.
+
+ - What exactly is ACB private
+   supposed to do?
+
+ - and ACB public too?
+
+ - tell me that and
+   i'll doff my hat
+   if you tell me true
+
+:108]
+:107]
+[109:
+
+Mon Jul 27 01:15:05 2026 ACB
+private has a bunch of state,
+but most of it seems secondary.
+
+MAYBE IMPORTANT
+    AtomReportIO mARIO;
+    u32 mARsToSend;
+    State mState;
+
+JUST FOR ACCESS
+    ACacheBlockL1Control * mACBL1Control;
+    DLGridList * mDLGridList;
+
+PROBABLY SECONDARY
+    u32 mFramesSent;
+    s32 mSlackMS;
+    u32 mNextFrameBogoMS;
+
+[110:
+
+Mon Jul 27 01:49:24 2026 And
+ACBprivate::step calls
+updateCars(hb), so we expect
+that is not happening at the
+moment? [111:
+
+Mon Jul 27 02:00:11 2026 So yeah
+we're seeing no marks from
+inside updateCars. I thought we
+were going to ditch the mstick
+for acb priv though. Does the
+'document' say anything?[112:
+
+Mon Jul 27 02:02:02 2026 So,
+like mARIO. That was (going to
+be) part of the compression
+system, which we think should
+all be on h1 now, right? Is
+anybody using it?[113:
+
+Mon Jul 27 02:03:43 2026 Yes:
+acb priv::tryToSendFrame, in
+State::PACK, puts an atom report
+in it.. but then it apparently
+consumes all of that immediately..
+[116:
+
+Mon Jul 27 08:38:40 2026 So back
+to here. Seems like mARIO is not
+key, at the moment at least?
+
+:116]
+:113]
+
+:112]
+
+:111]
+
+:110]
+:109]
+[114:
+
+Mon Jul 27 02:20:56 2026 Wait..
+stepT1 is weak? --
+
+    CodeManager.cpp:676: 21.820 at023[HUB] LIVE {58:70 1 0 2,3 h1 MFM::stepT1(MFM::HostBlock&) 0x007c40}
+    CodeManager.cpp:676: 21.829 at023[HUB] LIVE {58:38 1 0 2,3 h1 MFM::justLive(MFM::HostBlock&) [clone .isra.0] 0x007d8c}
+    CodeManager.cpp:676: 21.838 at023[HUB] LIVE {58:70 1 0 2,3 h1 MFM::stepT1(MFM::HostBlock&) 0x007c28}
+
+58:70->  int __attribute__((weak)) stepT1(HostBlock & hb) { return 0; }
+
+that's not going to do much, is
+it? And yet, there we were at pc
+sampling time.. somebody is
+still calling stepT1..
+
+What about if we make the
+defaultlives methods esplode if
+called, 'like for a test'?
+[115:
+
+Mon Jul 27 02:36:05 2026 So, in
+the EWP image anyway, we get:
+
+    CodeManager.cpp:697: 162.937 at012[EWP] STUCK? {58:70 1 0 1,2 h1 UNREACHABLE_CODE}
+    CodeManager.cpp:704: 162.937 at012 EWP REGZ sp: 0xffb00f80, ra: 0x000045a4, fp: 0xffb00fa0
+    OurTLBs.cpp:386: (1,2) h1 STAKBOT:0xffb00ffc MAPSTAK:0xffb1affc
+    CodeManager.cpp:733: 162.946 at012 EWP h1 0xffb00f9c!sp[16] = 0x000045a4 {58:70 1 0 1,2 h1 MFM::stepT1(MFM::HostBlock&)} '.E..'
+    CodeManager.cpp:744: 162.946 at012 EWP h1 0xffb00fa0>sp[17] = 0x00000000 '....'
+    CodeManager.cpp:733: 162.954 at012 EWP h1 0xffb00fac!sp[20] = 0x00004728 {58:42 1 0 1,2 h1 MFM::justLive(MFM::HostBlock&) [clone .isra.0]} '(G..'
+    CodeManager.cpp:744: 162.964 at012 EWP h1 0xffb00fb0>sp[21] = 0x00010450 'P...'
+    CodeManager.cpp:733: 162.973 at012 EWP h1 0xffb00fdc!sp[32] = 0x0000478c {58:64 1 0 1,2 h1 MFM::liveT1(MFM::HostBlock&)} '.G..'
+    CodeManager.cpp:744: 162.973 at012 EWP h1 0xffb00fe0>sp[33] = 0x00000000 '....'
+    CodeManager.cpp:733: 162.980 at012 EWP h1 0xffb00fec!sp[36] = 0x0000016c {79:139 1 0 1,2 h1 runmain} 'l...'
+    CodeManager.cpp:744: 162.984 at012 EWP h1 0xffb00ff0>sp[37] = 0x11a2b30d '....'
+
+with liveT1 and stepT1 both
+defaulted. Did we have anything
+we wanted EWP T1 to do? Maybe we
+should write our own EWP stepT1
+even if not.
+
+:115]
+:114]
+[117:
+
+Mon Jul 27 10:04:35 2026 OK, so
+at the moment we have nobody
+calling ACB private::step, so
+nobody calls tryToSendFrame, so
+nobody tries to put bytes into
+l1dLZBytesIn, so there's nothing
+for
+
+static s32 uncompressedByteSource(bool isReadable, void * context)
+
+to remove and return so
+compressForever just blocks
+forever. Now if we're trying to
+cut out the middleman here,
+maybe we should try moving the
+relevant code from
+tryToSendFrame to
+uncompressedByteSource, so the
+only time it will block is when
+there's actually nothing to pull
+from the DL2D gridlist.
+
+But need to round off the sleep
+first. This still feels like
+progress. [118:
+
+Mon Jul 27 12:14:35 2026 OK, so
+we're seeing
+
+  static s32 uncompressedByteSource(bool isReadable, void * context) {
+
+get called a lot on h1 but it
+never has anything to return.
+Still wondering if it might be
+useful to have an h0 thing that
+tries to fill l1dLZBytesIn with
+as many ARs as it can fit..[119:
+
+Mon Jul 27 13:16:17 2026 So
+we're currently dying (in HUB)
+because we don't have a
+mCurrentACacheBlock in our
+ACacheBlockL1Control. Where is
+that supposed to get set
+up?[120:
+
+Mon Jul 27 13:17:43 2026 Looks
+like ACBL1::setupNewCar sets it,
+for one place anyway:
+
+    mCurrentACacheBlock = &nlb;
+
+and who calls that?[121:
+
+Mon Jul 27 13:19:03 2026
+ACBL1::step calls it, but that's
+currently diked out.[122:
+
+Mon Jul 27 13:20:33 2026 Looks
+like
+
+ACB priv::updateCars can call it
+too. But it won't set anything
+up unless there's something in
+the COMM2COMP ringbuffer.
+
+:122]
+
+:121]
+
+:120]
+
+:119]
+
+:118]
+
+:117]
+[123:
+
+Tue Jul 28 07:45:05 2026 Who is
+supposed to call acbl1.init()? I
+see it happening in
+manageACacheBlockNC(HTOC_INIT),
+but long before that I see
+    {18:25 0 0 2,3 h1 ACBFlagsNow:0x4}
+which is coming from
+FastT1.init(), which is running
+in t1 HACT:GROW0->myInitT1()
+
+[124:
+
+Tue Jul 28 07:50:55 2026 And
+looking at TEF HACT, it looks
+like those two are in an
+explicit race:
+
+    case HE_GROW0: //case HE_BORN0:
+      HBNOTE(iHACT);
+      if (hartnum == HARTNUM_T0) {
+        manageACacheBlockT0(HTOC_INIT);
+      } else if (hartnum == HARTNUM_T1) {
+>>      myInitT1();
+      } else if (hartnum == HARTNUM_NC) {
+>>      manageACacheBlockNC(HTOC_INIT);
+      } else break;
+      HBMARK;
+
+could we move
+manageACacheBlockNC(HTOC_INIT)
+earlier?
+
+[125:
+
+Tue Jul 28 08:29:31 2026 OK we
+did that with apparently no
+ill-effect, and now we see
+
+    {18:26 0 0 2,3 h1 ACBFlagsNow:0x5}
+
+(and
+    {18:26 0 0 2,3 h0 ACBFlagsNow:0x7}
+too.)
+[126:
+
+Tue Jul 28 08:32:02 2026 And the
+visible sticking point is now
+here:
+
+    {157:31 13902 0 2,3 h1 ACBABF:46520001}
+    {18:52 13902 0 2,3 h1 BLODK:0x31}
+
+which is
+
+    bool addByte(u8 byte) {
+      if (getBytesRemaining() == 0) {
+>>      EACH(10'000,HBPTAG(ACBABF,__EACHNUM__));
+        return false;
+      }
+
+and
+
+      bool ACacheBlockL1Control::writeByteToCurrentACB(u8 byte) {
+ ..
+        if (ret) SNAP(10,LOGPTAG(WBTACB,pay.getCurrentLength()));
+ >>       else EACH(10'000,HBXTAG(BLODK,(u32)byte));
+
+So now the issue/question is:
+How come nobody is picking off
+that no-bytes-remaining ACB and
+shipping it to the host?
+
+Who did we think was supposed to
+do that? [127:
+
+Tue Jul 28 08:43:43 2026 Are we
+thinking that h1 is supposed to
+be crbing to hn with the full
+ACB? I thought we had code that
+was supposed to run? manageACBNC
+or something?[128:
+
+Tue Jul 28 08:45:49 2026 I guess
+it can't be EP::updateOps,
+because that assumes the car is
+already closed. Who's supposed
+to close this car?[129:
+
+Tue Jul 28 09:10:11 2026 So, a
+diked-out ACBL::step(..) would
+close it if it existed and was
+called..
+
+AAnd a ACB priv::updateCars(..)
+can close it.. who's supposed to
+be calling that? Somebody on h0.
+
+ACB priv::step(..) calls it
+before it calls
+tryToSendFrame.[130:
+
+Wed Jul 29 00:50:46 2026 OK this
+bit of logging from updateCars
+might be helpful:
+
+    {18:196 13901 0 2,3 h0 keytest:0}
+ .. {18:196 13901 0 2,3 h0 curacb:0x16a00}
+ .. {18:196 13901 0 2,3 h0 crbi.isEmpty():1}
+ .. {18:196 13901 0 2,3 h0 crbo.isFull():0}
+    {18:196 13901 0 2,3 h0 ACBPCuC:1}
+
+It's saying that the ONLY reason
+we are not trying to ship this
+ACB is that we have no empty
+ACBs waiting in our crbi input
+queue to switch to after we
+ship.
+
+Now, that could be because (1)
+we actually shipped (but that's
+in a HB logging gap) and (2)
+host failed to (receive it and
+therefore couldn't) send it
+back.[131:
+
+Wed Jul 29 02:50:01 2026 Yikes,
+well, it's starting to look like
+non-empty ACBs are successfully
+going round trip between host
+and [HUB] images:
+
+    {124:740 1 5 0,0 ht ->} applying ACB #2 (994B) from T15
+    {124:753 1 5 0,0 ht ->} BH0 RETURNING ACB EMPTY TO T15 car2 0x00016aa0 @ (2,3)
+..  ---15.1626---
+..  {124:740 1 5 0,0 ht ->} applying ACB #0 (994B) from T15
+    {124:753 1 5 0,0 ht ->} BH0 RETURNING ACB EMPTY TO T15 car0 0x000162a0 @ (2,3)
+..  {124:740 1 5 0,0 ht ->} applying ACB #1 (994B) from T15
+    {124:753 1 5 0,0 ht ->} BH0 RETURNING ACB EMPTY TO T15 car1 0x000166a0 @ (2,3)
+..  {124:740 1 5 0,0 ht ->} applying ACB #2 (994B) from T15
+    {124:753 1 5 0,0 ht ->} BH0 RETURNING ACB EMPTY TO T15 car2 0x00016aa0 @ (2,3)
+..  {124:740 1 5 0,0 ht ->} applying ACB #0 (994B) from T15
+..
+
+so we gotta say that's a bit
+exciting after, what, say three
+months of trying to make that
+happen?
+
+WAHOO.
+
+ahem
+
+[132:
+
+Wed Jul 29 03:03:26 2026 Sooooo.
+That means we have finally
+reached the point where we need
+to try to decompress these
+ACBs on the host, prior to
+trying to apply them to the
+BGRImage for display?
+
+Let's relax first and celebrate
+having POPPED THAT FUCKING
+YAK![133:
+
+Wed Jul 29 03:50:53 2026 (For
+the record, for calibration, for
+downstream.. at the moment, it
+appears the host is handling
+~7 ACB packets/second, each
+typically containing 994 bytes
+of compressed atom reports. We
+have no idea as yet what that
+might turn into as far as
+atom reports / second, but if
+it's around 50% compression,
+which was vaguely where we were
+in testing the compressor, that
+would suggest ~7*2KB == 14KB/sec
+of uncompressed atom reports.
+And at 12B/AtomReport, that
+would be about 1,200 sites/sec..
+Which would correspond to
+something like (/ 1200.0 14904)
+.08 sites/second on a tile
+filled with FB. That's ~80 mAER?
+We have a long long way to go.)
+[145:
+
+Wed Jul 29 15:25:34 2026 (Now
+with all hubs seeded with FB1 on
+BH#0, we're seeing ~6.6 ACB
+packets per second.. which would
+give like
+  (* 6.6 2) == 13.2K B/s
+  (/ 13.2 12.0) ~= 1.1K AR/s
+  (/ 1100.0 14904) ~= 0.074 sites/second
+                   ~74mAER
+
+so that's only a bit down
+compared to ~80mAER in the first
+estimate.)
+
+now (/ (/ (/ (* 11414 994 2) 16.0) 14904.0) 1604.4612)~0.06
+             22691032
+          1418189.5
+       95.15495840042942
+    0.05930648768597796
+
+~60mAER
+
+:145]
+:133]
+
+:132]
+
+:131]
+
+:130]
+
+:129]
+
+:128]
+
+:127]
+
+:126]
+:125]
+:124]
+
+:123]
+[134:
+
+Wed Jul 29 09:45:44 2026 SO OK.
+Here we go host side again.
+
+ - We're thinking a separate
+   thread for each decompressor,
+
+ - and let the thread write
+   decompressed atomreports
+   directly to the BGRImage
+   without locking, because
+   their targets are all
+   disjoint,
+
+ - and just ship the current
+   state of the BGRImage say
+   five or three times a second,
+   and see what we're looking
+   at?
+
+TODO
+
+[136: Wed Jul 29 10:19:51 2026
+DONE :136] - Note the time. Start the
+   clock.
+
+[140: Wed Jul 29 11:38:04 2026
+DONE :140] - Review host side ACB handling
+   (we've been there recently,
+   but look at connections)
+
+[154: Thu Jul 30 09:27:08 2026
+DONE :154] - Review host side thread
+   creation
+
+[141: Wed Jul 29 11:38:41 2026
+DONE :141] - Review host side BGRImage
+   updating and shipping
+
+[146: Wed Jul 29 19:41:46 2026
+DONE :146] - See what might be involved
+   launching another
+   thread-per-hub (possibly on a
+   demand basis when ACBs
+   arrive?)
+
+[147: Wed Jul 29 19:41:51 2026
+DONE :147] - Get that thread creation
+   (however chosen) working for
+   creation and destruction.
+   Have each thread log a
+   message occasionally.
+
+[148: Wed Jul 29 19:41:56 2026
+DONE :148] - SEE THAT RUN. RUN THAT RUN.
+
+[149: Thu Jul 30 03:00:29 2026
+DONE :149] - Review lz stuff and
+   decompression in particular.
+
+[150: Thu Jul 30 03:00:41 2026
+Decided it is, went for it,
+DONE :150] - Review host side thread sync
+   stuff (if we have any), and
+   decide if crbi crbo is a good
+   way to pass ACBs between the
+   ourtlbs and the zhds.
+
+[151: Thu Jul 30 03:00:57 2026
+DONE :151] - Get ACBs moving between
+   ourtlbs and zhds, with the
+   latter just resetting and
+   returning them. Maybe count
+   the bytes.
+
+[152: Thu Jul 30 03:01:04 2026
+DONE DONE DONE :152] - SEE THAT RUN TOO. RUN RUN RUN
+
+[155: Thu Jul 30 09:27:22 2026
+DONE :155] - Get the forever-decompression
+   working in the hub display
+   threads, using the ACB data.
+   Count compressed and
+   uncompressed bytes, see what
+   kind of ratios we actually
+   get on FB1.
+
+[156: Thu Jul 30 09:27:29 2026
+DONE: 2.6x! :156] - SEE THAT RUN. NOTE THAT NUM
+
+[157: Thu Jul 30 09:31:57 2026
+(+scribbled on the img a little)
+DONE :157] - Disconnect the slowscan <->
+   animation link, so
+   (temporarily) slowscanning
+   does not happen, and the
+   vidsrv stream therefore just
+   sees black.
+
+[234: Sun Aug  2 17:00:18 2026
+DONE :234] - Commit the AtomReports to the
+   BGRImage (using the same
+   'getColorish' part of the
+   Physics that slowscan was)
+
+[235: Sun Aug  2 17:00:24 2026
+DONE!!!!! :235] - SEE ATOM REPORTS DISPLAYED ON
+   THE VIDSRV LIVESTREAM. HOLY
+   FUCK SEE IT FOR REAL.
+
+[236: Sun Aug  2 17:00:32 2026
+DONE :236] - Stop the clock. Note the
+   time. Spontaneous human
+   combustion.
+
+[237: Sun Aug  2 17:00:44 2026
+COMING UP SOON  :237] - Get Big Green On Goals
+   Achieved This T2sday.
+
+:134]
+[135:
+
+Wed Jul 29 10:20:00 2026 Here we
+go.
+
+    Blackhole::mTransportThreadPtr->forever->
+    OurTLBs::updateTransports(bool includeEWs) ->
+    OurTLBs::updateACacheBlocks ->
+    OurTLBs::applyACacheBlock
+
+so that's one thread per card.
+
+How does the BGRImage shipping work?
+[137:
+
+Wed Jul 29 10:29:54 2026
+
+self.animation_timer = self.set_interval(1 / (2*self.animation_frames_per_second),
+                                         self.update_animation_content, pause=False) ->
+def update_animation_content(self) ->
+def doRTMPGraphicsFrame(self,simnanos) ->
+   (currently also calls ewc.scanHubGrid(chipnum)
+    -> s32 Blackhole::scanHubGrid()
+    -> s32 CodeManager::scanHubGrid()
+    -> u32 CodeManager::readT6GridTotalChanges(T6Grid& t6g, u32 tlbi)
+    -> void OurTLBs::readFromWords(u32 tlbi, u32 srcByteAddr, u32 * words, u32 wordCount)
+    [READS WHOLE DAMN T6GRID FROM tlbi])
+-> std::string_view EWControl::renderGraphicsGridWindow(S32C pixelsize, s32 zoom) ->
+-> BGRImageHD & EWControl::renderGraphicsGridWindowToImage()
+-> BGRImageHD & getT6GridImage()
+-> return (static) QuietBox::t6gridRenderBlock
+
+[138:
+
+Wed Jul 29 11:31:40 2026 Aand we
+want that to be more like:
+
+self.animation_timer = self.set_interval(1 / (1*self.animation_frames_per_second),
+                                         self.update_animation_content, pause=False) ->
+def update_animation_content(self) ->
+def doRTMPGraphicsFrame(self,simnanos) ->
+    img = ewc.renderGraphicsGridWindowToImage() # QuietBox::getT6GridImage()
+    self.theRTMPFeed.sendGraphicsFrame(img.asNP(),simnanos,f"{self.scriptName}/{self.mfmxVersion}")
+
+[139:
+
+Wed Jul 29 11:35:47 2026 So, all
+the separate decompression
+threads don't actually speed up
+host returning empty ACBs in any
+particular way.. We're just
+doing threads because ZHD
+blocks..
+
+[142:
+
+Wed Jul 29 11:40:56 2026 So,
+ZHostDecompressor already has
+the pieces:
+
+      struct ZHostDecompressor {
+        ZHostDecompressor() ;
+        void init() ;
+        lzmfmx mLZ;
+
+        std::unique_ptr<std::thread> mDecompressorThreadPtr;
+        std::atomic<bool> mDecompressorThreadAlive;
+        AtomicLock mDecompressorThreadMutex;
+      };
+
+so do we maybe think we'd put a
+crbi and a crbo in there? And
+Blackhole would scan all its
+ZHDs to see if there were any
+crbos ready to head back in
+them.
+
+And so each blackhole would have
+a map of tlbi->zhd, which it
+could (maybe) populate on demand
+when a new ACB source first
+checks in.
+
+And we'd add some glue to ZHD
+and/or lzmfmx to read from
+crbi/acbs, write to
+QuietBox::t6gridRenderBlock, and
+release acbs back to crbo. Which
+the blackhole would check and
+flush and forward acbs back to
+tlbis during its scans.
+
+And Wah Lah.
+
+:142]
+:139]
+:138]
+:137]
+:135]
+[143:
+
+Wed Jul 29 13:02:01 2026 So,
+CodeManager already has a:
+
+    typedef std::unordered_map<HubTLBI,HubValue> HubTLBIToT6Grid;
+    HubTLBIToT6Grid mHubTLBIToT6Grid;
+
+with
+
+    typedef u32 HubTLBI;
+    typedef u32 ChangeCount;
+    typedef std::pair<ChangeCount,T6Grid*> HubValue;
+
+and mHubTLBIToT6Grid gets
+populated by
+
+    void CodeManager::addHub(u32 tlbi,T6Grid & g)
+
+which is done automagically
+during
+
+  s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI)
+
+for every tlbi whose image
+supports BC_T6GRID. Which makes
+plenty of sense.
+
+So one might say, how about:
+
+ - changing HubValue from a pair
+   to an actual struct, and
+
+ - moving the ZHostDecompressor
+   mZHD; from TLBInfo to
+   HubValue
+
+ - aand seeing where that gets
+   us?
+[144:
+
+Wed Jul 29 13:56:19 2026 OK, may
+have done that.. but haven't
+cleaned up the old stuff, and
+haven't done the plumbing on the
+new stuff.
+
+:144]
+
+:143]
+[153:
+
+Thu Jul 30 09:23:16 2026 OK so
+we seeing early compression
+ratio numbers now. Looks like
+we're delivering around 2.6 atom
+report bytes per byte of ACB
+data:
+
+ .. {132:52 1 5 0,0 ht ->} AT ZBSink 0x5baaf6d08ef8 1651030/626220 = 37.9%  2.6x
+ .. {132:52 1 5 0,0 ht ->} AT ZBSink 0x5baaf6cff8c8 2128387/827008 = 38.9%  2.6x
+ .. {132:52 1 5 0,0 ht ->} AT ZBSink 0x5baaf6d09e28 2982758/1157016 = 38.8%  2.6x
+
+Is that good? Good enough? Worth
+the squeeze? All TBD, I guess.
+Sure wish we had a little more
+fast ram for the lz ringbuffer
+tho..
+
+Claiming to-dos..
+
+:153]
+[158:
+
+Thu Jul 30 09:32:53 2026 OK we
+are getting FUCKING CLOSE NOW
+GOD DAMN IT!
+
+Now we need to
+(1) turn uncompressed bytes back
+    into AtomReports
+(2) apply them to the BGRImage
+(3) discover whether the
+    compression is working at
+    all in this context (legal
+    atoms, reasonable coords)
+(4) Fix It Or Fucking Celebrate
+
+:158]
+[159:
+
+Thu Jul 30 11:08:06 2026 OK so a
+bit of a worrying sidetrack -
+intermittent blown assertions
+about ACB cars not being in
+state OPEN when they ought to
+be.
+
+It's strongly suggestive of some
+kind of race, and I've been
+adding and changing logging
+trying to get a better look at
+the problem (for example, I
+still do not know what state
+we're seeing instead of OPEN)..
+
+But at the moment, with whatever
+combination of everythings, the
+assertion seems not to be
+blowing.. so here we
+aren't.[160:
+
+Thu Jul 30 11:16:02 2026 So I
+guess I'm going to Ignore These
+Worrisome Events and just bull
+ahead toward display, unless and
+until These Worrisome Events
+Return.
+
+So: We're trying to turn
+uncompressed bytes into
+plausible atomreports..[161:
+
+Thu Jul 30 16:02:37 2026 OK, we
+have arrived at the point where
+we need to apply a received
+host-side AtomReport. And we
+have a mTLBI to work with.
+
+..So, we need
+
+(1) to do enough fizix to
+    convert the atom into a
+    color, and
+
+(2) find the offset of this hub
+    tlbi in the BGRImage, and
+
+(3) stash the color at the
+    combined offset coord.
+
+:161]
+
+:160]
+
+:159]
+[162:
+
+Fri Jul 31 13:06:47 2026 Well I
+guess we could use a little
+update here. Current status is:
+
+ - We are transmitting at least
+   some AtomReports apparently
+   successfully
+
+ - As evidenced by lots of
+   'GOOD' atom validity checks
+   on the host
+
+    {132:42 1 5 188,71 ht ->} BH#0 T99 HAR@(66,56) = 0x3804'0000'00000000'0000000d GOOD
+    {132:42 1 5 171,71 ht ->} BH#0 T23 HAR@(71,58) = 0x3804'0000'00000000'00000015 GOOD
+    {132:23 1 5 173,71 ht ->} ZHDHARO OUT 0x00 ' '
+    {132:42 1 5 186,71 ht ->} BH#0 T81 HAR@(63,54) = 0x3804'0000'00000000'00000015 GOOD
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(74,53) = 0x3804'0000'00000000'00000010 GOOD
+    {132:23 1 5 169,71 ht ->} ZHDHARO OUT 0x00 ' '
+
+ - But eventually things start
+   to fall off the rails
+
+ - As evidenced by this excerpt
+   from a single ZHD
+   decompression thread host
+   side:
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(70,54) = 0x3804'0000'00000000'0000000f GOOD
+Looks right: Atom type 4 (the 4 in 0x3804) is FB1.
+
+    {132:83 1 5 167,71 ht ->} ZHDsB12
+whatever
+
+    {132:86 1 5 167,71 ht ->} ZBSOURCE (994) RETURNING car0 0x78a541bdec00
+    {132:88 1 5 167,71 ht ->} ZBSOURCE RETURNED car0
+the fact that we apparently just
+switched ACBs might well be
+important.
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(79,0) = 0x3804'0000'00000000'0000001b GOOD
+and now this looks suspicious:
+y==0 is possible but very
+unlikely at this stage of an
+initially-centered FB1 spread.
+
+    {132:78 1 5 167,71 ht ->} ZHDsB 6
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(57088,0) = 0x0000'0000'00000000'00000000 GOOD
+And this is definitely wrong: a
+T6Grid does not have 57K atoms
+on any axis
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+Might be right but probably
+wrong..
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,23643) = 0x0000'0000'00000000'00e00c00 GOOD
+Wrong.
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x5c01'5c01'00005c01'00000000 INVALID
+Wrong and detected as wrong.
+
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,6912) = 0x0000'0000'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'3d00'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,14340) = 0x0000'0002'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,71) = 0x0000'0000'00000000'00160000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'1518'af000000'00000008 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(23553,1) = 0x0000'0000'00000000'5c010000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'4700'00000000'00000000 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(5888,0) = 0x0000'0000'00000000'00003300 GOOD
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(0,0) = 0x0000'0000'40024f00'00000f1c GOOD
+All very likely wrong.
+    ...
+
+[163:
+
+Fri Jul 31 13:23:02 2026 And it
+just gets worse from there, in
+the true fragilissimo spirit of
+a broken compression stream:
+
+ ..
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(21344,14500) = 0x2838'3800'3fab7f28'38190027 INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(25600,16640) = 0x0091'4f77'3d9d966e'2985876f INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(28544,14471) = 0x0037'3741'89664a5a'1689664a INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(21760,14500) = 0x0091'4f77'3f5b966e'2f590027 INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(40,14145) = 0x0091'4f77'3f5b966e'30590027 INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(92,14377) = 0x4100'5a37'6d84664a'0789664a INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(25344,16640) = 0x0091'4f77'3f5b966e'09590027 INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(5888,37176) = 0x0037'3741'5a664a5a'08412b00 INVALID
+    {132:42 1 5 167,71 ht ->} BH#0 T15 HAR@(6244,14500) = 0x7700'6e4f'6f3d9d96'00298587 INVALID
+ ..
+
+(And it's not at all limited to
+just our pal T15 --
+
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(45568,71) = 0x822f'4c00'6e006152'74ba0d00 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(41984,71) = 0x0214'6000'6e006152'74ba0d00 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(45056,71) = 0x8514'0074'ba0d0000'74c70074 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(41472,71) = 0x6714'5e00'ba0d006e'47990074 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(21128,97) = 0x5614'495f'529d3f00'002e0061 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(39767,130) = 0x376e'2000'52b60053'00840061 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(44375,130) = 0x874c'1100'52b60053'00840061 INVALID
+    {132:42 1 5 194,71 ht ->} BH#0 T111 HAR@(54615,130) = 0x204c'2c00'52b60053'00840061 INVALID
+)
+
+So that's our next debugging
+challenge. The opening guess is
+a byte getting dropped or
+possibly duplicated between ACB
+packets, or possibly ACB packets
+getting handled out of order.
+
+:163]
+
+:162]
+[164:
+
+Fri Jul 31 13:31:58 2026 Are we
+capable of switching ACBs while
+extracting a single mARIO?[165:
+
+Fri Jul 31 13:48:35 2026 I think
+I want a bit of a rehack so
+that messages like this -
+
+    {132:42 1 5 101,241 ht ->} BH#0 T15 HAR@(69,55) = 0x3804'0000'00000000'00000007 GOOD
+
+- for example, will end up in
+at023.mfmk instead of hc000.mfmk
+as they are now.
+
+I think it's [just] a matter of
+generating the appropriate tag
+and calling a different logger.
+Too bad we can't ask the AI for
+details. [166:
+
+Fri Jul 31 13:54:15 2026 OK now
+ZHD has an mBHTag member, and
+the macro we want is
+KTprintf(key, <PRINTF ARGS>);
+
+:166]
+
+:165]
+
+:164]
+[167:
+
+Fri Jul 31 14:51:28 2026 OK, now
+I see that hb and h0 are both
+fucking with the DL2D list --
+
+    {20:135 43 0 2,3 hb !MEW@:(69,55)}
+    {14:158 43 0 2,3 hb mroo+:1}
+    {14:158 43 0 2,3 hb mroo+:2}
+ ..
+    {14:202 45 0 2,3 h0 mroo-:0}
+    {18:372 45 0 2,3 h0 RUM4NMO:0}
+
+and it looks inconsistent? We
+should've seen an mroo-:1 before
+seeing mroo-:0 there. Are we
+locking anything here?[168:
+
+Fri Jul 31 14:56:41 2026 Well,
+we are locking and the lock
+discipline at first look seems
+plausible. hb is doing
+pushFrontC's, which involves
+both _remove and insertion at
+front. h0 is doing popBackC,
+which involves _remove.
+
+Now is it really true there's no
+other way to insert except
+pushFrontC?
+
+:168]
+
+:167]
+[169:
+
+Sat Aug  1 13:20:47 2026 Going
+to just leave this here for now:
+
+     <LZI:3986 0x04
+     <LZI:3987 0x0d
+     <LZI:3988 0xaf
+     <LZI:3989 0x3d
+     <LZI:3990 0x00
+     <LZI:3991 0x87
+     <LZI:3992 0x04
+     <LZI:3993 0x0b
+     <LZI:3994 0x48
+     <LZI:3995 0x03
+     <LZI:3996 0x10
+     <LZI:3997 0x88
+     <LZI:3998 0xfd
+     <LZI:3999 0x88
+
+and
+
+     >LZO:3986 0x04}
+     >LZO:3987 0x0d}
+     >LZO:3988 0xaf}
+     >LZO:3989 0x3d}
+     >LZO:3990 0x00}
+     >LZO:3995 0x48}
+     >LZO:3996 0x03}
+     >LZO:3997 0x10}
+     >LZO:3998 0x88}
+     >LZO:3999 0xfd}
+     >LZO:41000 0x88}
+
+[170:
+
+Sat Aug  1 13:25:00 2026 Or
+let's line them up:
+
+     <LZI:3986 0x04      >LZO:3986 0x04}
+     <LZI:3987 0x0d      >LZO:3987 0x0d}
+     <LZI:3988 0xaf      >LZO:3988 0xaf}
+     <LZI:3989 0x3d      >LZO:3989 0x3d}
+     <LZI:3990 0x00      >LZO:3990 0x00}
+     <LZI:3991 0x87
+     <LZI:3992 0x04
+     <LZI:3993 0x0b
+     <LZI:3994 0x48
+     <LZI:3995 0x03      >LZO:3995 0x48}
+     <LZI:3996 0x10      >LZO:3996 0x03}
+     <LZI:3997 0x88      >LZO:3997 0x10}
+     <LZI:3998 0xfd      >LZO:3998 0x88}
+     <LZI:3999 0x88      >LZO:3999 0xfd}
+                         >LZO:41000 0x88}
+
+[171:
+
+Sat Aug  1 13:27:16 2026 And I
+suspect what's that's telling
+me, in a fractured and
+incomplete way, is that we are
+emitting one extra byte at the
+end of an ACB payload
+extraction, causing the 0x48
+that should be at stream
+position 994 to show up at
+position 995, and fucking up the
+decompression thereafter.
+
+And yes Thanks A Lot For The
+Missing Log Entries, Mr. Log
+'Non-Deterministic' LogBlock,
+CEO of Choke On It Logging
+Systems (COILS Inc).
+
+But still, that's both plausible
+and perhaps vaguely localizable,
+so that's A Help I Think.
+
+Let's review the ACB extraction
+iteration with this in mind..
+
+:171]
+
+:170]
+
+:169]
+[172:
+
+Sat Aug  1 13:50:51 2026 Another
+example:
+
+ <LZI:3990 0x88     >LZO:3990 0x88}
+ <LZI:3991 0x1b
+ <LZI:3992 0x43
+ <LZI:3993 0xd6
+ <LZI:3994 0x63     >LZO:3994 0xd6}
+ <LZI:3995 0x00     >LZO:3995 0x63}
+ <LZI:3996 0x89     >LZO:3996 0x00}
+ <LZI:3997 0x89     >LZO:3997 0x89}
+ <LZI:3998 0x2c     >LZO:3998 0x89}
+ <LZI:3999 0x07     >LZO:3999 0x2c}
+                    >LZO:41000 0x07}
+                    >LZO:41001 0x0d}
+                    >LZO:41002 0xc3}
+
+[173:
+
+Sat Aug  1 13:53:00 2026 Now, we
+think the problem is happening
+host-side (though we could still
+be wrong on that, maybe) and if
+so we ought to be able to watch
+the end/start of extraction in
+gdb, right?
+
+But, nap time.
+[174:
+
+Sat Aug  1 16:16:51 2026 Well,
+we might be able to see it with
+gdb, but the existence of, I
+think literally, 100s of threads
+makes it kind of non-obvious how
+to do so. At my level of gdb-fu,
+anyway.
+
+:174]
+:173]
+
+:172]
+[175:
+
+Sun Aug  2 00:37:21 2026 Another
+case:
+
+    {198:76 681 0 2,3 h1 >LO:3989 0x1d}
+    {198:76 681 0 2,3 h1 >LO:3990 0x33}
+    {23:41 681 0 2,3 h1 cBSBLK:0x0}  <<<byte 0x00 is next to go but car0 is full
+    {132:48 1 5 155,127 ht ->} #77 (76=76=76) HAR@(70,52) = 0x3804'0000'00000000'0000000b GOOD
+    {23:41 681 0 2,3 h1 cBSBLK:0x0}  <<<so we're blocked
+    {23:41 681 0 2,3 h1 cBSBLK:0x0}  <<<still blocked, 0x00 still waiting
+    {18:207 682 0 2,3 h0 keytest:1}
+    {18:208 682 0 2,3 h0 &acl1:0x164d0}
+    {18:224 682 0 2,3 h0 SHIPFRML:0}
+    {18:76 682 0 2,3 h0 mCurrentACacheBlock:0x168f0}
+    {18:77 682 0 2,3 h0 mCurrentCarIndex:1}
+    {18:78 682 0 2,3 h0 mBaseTicks:682}
+    {198:76 682 0 2,3 h1 >LO:3991 0x00} <<<0x00 finally ships.. or did it?
+    {198:76 682 0 2,3 h1 >LO:3992 0x89} <<<and this one will move up
+ ..
+    {132:85 1 5 155,127 ht ->} <LI:3989 0x1d
+    {132:48 1 5 155,127 ht ->} #137 (136=136=136) HAR@(65,52) = 0x3804'0000'00000000'0000000e GOOD
+    {132:85 1 5 155,127 ht ->} <LI:3990 0x33
+    {132:90 1 5 155,127 ht ->} ACB 0x7dc0795df000 DONE
+ ..
+    {132:111 1 5 155,127 ht ->} 2 ZHD ANUCAR car1 0x7dc0795df400 +990 0x0000 0B
+    {132:85 1 5 155,127 ht ->} <LI:3991 0x89 <<<and right here: where did 0x00 go?
+    {132:85 1 5 155,127 ht ->} <LI:3992 0x99
+
+
+:175]
+[176:
+
+Sun Aug  2 01:45:22 2026 Well I
+still don't have eyes-on the
+exact spot where the sequence is
+going wrong, not for lack of
+trying, but in large part for
+the fact that since by
+definition it falls between
+ACB packets that means Log
+packets get a chance to run and
+things (I guessssss) can get
+dropped. So when we pick up
+local logging we're already past
+the events we want to see.
+
+So I say now: Given all this
+staring at log files we've just
+been doing, let's take One More
+Look (TM) at the flows into the
+tail and out of the head of ACB
+packets. We still think this has
+to be a fencepost error of some
+kind in there somewhere..
+
+[177:
+
+Sun Aug  2 01:54:05 2026
+
+So, to begin our lineup of
+possible miscrents, let's
+consider
+ACacheBlockPrivateControl::tryToSendFrame
+which has all kinds of twisted
+code in it, ugly ugly.[178:
+
+Sun Aug  2 01:55:46 2026 And we
+note here that it is using the
+still-slightly-suspect
+'hasRoomForNMore' method, which
+we think could maybe have an
+off-by-one of its own within it.
+But we'd expect a FAIL later if
+so, so we'll see.[179:
+
+Sun Aug  2 01:59:07 2026 So how
+big, again, are the data RBs
+we're pushing the bytes through
+on the T6s?[180:
+
+Sun Aug  2 02:00:34 2026
+
+./shared/include/lzmfmx.h 19:  using LZBuf = RingBuffer<u8,6>; // 5 bits minimum so hasRoomForNMore(sizeof(AtomReport)) is safe
+
+so (lsh 1 6)==64, so we've gone
+past that many times before
+getting to 990.. So maybe we let
+slimy old tryToSendFrame sleaze
+by once again, and move down the
+lineup?[181:
+
+Sun Aug  2 02:07:10 2026
+compressedByteSink does
+
+    ACacheBlockL1Control & acbl1 = *(ACacheBlockL1Control*) context;
+    bool ret = acbl1.writeByteToCurrentACB(byte);
+
+and if ret returns false,
+lzmfmx::putNextByteBlocking will
+keep calling it until it returns
+true.
+
+And writeByteToCurrentACB does
+
+    ACacheBlockPayload & pay = acb.payload();
+..  bool ret = pay.addByte(byte);
+
+which does in part
+
+    bool addByte(u8 byte) {
+..
+      mCData[getCurrentLength()] = byte;
+      mFlagsAndLen++; // "len can't overflow into flags"
+      return true;
+
+which still does seem plausible
+enough.
+
+I want to jump ahead to the
+pulling out part..[182:
+
+Sun Aug  2 02:14:24 2026 So hmm
+we note here that there is no
+removeByte(..) analog to that
+addByte(..) method. There is
+instead (just?)
+
+    u8 getByteOrDie(u32 index) const {
+      MFM_API_ASSERT(index < getCurrentLength(),ILLEGAL_ARGUMENT);
+      return mCData[index];
+    }
+
+which, we note, does not modify
+index. So the order of reading
+out of an ACacheBlockPayload is
+entirely determined by the
+caller(s).
+
+Werry werry suspwishus.[183:
+
+Sun Aug  2 02:25:25 2026 Aand
+the ONLY (?) caller is:
+
+./host/src/ZHostDecompressor.cpp 85:        u8 byte = pay.getByteOrDie(mCurrentBytesRead++);
+
+which boldly increments
+mCurrentBytesRead as part of the
+call. But that is supposed to be
+fully licensed by the 'OrDie' in
+the method name, right?[184:
+
+Sun Aug  2 02:28:17 2026 And we
+note, in particular, that after
+end-of-packet, we don't reset
+mCurrentBytesRead until we did a
+remove from the ACB ring AND the
+removed values .second is
+non-null. I wonder, even though
+it makes no sense, if doing
+
+  mCurrentBytesRead = 0;
+
+earlier could make any
+difference. That proposal really
+does make no sense that I can
+see, though..[185:
+
+Sun Aug  2 02:37:31 2026 DOH!
+THAT IMPROVED THINGS A LOT.....
+BUT DIDN'T COMPLETELY FIX THEM!
+
+So the situation now is: We
+match on 990 and beyond
+
+    {198:76 568 0 2,3 h1 >LO:3990 0x88}
+    {18:59 568 0 2,3 h1 WBC>:r1 u1 0x88}
+    {198:76 568 0 2,3 h1 >LO:3991 0x88}
+    {198:194 568 0 2,3 h1 lzwrt:0xc}
+    {20:135 578 0 2,3 hb !MEW@:(69,50)}
+    {20:135 578 0 2,3 hb !MEW@:(71,56)}
+    {18:415 579 0 2,3 h0 PAKOUT:3}
+    {18:59 579 0 2,3 h1 WBC>:r1 u2 0xec}
+    {198:76 579 0 2,3 h1 >LO:3992 0xec}
+    {198:76 579 0 2,3 h1 >LO:3993 0x90}
+    {198:76 579 0 2,3 h1 >LO:3994 0x0b}
+..
+    {132:113 1 5 42,20 ht ->} 2 ZHD ANUCAR car1 0x71a53d5df400 +990 0x0000 0B
+    {132:86 1 5 42,20 ht ->} <LI:3990 @0 0x88
+    {132:86 1 5 42,20 ht ->} <LI:3991 @1 0x88
+    {132:86 1 5 42,20 ht ->} <LI:3992 @2 0xec
+    {132:86 1 5 42,20 ht ->} <LI:3993 @3 0x90
+    {132:86 1 5 42,20 ht ->} <LI:3994 @4 0x0b
+    {132:48 1 5 42,20 ht ->} #137 (136=136=136) HAR@(68,50) = 0x3804'0000'00000000'00000011 GOOD
+    {132:48 1 5 42,20 ht ->} #138 (137=137=137) HAR@(75,58) = 0x3804'0000'00000000'0000000e GOOD
+
+which, yay, super-great, yes.
+But then we STILL LOSE IT later:
+
+    {132:48 1 5 42,20 ht ->} #348 (91=91=91) HAR@(74,53) = 0x3804'0000'00000000'00000015 GOOD
+    {18:59 1343 0 2,3 h1 WBC>:r1 u0 0x85}
+    {198:76 1343 0 2,3 h1 >LO:42970 0x85}
+    {18:59 1343 0 2,3 h1 WBC>:r1 u0 0xfc}
+    {198:76 1343 0 2,3 h1 >LO:42971 0xfc}
+    {18:59 1343 0 2,3 h1 WBC>:r1 u1 0x07}
+    {198:76 1343 0 2,3 h1 >LO:42972 0x07}
+    {18:59 1343 0 2,3 h1 WBC>:r1 u2 0x0d}
+    {198:76 1343 0 2,3 h1 >LO:42973 0x0d}
+    {198:76 1343 0 2,3 h1 >LO:42974 0x57}
+    {198:76 1343 0 2,3 h1 >LO:42975 0x12}
+ ..
+    {132:86 1 5 42,20 ht ->} <LI:42969 @989 0x85
+    {132:91 1 5 42,20 ht ->} ACB 0x71a53d5df800 DONE
+    {132:94 1 5 42,20 ht ->} ZBSOURCE T15 +990B (2970) RETURNING car2 0x71a53d5df800
+    {132:97 1 5 42,20 ht ->} ZBSOURCE T15 RETURNED car2 0x71a53d5df800
+    {124:786 1 5 77,20 ht ->} ACB@H<>S 0x71a53d5df800+0 0x00016de0
+ ..
+    {132:113 1 5 42,20 ht ->} 4 ZHD ANUCAR car0 0x71a53d5df000 +990 0x0000 0B
+    {132:86 1 5 42,20 ht ->} <LI:42970 @0 0xfc
+    {132:86 1 5 42,20 ht ->} <LI:42971 @1 0x07
+    {132:86 1 5 42,20 ht ->} <LI:42972 @2 0x0d
+    {132:48 1 5 42,20 ht ->} #390 (133=133=252 XXX) HAR@(66,50) = 0x3804'0000'00000000'0000001b GOOD
+    {132:86 1 5 42,20 ht ->} <LI:42973 @3 0x57
+    {132:86 1 5 42,20 ht ->} <LI:42974 @4 0x12
+    {132:48 1 5 42,20 ht ->} #391 (134=0=0 XXX) HAR@(32768,87) = 0x0000'0000'00001300'3b004b00 GOOD
+    {132:48 1 5 42,20 ht ->} #392 (135=0=0 XXX) HAR@(0,0) = 0x0000'7b00'00000000'00000000 GOOD
+    {132:48 1 5 42,20 ht ->} #393 (136=57=0 XXX) HAR@(0,68) = 0x0035'0000'00000000'00000000 INVALID
+
+[186:
+
+Sun Aug  2 02:49:44 2026 We note
+that in this case, it fucked up
+the first time we returned to
+car0. Before it used to fuck up
+when we went from car0 to car1.
+
+Which all makes it smell like a
+host-side race to me.. which I
+wasn't really considering, given
+how racy the T6 stuff has tended
+to be.
+[187:
+
+Sun Aug  2 02:52:42 2026 HMMMM.
+
+Couldn't this:
+
+    #ifndef BUILD_HOST
+          // ensure new item store is complete
+          writeCommitL1(&mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK], item);
+          ++mFirstFreeIdx;          // before incrementing the pointer
+    #else      
+          mRingBuffer[mFirstFreeIdx++ & RING_BUFFER_MASK] = item;
+    #endif
+
+be racy if BUILD_HOST is
+defined????
+
+COULDN'T the index increment hit
+before item is read?
+
+COULDN'T another thread then see
+the buffer as non-empty, and so
+read from it, before the item
+store has committed?
+
+This is in fucking RingBuffer.h!
+COULDN'T that could affect all
+kinds of host-side shit?
+
+Changing it to:
+
+    bool add(T item) {
+      if (isFull()) return false;
+#ifndef BUILD_HOST
+      // ensure new item store is complete
+      writeCommitL1(&mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK], item);
+#else      
+      // or at least have a sequence point, host-side.
+      mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK] = item;
+#endif
+      ++mFirstFreeIdx;          // before incrementing the pointer
+      return true;
+    }
+
+NOW LET'S SEE WHAT'S WHAT.
+[188:
+
+Sun Aug  2 03:14:59 2026 Well,
+so here's where we are now:
+
+ - THAT DIDN'T FIX IT
+
+ - But! I saw that the
+   remove(..) method had the
+   same problem host-side and
+   needed the same fix.
+
+ - BUT THAT DIDN'T FIX IT EITHER 
+
+ - GAAAAAAAAAAAAAH
+
+[189:
+
+Sun Aug  2 03:18:56 2026 And
+basically the only other thing
+in RingBuffer is the ever-sus
+
+    bool hasRoomForNMore(u32 n) const {
+      if (n >= RING_BUFFER_SIZE/2) return false; // SHOULD FAIL INSTEAD
+      if (unlikely(mFirstFreeIdx >= U32_MAX-n)) {
+        u32 lim = mFirstUsedIdx & RING_BUFFER_MASK;
+        for (u32 i = 1u; i <= n; ++i)
+          if (((mFirstFreeIdx + i) & RING_BUFFER_MASK) == lim)
+            return false;
+        return true;
+      }
+      return mFirstFreeIdx - mFirstUsedIdx < RING_BUFFER_SIZE - n ;
+    }
+
+method. Which is also gross,
+with the fucking loop and all.
+Who's using this abomination,
+anyway?[190:
+
+Sun Aug  2 03:22:17 2026 It
+appears it's only being used
+T6-side, hmm.
+
+Aand I'd think we could write it
+out if we were willing to have
+an mAtomReport data member
+instead of a AtomReport local.
+
+And I can't think of any other
+plausible moves at this
+point.[191:
+
+Sun Aug  2 03:29:57 2026 Trying
+that. It seems like we don't
+even need an mAtomReport, given
+that we already have mARIO,
+which holds an AtomReport and
+remembers how far through it it
+is.
+
+We [just] have to reorganize the
+code.
+
+So it becomes a byte-oriented
+loop instead of object/AR.
+
+while (!l1dLZBytesIn.isFull()) ..
+[192:
+
+Sun Aug  2 07:52:42 2026 OK,
+made a cut at that. In this
+first test, things still aren't
+working: Now it's busted almost
+right off the bat. Here's the
+beginning of the extraction:
+
+    {132:112 1 5 188,4 ht ->} 1 ZHD ANUCAR car0 0x7fd1673df000 +990 0x0000 0B
+    {132:86 1 5 188,4 ht ->} <LI:00 @0 0x58
+    {132:86 1 5 188,4 ht ->} <LI:11 @1 0x38
+    {132:86 1 5 188,4 ht ->} <LI:12 @2 0x1f
+    {132:34 1 5 188,4 ht ->} AT ZBSink 0x64e6c6be5600 1/0 = 0.0%  infx
+    {132:86 1 5 188,4 ht ->} <LI:13 @3 0x5b
+    {132:86 1 5 188,4 ht ->} <LI:14 @4 0x1f
+    {132:48 1 5 188,4 ht ->} #1 (0=0=0) HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:48 1 5 188,4 ht ->} #2 (1=0=0 XXX) HAR@(0,0) = 0x0000'0000'00000000'00000000 GOOD
+    {132:48 1 5 188,4 ht ->} #3 (2=0=0 XXX) HAR@(69,54) = 0x3804'0000'00000000'00000003 GOOD
+    {132:48 1 5 188,4 ht ->} #4 (3=1=1 XXX) HAR@(70,54) = 0x3804'0000'00000000'00000003 GOOD
+    {132:48 1 5 188,4 ht ->} #5 (4=2=2 XXX) HAR@(69,56) = 0x3804'0000'00000000'00000005 GOOD
+    {132:48 1 5 188,4 ht ->} #6 (5=3=3 XXX) HAR@(69,57) = 0x3804'0000'00000000'00000006 GOOD
+    {132:48 1 5 188,4 ht ->} #7 (6=4=4 XXX) HAR@(68,57) = 0x3804'0000'00000000'00000007 GOOD
+
+The first couple AtomReports
+look wrong - as if mARIO had
+been improperly initialized,
+maybe - but the #3+ arcs and
+atoms look believable, and the
+spinners are just behind by
+two.. 
+
+FWIW, here's some of the
+transition from first to second
+ACB:
+
+    {198:76 910 0 2,3 h1 >LO:3987 0x7c}
+    {18:59 910 0 2,3 h1 WBC>:r1 u988 0xe0}
+    {198:76 910 0 2,3 h1 >LO:3988 0xe0}
+    {18:59 910 0 2,3 h1 WBC>:r1 u989 0x0d}
+    {198:76 910 0 2,3 h1 >LO:3989 0x0d}
+    {18:58 910 0 2,3 h1 sWBC>:r0 u990 0x38}
+    {23:41 910 0 2,3 h1 cBSBLK:0x38}
+    {18:58 910 0 2,3 h1 sWBC>:r0 u990 0x38}
+    {23:41 910 0 2,3 h1 cBSBLK:0x38}
+    {23:41 910 0 2,3 h1 cBSBLK:0x38}
+    {18:216 911 0 2,3 h0 keytest:1}
+    {18:217 911 0 2,3 h0 &acl1:0x162f0}
+    {18:233 911 0 2,3 h0 SHIPFRML:0}
+    {18:85 911 0 2,3 h0 mCurrentACacheBlock:0x16710}
+    {18:86 911 0 2,3 h0 mCurrentCarIndex:1}
+    {18:87 911 0 2,3 h0 mBaseTicks:911}
+    {18:59 911 0 2,3 h1 WBC>:r1 u0 0x38}
+    {198:76 911 0 2,3 h1 >LO:3990 0x38}
+    {18:59 911 0 2,3 h1 WBC>:r1 u0 0x00}
+    {198:76 911 0 2,3 h1 >LO:3991 0x00}
+    {18:59 911 0 2,3 h1 WBC>:r1 u1 0x7d}
+    {198:76 911 0 2,3 h1 >LO:3992 0x7d}
+    {18:59 911 0 2,3 h1 WBC>:r1 u2 0x7d}
+    {198:76 911 0 2,3 h1 >LO:3993 0x7d}
+    {198:76 911 0 2,3 h1 >LO:3994 0xb8}
+    {198:76 911 0 2,3 h1 >LO:3995 0x0b}
+    {198:76 911 0 2,3 h1 >LO:3996 0x44}
+
+
+
+:192]
+:191]
+
+:190]
+
+:189]
+
+:188]
+:187]
+:186]
+
+
+:185]
+
+ 
+
+:184]
+
+:183]
+
+:182]
+
+:181]
+
+:180]
+
+:179]
+
+:178]
+
+:177]
+:176]
+[193:
+
+Sun Aug  2 08:15:31 2026 OK, so
+one little problem with this new
+scheme is that ATM AtomReportIO
+has no way of distinguishing
+'ready to start getting bytes'
+from 'have no object to get
+bytes from'. But I'd think we
+could use an illegal value for
+'s32 mPos' to signal that?
+[194:
+
+Sun Aug  2 13:13:46 2026 Still
+fucked up; trying not too flail
+too hard. Currently seeing:
+
+    {18:60 803 0 2,3 h1 ARCB::#989 0x0b}
+    {18:60 803 0 2,3 h1 ARCB::#990 0x38}
+ .. {18:396 803 0 2,3 h0 PKOUT:133}
+    {18:87 804 0 2,3 h0 mCurrentCarIndex:1}
+    {18:88 804 0 2,3 h0 mBaseTicks:804}
+    {18:60 804 0 2,3 h1 ARCB::#991 0x00}
+    {18:359 804 0 2,3 h0 PAKLEN:63}
+    {18:396 804 0 2,3 h0 PKOUT:0}
+    {18:60 804 0 2,3 h1 ARCB::#992 0x73}
+    {18:60 804 0 2,3 h1 ARCB::#993 0xd1}
+    {132:116 1 5 8,249 ht ->} 1 ZHD ANUCAR car0 0x7421ea8df000 +990 0x0000 0B
+ ..
+    {132:91 1 5 8,249 ht ->} HRCB:#989 0x0b
+    {132:91 1 5 8,249 ht ->} HRCB:#990 0x38
+    {132:96 1 5 8,249 ht ->} ACB 0x7421ea8df000 DONE
+    {132:98 1 5 8,249 ht ->} ZBSOURCE T15 +990B (990) RETURNING car0 0x7421ea8df000
+    {132:101 1 5 8,249 ht ->} ZBSOURCE T15 RETURNED car0 0x7421ea8df000
+    {124:786 1 5 43,249 ht ->} ACB@H<>S 0x7421ea8df000+0 0x000162a0
+ ..
+    {132:116 1 5 8,249 ht ->} 2 ZHD ANUCAR car1 0x7421ea8df400 +990 0x0000 0B
+    {132:91 1 5 8,249 ht ->} HRCB:#991 0x73
+    {132:91 1 5 8,249 ht ->} HRCB:#992 0xd1
+    {132:91 1 5 8,249 ht ->} HRCB:#993 0x00
+    {132:91 1 5 8,249 ht ->} HRCB:#994 0x22
+    {132:50 1 5 8,249 ht ->} #116 (115=209=17664 XXX) HAR@(70,29496) = 0x3804'0000'00000000'0000000c INVALID GOOD
+
+and the should've-had
+
+    HRCB:#991 0x00
+
+is missing, and the subsequent
+bytes (ARCB#992 0x73, ARCB#993
+0xd1) are slipped forwards
+(becoming HRCB:#991 0x73,
+HRCB:#992 0xd1) so we're fucked.
+[195:
+
+Sun Aug  2 13:21:23 2026 Now, in
+this case I do see:
+
+    {18:359 804 0 2,3 h0 PAKLEN:63}
+
+which is a bit suspicious
+because that's coming from
+
+          LOGPTAG(PAKLEN,l1dLZBytesIn.lengthish());
+
+and l1dLZBytesIn is an LZBuf,
+which is:
+
+    ./shared/include/lzmfmx.h 19:  using LZBuf = RingBuffer<u8,6>; // 5 bits minimum so hasRoomForNMore(sizeof(AtomReport)) is safe
+
+and (lsh 1 6)==64, so we are
+either close or at ringbuffer
+full. Could we lose a byte (even
+if just potentially/racily?)
+when that happens?
+[196:
+
+Sun Aug  2 13:24:50 2026 We
+have:
+
+    u32 lengthish() const {
+      return mFirstFreeIdx - mFirstUsedIdx;
+    }
+
+and
+
+    bool isFull() const {
+      return
+        ((mFirstFreeIdx + 1u) & RING_BUFFER_MASK) ==
+        (mFirstUsedIdx & RING_BUFFER_MASK);
+    }
+
+and if, say,
+
+ mFirstFreeIdx == 63 and
+ mFirstUsedIdx == 0
+
+that gives us lengthish == 63
+and isFull == true.
+
+[197:
+
+Sun Aug  2 13:26:57 2026 I'm not
+really convinced PAKLEN 63 is
+significant, though, since
+that's LZBuf-indexed when the
+fuckup seems to be ACB-indexed.
+Let's try another one with
+nothing changed.
+[198:
+
+Sun Aug  2 13:29:14 2026 OK,
+well this time I don't see a 63
+until quite a bit later:
+
+    {18:88 1704 0 2,3 h0 mBaseTicks:1704}
+    {18:359 1704 0 2,3 h0 PAKLEN:63}
+    {18:396 1704 0 2,3 h0 PKOUT:0}
+    {18:60 1704 0 2,3 h1 ARCB::#2973 0xbf}
+    {18:60 1704 0 2,3 h1 ARCB::#2974 0x00}
+    {18:60 1704 0 2,3 h1 ARCB::#2975 0x4c}
+
+..that can't suggest we're going
+to be remaining GOOD longer this
+time - like three ACBs,
+maybe?[199:
+
+Sun Aug  2 13:30:49 2026 No, I
+don't think so:
+
+    {132:91 1 5 186,75 ht ->} HRCB:#989 0x72
+    {132:91 1 5 186,75 ht ->} HRCB:#990 0xbd
+    {132:96 1 5 186,75 ht ->} ACB 0x74a0e05df000 DONE
+    {132:98 1 5 186,75 ht ->} ZBSOURCE T15 +990B (990) RETURNING car0 0x74a0e05df000
+ ..
+    {132:116 1 5 186,75 ht ->} 2 ZHD ANUCAR car1 0x74a0e05df400 +990 0x0000 0B
+    {132:91 1 5 186,75 ht ->} HRCB:#991 0xf2
+    {132:50 1 5 186,75 ht ->} #115 (114=114=67 XXX) HAR@(69,53) = 0x3804'0000'00000000'00000010 INVALID GOOD
+    {132:91 1 5 186,75 ht ->} HRCB:#992 0x0b
+
+in the second car, where once
+again the match for
+
+    {18:60 805 0 2,3 h1 ARCB::#991 0x00}
+
+is missing. So let's let
+PAKLEN:63 slide for now.[200:
+
+Sun Aug  2 13:35:59 2026 OK, now
+we're going to ask if
+ZHD::mCurrentBytesRead (the
+count of bytes read from the
+current ACB) seems incremented
+or not when the missing byte is
+missed (assuming it still is.)
+[201:
+
+Sun Aug  2 13:40:57 2026 Arrgh
+the logging missed ARCB:#990
+that time. Going again.[202:
+
+Sun Aug  2 13:42:20 2026 Nope,
+missed it again. "Now
+rejiggering print statements,
+gah."
+[203:
+
+Sun Aug  2 14:31:23 2026 OK,
+well, this sequence:
+
+    {18:62 903 0 2,3 h1 ARCB:#989 0x0e}
+    {23:41 903 0 2,3 h1 cBSBLK:0x9} <- output blocked, byte 0x09 waiting
+    {23:41 903 0 2,3 h1 cBSBLK:0x9}
+    {23:41 903 0 2,3 h1 cBSBLK:0x9}
+    {18:398 903 0 2,3 h0 PKOUT:373}
+    {18:219 905 0 2,3 h0 keytest:1}
+    {18:220 905 0 2,3 h0 &acl1:0x16220}
+    {18:236 905 0 2,3 h0 SHIPFRML:0}
+    {132:51 1 5 13,4 ht ->} #2 (1=1=1) HAR@(69,53) GOOD
+    {18:88 905 0 2,3 h0 mCurrentACacheBlock:0x16640}
+    {18:89 905 0 2,3 h0 mCurrentCarIndex:1} <- new ACB set up
+    {18:90 905 0 2,3 h0 mBaseTicks:905}
+    {18:62 905 0 2,3 h1 ARCB:#990 0x09} <- byte 0x09 stored in new one (?)
+
+plus this one
+
+    {132:51 1 5 13,4 ht ->} #117 (116=116=116) HAR@(70,56) GOOD
+    {132:94 1 5 13,4 ht ->} HRCB:#989 0x0e 989/990 
+    {132:103 1 5 13,4 ht ->} ACB 0x7bcb1d4df000 DONE <- ACB runs out
+    {132:107 1 5 13,4 ht ->} Last of old: #989 = 0x0e  <- last spot of it matches above
+    {132:111 1 5 13,4 ht ->} ZBSOURCE T15 +990B (990) RETURNING car0 0x7bcb1d4df000
+    {132:114 1 5 13,4 ht ->} ZBSOURCE T15 RETURNED car0 0x7bcb1d4df000
+    {124:786 1 5 48,4 ht ->} ACB@H<>S 0x7bcb1d4df000+0 0x00016240
+    {132:129 1 5 13,4 ht ->} 2 ZHD ANUCAR car1 0x7bcb1d4df400 +990 0x0000 0B
+    {132:142 1 5 13,4 ht ->} First of new: #989 = 0x21 <- byte 0x09 not here.
+    {132:94 1 5 13,4 ht ->} HRCB:#990 0x42 0/990
+    {132:94 1 5 13,4 ht ->} HRCB:#991 0x7f 1/990
+    {132:94 1 5 13,4 ht ->} HRCB:#992 0x00 2/990
+
+[204:
+
+Sun Aug  2 14:34:54 2026 Also:
+Why is first of new '#989'
+instead of '#990'? Is that a
+genuine thing?
+[205:
+
+Sun Aug  2 14:37:22 2026 No that
+was a stupid bug. Going
+again.[206:
+
+Sun Aug  2 14:42:03 2026 Now
+it's #990, but the question
+remains.
+
+T6 side:
+    {18:62 803 0 2,3 h1 ARCB:#988 0x19}
+    {18:62 803 0 2,3 h1 ARCB:#989 0x4a}
+    {23:41 803 0 2,3 h1 cBSBLK:0xd7}
+ .. {18:62 804 0 2,3 h1 ARCB:#990 0xd7}
+    {18:398 804 0 2,3 h0 PKOUT:0}
+    {18:62 804 0 2,3 h1 ARCB:#991 0x00}
+    {18:62 804 0 2,3 h1 ARCB:#992 0x72}
+    {18:62 804 0 2,3 h1 ARCB:#993 0x48}
+
+Host side:
+    {132:94 1 5 164,27 ht ->} HRCB:#988 0x19 988/990
+    {132:94 1 5 164,27 ht ->} HRCB:#989 0x4a 989/990
+    {132:103 1 5 164,27 ht ->} ACB 0x70d3507df000 DONE
+    {132:107 1 5 164,27 ht ->} Last of old: #989 = 0x4a
+ .. {132:129 1 5 164,27 ht ->} 2 ZHD ANUCAR car1 0x70d3507df400 +990 0x0000 0B
+    {132:142 1 5 164,27 ht ->} First of new: @0/990 = 0x00
+    {132:94 1 5 164,27 ht ->} HRCB:#990 0x00 0/990
+    {132:94 1 5 164,27 ht ->} HRCB:#991 0x72 1/990
+
+and where the fuck is the d7?
+[207:
+
+Sun Aug  2 14:51:11 2026 Hey
+lookee here:
+
+    {18:62 804 0 2,3 h1 ARCB:#990 @0 0x00}
+    {132:94 1 5 1,68 ht ->} HRCB:#15 0x47 15/990
+    {18:398 804 0 2,3 h0 PKOUT:0}
+    {18:62 804 0 2,3 h1 ARCB:#991 @0 0x72}
+
+on the T6 side, it looks like
+byte #990 and #991 are both
+going into index @0 of the new
+packet. That could account for
+some shit eh what?
+
+Let's see if we think those
+reports are actually true.
+[208:
+
+Sun Aug  2 15:10:57 2026 Well, I
+made
+
+  bool ACacheBlockL1Control::readyToClose() 
+  bool ACacheBlockL1Control::writeByteToCurrentACB(u8 byte) 
+  void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) 
+
+all take the lock with
+
+    AtomicScopeLock guard(mLock);
+
+which they weren't doing, and
+now in the first test I'm not
+seeing any INVALIDs? Do I dare
+believe??
+
+Starting a longer run.[209:
+
+Sun Aug  2 15:16:20 2026 Hot
+damn. Still looking clean, after
+what,
+
+    {132:94 1 5 127,141 ht ->} HRCB:#1352340 0xeb 0/990
+
+1.3MB of compressed data
+handled?
+
+[210:
+
+Sun Aug  2 15:17:30 2026 Now
+
+    {132:94 1 5 127,141 ht ->} HRCB:#2016629 0x06 989/990
+    {132:51 1 5 127,141 ht ->} #199676 (3067=3067=3067) HAR@(80,39) GOOD
+
+[211:
+
+
+Sun Aug  2 15:21:28 2026 Now
+4MB, with no INVALID or XXX
+anywhere in the log. 
+
+    {132:94 1 5 127,141 ht ->} HRCB:#4142159 0x12 989/990
+
+[212:
+
+Sun Aug  2 15:36:13 2026 Now
+12MB. May be time to believe.
+
+    {132:94 1 5 127,141 ht ->} HRCB:#12444319 0x5f 19/990
+    {132:51 1 5 127,141 ht ->} #1207927 (28278=28278=28278) HAR@(134,47) GOOD
+[225:
+
+Sun Aug  2 16:23:41 2026 (still
+running, 3.7M ARs, 39MB
+compressed..
+(/ 39053515 3756091.0)==~10.40B/AR?
+That's not so great given a 12B
+atom, but we're sending a 4B of
+offset and now 4B of redundant
+sequence #s also, so (/ 10.40
+20.0 .01)==52.0% reduced by not
+quite half..
+
+    {132:51 1 5 127,141 ht ->} #3756091 (20538=20538=20538) HAR@(90,27) GOOD
+    {132:94 1 5 127,141 ht ->} HRCB:#39053515 0x93 985/990
+    {132:94 1 5 127,141 ht ->} HRCB:#39053516 0xbe 986/990
+
+[226:
+
+Sun Aug  2 16:44:56 2026 OK,
+shut down that run since we have
+some new code to try. Ended up
+around
+
+    {132:51 1 5 127,141 ht ->} #4906758 (57093=57093=57093) HAR@(96,82) GOOD
+    {132:94 1 5 127,141 ht ->} HRCB:#51145378 0x51 988/990
+    {132:94 1 5 127,141 ht ->} HRCB:#51145379 0x00 989/990
+
+almost 5M AtomReports in 51MB
+compressed.. 
+
+:226]
+)
+
+:225]
+[213:
+
+Sun Aug  2 15:38:57 2026 OK.
+Let's think about moving on.
+What can I claim fucking finally
+here? 
+
+:213]
+:212]
+:211]
+
+:210]
+
+:209]
+
+:208]
+:207]
+:206]
+
+:205]
+:204]
+
+:203]
+
+:202]
+
+:201]
+:200]
+
+:199]
+
+:198]
+:197]
+:196]
+:195]
+:194]
+
+:193]
+[223:
+
+Sun Aug  2 15:41:48 2026 OK
+well, claimed stuff, but it's
+mostly the older stuff. The main
+event - writing colors to the
+BGRImage - is still ahead of us,
+after being posted to-do way
+back in :134: above.
+[224:
+
+Sun Aug  2 15:44:26 2026 So,
+mini-TODO for now:
+
+[228: Sun Aug  2 16:59:38 2026
+DONE :228] - Review current AtomReports
+   handling.
+
+[229: DONE  :229] - Review BGRImage drawing.
+
+[230: DONE  :230] - Make first cut at deriving
+   colors from atoms and writing
+   them at the correct offsets.
+
+[231: DONE  :231] - Get that building.
+
+[232: DONE  :232] - See what happens.
+
+[233: Sun Aug  2 17:00:03 2026
+DONE! :233] - Report back here.
+
+:224]
+:223]
+[227:
+
+Sun Aug  2 16:58:52 2026 I think
+we're seeing AtomReports
+displayed on the livestream.
+
+Might be wrong..
+But I don't think so.
+Stop the clock.
+
+:227]
+[238:
+
+Sun Aug  2 18:42:56 2026 OK.
+Let's take a quick look at
+top-level things to maybe speed
+this all up a little bit. Things
+like:
+
+[239: Sun Aug  2 18:48:37 2026
+DONE :239] - Are we currently
+   slow-scanning? Ditch it.
+
+[240: At 5fps, leaving it, so
+DONE :240] - What FPS are we advertising?
+   Switch to maybe 4FPS?
+
+ - Turn the per-byte logging
+   down to like EACH 100'000 or
+   whatever.
+
+ - See what all that looks
+   like.. 
+
+:238]
+[241:
+
+Mon Aug  3 00:53:15 2026 OK so
+we absolutely must modify our
+ffmpeg graph so we start dumping
+local (meaning roses-bh) copies
+of the streams automatically.
+
+Let's do that right away. 
+
+:241]
+[242:
+
+Mon Aug  3 07:40:31 2026 OK, so
+we are saving the .flv stream
+locally on roses-bh. And we're
+talking over 10G/hour to store
+it, at present.
+
+Anyway: Gigantic, Stupendous,
+Astounding Progress. Good Dave
+Good!
+
+Time to reboot the workstation
+and switch (very very late!) to
+T2sday production!
+[243:
+
+Mon Aug  3 09:36:38 2026 OK,
+we're rebooted and obs and
+streamdacker are configured to
+know about current [VIDSRV]
+scaling and so on..
+
+:243]
+
+:242]
+[244:
+
+Sat Aug  8 02:44:30 2026 OK,
+I've apt upgraded roses-bh and
+rebooted here for the first time
+in a month or two I think, and I
+think it's time to (1) push to a
+new spike and (2) start a new
+notes file.
+
+[245:
+
+Sat Aug  8 02:46:09 2026
+Continuing in
+202608080245-interhub-notes.txt.
+
+:245]
+
+:244]
