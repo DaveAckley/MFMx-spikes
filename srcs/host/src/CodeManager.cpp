@@ -769,7 +769,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 #endif
 
   std::string CodeManager::getFIDLIfAny(const char * imageName, u32 codeByteAddr, std::string * optfuncptr) {
-    const std::string script_path = std::string(SPIKE_DIR)+"/notes/pc3FIDLs.pl";
+    const std::string script_path = std::string(SPIKE_DIR)+"/scripts/pc3FIDLs.pl";
     char buf[11];
     std::snprintf(buf,sizeof(buf),"0x%06x",codeByteAddr);
     std::string cmd = script_path
@@ -876,7 +876,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     u32 pcSnapshots[SNAPSHOTS][5];
     for (u32 i = 0;i < SNAPSHOTS; ++i) 
       mOurTLBs.readPCSnapshots(nocc, pcSnapshots[i]);
-    std::string script_path = std::string(SPIKE_DIR)+"/notes/pc3FIDLs.pl";
+    std::string script_path = std::string(SPIKE_DIR)+"/scripts/pc3FIDLs.pl";
     std::string image_name = t6i.getName();
     for (u32 hart = HARTNUM_B; hart <= HARTNUM_NC; ++hart) {
       for (u32 i = 0; i < SNAPSHOTS; ++i) {
