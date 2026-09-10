@@ -106,7 +106,7 @@ mkdir -p "${WHEELS_DIR}"
 "${PYTHON}" -m pip install ${CMAKE_VERBOSITY} --no-deps --find-links="${WHEELS_DIR}" .
 
 if [ $? ]; then
-    TRIGGER_FILE="/data/ackley/PART4/code/D/blackholeSpikes/BUILT.new"
+    TRIGGER_FILE="/tmp/MFMx-spikes-BUILT.new"
     touch "${TRIGGER_FILE}"
     echo "RELEASE THE HOUNDS"
 else

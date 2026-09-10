@@ -769,11 +769,10 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 #endif
 
   std::string CodeManager::getFIDLIfAny(const char * imageName, u32 codeByteAddr, std::string * optfuncptr) {
-    const std::string script_path = std::string(SPIKE_DIR)+"/../../notes/pc2FIDLs.pl";
+    const std::string script_path = std::string(SPIKE_DIR)+"/notes/pc3FIDLs.pl";
     char buf[11];
     std::snprintf(buf,sizeof(buf),"0x%06x",codeByteAddr);
     std::string cmd = script_path
-      + " " + SPIKE_NAME
       + " " + imageName
       + " " + buf;
     std::string fidlfunc = execShellCmd(cmd);
@@ -877,15 +876,13 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     u32 pcSnapshots[SNAPSHOTS][5];
     for (u32 i = 0;i < SNAPSHOTS; ++i) 
       mOurTLBs.readPCSnapshots(nocc, pcSnapshots[i]);
-    std::string script_path = std::string(SPIKE_DIR)+"/../../notes/pc2FIDLs.pl";
-    std::string spike_name = SPIKE_NAME;
+    std::string script_path = std::string(SPIKE_DIR)+"/notes/pc3FIDLs.pl";
     std::string image_name = t6i.getName();
     for (u32 hart = HARTNUM_B; hart <= HARTNUM_NC; ++hart) {
       for (u32 i = 0; i < SNAPSHOTS; ++i) {
         char buf[11];
         std::snprintf(buf,sizeof(buf),"0x%06x",pcSnapshots[i][hart]);
         std::string cmd = script_path
-          + " " + spike_name
           + " " + image_name
           + " " + buf;
         std::string fidlfunc = execShellCmd(cmd);
@@ -998,36 +995,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
                 }
               }
             }
-          } else if (false) {
-            /*
-            Eprintf("%.03f %s[%s] %s NOFID@0x%08x -> 0x%08x = FAIL%d:%s\n",
-                    runTimeSeconds(),
-                    BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
-                    t6i.getName().c_str(),
-                    hartName(hart),
-                    pcSnapshots[hart],
-                    hb.mPerHartWatchdog[hart],
-                    hb.mPerHartStatus[hart],
-                    getFailCodeString((FAILCode) hb.mPerHartStatus[hart])
-                    );
-            */
-            const char * script = "/data/ackley/PART4/code/D/blackholeSpikes/notes/pc2FIDLs.pl";
-            for (u32 i = 0; i < SNAPSHOTS; ++i) {
-              char buf[11];
-              std::snprintf(buf,sizeof(buf),"0x%06x",pcSnapshots[i][hart]);
-              std::string cmd = script_path
-                + " " + spike_name
-                + " " + image_name
-                + " " + buf;
-              std::string fidl = execShellCmd(cmd);
-              std::string mark = makeMark(fidl, mChipNum, hb.mNoC0, hartName(hart), std::string("PCs ")+buf);
-              Eprintf("%.03f %s[%s] NOFID %s\n",
-                      runTimeSeconds(),
-                      BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
-                      t6i.getName().c_str(),
-                      mark.c_str());
-            }
-          }
+          } 
         } else info.mStuckDog[hart] = true;
       } else {
         info.mLastWatchdog[hart] = hb.mPerHartWatchdog[hart];
