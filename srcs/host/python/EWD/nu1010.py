@@ -516,7 +516,7 @@ class EWD(App):
 
   def doRTMPGraphicsFrame(self,simnanos):
     ewc = self.ewc
-    if self.animation_frame_count % 2 == 0:
+    if False and self.animation_frame_count % 2 == 0:
       chip = self.animation_frame_count//2 % 4
       ewc.scanHubGrid(chip)
     img = ewc.renderGraphicsGridWindowToImage()

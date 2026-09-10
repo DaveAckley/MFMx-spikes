@@ -582,7 +582,8 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 
     u32 tlbi = mLastTLBISlowScanned;
     //// vvvvv XXXX HACK ONLY SLOWSCAN at023
-    tlbi = 15;
+    if (tlbi == 15) tlbi = 16; // one ewp
+    else tlbi = 15;            // and one hub
     //// ^^^^^ XXXX HACK ONLY SLOWSCAN at023
     U8C nocc = U8C::makeUxCNoCCoordFromTLBI(tlbi);
     OurTLBs::TLBInfo & info = mOurTLBs.getTLBInfo(tlbi);

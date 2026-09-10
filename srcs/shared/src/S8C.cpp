@@ -13,4 +13,11 @@ namespace MFM {
     return true;
   }
 
+  U8C S8C::abs() const {
+    U8C ret;
+    ret.x = (u8) (x < 0 ? -x : x);
+    ret.y = (u8) (y < 0 ? -y : y);
+    return ret;
+  }
+
 }

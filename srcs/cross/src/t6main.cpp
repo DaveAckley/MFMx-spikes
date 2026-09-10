@@ -4,7 +4,7 @@
 #include "Printf.h" // for t6InitPrinters()
 #include "Debug.h" 
 #include "DefaultLives.h" 
-
+#include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
 
 // Baby RV Service APIs 
 #include "FastLocal.h"
@@ -71,7 +71,7 @@ namespace MFM {
     //    const u32 *ibux14 = (u32*) 0x18;  // '= &theImageBlock;'
     //    const u32 *ibux14 = (u32*) 0x1c;  // '= &theImageBlock+1;'
     constexpr u32 OFFSET = 1;
-    const u32 *ibux14 = ((u32*) 0x18) + OFFSET;  // '= &theImageBlock+2;'
+    const u32 *ibux14 = ((u32*) T6_IMAGE_BLOCK_ADDR) + OFFSET;  // '= &theImageBlock+2;'
 
     if (!first) {
       for (u32 i = 0; i < SLOTS; ++i)

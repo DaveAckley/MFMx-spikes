@@ -63,7 +63,7 @@ namespace MFM {
         LOGPX(mBytesOut);
       }
     }
-    //    EACH(1,LOGPTAG(>xLZI,formatCountedByte(__EACHNUM__,v)));
+    EACH(1'000'000,LOGPTAG(>xLZI,formatCountedByte(__EACHNUM__,v)));
     ++mBytesIn;
     return (s32) v;
   }

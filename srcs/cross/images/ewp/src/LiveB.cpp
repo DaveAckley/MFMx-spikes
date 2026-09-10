@@ -9,6 +9,7 @@
 #include "EwpBlock.h"
 #include "Physics.h"
 #include "HartTasks.h" // for HTFuncPtr
+#include "T6Phaser.h" // for HTFuncPtr
 
 namespace MFM {
 
@@ -55,25 +56,18 @@ namespace MFM {
 
   int initB() {
     preloadT2Mailbox();
+    theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     return 0;
   }
 
-  int liveB(HostBlock & hb) {
-    MFM_API_ASSERT(hb.goodMagic(),ILLEGAL_STATE);
-    HBPTAG(@,__FUNCTION__);
-
-    u32 spin = 0u;
-    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
-
-    while (true) {
-      if (!hb.goodMagic()) FAIL(ILLEGAL_STATE);
-      if ((++spin & 0xfff) == 0) {
-        if ((spin & 0xffffff) == 0) LOGPTAG(LiveB,spin);
-        hb.hartbeat(fAll.mHartNum);
-      }
-      if (!processEwpCars(hb,false))
-        breathe();
+  int stepB(HostBlock & hb) {
+    static u32 spin = 0u;
+    if ((++spin & 0xfff) == 0) {
+      if ((spin & 0xffffff) == 0) LOGXTAG(LiveB,spin);
+      hb.hartbeat(fAll.mHartNum);
     }
+    T6Phaser::handle();
+    processEwpCars(hb,false);
     return 0;
   }
 

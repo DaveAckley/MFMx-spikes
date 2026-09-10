@@ -2,6 +2,7 @@
 #include "Blackhole.h"
 #include "HostUtils.h"
 #include "ImageCode.h"
+#include "HostRandom.h"
 
 namespace MFM {
   BGRImageHD QuietBox::t6gridRenderBlock;
@@ -123,7 +124,17 @@ namespace MFM {
   const T6GridInfo & QuietBox::getT6GridInfoFor(const DG::Coord to) {
     const U16C t6siz = DG::getSingleT6GridBaseSize();
     const T6GridIndex t6grididx = T6GridIndex(to.x / t6siz.x, to.y / t6siz.y);
-    const DG::Coord t6origin = DG::Coord(t6grididx.x * t6siz.x - 4, t6grididx.y * t6siz.y - 4); // HACK4XXX
+    //    const DG::Coord t6origin = DG::Coord(t6grididx.x * t6siz.x - 4, t6grididx.y * t6siz.y - 4); // HACK4XXX
+    const DG::Coord t6origin = DG::Coord(t6grididx.x * t6siz.x - 0, t6grididx.y * t6siz.y - 0); 
+    {
+      BHTag tag(TagType::HOSTCT,5);
+      EACH(10'000,{
+          KTprintf(tag,"GIDPIX t6siz = (%u,%u), to = (%u,%u), t6gidx = (%u,%u), t6org = (%u,%u)\n",
+                   t6siz.x, t6siz.y,
+                   to.x, to.y,
+                   t6grididx.x, t6grididx.y,
+                   t6origin.x, t6origin.y);});
+    }
     auto item = mT6GridInfoByCoordMap.find(t6grididx);
     if (item != mT6GridInfoByCoordMap.end()) return item->second; // Hit!
 
@@ -216,4 +227,48 @@ namespace MFM {
             );
     return ibap!=0;
   }
+
+  std::string QuietBox::phaseIndices() {
+    std::string ret = "";
+    for (u32 chip = 0; chip < MAX_BLACKHOLES; ++chip) {
+      if (chip != 0) ret += "/";
+      Blackhole *bhp = getBlackholeIfPresent(chip);
+      if (!bhp)
+        ret += "x";
+      else 
+        ret += std::to_string(bhp->getOurTLBs().phaseIndex());
+    }
+    return ret;
+  }
+
+  std::string QuietBox::onPhases() {
+    std::string ret = "";
+    for (u32 chip = 0; chip < MAX_BLACKHOLES; ++chip) {
+      if (chip != 0) ret += "/";
+      Blackhole *bhp = getBlackholeIfPresent(chip);
+      if (!bhp)
+        ret += "x";
+      else 
+        ret += std::to_string(bhp->getOurTLBs().getOnPhase());
+    }
+    return ret;
+  }
+
+  std::string QuietBox::loggingSummary() {
+    OutputCount & oc = OutputCount::get();
+    std::size_t count = oc.getTotalOutput();
+    return size4(count);
+  }
+
+  void QuietBox::shootPHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) {
+    std::shuffle(mBHNumbers.begin(),mBHNumbers.end(),hostPRNG);
+    for (u32 i = 0; i < mBHNumbers.size(); ++i) {
+      u32 chip = mBHNumbers[i];
+      Blackhole *bhp = getBlackholeIfPresent(chip);
+      if (!bhp) continue;
+      Blackhole & bh = *bhp;
+      bh.getOurTLBs().shootPHASER(cmd,args);
+    }
+  }
+  
 }

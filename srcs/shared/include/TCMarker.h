@@ -56,12 +56,6 @@ namespace MFM {
       return decodeTCMSizeToPacketSizeBytes(tcms);
     }
 
-#if 0      
-    static constexpr u8 getTCMSizeFromPayloadSize(u32 payb) {
-      return encodePayloadBytesToTCMSize(payb);
-    }
-#endif
-
     static constexpr u32 getFooterWordIndex(u8 tcmsize) {
       u32 words = getPacketWordsFromTCMSize(tcmsize);
       MFM_API_ASSERT(words>0, ILLEGAL_STATE); 
@@ -86,6 +80,8 @@ namespace MFM {
 
     u32 getPacketWords() const { return getPacketWordsFromTCMSize(mTCMSize); }
 
+    u8 getPacketNonce() const { return mTCMNonce; }
+
     void init(u8 initnonce = 0u) {
       mTCMMagic = TCM_MAGIC;
       mTCMNonce = initnonce;
@@ -97,17 +93,7 @@ namespace MFM {
       mTCMMagic = TCM_MAGIC;
       mTCMNonce++;
       mTCMSize = encodePayloadBytesToTCMSize(payloadBytes);
-      /*
-      HBPTAG(payb,payloadBytes);
-      HBPTAG(tcms,mTCMSize);
-      HBPTAG(decp,decodeTCMSizeToPayloadCapacityBytes(mTCMSize));
-      */
       mTCMState = state;
-      /*
-      HBPTAG(nc,(u32)mTCMNonce);
-      HBPTAG(fi,getFooterWordIndex(mTCMSize));
-      HBPTAG(ai,getAnkleWordIndex(mTCMSize));
-      */
     }
 
     bool isValid() const {

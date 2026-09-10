@@ -7,6 +7,8 @@
 #include "ImageCode.h"
 
 namespace MFM {
+  u32 ZHostDecompressor::mMade = 0;
+  
   static RGBPix renderPhysicsHACK(P4Atom a) {
     RGBPix c;
     u16 t = a.getType();
@@ -60,6 +62,8 @@ namespace MFM {
   ZHostDecompressor::ZHostDecompressor()
     : mTLBI(U32_MAX)
   {
+    ++mMade;
+    HTprintf("ZHD %p #%u\n",this,mMade);
   }
 
   bool ZHostDecompressor::sinkByte(const u8 byte) {
@@ -112,13 +116,25 @@ namespace MFM {
             const T6GridInfo & t6i = qb.getT6GridInfoFor(DG::Coord(o.x,o.y));
             U16C gridc(t6i.mT6GridOrigin.x + ar.mCoord.x,
                        t6i.mT6GridOrigin.y + ar.mCoord.y);
+
+            EACH(1'000,{
+                KTprintf(mBHTag,"RNDER10 #%u t%u go = (%u,%u), ar = (%u,%u)\n",
+                         mChipNum, mTLBI,
+                         t6i.mT6GridOrigin.x, t6i.mT6GridOrigin.y,
+                         ar.mCoord.x,ar.mCoord.y);
+                KTprintf(mBHTag,"RNDER11 c = (%u,%u), o = (%u,%u), gc = (%u,%u)\n",
+                         c.x,c.y,
+                         o.x,o.y,
+                         gridc.x,gridc.y);
+              });
+
             RGBPix color = renderPhysicsHACK(ar.mAtom);
             bgr.setPixel(gridc,color);
           }
         }
 
         //        EACH(1,KTprintf(mBHTag,"#%llu (%u=%u=%u%s) HAR@(%u,%u) = 0x%04x'%04x'%08x'%08x %s%s\n",
-        EACH(10'000,KTprintf(mBHTag,"#%llu (%u=%u=%u%s) HAR@(%u,%u) %s%s\n",
+        EACH(100'000,KTprintf(mBHTag,"#%llu (%u=%u=%u%s) HAR@(%u,%u) %s%s\n",
                         mAtomReportsReceived,
                         spin,ar.mSpin1,ar.mSpin2,arvalid?"":" XXX",
                         ar.mCoord.x,ar.mCoord.y,
@@ -135,7 +151,7 @@ namespace MFM {
   }
 
   s32 ZHostDecompressor::sourceByte(bool canread) {
-    SNAP(3,KTprintf(mBHTag,"ZHDHARO IN %u\n",canread));
+    SNAP(3,KTprintf(mBHTag,"%p ZHDHARO IN %u\n",this,canread));
     bool htp = false; // mTLBI >= 15 && mTLBI <= 20;
 
     if (mQuitDecompressorThread.load()) { // should we quit?
@@ -237,8 +253,8 @@ namespace MFM {
     mBHTag = BHTag(TagType::T6TADR, (u8) mChipNum, (u32) mTLBI);
 
     mLZ.init(ZHByteSource, this, ZHByteSink, this);
-    HTprintf("ZHD %p HERE HALLO %u HARIO\n",this,tlbi);
-    KTprintf(mBHTag,"ZHD %p HERE HALLO %u HARIO\n",this,tlbi);
+    HTprintf("ZHD %s HERE HALLO %u HARIO MADE %u\n",mBHTag.to_string().c_str(),tlbi,mMade);
+    KTprintf(mBHTag,"ZHD %p HERE HALLO %u HARIO MADE %u\n",this,tlbi,mMade);
 
     mDecompressorThreadPtr = std::make_unique<std::thread>([this,tlbi]() {
       try {

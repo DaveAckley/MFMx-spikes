@@ -2,6 +2,7 @@
 import random
 import FontCache
 from PIL import ImageFont, ImageDraw, Image
+import os
 import time
 import datetime
 import subprocess
@@ -130,11 +131,14 @@ class RTMPFeed:
         #gather video info to ffmpeg
         #self.fps = int(10)
         self.fps = int(5)
+        #self.fps = int(4)
         self.height = self.img.shape[0]
         self.width = self.img.shape[1]
         self.secsPerI = 2
+#        self.secsPerI = 4
+#        self.secsPerI = 1
         self.goplen = int(self.secsPerI*self.fps)
-        self.localStreamPath = "/data/ackley/AV/MFMX-STREAMS/"
+        self.localStreamPath = "/data/ackley/AV/MFMX-STREAMS"
         self.ffmpegCommandBaseParms = [
             'ffmpeg', '-y',
             #'-re',
@@ -148,7 +152,7 @@ class RTMPFeed:
             '-c:v', 'libx264', '-g', str(self.goplen), '-x264-params', 'no-scenecut=1',
             '-tag:v', '7',                 # AI CLAIMS: forces correct H.264 codec tag for FLV
             '-pix_fmt', 'yuv420p',
-            '-preset', 'ultrafast',
+            '-preset', 'ultrafast', '-tune', 'zerolatency',
             #'-preset', 'veryfast',
             #'-maxrate', '4M',
             #'-bufsize', '1M',
@@ -188,10 +192,15 @@ class RTMPFeed:
         self.framesSentThisSubproc = 0
     
         now = datetime.datetime.now(datetime.timezone.utc)
-        localFile = now.strftime(f"{self.localStreamPath}%Y-%m-%d+%H%M%S%Z.flv")
+        localDir = now.strftime(f"{self.localStreamPath}/%Y-%m-%d")
+        os.makedirs(localDir, exist_ok=True);
+        localFile = now.strftime(f"{self.localStreamPath}/%Y-%m-%d/%Y-%m-%d+%H%M%S%Z.flv")
+#        outputOptions = ":onfail=ignore:use_fifo=1:fifo_options=drop_pkts_on_overflow=1\\:attempt_recovery=1\\:recovery_wait_time=1\\:restart_with_keyframe=1"
+#        outputOptions = ":onfail=ignore:use_fifo=1"
+#        outputOptions = ":onfail=ignore:use_fifo=1:fifo_options=drop_pkts_on_overflow=1"
+        outputOptions = ":onfail=ignore:use_fifo=1:fifo_options=drop_pkts_on_overflow=1\\\\:attempt_recovery=1\\\\:recovery_wait_time=1\\\\:restart_with_keyframe=1"
         ffmpegCmd = [*self.ffmpegCommandBaseParms[:],
-                     #f"[f=flv:flvflags=no_duration_filesize]{self.rtmp_url}|[f=flv]{localFile}"]
-                     f"[f=flv]{self.rtmp_url}|[f=flv]{localFile}"]
+                     f"[f=flv{outputOptions}]{self.rtmp_url}|[f=flv{outputOptions}]{localFile}"]
         
         self.ewd.logkt(self.key,f"STARTING {ffmpegCmd}")
         #print(f"SLOTRHOP STARTING {ffmpegCmd}")

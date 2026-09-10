@@ -30,7 +30,7 @@ namespace MFM {
       static bool wasblocked;
       if (getBytesRemaining() == 0) {
         if (!wasblocked) {
-          HBPTAG(ACBblkt!,(u32)byte);
+          HBXTAG(ACBblkt!,(u32)byte);
           wasblocked = true;
         }
         EACH(10'000,HBPTAG(ACBABF,__EACHNUM__));
@@ -105,7 +105,7 @@ namespace MFM {
     }
   };
 
-  constexpr u32 NUMBER_OF_ACACHEBLOCK_CARS = 3u;
+  constexpr u32 NUMBER_OF_ACACHEBLOCK_CARS = 5u;
   typedef TCStorage<ACacheBlock,NUMBER_OF_ACACHEBLOCK_CARS> ACacheBlockStg;
 
 }

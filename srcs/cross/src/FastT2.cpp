@@ -4,6 +4,7 @@
 #include "AtomicLock.h"
 #include "Debug.h"
 #include "HartTasksLib.h" // for TEF stuff
+#include "T6Phaser.h" 
 
 namespace MFM {
 
@@ -140,6 +141,7 @@ namespace MFM {
     HBNOTE(PRNG LIVE);
     u32 spin = 0u;
     while (true) {
+      T6Phaser::handle();
       fT2.fillRandomBuffer();
       if ((++spin & 0xff'ffff) == 0u) {
         hb.hartbeat(fAll.mHartNum);

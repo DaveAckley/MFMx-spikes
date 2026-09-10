@@ -63,6 +63,20 @@ namespace MFM {
 
     case PHY_FB1: {
       ca.mStg[1]++;             // cheat and access underlying u32
+      if (ca.mStg[0] > 0) {
+        if (--ca.mStg[0] == 0) {
+          for (u32 ngbsn = 0u; ngbsn <= 40; ++ngbsn) { 
+            if (oneIn(100)) continue; // 1% survives
+            ew.mAtoms[ngbsn] = P4Atom::makeEmptyAtom(); // kabam
+          }
+          return true;
+        } else ew.mAtoms[between(5u,8u)] = ca; // extra repro shot (Moore!)
+      } else if (ca.mStg[1] >= 21 && oneIn(100'000)) { // old enough to drink..
+        EACH(1,LOGPTAG(SPLAT!,__EACHNUM__));
+        ca.mStg[0] = between(10,100);
+        ca.mStg[1] += between(1'000,10'000); // jump in color space too
+      }
+
       u32 ngbsn = between(1u,4u);
       ew.mAtoms[ngbsn] = ca;
       //      sleepCycles(1'000'000);   // waste time to simulate more complex physics

@@ -82,7 +82,7 @@ SECTIONS
     } > L1
 
     . = ALIGN(4);
-    /* .imageblock section. Supposed to land at 0x18/21/word 6? */
+    /* .imageblock section. Supposed to land at 0x18/21/word 6? Tue Aug 18 12:01:08 2026 NOW 0x40*/
     .imageblock : {
       *(.imageblock)
     } > L1

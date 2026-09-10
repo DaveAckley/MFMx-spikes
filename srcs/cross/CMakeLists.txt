@@ -50,7 +50,10 @@ target_sources(crosslib PUBLIC
   src/T6EPs.cpp
   src/T6ImageBlock.cpp
   src/T6Neighbor.cpp
+  src/T6Phaser.cpp
   src/TEFs.cpp
+  src/TaskManager.cpp
+  src/TaskWorker.cpp
   src/formatSymbols.pl
   src/t6main.cpp
 #  src/RunLevel.cpp

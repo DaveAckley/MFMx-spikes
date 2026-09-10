@@ -36,6 +36,11 @@ namespace MFM {
 
     OurTLBs(Blackhole & bh) ;
 
+    u8 phaseIndex() const ;
+    u32 getOnPhase() const { return mOnPhase; }
+    bool isPHASERReady() const { return mOnPhase == 140; }
+    void shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) ;
+
     // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
     LogBlockStg & getLogBlockStgHost(u32 tlbi) const ;
     LogBlockStg::CAR_TYPE & getLogBlockHost(u32 tlbi, u32 carnum) const ;
@@ -207,7 +212,7 @@ namespace MFM {
 
       u32 mACBPacketsReceived;
 
-      ZHostDecompressor mZHD; // everybody gets one, at least for now..
+      //Moved to HubValue: ZHostDecompressor mZHD; // everybody gets one, at least for now..
 
       void setDeployedImage(const T6Image & img) ;
 
@@ -263,7 +268,8 @@ namespace MFM {
     size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 
     bool mDMABufferPretendDeleted;
     u64 mEWsShipped, mEWsReturned, mEWsCommitted;
-    PHASER mShadowPHASER;
+    u32 mOnPhase;               // #TLBs matching mShadowPHASER.mCmdSpiner
+    PhaserBlock mShadowPHASER;
   };
 } // namespace MFM
 

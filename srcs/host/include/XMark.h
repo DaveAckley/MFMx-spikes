@@ -4,9 +4,16 @@
 #include <string>
 #include <iostream>
 #include "XUtils.h" // for memset_s
+#include "HostUtils.h" // for CountingStream
 
 namespace MFM {
   struct XMark {              //< eXpandedMark
+    XMark(std::ostream & dest)
+      : mCountingStream(dest)
+    { }
+    std::ostream & getOstream() { return mCountingStream.stream(); }
+
+    CountingStream mCountingStream;
     u64 mTickStamp;
     u16 mTicksRelative;
     U16C mFidLin;
@@ -21,6 +28,6 @@ namespace MFM {
 
     /** leaves the stream mangled on \return false !*/
     bool parseFromIStream(std::istream& is, U8C noc0, u8 chipnum, u32 ticksbase) ;
-    void formatToOStream(std::ostream& os) ;
+    void formatToOStream() ; //< output to ostream configured in ctor
   };
 }

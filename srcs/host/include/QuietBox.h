@@ -8,8 +8,10 @@
 #include "CellBlock.h"
 #include "ImageManager.h"
 #include "BGRImage.h"
+#include "PHASER.h"
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 namespace py = pybind11;
 
 namespace std {
@@ -101,11 +103,36 @@ namespace MFM {
 
     Blackhole * mBHPtrs[MAX_BLACKHOLES];
 
+    std::string onPhases() ;
+    std::string phaseIndices() ;
+    std::string loggingSummary() ;
+
+    std::string getConstants() { return DG::dumpConstants(); }
+
+    void shootPHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) ;
+    std::array<u8,4> mBHNumbers = {0,1,2,3};
+    PhaserBlock mPhaserBlock;
+
     static void pybindings(py::module & m) {
-      py::class_<QuietBox> ewc(m,"QuietBox");
-      ewc.def_static("get",&QuietBox::get, py::return_value_policy::reference);
-      ewc.def("__str__",&QuietBox::to_string);
-      ewc.def("__repr__",&QuietBox::to_repr);
+      py::class_<QuietBox> qb(m,"QuietBox");
+      qb.def_static("get",&QuietBox::get, py::return_value_policy::reference);
+      qb.def("__str__",&QuietBox::to_string);
+      qb.def("__repr__",&QuietBox::to_repr);
+      qb.def("shootPHASER",&QuietBox::shootPHASER);
+      qb.def("getConstants",&QuietBox::getConstants);
+      qb.def("onPhases",&QuietBox::onPhases);
+      qb.def("phaseIndices",&QuietBox::phaseIndices);
+      qb.def("loggingSummary",&QuietBox::loggingSummary);
+
+
+      // Expose Cmd for 1st arg to shootPHASER
+      py::class_<PhaserBolt> ph(m,"PhaserBolt");
+      py::native_enum<PhaserBolt::Cmd>(ph,"Cmd","enum.Enum")
+        .value("CMD_CARRY_ON", PhaserBolt::Cmd::CMD_CARRY_ON)
+        .value("CMD_ALL_HARTS_PAUSE", PhaserBolt::Cmd::CMD_ALL_HARTS_PAUSE)
+        .value("CMD_SPIKE_PING", PhaserBolt::Cmd::CMD_SPIKE_PING)
+        .export_values()
+        .finalize();
     }    
   };
 }

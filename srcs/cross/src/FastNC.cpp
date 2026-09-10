@@ -15,12 +15,13 @@
 #include "HartTasksLib.h" // for HTFuncPtr
 #include "BlockCode.h"
 #include "T6ImageBlock.h"
+#include "T6Phaser.h"
+#include "TaskWorker.h"
 
-extern "C" unsigned readPHASER() ; // In _BUD.S
 
 namespace MFM {
 
-  u32 lastPHASER[1];
+  volatile PhaserBlock lastPHASER[1];
 
   CellBlock theCellBlock[1] __attribute__ ((section(".crossrodata")));
 
@@ -98,48 +99,9 @@ namespace MFM {
   }
 
   int stepNC(HostBlock & hb) {
-    static u32 spin;
-    u32 PHASER = readPHASER();
-    if (PHASER != lastPHASER[0]) {
-      lastPHASER[0] = PHASER;
-      LOGXX(PHASER);
-      HBXX(PHASER);
-      //// SPIKE TO RETURN PHASER FIRE
-      if (true) {
-        BlockCode destbc = BC_PHASER;
-        u8 destbcindex = 0;
-
-        // (0) find our own ImageBlockAddr for getSrcEPA().mBlockCode else bang
-        // (1) find owniba.mHostChunkOffsetOpt != 255 or bang
-        // (2) find u64 hostbaseaddr from hostblock lo,hi
-        // (3) mDestBlockAddr = hostbaseaddr + 64*owniba.mHostChunkOffsetOpt
-        ImageBlockHeader & ib = T6ImageBlock::getOurImageBlock();
-        ImageBlockAddr iba = ib.findIBAIfAny(destbc);
-        MFM_API_ASSERT(iba.isValid(),ILLEGAL_STATE); // (0)
-        u8 hchunk = iba.getHostChunkOffsetOpt();
-        MFM_API_ASSERT(hchunk!=255u,NO_MATCH); // (1)
-        extern HostBlock theHostBlock;
-        const HostBlock & hb = theHostBlock;
-        u64 hostbaseaddr = hb.getOurHostNoCBaseAddress(); // (2)
-        u64 destBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
-        u32 ourtlbi = hb.mTLBI;
-        HBPTAG(RPHASEhchunk,hchunk);
-        HBXTAG64(RPHASEhbAddr,hostbaseaddr);
-        HBXTAG64(RPHASEmDBAdr,destBlockAddr);
-        HBXTAG(RPHASEtlbi,ourtlbi);
-        s32 status = NRI3::initiateWriteToHost(hb.mNoC0,(u32*) &lastPHASER[0], 1, destBlockAddr);
-        if (status == 0) HBXTAG(RPHASEFAILSHIPHOST,lastPHASER[0]);
-      }
-        
-    }
-
+    TaskWorker::updateHartTasks();
     RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
-    if ((++spin & 0xf'ffff) == 0) {
-      HBXTAG(stepNCing,spin);
-      LOGXX(spin);
-      LOGPTAG64(NCBO,fNC.mBytesOut);
-      //      LOGPTAG64(NCBI,fNC.mBytesIn);
-    }
+    EACH(10'000'000,LOGPTAG64(NCBO,fNC.mBytesOut));
     return 0;
   }
 
@@ -153,6 +115,7 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     HBPTAG(@,__FUNCTION__);
+    TaskWorker::initTaskManager();
     return liveNC(hb);
   }
 

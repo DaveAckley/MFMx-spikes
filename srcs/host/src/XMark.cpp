@@ -48,8 +48,9 @@ namespace MFM {
     return mValid = true;
   }
 
-  void XMark::formatToOStream(std::ostream& os) {
+  void XMark::formatToOStream() {
     MFM_API_ASSERT(isValid(),ILLEGAL_STATE);
+    std::ostream& os = getOstream();
     os
       << "{" << (u32) mFidLin.x << ":" << (u32) mFidLin.y
       << " " << mTickStamp

@@ -14,6 +14,7 @@
 namespace MFM {
 
   struct ZHostDecompressor {
+    static u32 mMade;
     ZHostDecompressor() ;
     void init(const u32 tlbi, const u32 chipnum) ;
     lzmfmx mLZ;

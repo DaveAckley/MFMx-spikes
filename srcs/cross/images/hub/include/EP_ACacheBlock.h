@@ -64,7 +64,7 @@ namespace MFM {
     const char * getStateName(State us) ;
 
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
-    static constexpr u32 BOGOMS_PER_FRAME = 100u; // XXX 100u
+    static constexpr u32 BOGOMS_PER_FRAME = 50u; // XXX 100u
     
     //    lzmfmx mARCompressor; -> FastT1
     AtomReportIO mARIO;

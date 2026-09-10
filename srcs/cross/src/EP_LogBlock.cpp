@@ -87,7 +87,7 @@ namespace MFM {
 
     LogBlockPayload & pay = mCurrentLogBlock->payload();
     if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK) {
-      HBPTAG(CLOGspace,this); // XXX pay.mDataUsed);
+      HBPTAG(CLOGspace,pay.mDataUsed);
       HBPTAG(y2?,this);
       return true;              // close for lack of space
     }

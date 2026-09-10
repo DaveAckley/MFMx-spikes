@@ -8,6 +8,7 @@
 #include "CrossUtils.h"
 #include "Debug.h"
 #include "HartTasksLib.h" // for HTFuncPtr
+#include "T6Phaser.h"
 
 namespace MFM {
   extern "C" char __start_rodata_fp_table_t0[];
@@ -85,6 +86,7 @@ namespace MFM {
   }
 
   int MYstepT0(HostBlock & hb) {
+    T6Phaser::handle();
     EACH(10'000,HBPTAG(@,__FUNCTION__));
     fT0.stepHTFuncsT0();
     EACH(10'000,HBNOTE(BACK));

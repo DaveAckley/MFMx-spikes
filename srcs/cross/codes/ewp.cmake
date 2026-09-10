@@ -6,6 +6,7 @@ target_sources(ewp PRIVATE
   allimg/src/ImageConfig.cpp
   allimg/src/HartTasks.cpp
   images/ewp/src/EwpBlock.cpp
+  images/ewp/src/EwpTaskManager.cpp
   images/ewp/src/LiveB.cpp
   images/ewp/src/Physics.cpp
   ${S_FILES_LIST}

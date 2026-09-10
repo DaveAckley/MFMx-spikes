@@ -5,23 +5,25 @@
 
 namespace MFM {
   bool T6CellO::init() {
-    //    HBMARK;
+    HBMARK;
     memset_s(this,'\0',sizeof(*this));
     // Find our cellblock from the outside (whyyyy?)
     ImageBlockHeader & ib = T6ImageBlock::getOurImageBlock();
     ImageBlockAddr cba = ib.findIBAIfAny(BlockCode::BC_CELLBLOCK);
-    //HBMARK;
+    HBMARK;
+    MFM_API_ASSERT(cba.isValid(),ILLEGAL_STATE);
+    HBMARK;
     if (cba.mBlockCode != BlockCode::BC_CELLBLOCK) return false;
 
     mOurCellBlockAddr = cba.mBlockAddr;
     const CellBlock & cb = getOurCB();
-    //HBPVAL(mOurCellBlockAddr);
+    HBPVAL(mOurCellBlockAddr);
     if (!cb.isValid()) return false;
     
     U8C usnoc = fAll.mNoC0;
-    //HBPVAL(usnoc);
+    HBPVAL(usnoc);
     mUsCT6 = U8C::makeCT6CoordFromNoC0Coord(usnoc);
-    //HBPVAL(mUsCT6);
+    HBPVAL(mUsCT6);
     mCellNum = mUsCT6 / cb.mCellStride;
     mCellPosCT6 = mCellNum * cb.mCellStride;
     mUsCellPos = mUsCT6 % cb.mCellStride;

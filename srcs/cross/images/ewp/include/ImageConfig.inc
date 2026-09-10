@@ -2,9 +2,10 @@
 
 #include "EwpBlock.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Data
+#include "PHASER.h"
 
 namespace MFM { // ugh get back into MFM
-extern u32 lastPHASER[1];
+extern PhaserBlock lastPHASER[1];
 
 XIC_START_IMAGE_BLOCK(EWP)
   XIC_BLOCKADDR(BC_PHASER, 1, lastPHASER, u32)

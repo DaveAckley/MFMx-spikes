@@ -24,8 +24,9 @@ nc_setup: j nc_init             # NC entrypoint must be addr 16 word 4
 	.cfi_endproc
 	
 #        .section .data
+	.balign 64              # 64B alignment for phaser
         .global PHASER
-PHASER: .word 0                 # PHASER is addr 20 word 5?
+PHASER: .skip 64                # reserve 64 bytes
 	
 	# Not setting up gp until pretty late, so:
 	.option push
@@ -36,7 +37,7 @@ PHASER: .word 0                 # PHASER is addr 20 word 5?
         .cfi_undefined ra /* "Inform the debugger that there is nowhere to backtrace past _start." */
 b_init:
 	/* Sat Jul 25 02:07:05 2026 used to be s0:hartnum but we're trying -fno-omit-frame-pointer */
-	li s1,0                 # we are hart0
+	li s1,0                 # we are hart 0 == HARTNUM_B
 	la sp, __stack_top8K    # we've got 8k fastram 	
 	# zero bss for everybody
         la t1, __bss_start
@@ -82,22 +83,22 @@ b_init:
         ## END OF HARTB-ONLY CODE
 
 t0_init:
-        li s1,1                 # we are hart1
+        li s1,1                 # we are hart 1 == HARTNUM_T0
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 
 t1_init:
-        li s1,2                 # we are hart2
+        li s1,2                 # we are hart 2 == HARTNUM_T1
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 	
 t2_init:
-        li s1,3                 # we are hart3
+        li s1,3                 # we are hart 3 == HARTNUM_T2
 	la sp, __stack_top4K    # we've got 4k fastram 	
 	j exit_setup
 	
 nc_init:
-        li s1,4                 # we are hart4
+        li s1,4                 # we are hart 4 == HARTNUM_NC
 	la sp, __stack_top8K    # we've got 8k fastram 	
 	# FALL THROUGH: j exit_setup
         
@@ -116,15 +117,15 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
 	## of reset, the local data RAM will spend up to 2048 clock
 	## cycles resetting its contents to zero."
 
-	##### fALL SETUP. See FastLocal.h, ImageBlock.h, HostBlock.h
+	##### fAll SETUP. See FastLocal.h, ImageBlock.h, HostBlock.h
 	la t1, __fast_start     # get local ptr
 	la t2, __hostblock_start # get hb ptr
 	sb s1,(t1)              # set fast[0] 0..7 to hartnum
         lhu t3,24(t2)           # get hb.mNoC0
-        sh t3,2(t1)             # stash in fALL.mNoC0
-	li t2, T6_IMAGE_BLOCK_ADDR             # get ImageBlockHeader address
+        sh t3,2(t1)             # stash in fAll.mNoC0
+	li t2, T6_IMAGE_BLOCK_ADDR  # get ImageBlockHeader address
 	lw t3,(t2)              # get IBH
-        sw t3,8(t1)             # stash in fALL.mIBH
+        sw t3,8(t1)             # stash in fAll.mIBH
 
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value
@@ -211,14 +212,13 @@ estimateStackUsage:
         
 	.cfi_endproc
         
-	.global readPHASER
-        .type   readPHASER, @function
+	.global addrPHASERBlock
+        .type   addrPHASERBlock, @function
 	.section .text
 
 	.cfi_startproc
-readPHASER:
-        la t0, PHASER           # addr of host PHASER
-	lw a0,0(t0)              # read it
+addrPHASERBlock:
+        la a0, PHASER           # addr of PhaserBolt from host
 	ret
 	.cfi_endproc
 

@@ -1,6 +1,7 @@
 #include "DefaultLives.h"
 #include "FastLocal.h"
 #include "Debug.h"
+#include "T6Phaser.h"
 
 namespace MFM {
   int doDefaultInit(HostBlock & hb) {
@@ -36,6 +37,8 @@ namespace MFM {
     u16 spin = 0u;
     while (true) {
       if (spin++ == 0) hb.hartbeat(fAll.mHartNum);
+      T6Phaser::handle();
+
       switch (ch) {
       case 'b': stepB(hb); break;
       case '0': stepT0(hb); break;

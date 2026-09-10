@@ -16,7 +16,7 @@ namespace MFM {
   using ByteSourceFuncPtr = s32 (*)(bool canread, void * ctxt); // >=0 byte, -1 eof, -2 blocked
   using ByteSinkFuncPtr = bool (*)(const u8, void * ctxt); // true: wrote, false: blocked, error, or eof
   
-  using LZBuf = RingBuffer<u8,6>; // 5 bits minimum so hasRoomForNMore(sizeof(AtomReport)) is safe
+  using LZBuf = RingBuffer<u8,6>; // 5 bits minimum so (deprecated->) hasRoomForNMore(sizeof(AtomReport)) is safe
 
   struct lzmfmx {
     static constexpr u32 RING_SIZE = 348; // Ring buffer size in bytes (aka N (not necessarily power of 2))

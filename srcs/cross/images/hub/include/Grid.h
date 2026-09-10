@@ -123,12 +123,9 @@ namespace MFM {
       //LOGDL2D(mSites,pFC,d);
       bool ret = false;
       if (d.isOccupied()) {
-        //U8C oldroot = mRoot;
-        _remove(c,true);
-        //LOGPTAG(bremr,oldroot);
-        //LOGPTAG(aremr,mRoot);
-        //LOGDL2D(mSites,nud,d);
-        ret = true;
+        if (oddsOf(14,15)) return true; // mostly don't move to front
+        _remove(c,true);                // but occasionally do
+        ret = true;             
       }
       // c is unlinked
       if (mRoot == DL2D::cNONE) { // list is empty

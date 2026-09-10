@@ -65,8 +65,7 @@ namespace MFM {
         //EACH(1,LOGPTAG(ARCB,buf));
       }
     }
-    /*if (ret) EACH(1,LOGXTAG(>ACBC>,formatCountedByte(__EACHNUM__,byte)));
-      else*/ EACH(10'000,HBXTAG(BLODK,(u32)byte));
+    if (!ret) EACH(1'000,HBXTAG(BLODK,(u32)byte));
     return ret;
   }
 

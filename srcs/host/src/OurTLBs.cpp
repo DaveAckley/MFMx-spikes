@@ -387,7 +387,7 @@ namespace MFM {
     const u32 mappedStackBottomAddr = FASTRAM_SLOWPATHS[hartnum] + FASTRAM_SIZES[hartnum] - 4;
     const u32 fastramStackBottomAddr = MEM_LOCAL_BASE + FASTRAM_SIZES[hartnum] - 4;
 
-    Eprintf("(%u,%u) %s STAKBOT:0x%08x MAPSTAK:0x%08x\n",
+    Eprintf("(%u,%u) %s STACKBOT:0x%08x MAPSTACK:0x%08x\n",
             fromNoC0.x,fromNoC0.y,
             hartName(hartnum),
             fastramStackBottomAddr,
@@ -561,8 +561,7 @@ namespace MFM {
     ASSERT(range.area() > 0);
     unsigned ismulti = range.area() > 1u;
     if (ismulti)
-      LOGprintf(mDevChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",
-                tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
+      LOGprintf(mDevChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
     struct tenstorrent_configure_tlb confio;
     memset_s(&confio,0,sizeof(confio));
     struct tenstorrent_configure_tlb_in & cfin = confio.in;
@@ -600,7 +599,7 @@ namespace MFM {
   void OurTLBs::updateLogBlocks(unsigned tlbi) {
     HostCommsMap & hcm = mHostCommsMap;
 
-    if (tlbi == 15) EACH(100'000,HTprintf("upLBK15 %u\n",__EACHNUM__));
+    if (tlbi == 15) EACH(1'000'000,HTprintf("upLBK15 %u\n",__EACHNUM__));
 
     TLBInfo & tin = getTLBInfo(tlbi);
     const T6Image * image = tin.getDeployedImageIfAny();
@@ -662,13 +661,12 @@ namespace MFM {
 
             std::istream is(&ibuf);
             std::ofstream log = getOStreamLogForKey(tag);
-            //       log << "[#" << car << "]";
-            XMark xm;
+            XMark xm(log);
             /*if (tlbi == 15) HTprintf("upLBK15PARS\n");
               else*/ EACH(1'000'000,HTprintf("upLBKTK (%u,%u) PARS\n",addr.x,addr.y));
             U8C noc = U8C::makeNoCCoordFromTLBI(tlbi);
             while (xm.parseFromIStream(is,noc,mDevChipNum,lb.mTicksBase)) {
-              xm.formatToOStream(log);
+              xm.formatToOStream();
             }
           }
         }
@@ -701,6 +699,7 @@ namespace MFM {
     u32 len = acb.getCurrentLength();
     EACH(100,KTprintf(tag,"applyACacheBlock %luB\n",len));
     TLBInfo & tinfo = getTLBInfo(tlbi);
+    /*
     if (false && len > 0) {
       KTprintf(tag,"ACB@H 0x%x+%d %p\n",
                acb.getCurrentFlags(),
@@ -708,6 +707,7 @@ namespace MFM {
                &tinfo.mZHD
                );
     }
+    */
 
   }
 
@@ -744,7 +744,7 @@ namespace MFM {
       U16C addr = U16C::makeNoCCoordFromTLBI(tlbi);
       if (!ac.isComplete() || ac.getTCState() != TCState::INBOUND_DEPARTED) {
         if (tlbi == 15)
-          EACH(100'000,HTprintf("upACB16 %u %u=?%u crdx%u %p\n",
+          EACH(1'000'000,HTprintf("upACB16 %u %u=?%u crdx%u %p\n",
                                 ac.isComplete(),
                                 ac.getTCState(),
                                 TCState::INBOUND_DEPARTED,
@@ -977,27 +977,99 @@ namespace MFM {
   }
 
   bool OurTLBs::updateTransports(bool includeEWs) {
-    u32 onphase = 0;
+    static bool first = true;
+    BHTag tag(TagType::HOSTCT,mDevChipNum);
+
+    bool checkPhase = mOnPhase != 140;
+    if (checkPhase) {
+      EACH(1'000'000,KTprintf(tag,"resetPhase %u\n", mOnPhase));
+      mOnPhase = 0;
+    }
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       updateLogBlocks(tlbi);
       updateACacheBlocks(tlbi);
       if (includeEWs) updateEWCars(tlbi);
-      PHASER * rphase = (PHASER*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
-      if (rphase->mCmdSpinner == mShadowPHASER.mCmdSpinner) ++onphase;
+      if (checkPhase) {
+        BHTag t6tag(TagType::T6TADR,mDevChipNum,tlbi);
+        PhaserBlock * rphase = (PhaserBlock*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
+        if (rphase->isComplete()) {
+          PhaserBolt & pb = rphase->payload();
+          u8 theirNonce = rphase->getHeader().getPacketNonce();
+          u8 ourNonce = mShadowPHASER.getHeader().getPacketNonce();
+          if (theirNonce == ourNonce) {
+            ++mOnPhase;
+            EACH(1,KTprintf(t6tag,"-onPhase- %p 0x%02x 0x%02x:%02x tlbi%u %u\n",
+                            rphase,
+                            theirNonce,
+                            pb.getSeqNo(),
+                            pb.getCmd(),
+                            tlbi,mOnPhase));
+          } else 
+            EACH(1,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
+                            rphase,
+                            theirNonce,
+                            pb.getSeqNo(),
+                            pb.getCmd(),
+                            tlbi));
+        } else EACH(10'000'000,KTprintf(t6tag,"NOPONGO! %u\n",__EACHNUM__));
+      }
     }
+    if (false)
     EACH(100'000,{
-      BHTag tag(TagType::HOSTCT,mDevChipNum);
 
-      if (onphase == 140) {
-        mShadowPHASER.mCmdSpinner++; // BANG THE PHASER DRUM
-        KTprintf(tag,"PHASER SHOT <%u>\n",mShadowPHASER.mCmdSpinner);
+      if (first || mOnPhase == 140) {
+        first = false;
+        mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // BANG THE PHASER DRUM (incrs nonce)
+        KTprintf(tag,"PHASER SHOT <%u>\n",mShadowPHASER.getHeader().getPacketNonce());
         writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, 1);
+        mOnPhase = 0;
       } else 
-        EACH(1,KTprintf(tag,"ON REPHASER <%u> #%u\n",mShadowPHASER.mCmdSpinner,onphase));
+        EACH(1,KTprintf(tag,"ON REPHASER <%u> #%u\n",mShadowPHASER.getHeader().getPacketNonce(),mOnPhase));
       });
     //XXX BURN BABY BURNNNNN:
     //sleepUsec(10);
     return true;
+  }
+
+  u8 OurTLBs::phaseIndex() const { return mShadowPHASER.getHeader().getPacketNonce(); }
+
+  void OurTLBs::shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) {
+    BHTag tag(TagType::HOSTCT,mDevChipNum);
+    KTprintf(tag,"shootshootie %u %u\n",c,args.size());
+    u32 spin = 0;
+    while (mOnPhase < 140) {
+      if (++spin > 2'000) {
+        KTprintf(tag,"PHASE-IN AFTER %u WITH ONLY %u ONPHASE\n",spin,mOnPhase);
+        break;
+      }
+      sleepUsec(10);
+    }
+    PhaserBolt & pb = mShadowPHASER.payload();
+    for (u32 i = 0; i < args.size(); ++i) {
+      if (!pb.setBoltDataWordIfAny(i,args[i])) break; // too many args?
+      KTprintf(tag,"stored PHASER arg %u 0x%08x\n",i,args[i]);
+    }
+    mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // BANG THE PHASER DRUM (incrs nonce)
+    pb.reinit(c);
+    KTprintf(tag,"PHASER SHOT %uB <%u:%u:%u> #u:%u\n",
+             sizeof(mShadowPHASER),
+             mShadowPHASER.getHeader().getPacketNonce(),
+             c,
+             args.size(),
+             mShadowPHASER.payload().getSeqNo(),
+             mShadowPHASER.payload().getCmd()
+             );
+    writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, sizeof(mShadowPHASER)/4);
+    mOnPhase = 0;
+    spin = 0;
+    while (mOnPhase < 140) {
+      if (++spin > 2'000) {
+        KTprintf(tag,"PHASE-OUT AFTER %u WITH ONLY %u ONPHASE\n",spin,mOnPhase);
+        break;
+      }
+      sleepUsec(10);
+    }
+
   }
 
   void OurTLBs::resetTheFleet() {

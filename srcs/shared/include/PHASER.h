@@ -1,13 +1,104 @@
 #pragma once  /* -*- C++ -*- */
 
 #include "itype.h"
+#include "Fail.h"
+#include "TC.h"
 
 namespace MFM {
-  struct PHASER {
-    u8 mCmdSpinner;
-    u8 mPhase;
-    u8 mArg;
-    u8 mReserved;
+
+  struct PhaserBolt {
+    static constexpr u32 MAX_BOLT_SIZE = 40; //< for 64B packet size
+
+    enum Cmd : u8 { /// ENTRIES HERE SHOULD BE EXPORTED TO PYTHON IN QuietBox.h
+      CMD_CARRY_ON = 0,         //< no data
+      CMD_ALL_HARTS_PAUSE,      //< no data
+      CMD_SPIKE_PING,           //< boltword[0] :: S16C
+      CMD_COUNT
+    };
+
+    enum Done : u8 {
+      NONE_DONE = 0x00,
+      DONE_HB =   0x01,
+      DONE_H0 =   0x02,
+      DONE_H1 =   0x04,
+      DONE_H2 =   0x08,
+      DONE_HN =   0x10,
+      ALL_DONE =  0x1f,
+    };
+
+    struct PhaserHeader {
+      u8 mSeqNo;
+      Cmd mCmd;
+      Done mDone;
+      u8 mSeqNo1;
+
+      void init() { memset_s(this,0,sizeof(*this)); }
+
+      void reinit(Cmd c) {
+        ++mSeqNo;
+        mCmd = c;
+        mDone = NONE_DONE;
+        mSeqNo1 = mSeqNo + 1;
+      }
+
+      bool isValid() const { return (u8) (mSeqNo + 1) == mSeqNo1; }
+
+      bool isHandled() const { return mDone == ALL_DONE; }
+
+      Cmd getCmd() const { return mCmd; }
+
+      void setDone(Done d) { mDone = (Done) (mDone | d); }
+
+      Done getDone() const { return mDone; }
+
+      u8 getSeqNo() const { return mSeqNo; }
+    };
+
+    void init() { memset_s(this,0,sizeof(*this)); }
+    void reinit(Cmd c) { mPhaserHeader.reinit(c); }
+    bool isValid() const { return mPhaserHeader.isValid(); }
+    bool isHandled() const { return mPhaserHeader.isHandled(); }
+    Cmd getCmd() const { return mPhaserHeader.mCmd; }
+    void setDone(Done d) { mPhaserHeader.setDone(d); }
+    Done getDone() const { return mPhaserHeader.getDone(); }
+    u8 getSeqNo() const { return mPhaserHeader.getSeqNo(); }
+
+    PhaserHeader mPhaserHeader;
+    static constexpr u32 BOLT_DATA_BYTES = MAX_BOLT_SIZE - sizeof mPhaserHeader;
+    static_assert(BOLT_DATA_BYTES%4 == 0,"bad bolt size");
+    static constexpr u32 BOLT_DATA_WORDS = BOLT_DATA_BYTES/4;
+
+    bool getBoltDataWordIfAny(u32 idx, s32 & dest) const {
+      if (idx >= BOLT_DATA_WORDS) return false;
+      dest = mBoltWords[idx];
+      return true;
+    }
+    bool setBoltDataWordIfAny(u32 idx, s32 source) {
+      if (idx >= BOLT_DATA_WORDS) return false;
+      mBoltWords[idx] = source;
+      return true;
+    }
+    s32 mBoltWords[BOLT_DATA_WORDS];
   };
+
+  class PhaserBlock : public TC<PhaserBlock,sizeof(PhaserBolt)> {
+  public:
+    const char * getName() const { return "PhaserBlock"; }
+    bool readyToClose(TCOpsData & tms,u32 msnow) const { 
+      FAIL(INCOMPLETE_CODE);
+    }
+    PhaserBolt & payload() { return *(PhaserBolt*) getDataStart(); }
+    void init() {
+      TC::reset(); // sets state 0==UNUSED
+      openTC();    // set state open
+      payload().init();
+      closeTC(sizeof(payload())); // and then close it, with a full load
+      setDepartingTC(TCState::OUTBOUND_DEPARTED); // init state is 'departed in'/'arrived out'
+    }
+  };
+
+  static_assert(sizeof(PhaserBlock)==64,"bad size");
 }
+
+
 

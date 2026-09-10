@@ -39,8 +39,9 @@ namespace MFM {
       // (2) find u64 hostbaseaddr from hostblock lo,hi
       // (3) mDestBlockAddr = hostbaseaddr + 64*owniba.mHostChunkOffsetOpt
       ImageBlockHeader & ib = T6ImageBlock::getOurImageBlock();
+      MFM_API_ASSERT(ib.isValid(),ILLEGAL_STATE); // (0.0)
       ImageBlockAddr iba = ib.findIBAIfAny(this->getSrcEPA().mBlockCode);
-      MFM_API_ASSERT(iba.isValid(),ILLEGAL_STATE); // (0)
+      MFM_API_ASSERT(iba.isValid(),ILLEGAL_STATE); // (0.1)
       u8 hchunk = iba.getHostChunkOffsetOpt();
       MFM_API_ASSERT(hchunk!=255u,NO_MATCH); // (1)
       const HostBlock & hb = theHostBlock;
@@ -73,7 +74,8 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      EACH(1'000,HBPTAG(HN<-EP,carindex));
+      EACH(100'000,HBMARK);
+      EACH(10'000,HBPTAG(HN<-EP,carindex));
       //EACH(10'000,HBPTAG(GCDEP,carindex));
       SUBTC* carp = this->getCarPtrIfAny(carindex);
       if (!carp) HBNOTE("NULLGO?");

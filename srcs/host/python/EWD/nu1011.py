@@ -21,7 +21,7 @@ from textual.containers import Horizontal, Vertical
 from textual.geometry import Size
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Header, Footer, Button, Label
+from textual.widgets import Header, Footer, Button, Label, Static
 from textual.widgets import Checkbox
 from textual.widgets import RadioSet, RadioButton
 from textual.widgets import RichLog
@@ -88,14 +88,13 @@ class AsciiAnimation(Widget):
         pos = MFMx.S32C(int(self.atx),int(self.aty))
         zum = self.display_zoom
         ret = self.ewc.renderGridWindow(pos,siz,zum)
-        self.poslabel.content = f"{pos} + {siz} @ {zum}";
+        self.poslabel.content = f"{pos} + {siz} @ {zum}"
         self.statslabel.content = self.ewc.statsLine()
         return ret
 
 ewd = None
 
 def logcb(key,text):
-  return # DO NOTHING DAMMIT
   global ewd
   if ewd:
     ewd.logkt(key,text)
@@ -104,6 +103,19 @@ def logcb(key,text):
 
 #class EWD(App[None]):
 class EWD(App):
+  current_onphase = reactive("")
+  phase_indices = reactive("")
+  total_log_bytes = reactive("")
+
+  def watch_phase_indices(self, indices) -> None:
+    self.query_one("#currentphaseindices",Static).update(indices)
+
+  def watch_current_onphase(self, onphase) -> None:
+    self.query_one("#currentonphase",Static).update(onphase)
+
+  def watch_total_log_bytes(self, lognum) -> None:
+    self.query_one("#totallogbytes",Static).update(lognum+"B")
+
   def __init__(self,config):
     super().__init__()
     self.scriptDir = os.path.dirname(os.path.abspath(__file__))
@@ -320,20 +332,28 @@ class EWD(App):
     #dumper.dump(self)
     self.ewc = MFMx.EWControl.getEWControl()
     print("EWCONGA",self.ewc)
-    MFMx.BHLog.setLogCallback(logcb)
+
+    time.sleep(2)
+    self.quietbox = MFMx.QuietBox.get()
+    print("QBDONGA",self.quietbox)
+    print("CONSTANKS",self.quietbox.getConstants())
+
+    #MFMx.BHLog.setLogCallback(logcb)
 
     print("UPTOSUPER",super())
     super().run()
-    MFMx.BHLog.clearLogCallback()
+    #MFMx.BHLog.clearLogCallback()
 
   def compose(self) -> ComposeResult:
     self.logkt(self.key,f"composestart {self}")
     global ewd
+    ewd = self
     yield Header()
     with Horizontal(id="horiz"):
       with Vertical(id="leftvert"):
         with Vertical(id="runbuttons"):
           yield Checkbox(id="runcheck",label="run")
+          yield Checkbox(id="pausecheck",label="pause")
           yield Button(id="stepbutton",label="step",compact=True)
         with Vertical(id="scrollbuttons"):
           for id,(label,arg) in EWD.ZOOM_BUTTONS.items():
@@ -348,7 +368,19 @@ class EWD(App):
                        action=f"app.scrollGrid('{id}')")
             b.active_effect_duration=0.1
             yield b
-        yield RichLog(id='richlog',max_lines=10000)
+        with Horizontal(id="onphase"):
+          yield Label("OnPhase:")
+          yield Static("",id="currentonphase")
+        with Horizontal(id="phaseindices"):
+          yield Label("Indices:")
+          yield Static("",id="currentphaseindices")
+        with Horizontal(id="logstats"):
+          yield Label("Log Data:")
+          yield Static("",id="totallogbytes")
+        with Horizontal(id="afline"):
+          yield Checkbox(id="autofire",label="Auto:",value=True,compact=True)
+          yield Static("",id="afcount")
+        yield RichLog(id='richlog',max_lines=100)
       with Vertical(id="ctrvert"):
         with Horizontal(id="centrhoriz"):
           yield Label("()",id="renderpos")
@@ -356,7 +388,6 @@ class EWD(App):
         yield AsciiAnimation(id="ascii-animation")
     yield Footer()
     self.logkt(self.key,f"composeend10 {self}")
-    ewd = self
     self.logkt(self.key,f"composeend11 {self}")
 
   def action_changeZoom(self,id):
@@ -393,21 +424,35 @@ class EWD(App):
       anim.aty += dy*EWD.GRID_ASPECT_RATIO[1]*inc
     anim.refresh()
 
+  @work(thread=True, exclusive=True)
+  def update_slowscans(self):
+    self.slowscan_updates += 1
+    self.slowScan(self.slowscan_tlbis_per_update)
+
+  def update_autofire(self):
+    afch = self.query_one("#autofire")
+    if not afch.value: return
+    if self.autofire_countdown == 0:
+      cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
+      args = (+1,-1)
+      self.quietbox.shootPHASER(cmd,args)
+      logcb("AUTOF",f"UpAF>{cmd},{args},{self}")      
+      self.autofire_countdown = 20
+    self.autofire_countdown -= 1
+    afl = self.query_one("#afcount")
+    afl.update(f"#{self.autofire_countdown}")
+
   def update_animation_content(self):
     curtime = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
     elapsedns = curtime - self.animation_start_time
-    if elapsedns <= 1_000_000_000 * self.animation_frame_count / self.animation_frames_per_second:
-      return
     self.animation_frame_count += 1
     animation_widget = self.query_one("#ascii-animation", AsciiAnimation)
-    #animation_widget.refresh()
     animation_widget.refreshCount += 1
-    #self.doRTMPFrame()
     self.doRTMPGraphicsFrame(elapsedns)
-    if animation_widget.refreshCount % 10 == 0:
-      count = 1
-      #self.logkt(self.key,f"{animation_widget.refreshCount}SLOSC{count}")
-      self.slowScan(count)
+    self.current_onphase = self.quietbox.onPhases()
+    self.phase_indices = self.quietbox.phaseIndices()
+    self.total_log_bytes = self.quietbox.loggingSummary()
+
     if False and animation_widget.refreshCount > 5*90*3 and random.randrange(5*60) == 0:
       if random.randrange(3) == 0:
         self.fireCount = random.randint(1,10)
@@ -432,10 +477,23 @@ class EWD(App):
     animation_widget.statslabel = self.query_one("#statsline", Label)
 
     self.animation_frame_count = 0
-    self.animation_frames_per_second = 5
+    self.animation_frames_per_second = 5.1
     self.animation_start_time = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
-    self.animation_timer = self.set_interval(1 / (2*self.animation_frames_per_second),
+    self.animation_timer = self.set_interval(1 / self.animation_frames_per_second,
                                              self.update_animation_content, pause=False)
+
+    self.slowscan_updates = 0
+    self.slowscan_tlbis_per_update = 1
+    self.slowscan_updates_per_second = 1
+    self.slowscan_timer = self.set_interval(1 / self.slowscan_updates_per_second,
+                                            self.update_slowscans)
+
+    self.autofire_countdown = 25
+    self.autofire_counts_per_update = 1
+    self.autofire_updates_per_second = 1
+    self.autofire_timer = self.set_interval(1 / self.autofire_updates_per_second,
+                                            self.update_autofire)
+
     self.runEvents()
 
   def reset(self):
@@ -490,6 +548,22 @@ class EWD(App):
     id = event.checkbox.id
     self.ewc.setActive(event.value)
     logcb("EWDA",f"ChBoxCh>{id},{event.value},{self.ewc.isActive()}")
+
+  @on(Checkbox.Changed,"#pausecheck")
+  def pausecheck_changed(self,event):
+    id = event.checkbox.id
+    logcb("EWDA",f"ChBoxCh>{id},{event.value},{self.ewc.isActive()}")
+    cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+    self.quietbox.shootPHASER(cmd,[0])
+    logcb("EWDA",f"PHASER>{id},{cmd}")
+
+  @on(Checkbox.Changed,"#autofire")
+  def autofire_changed(self,event):
+    id = event.checkbox.id
+    logcb("AUTOF",f"ChBoxCh>{id},{event.value},{self.ewc.isActive()}")
+    # cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+    # self.quietbox.shootPHASER(cmd,0)
+    # logcb("AUTOF",f"PHASER>{id},{cmd}")
 
   def getRenderConsole(self):
     w,h = self.size

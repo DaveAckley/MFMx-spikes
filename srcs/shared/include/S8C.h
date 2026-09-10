@@ -26,7 +26,9 @@ namespace MFM {
     S8C operator/(const S8C & other) const { return S8C(x / other.x, y / other.y); }
     S8C operator%(const S8C & other) const { return S8C(x % other.x, y % other.y); }
 
-    bool toU8C(U8C& u) ;
+    bool toU8C(U8C& u) ;        //< or fail if x or y < 0
+
+    U8C abs() const ;           //< component-wise
 
     u16 length() const {
       u16 l = 0;

@@ -5,6 +5,7 @@
 #include "Debug.h"
 #include "EP_ACacheBlock.h"
 #include "HartTasks.h"
+#include "T6Phaser.h"
 
 namespace MFM {
   
@@ -13,28 +14,25 @@ namespace MFM {
   LZBuf l1dLZBytesOut;
 
   static s32 uncompressedByteSource(bool isReadable, void * context) {
+    //T6Phaser::handle();
     static u32 calls = 0;
     RCFlag f = RCFlag::RC_ZERO;
     if ((++calls & 0x3'ffff) == 0) {
       theHostBlock.hartbeat(fAll.mHartNum);
-      //LOGXTAG(ubsCalls,calls);
       if ((calls & 0xf'ffff) == 0)
         HBXTAG(ubsCallsh,calls+(u32) f);
     }
-    //    LOGMARK;
-    //    if (isReadable) return l1dLZBytesIn.isEmpty() ? -2 : 0;
+
     if (isReadable) return 0;   // never return eof (0 not a real byte here)
-    //    LOGMARK;
-    //    EACH(100'000,LOGPTAG(unBS,__EACHNUM__));
     u8 byte;
     if (l1dLZBytesIn.remove(byte)) {
-      //      SNAP(20,LOGXTAG(UBSZONG,(u32) byte));
       return (s32) byte;
     }
-    //    LOGMARK;
     return -2; // never returns eof?
   }
+
   static bool compressedByteSink(u8 byte, void * context) {
+    T6Phaser::handle();
     MFM_API_ASSERT_NONNULL(context);
     ACacheBlockL1Control & acbl1 = *(ACacheBlockL1Control*) context;
     bool ret = acbl1.writeByteToCurrentACB(byte);

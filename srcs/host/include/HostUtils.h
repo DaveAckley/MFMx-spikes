@@ -4,8 +4,12 @@
 #include <cstdio>
 #include <string.h>
 #include <fstream>
+#include <streambuf>
+#include <ostream>
+
 
 #include "BHTag.h"
+#include "AtomicLock.h"
 #include "TimeDefs.h"
 
 #define H1printf(...) HNprintf(1, __VA_ARGS__)
@@ -90,5 +94,97 @@ namespace MFM {
 
   std::string tryASCIIParse(u32 le) ;
   u32 countDecimalDigits(u32 num) ;
+
+  struct OutputCount {
+
+    static OutputCount & get() { static OutputCount theOC; return theOC; }
+    std::size_t getTotalOutput() {
+      AtomicScopeLock guard(mLock);
+      return mCount;
+    }
+
+    void addOutput(std::size_t moreBytes) {
+      AtomicScopeLock guard(mLock);
+      mCount += moreBytes;
+    }
+
+    AtomicLock mLock;
+    std::size_t mCount = 0;
+  };
+
+  class CountingStream {
+    // streambuf that counts bytes
+    class CountingBuf : public std::streambuf {
+      std::streambuf* mWrapped;
+      std::size_t mCount;
+
+    public:
+      explicit CountingBuf(std::streambuf* w)
+        : mWrapped(w)
+        , mCount(0)
+      { }
+
+      std::size_t getCount() const { return mCount; }
+
+    protected:
+      std::streamsize xsputn(const char* s, std::streamsize n) override {
+        mCount += static_cast<std::size_t>(n);
+        return mWrapped->sputn(s, n);
+      }
+      int_type overflow(int_type ch) override {
+        ++mCount;
+        return mWrapped->sputc(ch);
+      }
+    };
+
+    CountingBuf mBuf;
+    std::ostream mOs;
+
+  public:
+    CountingStream(std::ostream& target)
+      : mBuf(target.rdbuf())
+      , mOs(&mBuf)                    // ostream points at our buf_
+    { }
+
+    std::ostream& stream() { return mOs; }
+
+    std::size_t getCount() const { return mBuf.getCount(); }
+
+    ~CountingStream() {
+      mOs.flush();       // flush while mBuf is alive
+      OutputCount & oc = OutputCount::get();
+      oc.addOutput(getCount());
+    }
+  };
+  
+
+
+  // via AI
+  class CountingBuf : public std::streambuf {
+    std::streambuf* mWrapped;
+    std::size_t mCount;
+  public:
+    explicit CountingBuf(std::streambuf* w)
+      : mWrapped(w)
+      , mCount(0)
+    {}
+
+    ~CountingBuf() {
+      OutputCount & oc = OutputCount::get();
+      oc.addOutput(mCount);
+    }
+
+  protected:
+    std::streamsize xsputn(const char* s, std::streamsize n) override {
+      mCount += static_cast<std::size_t>(n);
+      return mWrapped->sputn(s, n);
+    }
+    int_type overflow(int_type ch) override {
+      ++mCount;
+      return mWrapped->sputc(ch);
+    }
+  };
+  
+
 }
 

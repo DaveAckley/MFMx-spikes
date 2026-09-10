@@ -25,10 +25,13 @@ namespace MFM {
       mFirstUsedIdx = 0u;
     }
 
+#if 0 // DEPRECATED
     u32 lengthish() const {
       return mFirstFreeIdx - mFirstUsedIdx;
     }
+#endif
 
+#if 0 // DEPRECATED
     bool hasRoomForNMore(u32 n) const {
       if (n >= RING_BUFFER_SIZE/2) return false; // SHOULD FAIL INSTEAD
       if (unlikely(mFirstFreeIdx >= U32_MAX-n)) {
@@ -40,6 +43,7 @@ namespace MFM {
       }
       return mFirstFreeIdx - mFirstUsedIdx < RING_BUFFER_SIZE - n ;
     }
+#endif
 
     bool isEmpty() const { return mFirstUsedIdx == mFirstFreeIdx; }
     bool isFull() const {
@@ -58,6 +62,18 @@ namespace MFM {
       mRingBuffer[mFirstFreeIdx & RING_BUFFER_MASK] = item;
 #endif
       ++mFirstFreeIdx;          // before incrementing the pointer
+      return true;
+    }
+
+    bool peek(T& dest) {
+      if (isEmpty()) return false;
+      dest = mRingBuffer[mFirstUsedIdx & RING_BUFFER_MASK];
+      return true;
+    }
+
+    bool drop() {
+      if (isEmpty()) return false; // SHOULD FAIL INSTEAD
+      ++mFirstUsedIdx;
       return true;
     }
 

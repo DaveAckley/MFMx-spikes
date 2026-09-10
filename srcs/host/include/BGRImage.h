@@ -59,6 +59,17 @@ namespace MFM {
         mRaster[coord.y][coord.x][2] = rgb.mRGB[0]; // the raster
       }
     }
+    void drawCross(U16C coord, u8 size, RGBPix rgb) {
+      for (s8 i = -size; i <= size; ++i) {
+        s32 x = coord.x+i;
+        s32 y = coord.y+i;
+        if (x >= 0 && y >= 0) {
+          setPixel(U16C((u16) x,coord.y),rgb);
+          setPixel(U16C(coord.x,y),rgb);
+        }
+      }
+    }
+
     void reset() ;
 
     std::string_view asSV() const {

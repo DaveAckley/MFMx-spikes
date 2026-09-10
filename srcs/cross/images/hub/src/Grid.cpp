@@ -3,6 +3,7 @@
 #include "Grid.h"
 #include "T6Grid.h"
 #include "EwpBlock.h"
+#include "TaskManager.h"
 
 namespace MFM {
 
@@ -31,7 +32,7 @@ namespace MFM {
 
   bool GridManager::seekRandomNonEmptySite(U16C & found) {
     if (mAutoseedWaitCount == U32_MAX)
-      mAutoseedWaitCount = create(3'000'000)+10'000'000;
+      mAutoseedWaitCount = create(1'000'000)+4'000'000;
     
     if (mAutoseedWaitCount > 0) {
       if (--mAutoseedWaitCount == 0) {
@@ -42,7 +43,8 @@ namespace MFM {
         case 0:  type = 5; break;
         case 1:
         case 2:
-        case 3:  type = 4; break;
+        case 3:
+        case 4:  type = 4; break;
         default: type = 2; break;
         }
         mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
@@ -118,11 +120,11 @@ namespace MFM {
         // so add it to the DLGridList
         //        LOGPTAG(gmwEWdc,gridc);
         //        LOGATOM(atom);
-        EACH(100'000,LOGATOM(g.getAtom(gridc)));
+        EACH(1'000'000,LOGATOM(g.getAtom(gridc)));
         bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
-        if (b) EACH(100'000,LOGPTAG(oldATOM,gridc));
-        else EACH(100'000,LOGPTAG(newATOM,gridc));
-        EACH(100'000,LOGPTAG(ATOMS,mDLGridListPtr->getLength()));
+        if (b) EACH(1'000'000,LOGPTAG(oldATOM,gridc));
+        else EACH(1'000'000,LOGPTAG(newATOM,gridc));
+        EACH(1'000'000,LOGPTAG(ATOMS,mDLGridListPtr->getLength()));
 
       }
     }
@@ -142,26 +144,26 @@ namespace MFM {
     if (ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
       center.x = ewt.mHiddenXPos;
       center.y = ewt.mHiddenYPos;
-      SNAP(100,HBPTAG(gmtraply,center));
+      SNAP(100,HBPTAG(ewtraply,center));
       if (matchesEW(ewt.mOld,center)) {
-        SNAP(100,HBPTAG(gmaplid!,center));
+        SNAP(100,HBPTAG(ewaplid!,center));
         EACH(100'000,LOGPTAG(!MEW@,center));
         writeEW(ewt.mNew,center);
       }
     }
     // all EWPCs come through here
-    EACH(100,HBNOTE(applyEWT-Seek));
+    EACH(10'000,HBNOTE(applyEWT-Seek));
     if (seekRandomNonEmptySite(center)) {
       SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;
-      EACH(100'000,LOGPTAG(gmdisnew,center));
+      EACH(1'000'000,LOGPTAG(ewdisnew,center));
     } else {                    // couldn't find a center
       ++mEWsEmptiesShipped;
       SNAP(10,HBPTAG(noCtr,mEWsEmptiesShipped));
-      if ((mEWsEmptiesShipped%100000)==0) LOGPTAG(gmdedhed,mEWsEmptiesShipped);
+      if ((mEWsEmptiesShipped%100000)==0) LOGPTAG(ewdedhed,mEWsEmptiesShipped);
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_EMPTY;
     }
   }

@@ -403,33 +403,18 @@ namespace MFM {
     //BGRImageHD & bgr = ewGraphicsRenderBlock;
     BGRImageHD & bgr = QuietBox::getT6GridImage();
 
-#if 0
+#if 1
     U16C size = bgr.gridSize();
-    bgr.reset();
     U16C idx;
-    RGBPix c;
+    RGBPix c,t;
+    c.set(235u,245u,255u);
+    t.set(255u,200u,200u);
     for (idx.y = 0u; idx.y < size.y; ++idx.y) {
       for (idx.x = 0u; idx.x < size.x; ++idx.x) {
-        S32C gc(idx.x + GRID_XMIN, idx.y + GRID_YMIN);
-        P4Atom a = getAtom(gc);
-        u16 t = a.getType();
-        switch (t) {
-        case P4Atom::EMPTY_TYPE: continue;
-        case 5u: // MAXFB
-          {
-            constexpr u32 slowBits = 1u;
-            u32 val = a.mStg[1]; // get hidden counter
-            u8 rd = (val>>0+slowBits)&0xf; rd = (rd-8)*(rd-8);
-            u8 gd = (val>>4+slowBits)&0xf; gd = (gd-8)*(gd-8);
-            u8 bd = (val>>8+slowBits)&0xf; bd = (bd-8)*(bd-8);
-            c.set(50u+3u*rd,50u+3u*gd,50+3u*bd);
-            break;
-          }
-        case P4Atom::INACCESSIBLE_TYPE: c.set(0x30,0x40,0x50); break;
-        default:
-          c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
-        }
-        bgr.setPixel(idx, c);
+        if (false && idx.x % 100 == 0 && idx.y % 100 == 0)
+          bgr.setPixel(idx, c);
+        if (idx.x >= 10 && idx.y >= 10 && (idx.x-10) % 138 == 0 && (idx.y-10) % 108 == 0)
+          bgr.drawCross(idx, 10, c);
       }
     }
 #endif
@@ -573,7 +558,7 @@ namespace MFM {
             acorner.x,acorner.y,
             agdpt.x,agdpt.y,
             steps.x,steps.y);
- }
+  }
 
   std::string EWControl::BackgroundPadder::padChr(const char ch) const {
     std::string ret{ ch };
@@ -600,4 +585,5 @@ namespace MFM {
     }
     return ret;
   }
+
 }

@@ -1,6 +1,7 @@
 #pragma once         /* -*- C++ -*- */
 
 #include "itype.h"
+#include "utils.h" // For XSTR_MACRO
 #include "UxC.h" // For U32C
 #include "Fail.h"
 #include "S32C.h"
@@ -94,11 +95,47 @@ namespace MFM::DG {
   static constexpr u32 T6GRID_BASE_HEIGHT =
     (PER_BLACKHOLE_GRID_HEIGHT + BLACKHOLE_ACTIVE_HUB_HEIGHT - 1u) / BLACKHOLE_ACTIVE_HUB_HEIGHT;
 
-  static constexpr u32 T6GRID_OVERLAP_WIDTH = T6GRID_BASE_WIDTH/11;
-  static constexpr u32 T6GRID_OVERLAP_HEIGHT = T6GRID_BASE_HEIGHT/11;
+  static constexpr u32 T6GRID_OVERLAP_WIDTH = 10; //XXX WAS: T6GRID_BASE_WIDTH/11;
+  static constexpr u32 T6GRID_OVERLAP_HEIGHT = 10; //XXX WAS: T6GRID_BASE_HEIGHT/11;
 
   static constexpr u32 T6GRID_WIDTH = T6GRID_BASE_WIDTH + 2*T6GRID_OVERLAP_WIDTH;
   static constexpr u32 T6GRID_HEIGHT = T6GRID_BASE_HEIGHT + 2*T6GRID_OVERLAP_HEIGHT;
+
+  static std::string dumpConstants() {
+    std::string ret = "";
+#define XX(C) ret += std::string(XSTR_MACRO(C)) + " = " + std::to_string(C) + "\n"
+    XX(DEMO_GLOBAL_GRID_WIDTH);
+    XX(DEMO_GLOBAL_GRID_HEIGHT);
+
+    XX(BLACKHOLE_CHIP_ARRAY_WIDTH);
+    XX(BLACKHOLE_CHIP_ARRAY_HEIGHT);
+
+    XX(PER_BLACKHOLE_GRID_WIDTH);
+    XX(PER_BLACKHOLE_GRID_HEIGHT);
+  
+    XX(BLACKHOLE_T6_WIDTH);
+    XX(BLACKHOLE_T6_HEIGHT);
+
+    XX(BLACKHOLE_HUBS_WIDTH_3X3);
+    XX(BLACKHOLE_HUBS_HEIGHT_3X3);
+
+    XX(BLACKHOLE_HUBS_WIDTH_2X2);
+    XX(BLACKHOLE_HUBS_HEIGHT_2X2);
+
+    XX(BLACKHOLE_ACTIVE_HUB_WIDTH);
+    XX(BLACKHOLE_ACTIVE_HUB_HEIGHT);
+
+    XX(T6GRID_BASE_WIDTH);
+    XX(T6GRID_BASE_HEIGHT);
+
+    XX(T6GRID_OVERLAP_WIDTH);
+    XX(T6GRID_OVERLAP_HEIGHT);
+
+    XX(T6GRID_WIDTH);
+    XX(T6GRID_HEIGHT);
+#undef XX    
+    return ret;
+  }
 
   static constexpr U16C getGlobalGridSize() {
     return U16C(DEMO_GLOBAL_GRID_WIDTH,DEMO_GLOBAL_GRID_HEIGHT);

@@ -125,5 +125,7 @@ namespace MFM {
     inline bool isNRIBusy(u8 noc) { return funcReadNRIAddress(noc,3,NRI_NOC_CMD_CTRL) & 1; }
     void waitTilNRIClear(u8 noc) ;
 
+    //    s8 checkPhaser() ;  
   };
+
 }
