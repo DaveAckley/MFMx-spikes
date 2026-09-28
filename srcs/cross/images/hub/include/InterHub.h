@@ -11,9 +11,9 @@
 
 namespace MFM {
 
-  extern T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
+  extern T6EPL1Data<InterHubStorage,8> theInterHubL1Data;
 
-  //  extern InterHubStorage theInterHubStorage[4];
+  extern T6EPL1Data<InterHubStorage,4> theCornerHubL1Data;
 
 }
 

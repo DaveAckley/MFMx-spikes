@@ -577,7 +577,7 @@ namespace MFM {
     ASSERT(range.area() > 0);
     unsigned ismulti = range.area() > 1u;
     if (ismulti)
-      LOGprintf(mDevChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.end.x,range.end.y,range.start.x,range.start.y);
+      LOGprintf(mDevChipNum,"CWD %d, %d (%d,%d) (%d,%d)\n",tlbi,ismulti,range.stop.x,range.stop.y,range.start.x,range.start.y);
     struct tenstorrent_configure_tlb confio;
     memset_s(&confio,0,sizeof(confio));
     struct tenstorrent_configure_tlb_in & cfin = confio.in;
@@ -587,9 +587,9 @@ namespace MFM {
     mTLBInfos[tlbi].mRemoteBaseAddress = address;
     struct tenstorrent_noc_tlb_config & cfnoc = cfin.config;
     cfnoc.addr = address&~AHAX_CONSTANT2M_MASK; // window starting address in (x,y) space?
-    cfnoc.x_end = range.end.x-1;                // -1 for inclusive end coords
-    cfnoc.y_end = range.end.y-1;                //  ditto
-    cfnoc.x_start = range.start.x;     // need start and end for unicast?
+    cfnoc.x_end = range.stop.x-1;               // -1 for inclusive end coords
+    cfnoc.y_end = range.stop.y-1;               //  ditto
+    cfnoc.x_start = range.start.x; // need start and end for unicast?
     cfnoc.y_start = range.start.y;
     cfnoc.noc = 0u;
     cfnoc.mcast = ismulti;
@@ -872,7 +872,7 @@ namespace MFM {
 
   void OurTLBs::shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) {
     BHTag tag(TagType::HOSTCT,mDevChipNum);
-    HTprintf("%s shootshootie %u=%s %u\n",
+    HTprintf("%s OurTLBs::shootPHASER %u=%s %u\n",
              tag.to_string().c_str(),
              c,PhaserBolt::phaserCmdName(c),
              args.size());

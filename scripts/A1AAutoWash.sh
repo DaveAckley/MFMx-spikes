@@ -68,5 +68,5 @@ while true; do
     # We use exec with a subshell so that any exit (including signals)
     # brings control back to the loop.
     echo "RUNNING ${PROGRAM[@]}"
-    ("${PROGRAM[@]}" 1>>/tmp/autowash.out)
+    (stdbuf -oL "${PROGRAM[@]}" 1>>/tmp/autowash.out)
 done

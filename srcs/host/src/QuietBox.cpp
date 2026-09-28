@@ -269,6 +269,7 @@ namespace MFM {
   }
 
   void QuietBox::shootPHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) {
+    HTprintf("%u QuBo::shootPHASER %s \n",gettid(),PhaserBolt::phaserCmdName(cmd));
     std::shuffle(mBHNumbers.begin(),mBHNumbers.end(),hostPRNG);
     for (u32 i = 0; i < mBHNumbers.size(); ++i) {
       u32 chip = mBHNumbers[i];

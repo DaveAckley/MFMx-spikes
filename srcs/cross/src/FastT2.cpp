@@ -46,10 +46,8 @@ namespace MFM {
   FAST_LOCAL(FastT2,fT2,2);
 
   static volatile bool mT2Serving = false; 
-  //  static AtomicLock t2ServingLock;
 
   static bool isRandomServerReady() {
-    //    AtomicScopeLock guard(t2ServingLock);
     return mT2Serving;
   }
 

@@ -337,6 +337,7 @@ class EWD(App):
 
     print("QBDONGA",self.quietbox)
     print("CONSTANKS",self.quietbox.getConstants())
+    print("RANGSES\n",self.quietbox.getRanges(),"SESGNAR")
 
     self.quietbox.init()
     print("QB-INI-TED")
@@ -577,7 +578,7 @@ class EWD(App):
     af.value = False       # ping ends autofire
     # trigger step
     cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
-    args = (+1,-1)
+    args = (+1,-1,12,7)   # (1,-1):NE, (12,7):tlbi79
     self.quietbox.shootPHASER(cmd,args)
 
   @on(Checkbox.Changed,"#runcheck")
@@ -597,10 +598,10 @@ class EWD(App):
   @on(Checkbox.Changed,"#ewpcheck")
   def ewpcheck_changed(self,event):
     id = event.checkbox.id
-    logcb("EWDA",f"EWP>{id},{event.value}")
+    newval = 0 if event.value else 1
     cmd = MFMx.PhaserBolt.Cmd.CMD_SUSPEND_EWPS
-    self.quietbox.shootPHASER(cmd,[not event.value])
-    logcb("EWDA",f"EWPHASER>{id},{cmd}")
+    self.quietbox.shootPHASER(cmd,[newval])
+    logcb("EWDA",f"EWPHASER>{id},{cmd},{newval}")
 
   @on(Checkbox.Changed,"#ihhcheck")
   def ihhcheck_changed(self,event):

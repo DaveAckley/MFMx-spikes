@@ -16,7 +16,7 @@ namespace MFM {
     XX(LOOP_BACK,0)           \
     XX(SUSPEND_EWPS,1)        \
     XX(SUPERCELL_LEADER,1)    \
-    XX(SPIKE_PING,2)          \
+    XX(SPIKE_PING,4)          \
 
     enum Cmd : u8 {
 

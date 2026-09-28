@@ -84,7 +84,7 @@ namespace MFM {
     npf_snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u]",
                  tag?tag:"=",
                  r.start.x,r.start.y,
-                 r.end.x,r.end.y);
+                 r.stop.x,r.stop.y);
     markLogBlock(fileid,lineno,buf);
   }
 
@@ -93,7 +93,7 @@ namespace MFM {
     npf_snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u)",
                  tag?tag:"=",
                  r.start.x,r.start.y,
-                 r.end.x,r.end.y);
+                 r.stop.x,r.stop.y);
     markLogBlock(fileid,lineno,buf);
   }
 

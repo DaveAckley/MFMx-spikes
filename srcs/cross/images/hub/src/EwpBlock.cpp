@@ -7,9 +7,6 @@
 
 namespace MFM {
   T6EPL1Data<EwpBlockStg,8> theEwpL1Data;
-  // EwpBlockStg theEwpBlockCars[8];
-  // AtomicLock theEwpBlockLock[8];
-  // EwpEP::CarIdxs theEwpBlockIdxs[8];
 
   FAST_LOCAL_ARRAY(EwpEP<8>,8,myEwpEPArray,n);
 

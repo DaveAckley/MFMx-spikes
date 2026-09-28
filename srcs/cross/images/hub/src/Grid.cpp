@@ -82,23 +82,23 @@ namespace MFM {
     if (lgmc.mSuperCellLeader > 3) {
       // there is currently no SCL: avoid the caches
       ewbounds.start.x = T6Grid::SELF_ORIGIN.x+4; //inclusive
-      ewbounds.end.x = T6Grid::SELF_MAX.x-4;      //exclusive
+      ewbounds.stop.x = T6Grid::SELF_MAX.x-4;     //exclusive
       ewbounds.start.y = T6Grid::SELF_ORIGIN.y+4; //inclusive
-      ewbounds.end.y = T6Grid::SELF_MAX.y-4;      //exclusive
+      ewbounds.stop.y = T6Grid::SELF_MAX.y-4;     //exclusive
 
     } else if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) {
       // we are currently the SCL: own the caches
       ewbounds.start.x = 0+4;                     //inclusive
-      ewbounds.end.x = T6Grid::FULL_WIDTH-4;      //exclusive
+      ewbounds.stop.x = T6Grid::FULL_WIDTH-4;     //exclusive
       ewbounds.start.y = 0+4;                     //inclusive
-      ewbounds.end.y = T6Grid::FULL_HEIGHT-4;     //exclusive
+      ewbounds.stop.y = T6Grid::FULL_HEIGHT-4;    //exclusive
 
     } else {
       // we are currently an SCL follower: avoid our own edges
       ewbounds.start.x = T6Grid::SELF_ORIGIN.x+DG::T6GRID_OVERLAP_WIDTH+4;  //inclusive
-      ewbounds.end.x = T6Grid::SELF_MAX.x-DG::T6GRID_OVERLAP_WIDTH-4;       //exclusive
+      ewbounds.stop.x = T6Grid::SELF_MAX.x-DG::T6GRID_OVERLAP_WIDTH-4;      //exclusive
       ewbounds.start.y = T6Grid::SELF_ORIGIN.y+DG::T6GRID_OVERLAP_HEIGHT+4; //inclusive
-      ewbounds.end.y = T6Grid::SELF_MAX.y-DG::T6GRID_OVERLAP_HEIGHT-4;      //exclusive
+      ewbounds.stop.y = T6Grid::SELF_MAX.y-DG::T6GRID_OVERLAP_HEIGHT-4;     //exclusive
     }
     
     constexpr u32 MAX_TRIES = 5'000u;
@@ -117,8 +117,8 @@ namespace MFM {
   U16C GridManager::selectRandomSite(U16CRange b) {
     //    return U16C((u16) between(T6Grid::SELF_ORIGIN.x+4,T6Grid::SELF_MAX.x-4-1),
     //                (u16) between(T6Grid::SELF_ORIGIN.y+4,T6Grid::SELF_MAX.y-4-1));
-    return U16C((u16) between(b.start.x,b.end.x-1),
-                (u16) between(b.start.y,b.end.y-1));
+    return U16C((u16) between(b.start.x,b.stop.x-1),
+                (u16) between(b.start.y,b.stop.y-1));
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {

@@ -14,10 +14,6 @@ namespace MFM {
 
   using EwpEP1 = EwpEP<1>;
 
-  //  EwpBlockStg theEwpBlockCars[1];
-  //  AtomicLock theEwpBlockLock[1];
-  //  EwpEP::CarIdxs theEwpBlockIdxs[1];
-
   FAST_LOCAL(EwpEP1,myEwpEPNC,n);
 
   struct CellOInfo {

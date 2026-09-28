@@ -75,9 +75,9 @@ namespace MFM
     str[1] = 0;
     return &str[0];
   }
-  static Dir4 nextCCWDir4(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
-  static Dir4 nextCWDir4(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
-  static Dir4 oppositeDir4(const Dir4 from) {  return (Dir4) ((from+2u)&0x3); }
+  static constexpr Dir4 nextCCWDir4(const Dir4 from) { return (Dir4) ((from+1u)&0x3); }
+  static constexpr Dir4 nextCWDir4(const Dir4 from) {  return (Dir4) ((from+3u)&0x3); }
+  static constexpr Dir4 oppositeDir4(const Dir4 from) {  return (Dir4) ((from+2u)&0x3); }
 
   enum Dir8 {
     D8_NT = 0,
@@ -90,12 +90,16 @@ namespace MFM
     D8_NE = 7,
   };
 
-  static Dir8 dir4ToDir8(const Dir4 d4) { return (Dir8) (d4*2u); }
-
   static const char * dir8ToByteString(const Dir8 d8) {
     return "NT8\0NW8\0WT8\0SW8\0ST8\0SE8\0ET8\0NE8" + d8*4u;
   }
-  static bool dir8ToDir4(const Dir8 d8, Dir4 & d4) {
+
+  static constexpr Dir8 oppositeDir8(const Dir8 from) { return (Dir8) ((from+4u)&0x7); }
+
+  static constexpr Dir8 dir4ToDir8(const Dir4 d4) { return (Dir8) (d4*2u); }
+  static constexpr Dir4 dir8ToDir4CW(const Dir8 d8) { return (Dir4) (d8/2u); }
+
+  static bool dir8ToDir4IfAny(const Dir8 d8, Dir4 & d4) {
     if (d8&1) return false;
     d4 = (Dir4) (d8/2u);
     return true;

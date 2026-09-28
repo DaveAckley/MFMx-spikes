@@ -66,8 +66,8 @@ namespace MFM {
   }
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
-  typename T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::SUBTC
-  * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::getClosedTCPtrIfAny() const { 
+  typename T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::SUBTC * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::getClosedTCPtrIfAny() const 
+  { 
     ASSERT_RIGHT_HART();
     using CarIdxs = typename L1Data::CarIdxs;
     CarIdxs & idxs = this->getCarIdxs();
@@ -84,7 +84,6 @@ namespace MFM {
     }
     return 0;
   }
-
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
   bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTC(SUBTC & car, u8 carindex) {
@@ -104,18 +103,9 @@ namespace MFM {
 
      */
 
-    bool isremotehost = false;// this->isRemoteHost();
     BlockCode destbc = this->getDestBlockCode();
     u8 destbcindex = this->getDestBlockCodeIndex();
 
-    //    HBPTAG(dstbci,destbcindex);
-
-    if (isremotehost) {
-      //      u32 hostchunkoffset = iba.getHostChunkOffsetOpt();
-      //      MFM_API_ASSERT(hostchunkoffset != U8_MAX,ILLEGAL_STATE);
-      FAIL(INCOMPLETE_CODE);
-    }
-    //    HBXTAG(mDBA,mDestBlockAddr);
     u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
     U8C ournoc0 = fAll.mNoC0;
@@ -144,20 +134,20 @@ namespace MFM {
       return status > 0;
     }
 
-    HBNOTE("NODEST");
+    HBNOTE("NO-DEST?");
     /// DEBUG PRETEND WE SHIPT TO LOCK UP THIS CAR
     return true;
   }
   
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
-  void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>:: initT6EP(EndPointAddress srcEPA,
-                                                                bool isin,
-                                                                L1Data & l1data) {
+  void T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>:: initT6EP(EndPointAddress srcEPA, bool isin, L1Data & l1data) {
     ASSERT_RIGHT_HART();
     MFM_API_ASSERT_L1_ADDRESS(&l1data);
     mL1Data = &l1data;
-
+    HBMARK;
+    HBPX(FORHART);
+    HBPX(BLOCK_COUNT);
     mDestNoC0 = { U8_MAX, U8_MAX }; // init to illegal addr
     this->initEP(srcEPA, this->getAtomicLock(), isin, CAR_COUNT, false);
   }

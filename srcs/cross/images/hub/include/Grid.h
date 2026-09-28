@@ -246,6 +246,7 @@ namespace MFM {
 
     void init() {
       memset_s(this,0,sizeof(*this));
+      mEventProcessingSuspendStatus = true; // XXX hold at first positions?
       mSuperCellLeader = U8_MAX; // no SCL to start
     }
   };

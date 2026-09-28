@@ -8,7 +8,7 @@
 #include "CellBlock.h"
 #include "ImageManager.h"
 #include "BGRImage.h"
-#include "PHASER.h"
+#include "NgbCacheMgr.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -127,6 +127,7 @@ namespace MFM {
     std::string loggingSummary() ;
 
     std::string getConstants() { return DG::dumpConstants(); }
+    std::string getRanges() { return NgbCacheMgr::dumpAllRanges(); }
 
     void shootPHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) ;
     std::array<u8,4> mBHNumbers = {0,1,2,3};
@@ -164,6 +165,7 @@ namespace MFM {
       qb.def("suspendIHH",&QuietBox::suspendInterHubHacks);
       qb.def("shootPHASER",&QuietBox::shootPHASER);
       qb.def("getConstants",&QuietBox::getConstants);
+      qb.def("getRanges",&QuietBox::getRanges);
       qb.def("onPhases",&QuietBox::onPhases);
       qb.def("phaseIndices",&QuietBox::phaseIndices);
       qb.def("loggingSummary",&QuietBox::loggingSummary);

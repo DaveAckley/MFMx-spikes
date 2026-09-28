@@ -2,11 +2,10 @@
 
 # EXPECTED TO RUN FROM TOP LEVEL OF SPIKE
 
-my $dirTemplate = "/data/ackley/PART4/code/D/blackholeSpikes/spikes/<SPIKENAME>";
+my $projectDir = "/data/ackley/PART4/code/D/MFMx-spikes";
 my $fileIDSubDir = "build_cross/FileIDs.h";
 my %idhash;
 
-my $projectDir;
 my $fileIDPath;
 
 sub failOut {
@@ -14,12 +13,6 @@ sub failOut {
     exit(0);
 }
 sub setProjectDirs {
-    my $logdir = shift;
-    $logdir =~ m!.?/([^/-]+)-MFMX! or die "Bad $logdir?";
-    my $spikename = $1;
-    my $path = $dirTemplate;
-    $path =~ s/<SPIKENAME>/$spikename/ or failOut();
-    $projectDir = $path;
     $fileIDPath = "$projectDir/$fileIDSubDir";
 }
 

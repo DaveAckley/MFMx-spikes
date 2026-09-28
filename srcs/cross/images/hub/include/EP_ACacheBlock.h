@@ -80,7 +80,7 @@ namespace MFM {
 
     void init(ACacheBlockL1Control & acbl1, DLGridList & dll1) ;
     int step(HostBlock & hb) ;
-    int updateCars(HostBlock & hb) ;
+    void updateCars(HostBlock & hb) ;
     void tryToSendFrame(HostBlock & hb);
     ACacheBlock & getCurrentACBOrDie() ;
   };

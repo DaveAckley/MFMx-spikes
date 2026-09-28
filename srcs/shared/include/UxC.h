@@ -196,20 +196,55 @@ namespace MFM {
 
   template <class UTYPEC>
   struct UxCRange {
+
     using UC = UxC<UTYPEC>;
     UC start;                   // INCLUSIVE
-    UC end;                     // EXCLUSIVE
+    UC stop;                     // EXCLUSIVE
+
+    struct iterator {
+      iterator(UxCRange & r) : iterator(r,r.start) { }
+
+      iterator(UxCRange & r, UC sat)
+        : range(r)
+        , at(sat)
+      {
+        MFM_API_ASSERT(range.area() > 0,ILLEGAL_ARGUMENT);
+      }
+
+      UC operator*() const { return at; }
+      iterator& operator++() {
+        if (++at.x >= range.stop.x) {
+          ++at.y;
+          at.x = range.start.x;
+        }
+        return *this;
+      }
+      bool operator!=(const iterator& other) const {
+        return other.range != range || other.at != at;
+      }
+
+      UxCRange & range;
+      UC at;
+    };
+
+    iterator begin() { return iterator(*this); }
+    iterator end() { return iterator(*this,UC(start.x,stop.y)); }
 
     UxCRange() = default;
 
-    UxCRange(UC s, UC e)
+    constexpr UxCRange(UC s, UC e)
       : start(s)
-      , end(e)
+      , stop(e)
+    { }
+
+    constexpr UxCRange(const UxCRange base, const UC offset)
+      : start(base.start + offset)
+      , stop(base.stop + offset)
     { }
 
     void reset() {
       start.reset();
-      end.reset();
+      stop.reset();
     }
 
     void init(UC s) {
@@ -219,21 +254,35 @@ namespace MFM {
 
     void init(UC s, UC e) {
       start = s;
-      end = e;
+      stop = e;
     }
 
     UC dims() const {
-      return UC(end.x - start.x, end.y - start.y);
+      return UC(stop.x - start.x, stop.y - start.y);
     }
 
     u32 area() const {
       return
-        (end.x - start.x) *
-        (end.y - start.y);
+        (stop.x - start.x) *
+        (stop.y - start.y);
     }
 
     bool contains(const UC c) const {
-      return c >= start && c < end;
+      return c >= start && c < stop;
+    }
+
+    bool operator==(const UxCRange & other) const {
+      return start==other.start && stop==other.stop;
+    }
+
+    bool operator!=(const UxCRange & other) const {
+      return !(*this==other);
+    }
+    
+    std::string to_string() const {
+      return
+        std::string("(") + std::to_string(start.x) + "," + std::to_string(start.y) +
+        ".." + std::to_string(stop.x) + "," + std::to_string(stop.y) + "]";
     }
   };
 

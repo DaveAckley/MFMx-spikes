@@ -241,6 +241,6 @@ namespace MFM {
   };
   static_assert(sizeof(InterHubBlock)==4160,"InterHubBlock size check failed");
 
-  typedef TCStorage<InterHubBlock,5> InterHubStorage;
-  static_assert(sizeof(InterHubStorage)==20800,"InterHubStorage size check failed");
+  typedef TCStorage<InterHubBlock,4> InterHubStorage;
+  static_assert(sizeof(InterHubStorage)==16640,"InterHubStorage size check failed");
 }

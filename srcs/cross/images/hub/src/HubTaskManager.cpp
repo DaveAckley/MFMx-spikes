@@ -17,18 +17,22 @@ namespace MFM {
     }
     
     s8 maybeHandleBolt(PhaserBolt & bolt, u8 lastSeqNo) {
-      LOGPTAG(HERBO,lastSeqNo);
+      HBPTAG(HERBO_MHB,lastSeqNo);
+      LOGPTAG(HERBO_MHB,lastSeqNo);
       PhaserBolt::Cmd cmd = bolt.getCmd();
+      HBPTAG(HERBO_CMD,PhaserBolt::phaserCmdName(cmd));
       if (cmd == PhaserBolt::CMD_SUSPEND_EWPS) {
         L1GridManagerControl & lgmc = theL1GridManagerControl;
         s32 val = -1;
         bolt.getBoltDataWordIfAny(0,val);
         MFM_API_ASSERT(val >= 0, ILLEGAL_STATE);
         bool reqSuspendEwps = (val!=0);
+        HBPTAG(HERBO_SUSRQ,reqSuspendEwps);
         LOGPTAG(HERBO_SUSP,reqSuspendEwps);
-        if (reqSuspendEwps != lgmc.isEPSuspReq())
+        if (reqSuspendEwps != lgmc.isEPSuspReq()) {
+          LOGPTAG(HERBO_SUSREQ,reqSuspendEwps);
           lgmc.setEPSuspReq(reqSuspendEwps);
-        else
+        } else
           LOGPTAG(HERBO_WTF,lgmc.isEPSuspReq());
         // XXX HOW TO HANDLE DELAYED RESPONSE
       } else if (cmd == PhaserBolt::CMD_SUPERCELL_LEADER) {

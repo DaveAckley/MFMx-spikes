@@ -99,56 +99,6 @@ namespace MFM {
     npay.reset();
   }
 
-#if 0
-  int ACacheBlockL1Control::step(HostBlock & hb) {
-    EACH(10'000,HBNOTE("ACBL1step"));
-
-    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
-    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
-
-    /** we are the only one that can falsify any of these conditions,
-        if they are currently true, so we don't have to lock until we
-        know we want to do so. right??
-     */
-    //^^^^ UNCLEAR IF WE BELIEVE THAT HERE. LET'S TAKE THE LOCK ^^^^^^
-    AtomicScopeLock guard(mLock);
-    //LOGPTAG(GOTLOCK,&mLock);
-
-    if (true) {
-      static u32 spin = 0;
-      if (spin++ % 10000 == 0) {
-        HBPTAG(ACB1CS10,mCurrentACacheBlock);
-        HBPTAG(ACB1CS11,!crbi.isEmpty());
-        HBPTAG(ACB1CS12,!crbo.isFull());
-        HBPTAG(ACB1CS13,readyToClose());
-      }
-    }
-    
-    if (mCurrentACacheBlock != 0 &&   // have a car and
-        !crbi.isEmpty() &&         // more empty cars are available and
-        !crbo.isFull() &&          // more full cars are shippable and
-        readyToClose()) {          // current car is ready to go
-      bool got;
-      { // SHIPPING
-        ACacheBlock & olb = *mCurrentACacheBlock;
-        ACacheBlockPayload & opay = olb.payload();
-        olb.closeTC(opay.getCurrentPayloadSize()); // close the car
-        LOGPTAG(ACB1SHIP,mCurrentCarIndex);
-        got = crbo.add(mCurrentCarIndex); // hand control back to comm
-        HBPTAG(ACBShipi,mCurrentCarIndex);
-        HBASSERT_EQ(got,true);
-      }
-      // RECEIVING
-      setupNewCar(crbi);                                   
-    } else if (mCurrentACacheBlock == 0 && !crbi.isEmpty()) { // ready to init?
-      HBMARK;
-      setupNewCar(crbi) ;
-    } // else not ready for anything
-
-    return 0;
-  }
-#endif
-
   void ACacheBlockEP::initACacheBlockEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
     LOGXTAG(InLBEP,&l1data);
     this->initT6EP(srcEPA, isin, l1data);
@@ -190,7 +140,7 @@ namespace MFM {
     HBPTAG(PACBinit,sizeof(*this));
   }
 
-  int ACacheBlockPrivateControl::updateCars(HostBlock & hb) {
+  void ACacheBlockPrivateControl::updateCars(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
     
     TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
@@ -260,8 +210,6 @@ namespace MFM {
       // else not ready for anything
       //HBNOTE("uncovered?");
     }
-
-    return 0;
   }
 
   int ACacheBlockPrivateControl::step(HostBlock & hb) {
@@ -348,7 +296,7 @@ namespace MFM {
             dl.getLength() == 0) { // and we have nothing more to send
           theL1GridManagerControl.mEventProcessingSuspendStatus = true;
           LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
-        } else if (theL1GridManagerControl.mEventProcessingSuspendStatus && // if already suspended
+        } else if (false && theL1GridManagerControl.mEventProcessingSuspendStatus && // if already suspended
                    !theL1GridManagerControl.mEventProcessingSuspendRequest) { // but no request is active
           theL1GridManagerControl.mEventProcessingSuspendStatus = false;
           LOGPTAG(HERBO_NOSUSPACH,dl.getLength());

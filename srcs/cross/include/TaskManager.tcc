@@ -17,9 +17,14 @@ namespace MFM {
 
   template <class IMGTM>
   s8 TaskManager<IMGTM>::checkPhaserDispatch() {
+
+    extern HostBlock theHostBlock;
+    const HostBlock & hb = theHostBlock;
+
     static u32 lastSeqNo = U32_MAX;
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
     EACH(10'000'000,LOGPTAG(NCPB,lastSeqNo));
+    
     if (pb.isComplete()) {
       PhaserBolt & pay = pb.payload();
       EACH(10'000'000,LOGPTAG(NCPBCOMPx,&pay));
@@ -27,45 +32,40 @@ namespace MFM {
         u8 seqno = pay.getSeqNo();
         EACH(10'000'000,LOGPTAG(NCPBCOMPs,(u32) seqno));
         if (lastSeqNo != seqno) {
-          EACH(1,LOGPTAG(TKMG_NCPBCOMP,pay.getSeqNo()));
+          EACH(1,LOGPTAG(TKMG_HERBO_SEQ,pay.getSeqNo()));
           LOGPX(lastSeqNo);
           LOGPX(seqno);
+          EACH(1,LOGPTAG(TKMG_HERBO_CMD,PhaserBolt::phaserCmdName(pay.getCmd())));
           //// HANDLE PHASER BOLT
           bool respond = true;  // assume we'll shoot it back
           if (pay.getCmd() == PhaserBolt::CMD_LOOP_BACK) {
             LOGPTAG(NCPB_LOOP_BACK_MAN!,seqno);
           } else if (pay.getCmd() == PhaserBolt::CMD_SPIKE_PING) {
-            s32 x, y;
-            pay.getBoltDataWordIfAny(0,x);
-            pay.getBoltDataWordIfAny(1,y);
-            S8C dest(x,y);
-            LOGPTAG(SPIKEPINGDEST!,dest);
-#if 0
-            // SPIKE: TRY TO MAKE A TASK FOR HB
-            TaskManager::TaskXFerRB & n2brb = getXFerRBOrDie(HARTNUM_NC, HARTNUM_B);
-            if (n2brb.isFull()) {
-              LOGPTAG(TKMG_NOROOMn2b,dest);
-              return 1; // retvalsayswhat?
+            s32 tox,toy;
+            pay.getBoltDataWordIfAny(2,tox);
+            pay.getBoltDataWordIfAny(3,toy);
+            if (tox == hb.mNoC0.x && toy == hb.mNoC0.y) { // aimed at us?
+              // yes
+              s32 x, y;
+              pay.getBoltDataWordIfAny(0,x);
+              pay.getBoltDataWordIfAny(1,y);
+              S8C dest(x,y);
+              LOGPTAG(SPIRKE PINGDEST!,dest);
+              // XXXXX YDONURITME
+            } else {
+              LOGPTAG(SPIRKE NOTUS?,0);
             }
-            u8 tn = TaskWorker::createTask(Task::TTYPE_IHPPING);
-            if (tn == TaskCommon::TASK_NUMBER_NONE) {
-              LOGPTAG(TKMG_NOROOMtasks,dest);
-              return 1; // retvalsayswhat?
-            }
-            Task & t = TaskWorker::getTask(tn);
-            t.mBArg1 = (u8) dest.x;
-            t.mBArg2 = (u8) dest.y;
-            //n2brb.add(tn);
-            LOGPTAG(TKMG_2UHB,tn);
-#endif            
           } else {
-            LOGPTAG(CALLDOWN,PhaserBolt::phaserCmdName(pay.getCmd()));
+            // NO SPECIAL TK PROCESSING
+            LOGNOTE("TKMG_HERBO_IMG");
+            LOGPTAG(TKMG_HERBO_CALLDOWN,PhaserBolt::phaserCmdName(pay.getCmd()));
             s8 ret = maybeHandleBolt(pay, lastSeqNo); //< CALL DOWN TO IMAGE
-            LOGPTAG(PAYCMD,pay.getCmd());
+            LOGPTAG(IMGSEZWHAT,ret);
             if (ret == 0) return 0;
             if (ret < 0) respond = false;
             // else respond = true;
           }
+
           //// RESPOND
           lastSeqNo = seqno;
           LOGPTAG(NCPB_LASTSEQNO,lastSeqNo);
@@ -84,8 +84,6 @@ namespace MFM {
           MFM_API_ASSERT(iba.isValid(),ILLEGAL_STATE); // (0)
           u8 hchunk = iba.getHostChunkOffsetOpt();
           MFM_API_ASSERT(hchunk!=255u,NO_MATCH); // (1)
-          extern HostBlock theHostBlock;
-          const HostBlock & hb = theHostBlock;
           u64 hostbaseaddr = hb.getOurHostNoCBaseAddress(); // (2)
           u64 destBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
           u32 ourtlbi = hb.mTLBI;

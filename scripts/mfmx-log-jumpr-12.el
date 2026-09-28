@@ -220,7 +220,7 @@ Wildcards locId:lineNum and time."
   (let* ((info (get-braced-plain-text dir filter))
          (current-file-path (nth 0 info))
          (plain-text (nth 1 info))
-         (shell-command "/data/ackley/PART4/code/D/blackholeSpikes/notes/parsemark.pl"))
+         (shell-command "/data/ackley/PART4/code/D/MFMx-spikes/scripts/parsemark.pl"))
     (visit-file-and-position-from-mfmx-mark shell-command current-file-path plain-text)))
 
 (unless (featurep 'mfmx-log-jumpr-mode)

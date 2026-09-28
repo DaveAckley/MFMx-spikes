@@ -5,6 +5,7 @@ namespace MFM {
   template<class SUBEP, class SUBTC>
   void EP<SUBEP,SUBTC>::initEP(EndPointAddress srcEPA, AtomicLock & lock, bool isIn, u32 carCount, bool carsIn) {
     reset();
+    HBPTAG(initEEP,this->getName());
     LOGPTAG(initEP,this->getName());
 
     mLockPtr = &lock;           // set up the lock

@@ -5,10 +5,10 @@ add_executable(hub)
 target_sources(hub PRIVATE
   allimg/src/HartTasks.cpp
   allimg/src/ImageConfig.cpp
-  images/hub/src/EP_ACBlock.cpp
   images/hub/src/EP_ACacheBlock.cpp
   images/hub/src/EP_InterHub.cpp
   images/hub/src/EwpBlock.cpp
+  images/hub/src/HubCacheMgr.cpp
   images/hub/src/HubTaskManager.cpp
   images/hub/src/Grid.cpp
   images/hub/src/InterHub.cpp

@@ -20,7 +20,8 @@ namespace MFM {
   XX(ZOTBLOCK,ZTBK,256,ZotBlockStg,2u)                  \
   XX(EWHUB,EWHB,2048,EwpBlockStg,8u)                    \
   XX(EWPCARS,EWCR,2048,EwpBlockStg,1u)                  \
-  XX(INTERHUB,IHUB,20800,InterHubStorage,4u)            \
+  XX(INTERHUB,IHUB,16640,InterHubStorage,8u)            \
+  XX(CORNERHUB,CHUB,16640,InterHubStorage,4u)           \
   XX(T6GRID,T6G,242692,T6Grid,1u)                       \
   XX(ACACHEBLOCK,ACB,5120,ACacheBlockStg,1u)            \
   //END OF BLOCK_CODE_LIST
