@@ -1,4 +1,4 @@
-{454}  -*-  mode: text; fill-column: 32;  -*-
+{464}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -8104,7 +8104,122 @@ theoretically we are now on
 branch 'simpler-phaser-handling'
 and preparing to tear out shit
 all over the place and see what
-happens. 
+happens. [454:
+
+Mon Sep 28 15:14:48 2026 Well I
+did a 'branch bailout' attempt
+just to see how to do it and now
+I'm on a branch
+phaser-simplification-attempt.
+
+Here we go. The idea is:
+
+[457: Mon Sep 28 15:30:28 2026
+Well, I guess, DONE  :457](1) Tear out TaskManager
+    completely? We're just going
+    to have some super minimal
+
+(2) phaser-specific,
+
+(3) called by all harts on a
+    per-step basis
+
+thing instead.
+    
+Let's try.
+[455:
+
+Mon Sep 28 15:20:08 2026 So I
+guess I'm tearing out
+HubTaskManager and
+EwpTaskManager as well..
+eek.[456:
+
+Mon Sep 28 15:29:40 2026 Yow
+that crap's all gone and yet
+we're already building and
+running again?
+
+[458:
+
+Mon Sep 28 15:30:44 2026 So
+okay. Minimal minimal
+PhaserHandling support, with the
+emphasis on minimal minimal
+minimality.
+
+TODO:
+(1) detect new bolt in a single
+    place
+(2) require all(ish) harts to
+    acknowledge the bolt
+(3) return the bolt from a
+    single place     
+(4) see that work.
+
+So:
+T6BoltHandler
+ AtomicLock mLock
+ u8 mSeqno
+ u8 mSeqnoAcked[HARTCOUNT]
+ u8 mBoltDataWordsUsed; ?? NOT MINIMAL
+
+ void init();
+ void ack(hartnum);
+ .. STOP. Set it up first.
+
+[459:
+
+Mon Sep 28 16:07:41 2026 OK,
+crosslib T6BoltResponder exists
+and builds, and it's pretty damn
+minimal. Good human, good.
+
+So, what shall we our
+single-place-bolt detection? I'm
+assuming HN will be running the
+code regardless. [460:
+
+Mon Sep 28 16:14:34 2026 OK made
+T6BoltResponder::detectorNC(),
+just logging so far. Where shall
+we call it? FastNC maybe?[461:
+
+Mon Sep 28 16:16:16 2026 Do we
+want it somewhere down inside
+fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE)?
+Or pull it out special?[462:
+
+Mon Sep 28 16:17:59 2026 Maybe
+pull it out special. It's
+actually 'more minimal' that
+way, I think. Not trying to be
+general. [463:
+
+Mon Sep 28 16:46:44 2026 OK, so
+L1 theT6BoltResponder is getting
+initted, and then its
+T6BoltResponder::boltDetectorNC
+method is getting called from NC
+on both EWP and HUB.
+
+Let's commit on our branchypoo!
+
+:463]
+
+:462]
+
+:461]
+
+
+:460]
+
+:459]
+:458]
+:456]
+
+:455]
+:454]
 
 :453]
 :452]
