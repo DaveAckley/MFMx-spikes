@@ -5,7 +5,6 @@ add_executable(zot)
 target_sources(zot PRIVATE
   src/ImageConfig.cpp
   images/zot/src/LiveB.cpp
-#  images/zot/src/LiveNC.cpp
   images/zot/src/ZotBlock.cpp
   images/zot/src/demo.cpp
   ${S_FILES_LIST}

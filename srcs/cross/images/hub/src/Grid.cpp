@@ -3,7 +3,6 @@
 #include "Grid.h"
 #include "T6Grid.h"
 #include "EwpBlock.h"
-#include "TaskManager.h"
 
 namespace MFM {
 

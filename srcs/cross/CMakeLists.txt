@@ -45,6 +45,7 @@ target_sources(crosslib PUBLIC
   src/HartTasksLib.cpp
   src/NRIUtils.cpp
   src/Printf.cpp
+  src/T6BoltResponder.cpp
   src/T6CellO.cpp
   src/T6EPL1Data.cpp
   src/T6EPs.cpp
@@ -52,7 +53,6 @@ target_sources(crosslib PUBLIC
   src/T6Neighbor.cpp
   src/T6Phaser.cpp
   src/TEFs.cpp
-  src/TaskManager.cpp
   src/TaskWorker.cpp
   src/formatSymbols.pl
   src/t6main.cpp

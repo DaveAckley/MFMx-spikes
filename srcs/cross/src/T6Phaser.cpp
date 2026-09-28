@@ -6,20 +6,22 @@ namespace MFM {
 
   extern HostBlock theHostBlock;
 
-  void T6Phaser::handle() {
-    PhaserBlock & pb = getPhaserBlock();
-    {
-      while (pb.payload().getCmd() == PhaserBolt::CMD_ALL_HARTS_PAUSE) {
-        EACH(100'000,HBPTAG(PHASEPAUSE,__EACHNUM__));
-        sleepCycles(100'000);
+  namespace T6Phaser {
+    void handle() {
+      PhaserBlock & pb = getPhaserBlock();
+      {
+        while (pb.payload().getCmd() == PhaserBolt::CMD_ALL_HARTS_PAUSE) {
+          EACH(100'000,HBPTAG(PHASEPAUSE,__EACHNUM__));
+          sleepCycles(100'000);
+        }
       }
-    }
-    {
-      HostBlock & hb = theHostBlock;
-      while (pb.payload().getCmd() == PhaserBolt::CMD_HOLD_AT_BIRTH &&
-             hb.mPerHartStatus[fAll.mHartNum] == FAILCode::LIVING) {
-        EACH(100'000,HBPTAG(PHASEHOLD,__EACHNUM__));
-        sleepCycles(100'000);
+      {
+        HostBlock & hb = theHostBlock;
+        while (pb.payload().getCmd() == PhaserBolt::CMD_HOLD_AT_BIRTH &&
+               hb.mPerHartStatus[fAll.mHartNum] == FAILCode::LIVING) {
+          EACH(100'000,HBPTAG(PHASEHOLD,__EACHNUM__));
+          sleepCycles(100'000);
+        }
       }
     }
   }

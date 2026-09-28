@@ -16,8 +16,7 @@
 #include "BlockCode.h"
 #include "T6ImageBlock.h"
 #include "T6Phaser.h"
-#include "TaskManager.h"
-
+#include "T6BoltResponder.h"
 
 namespace MFM {
 
@@ -32,19 +31,9 @@ namespace MFM {
     void init() {
       memset_s(this,'\0',sizeof(*this));
       copyHTFuncsNC();
-#if 0
-      mPrivSeq.copyHTFuncs(HARTNUM_NC,
-                           (HTFuncPtr*) &__start_rodata_fp_table_nc,
-                           (HTFuncPtr*) &__end_rodata_fp_table_nc);
-      mPrivSeq.runHTFuncs(HTOpCode::HTOC_INIT);
-#endif
     }
 
     u64 mBytesOut, mBytesIn;
-
-#if 0    
-    PrivateSequencer mPrivSeq;
-#endif
 
     static constexpr u32 MAX_EPFUNCS = 6u;
     HTFuncPtr mHTFuncs[MAX_EPFUNCS];
@@ -99,13 +88,15 @@ namespace MFM {
   }
 
   int stepNC(HostBlock & hb) {
-    TaskWorker::updateHartTasks();
+    theT6BoltResponder.boltDetectorNC();
     RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
     EACH(10'000'000,LOGPTAG64(NCBO,fNC.mBytesOut));
     return 0;
   }
 
   int initNC() {
+    HBNOTE(BOLTR_INIT);
+    theT6BoltResponder.init();
     HBNOTE("initNC");
     fNC.init();
     return 0;
@@ -115,7 +106,6 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     HBPTAG(@,__FUNCTION__);
-    TaskWorker::initTaskManagerNC();
     return liveNC(hb);
   }
 

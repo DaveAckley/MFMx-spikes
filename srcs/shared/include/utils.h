@@ -37,8 +37,8 @@
 namespace MFM {
 
   inline const char * hartName(u32 hartnum) {
-    if (hartnum > HARTNUM_NC+1u)
-      hartnum = HARTNUM_NC+1u;
+    if (hartnum > HART_COUNT)
+      hartnum = HART_COUNT;
     return (hartnum<<2)+
       "hb\0\0"
       "h0\0\0"
@@ -49,8 +49,8 @@ namespace MFM {
   }
 
   inline char hartChar(u32 hartnum) {
-    if (hartnum > HARTNUM_NC+1u)
-      hartnum = HARTNUM_NC+1u;
+    if (hartnum > HART_COUNT)
+      hartnum = HART_COUNT;
     return "b012n?"[hartnum];
   }
 

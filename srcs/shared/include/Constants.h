@@ -24,6 +24,8 @@
 #define HARTNUM_T2 (3)
 #define HARTNUM_NC (4)
 
+#define HART_COUNT (5)
+
 // Inlined copy of what we need from https://github.com/tenstorrent/tt-kmd/blob/main/ioctl.h:
 
 #define TENSTORRENT_DRIVER_VERSION 2
