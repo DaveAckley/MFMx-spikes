@@ -87,11 +87,10 @@ namespace MFM {
     return fNC.mBytesIn += count;
   }
 
-  int stepNC(HostBlock & hb) {
+  void stepNC(HostBlock & hb) {
     theT6BoltResponder.boltDetectorNC();
     RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
     EACH(10'000'000,LOGPTAG64(NCBO,fNC.mBytesOut));
-    return 0;
   }
 
   int initNC() {
@@ -102,12 +101,14 @@ namespace MFM {
     return 0;
   }
 
+  /*
   int hartMainNC(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
     HBPTAG(@,__FUNCTION__);
     return liveNC(hb);
   }
+  */
 
   ////////
   TEFResult TaskEpochFunction_NOC(HartTaskIndex hti, HartEpochIndex hei, u8 hartnum) {

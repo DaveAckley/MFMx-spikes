@@ -43,7 +43,7 @@ namespace MFM {
     return 0;
   }
 
-  int stepB(HostBlock & hb) {
+  void stepB(HostBlock & hb) {
     static u32 spin = 0u;
 
     const u32 BITS = 16;//15;
@@ -56,6 +56,5 @@ namespace MFM {
 
     fB.mPIHControl.stepB(hb);
 
-    return 0;
   }
 }

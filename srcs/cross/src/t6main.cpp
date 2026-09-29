@@ -5,14 +5,10 @@
 #include "Debug.h" 
 #include "StandardLife.h" 
 #include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
+#include "ExtraConstants.h" // for NOC_NODE_ID0
 
 // Baby RV Service APIs 
 #include "FastLocal.h"
-#include "FastB.h"   // for hartMainB
-#include "FastT0.h"  // for hartMainT0
-#include "FastT1.h"  // for hartMainT1
-#include "FastT2.h"  // for hartMainT2
-#include "FastNC.h"  // for hartMainNC
 #include "HartTasksLib.h"  // for RCFlag
 
 namespace MFM {
@@ -100,13 +96,7 @@ namespace MFM {
     //    HBPTAG(sHOOKT,(void*) theGlobalDebugHook);
     LOGMARK;
 
-    switch (fAll.mHartNum) {
-    case 0u: return hartMainB(hb);
-    case 1u: return hartMainT0(hb);
-    case 2u: return hartMainT1(hb);
-    case 3u: return hartMainT2(hb);
-    case 4u: return hartMainNC(hb);
-    }
+    liveTheStandardLife(hb);
     return 0; // NOT REACHED
   }
 }

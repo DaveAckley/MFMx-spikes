@@ -60,7 +60,7 @@ namespace MFM {
     return 0;
   }
 
-  int stepB(HostBlock & hb) {
+  void stepB(HostBlock & hb) {
     static u32 spin = 0u;
     if ((++spin & 0xfff) == 0) {
       if ((spin & 0xffffff) == 0) LOGXTAG(LiveB,spin);
@@ -68,7 +68,6 @@ namespace MFM {
     }
     T6Phaser::handle();
     processEwpCars(hb,false);
-    return 0;
   }
 
   RCFlag manageEwpDemoT0(HTOpCode htoc) {

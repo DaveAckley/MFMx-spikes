@@ -85,42 +85,23 @@ namespace MFM {
     return t0TicksElapsed;
   }
 
-  int MYstepT0(HostBlock & hb) {
-    T6Phaser::handle();
-    EACH(10'000,HBPTAG(@,__FUNCTION__));
-    fT0.stepHTFuncsT0();
-    EACH(10'000,HBNOTE(BACK));
-    return 0;
-  }
+  void stepT0(HostBlock & hb) {
 
-  int liveT0(HostBlock & hb) {
-    //DP.printf("T0:RND %d\n",create(100));
-    /*
-    fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
-    fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
-    t0TicksElapsed = 0u;
-    */
-
-    u16 spin = 0u;
     u32 aiFreq = hb.mAIClockFrequency;
-    while (true) {
-      if (++spin == 0) hb.hartbeat(fAll.mHartNum);
-      u64 now = FastT0::readDebugTimestamper(); // pound away at the timestamper!
-      u64 cycles = now - fT0.debugTimestamperStart;
 
-      //u32 ticksElapsed = (u32) (cycles>>22u); // 200MHz-> ~47Hz, 800MHz-> ~190Hz, 1235MHZ-> ~294Hz
-      u32 ticksElapsed = (u32) (cycles>>23u); // 200MHz-> ~24Hz, 800MHz-> ~95Hz, 1235MHZ-> ~147Hz
-      //u32 ticksElapsed = (u32) (cycles>>26u); // 200MHz-> ~3Hz, 800MHz-> ~12Hz, 1235MHZ-> ~18Hz
+    u64 now = FastT0::readDebugTimestamper(); // pound away at the timestamper!
+    u64 cycles = now - fT0.debugTimestamperStart;
 
-      if (aiFreq != 0u) {
-        fT0.newMillisElapsed = (u32) ((1000 * cycles) / aiFreq);
-        if (fT0.newMillisElapsed != fT0.lastMillisElapsed) { // don't hit L1 til new milli
-          fT0.lastMillisElapsed = fT0.newMillisElapsed;
-          totalMillisElapsed = fT0.newMillisElapsed;
-          aiFreq = hb.mAIClockFrequency; // and refresh aiFreq then too, just in case
-          // CALL STEPT0 ONCE PER ~MILLI!
-          MYstepT0(hb);
-        }
+    u32 ticksElapsed = (u32) (cycles>>23u); // 200MHz-> ~24Hz, 800MHz-> ~95Hz, 1235MHZ-> ~147Hz
+    
+    if (aiFreq != 0u) {
+      fT0.newMillisElapsed = (u32) ((1000 * cycles) / aiFreq);
+      if (fT0.newMillisElapsed != fT0.lastMillisElapsed) { // don't hit L1 til new milli
+        fT0.lastMillisElapsed = fT0.newMillisElapsed;
+        totalMillisElapsed = fT0.newMillisElapsed;
+        aiFreq = hb.mAIClockFrequency; // and refresh aiFreq then too, just in case
+        // CALL THE T0 STEPFUNCS ONCE PER ~MILLI!
+        fT0.stepHTFuncsT0();
       }
 
       if (fT0.debugTicksElapsed != ticksElapsed) {
@@ -134,19 +115,6 @@ namespace MFM {
         t0TicksElapsed = ticksElapsed; // for the neighbors
       }
     }
-    FAIL(UNREACHABLE_CODE); // um what? try to set T0's fail bit
-  }
-
-  int myInitT0Clock() {
-    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
-    fT0.init();
-    HBNOTE(init T0 clock);
-    return 0;
-  }
-
-  int hartMainT0(HostBlock & hb) {
-    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-    return liveT0(hb);          // go do your hart t0 thing you
   }
 
   // called by initseq and by stepHTFuncsT0
@@ -186,7 +154,7 @@ namespace MFM {
     switch (hei) {
     case HE_BGN:
       HBNOTE(init CLOK);
-      myInitT0Clock();
+      fT0.init();
       fT0.debugTimestamperStart = FastT0::readDebugTimestamper();
       fT0.debugTicksElapsed = 0u; // 0 init to suppress KT 0.000 reports
       t0TicksElapsed = 0u;

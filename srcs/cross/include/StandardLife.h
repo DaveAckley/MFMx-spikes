@@ -3,15 +3,11 @@
 
 namespace MFM {
 
-  extern int liveB(HostBlock & hb);
-  extern int liveT0(HostBlock & hb);
-  extern int liveT1(HostBlock & hb);
-  extern int liveT2(HostBlock & hb);
-  extern int liveNC(HostBlock & hb);
+  extern int liveTheStandardLife(HostBlock & hb);
 
-  extern int stepB(HostBlock & hb);
-  extern int stepT0(HostBlock & hb);
-  extern int stepT1(HostBlock & hb);
-  extern int stepT2(HostBlock & hb);
-  extern int stepNC(HostBlock & hb);
+  extern void stepB(HostBlock & hb);
+  extern void stepT0(HostBlock & hb);
+  extern void stepT1(HostBlock & hb);
+  extern void stepT2(HostBlock & hb);
+  extern void stepNC(HostBlock & hb);
 }
