@@ -1,4 +1,4 @@
-{464}  -*-  mode: text; fill-column: 32;  -*-
+{472}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -8204,7 +8204,106 @@ method is getting called from NC
 on both EWP and HUB.
 
 Let's commit on our branchypoo!
+[464:
 
+Mon Sep 28 16:55:41 2026 Done.
+And now we're off to a last
+evening before the T2sday
+Countdown begins.
+[465:
+
+Mon Sep 28 19:52:42 2026 So.
+Let's detect a bolt.[466:
+
+Tue Sep 29 00:49:52 2026 OK,
+we've detected a bolt. Can we
+get multiple harts to ack
+it?[467:
+
+Tue Sep 29 01:21:18 2026 AND
+Here's Another Thing I Don't
+Like: The whole 'DefaultLives'
+concept not being a
+'StandardLife' concept - or even
+better, a 'PreordainedLife' or
+'LifeOnRails'. 'Default' says:
+Hey, any of this can be changed!
+So Flexible!
+
+Except in practice that means:
+You Can't Count On This. Some
+things might never even RUN this
+juicy piece of code you wanted
+to extend or alter.
+
+How much non-default lives are
+we dealing with?[468:
+
+Tue Sep 29 01:34:19 2026 Well,
+comments say:
+
+      int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2 for PRNG
+ ..   int __attribute__((weak)) liveT0(HostBlock & hb) { return justLive(hb); } // NOTE FastT0.cpp has a strong liveT0
+ ..   int __attribute__((weak)) liveT2(HostBlock & hb) { return justLive(hb); } // NOTE FastT2.cpp has a strong liveT2
+ ..   int __attribute__((weak)) stepT0(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; } // NOTE FastT0.cpp has a strong stepT0
+ ..   int __attribute__((weak)) stepNC(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); return 0; } // NOTE FastNC.cpp has a strong stepNC
+
+And I would say:
+
+ - ditching weak initT2 would
+   incur the PRETTY DAMN MINOR
+   inconvenience of requiring
+   the other four harts to
+   declare an empty initTHEM,
+   since that's what weakInit
+   does.
+
+ - ditching weak liveTHEM .. no
+   wait, let's do the previous
+   point first.
+
+[469:
+
+Tue Sep 29 01:45:34 2026
+Actually, let's ditch
+initB..initNC entirely, since
+the TaskEpoch framework already
+has (a variety of) init sequence
+stuff. [470:
+
+Tue Sep 29 02:08:57 2026 OK,
+we're on branch
+change-DefaultLives-to-Standard-Life,
+and we've ditched the whole
+initB..NC class of functions and
+stuff is building again. That's
+all committed on the branch.
+
+Can we also ditch the liveB..NC
+functions in favor of a
+liveStandardLife or something?
+[471:
+
+Tue Sep 29 03:04:21 2026 Well,
+that seems to have worked okay,
+and we're committed. Are we
+ready to merge
+change-DefaultLives-to-Standard-Life?
+I think maybe?
+
+:471]
+:470]
+
+:469]
+
+:468]
+
+:467]
+
+:466]
+
+:465]
+:464]
 :463]
 
 :462]
