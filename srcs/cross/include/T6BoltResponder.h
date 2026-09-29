@@ -10,12 +10,15 @@ namespace MFM {
     AtomicLock mLock;
     u8 mLastSeqnoArrived;
     u8 mLastSeqnoAcked[HART_COUNT];
+    u8 mLastSeqnoReturned;
 
     void init() {
       memset_s(this,'\0',sizeof(*this));
     }
 
     void boltDetectorNC() ;
+
+    bool hartAcknowledgeBolt() ;
   };
 
   extern T6BoltResponder theT6BoltResponder;
