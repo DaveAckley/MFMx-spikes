@@ -1,9 +1,10 @@
-#include "DefaultLives.h"
+#include "StandardLife.h"
 #include "FastLocal.h"
 #include "Debug.h"
 #include "T6Phaser.h"
 
 namespace MFM {
+#if 0
   int doDefaultInit(HostBlock & hb) {
     LOGMARK;
 
@@ -28,7 +29,8 @@ namespace MFM {
     //    HBNOTE("ENGAGE");
     return 0;
   }
-
+#endif
+  
   static int justLive(HostBlock & hb) {
     HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
 
@@ -51,6 +53,7 @@ namespace MFM {
     return 0;
   }
 
+  /*
   static int weakInit() {
     HBPTAG(weakInit,hartName(fAll.mHartNum));
     return 0;
@@ -61,6 +64,7 @@ namespace MFM {
   int __attribute__((weak)) initT1() { return weakInit(); }
   int __attribute__((weak)) initT2() { return weakInit(); } // NOTE FastT2.cpp has a strong initT2 for PRNG
   int __attribute__((weak)) initNC() { return weakInit(); }
+  */
 
   int __attribute__((weak)) liveB(HostBlock & hb) { return justLive(hb); }
   int __attribute__((weak)) liveT0(HostBlock & hb) { return justLive(hb); } // NOTE FastT0.cpp has a strong liveT0

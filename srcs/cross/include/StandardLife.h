@@ -2,13 +2,6 @@
 #include "HostBlock.h"
 
 namespace MFM {
-  extern int doDefaultInit(HostBlock & hb);
-
-  extern int initB();
-  extern int initT0();
-  extern int initT1();
-  extern int initT2();
-  extern int initNC();
 
   extern int liveB(HostBlock & hb);
   extern int liveT0(HostBlock & hb);

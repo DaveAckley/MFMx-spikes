@@ -4,7 +4,7 @@
 #include "FastT2.h" // for preloadT2Mailbox, createByMail
 #include "Printf.h"
 #include "Debug.h"
-#include "DefaultLives.h"
+#include "StandardLife.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Control
 #include "HartTasksLib.h" // for HTFuncPtr
 

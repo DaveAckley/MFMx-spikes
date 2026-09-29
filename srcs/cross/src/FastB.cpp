@@ -4,7 +4,7 @@
 #include "Printf.h"
 //#include "T6ImageBlock.h"
 #include "BlockCode.h"
-#include "DefaultLives.h"
+#include "StandardLife.h"
 //#include "HartTasksLib.h" // for PublicSequencer etc
 #include "Debug.h" // for HBNOTE etc
 

@@ -3,7 +3,7 @@
 #include "ImageBlock.h"
 #include "Printf.h" // for t6InitPrinters()
 #include "Debug.h" 
-#include "DefaultLives.h" 
+#include "StandardLife.h" 
 #include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
 
 // Baby RV Service APIs 
