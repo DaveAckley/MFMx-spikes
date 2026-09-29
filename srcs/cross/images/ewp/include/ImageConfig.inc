@@ -1,10 +1,11 @@
-} // ugh get outside of ImageConfig.h's namespace MFM
+// -*- C++ -*- THIS FILE IS INCLUDED (MULTIPLE TIMES) BY ImageConfig.h AND ImageConfig.cpp
 
+#ifdef DO_IMAGECONFIG_INCLUDES
 #include "EwpBlock.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Data
 #include "PHASER.h"
+#else
 
-namespace MFM { // ugh get back into MFM
 extern PhaserBlock lastPHASER[1];
 
 XIC_START_IMAGE_BLOCK(EWP)
@@ -14,3 +15,4 @@ XIC_START_IMAGE_BLOCK(EWP)
   XIC_BLOCKADDR(BC_LOGBLOCK,1,theLogBlockL1Data.mTheTCStorages,LogBlockStg)
 XIC_END_IMAGE_BLOCK(EWP)
 
+#endif /* !DO_IMAGECONFIG_INCLUDES */

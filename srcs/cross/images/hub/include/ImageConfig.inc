@@ -1,15 +1,14 @@
-// THIS FILE IS INCLUDED (MULTIPLE TIMES) BY ImageConfig.h AND ImageConfig.cpp
+// -*- C++ -*- THIS FILE IS INCLUDED (MULTIPLE TIMES) BY ImageConfig.h AND ImageConfig.cpp
 
-} // ugh get outside of ImageConfig.h's namespace MFM
-
+#ifdef DO_IMAGECONFIG_INCLUDES
 #include "EwpBlock.h"
 #include "InterHub.h"
 #include "T6Grid.h"
 #include "EP_LogBlock.h" // for theLogBlockL1Data
 #include "EP_ACacheBlock.h" // for theACacheBlockL1Data
 #include "T6Phaser.h" // for PhaserBlock
+#else
 
-namespace MFM { // ugh get back into MFM
 extern PhaserBlock lastPHASER[1];
 
 XIC_START_IMAGE_BLOCK(HUB)
@@ -27,4 +26,4 @@ XIC_END_IMAGE_BLOCK(HUB)
   /* BEG BO0 BO1 GR0 GR1 GR2 GR3 LIV TASK */   \
   /* no extra tasks in hub init */
 
-
+#endif /* !DO_IMAGECONFIG_INCLUDES */

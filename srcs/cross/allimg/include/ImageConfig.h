@@ -1,10 +1,12 @@
 #pragma once    /* -*- C++ -*- */
 
 #include "itype.h"
-
 #include "CrossUtils.h" // for strcmp
-
 #include "ImageBlock.h"
+
+#define DO_IMAGECONFIG_INCLUDES // while OUTSIDE namespace MFM
+#include "ImageConfig.inc"      // in per-image subdir
+#undef DO_IMAGECONFIG_INCLUDES
 
 namespace MFM {
 
