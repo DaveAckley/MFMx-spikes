@@ -1,4 +1,4 @@
-{472}  -*-  mode: text; fill-column: 32;  -*-
+{496}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -6929,7 +6929,7 @@ well then. Let's
 
 Mon Sep 21 12:36:33 2026 Right
 now we have BC_INTERHUB via
-this: 
+this:
 
   XX(INTERHUB,IHUB,20800,InterHubStorage,4u)            \
 
@@ -7074,11 +7074,11 @@ yet.. [404:
 Mon Sep 21 13:43:11 2026 Ah
 there we go. We see:
 
-    {54:151 0 0 14,9 hn BLOCK_COUNT:4} 
+    {54:151 0 0 14,9 hn BLOCK_COUNT:4}
     {153:8 0 0 14,9 hn initEEP:IHEPo}
     {52:53 0 0 14,9 hn HBANG!:IC_HUB}
-    {52:53 0 0 14,9 hn =4} 
-    {52:53 0 0 14,9 hn =4} 
+    {52:53 0 0 14,9 hn =4}
+    {52:53 0 0 14,9 hn =4}
 
 where's that BLOCK_COUNT:4
 coming from? The bang is from:
@@ -7124,13 +7124,13 @@ Mon Sep 21 14:23:26 2026 OK, the
     {25:52 0 0 2,3 hn 8IHEP-IHUO*:0xffb003a8}
     {25:53 0 0 2,3 hn 8IHEP-WEIN:1}
  .. {54:151 0 0 2,3 hn BLOCK_COUNT:8}
-    {153:8 0 0 2,3 hn initEEP:IHEPo} 
-    {25:56 0 0 2,3 hn 8IHEP-srcD8:ST8} 
-    {25:60 0 0 2,3 hn 8IHEP-car:0} 
-    {25:60 0 0 2,3 hn 8IHEP-car:1} 
-    {25:60 0 0 2,3 hn 8IHEP-car:2} 
-    {25:60 0 0 2,3 hn 8IHEP-car:3} 
- .. {25:64 0 0 2,3 hn 8IHEP-dstD8:NT8} 
+    {153:8 0 0 2,3 hn initEEP:IHEPo}
+    {25:56 0 0 2,3 hn 8IHEP-srcD8:ST8}
+    {25:60 0 0 2,3 hn 8IHEP-car:0}
+    {25:60 0 0 2,3 hn 8IHEP-car:1}
+    {25:60 0 0 2,3 hn 8IHEP-car:2}
+    {25:60 0 0 2,3 hn 8IHEP-car:3}
+ .. {25:64 0 0 2,3 hn 8IHEP-dstD8:NT8}
 
 [410:
 
@@ -7311,7 +7311,7 @@ A: HN calls shipTC which
    computes
 
      dest4 = dir8ToDir4CW(D8_NT)
-     
+
    which returns D4_N.
 
 Q: Then what happens?
@@ -7405,7 +7405,7 @@ stuff? Some Facts:
 Now, hub/InterHub consists of
 basically only:
 
-  static RCFlag manageInterHubNC(HTOpCode htoc) 
+  static RCFlag manageInterHubNC(HTOpCode htoc)
 
 so maybe we could put more stuff
 in there?
@@ -7479,7 +7479,7 @@ would ditch.
 
 Tue Sep 22 08:31:44 2026 So OK.
 Let's try to concentrate
-interhub/HB processing in 
+interhub/HB processing in
 
 InterHubPrivateControl::stepB(HostBlock&)
 
@@ -7705,7 +7705,7 @@ still true - I mean, does
 anybody call tryToSendFrame? I
 think so..[433:
 
-Thu Sep 24 01:24:55 2026   
+Thu Sep 24 01:24:55 2026
 ACacheBlockPrivateControl::step(..)
 calls it. And anyway, it's
 tryToSendFrame, in State::WAIT,
@@ -7985,7 +7985,7 @@ EwpTaskManager to handle a bolt:
 
 Mon Sep 28 10:33:18 2026 While
 in HUB we get down to
-HubTaskManager::maybeHandleBolt(..) 
+HubTaskManager::maybeHandleBolt(..)
 and here is where we 'process'
 it, such as it seems to be:
 
@@ -8068,7 +8068,7 @@ and that's DIFFERENT than
         bool deleteTask(u8 taskNumber); //< "
       }
 
-  
+
 How much is TaskWorker used?
 Could we ditch it for now?
 [452:
@@ -8125,7 +8125,7 @@ Well, I guess, DONE  :457](1) Tear out TaskManager
     per-step basis
 
 thing instead.
-    
+
 Let's try.
 [455:
 
@@ -8154,7 +8154,7 @@ TODO:
 (2) require all(ish) harts to
     acknowledge the bolt
 (3) return the bolt from a
-    single place     
+    single place
 (4) see that work.
 
 So:
@@ -8289,7 +8289,195 @@ that seems to have worked okay,
 and we're committed. Are we
 ready to merge
 change-DefaultLives-to-Standard-Life?
-I think maybe?
+I think maybe?[472:
+
+Tue Sep 29 03:10:35 2026 Well,
+we did that, and we're back on
+phaser-simplification-attempt.
+
+pop pop yak pop
+pop yak pop
+where are we?
+
+[473:
+
+Tue Sep 29 03:30:49 2026 I guess
+we're around to getting all
+harts to ack a bolt. And that's
+supposed to be easier now with
+StandardLife.
+
+So, in liveTheStandardLife(hb),
+we already have like:
+
+        while (true) {
+ ..       T6Phaser::handle();
+ ..       switch (ch) {
+          case 'b': stepB(hb); break;
+ ..etc
+
+where (namespace)
+T6Phaser::handle() deals all and
+only with pausing things:
+
+      PhaserBlock & pb = getPhaserBlock();
+      {
+        while (pb.payload().getCmd() == PhaserBolt::CMD_ALL_HARTS_PAUSE) {
+          EACH(100'000,HBPTAG(PHASEPAUSE,__EACHNUM__));
+          sleepCycles(100'000);
+        }
+      }
+      {
+        HostBlock & hb = theHostBlock;
+        while (pb.payload().getCmd() == PhaserBolt::CMD_HOLD_AT_BIRTH &&
+               hb.mPerHartStatus[fAll.mHartNum] == FAILCode::LIVING) {
+          EACH(100'000,HBPTAG(PHASEHOLD,__EACHNUM__));
+          sleepCycles(100'000);
+        }
+      }
+    }
+
+So I think we should fold that
+kind of behavior into
+T6BoltResponder (and probably
+ditch T6Phaser entirely (we'll
+see)).
+
+[474:
+
+Tue Sep 29 03:41:55 2026 But
+it's time for second sleep here.
+This simplification stuff feels
+helpful encouraging and loooong
+overdue.
+[475:
+
+Tue Sep 29 09:21:45 2026 OK, I'm
+now planning to rearrange
+FastAll a little bit:
+
+(1) Instead of storing the whole
+    ImageBlockHeader taking 4B,
+    store just IBH.mImageCode at
+    1B and IBH.mEntries at 1B,
+    and
+
+(2) Add a u16 mHeartSpin in the
+    freed-up 2B
+
+FastAll stays 12B overall but
+gives a separate spinner for
+liveTheStandardLife heartbeat
+generation. [476:
+
+Tue Sep 29 09:40:05 2026 BEEEP
+BEEEEP BOOP Interrupt Interrupt:
+Of course h1 'cannot' take part
+in liveTheStandardLife because
+it 'must' control its own
+top-level loop, so it can block
+down in its byte sources and
+sinks?
+[477:
+
+Tue Sep 29 10:11:07 2026 Well,
+that seems pretty true. But note
+that's only true of HUB's h0, so
+it isn't something to hardwire
+into crosslib StandardLife.
+
+I'm thinking - warning will
+robinson - that we should allow
+a smidge-small bit of complexity
+to allow an image to declare
+which of its harts will run
+their own main loops?
+
+Let's take a quick peek at
+ImageConfig warning will
+robinson and [just] remind
+ourselves what could maybe be
+involved.[478:
+
+Tue Sep 29 10:29:02 2026 OK,
+well, our quick (so far,
+10:29-10:11 == 18min?) review of
+ImageConfig stuff has not showed
+a great way to record which
+harts will be living
+non-standard lives, BUT we did
+(I think) find a reasonably
+non-disgusting - hardly
+disgusting at all really - way
+to manage #includes and
+namespace MFM, so that's a not
+disgusting thing right there.
+
+[482:
+
+Tue Sep 29 11:12:08 2026 So, I'm
+thinking ImageConfig is best
+left as it is, but maybe we can
+fall back to making [just]
+liveTheStandardLife be weak, and
+let images 'override' it if they
+want to.
+
+:482]
+
+Let's see if it builds, right
+here mid-yak-push.[479:
+
+Tue Sep 29 10:37:12 2026 Well,
+it didn't build for a few times,
+but because of the current base
+yak rather than the ImageConfig
+yak, so that's okay.
+
+Comitting just the imageconfig
+stuff, so far.[480:
+
+Tue Sep 29 10:49:03 2026 Done.
+
+THE YAK TREE
+
+pop a yak it's fun to do
+pop a yak it's scrumcheroo
+
+yaks all stacked with possibility
+in the infinite pushed yak tree
+
+push a yak it's been a while
+push again to be agile
+
+yaks all stacked with possibility
+in the infinite pushed yak tree
+
+ - as sung by AI Anita Bryant
+
+[481:
+
+Tue Sep 29 11:11:19 2026 Ahem.
+Tooted.
+
+:481]
+:480]
+
+:479]
+
+:478]
+
+:477]
+:476]
+
+:475]
+:474]
+
+:473]
+
+
+
+:472]
 
 :471]
 :470]
@@ -8332,3 +8520,256 @@ I think maybe?
 
 :447]
 :446]
+[483:
+
+Tue Sep 29 13:00:04 2026 OK so
+we're building again, and, I
+think, we're back to acking a
+bolt. Aand we should be in a
+good position, now, to do
+that?[484:
+
+Tue Sep 29 13:01:15 2026 Yes,
+because, one way or another,
+'everybody' calls
+beatTheStandardHeartBest, and it
+calls
+
+      theT6BoltResponder.boltResponderAllHarts();
+
+so come on come on.[485:
+
+Tue Sep 29 13:02:55 2026 Aand
+how do we respond to a bolt,
+these days? [486:
+
+Tue Sep 29 15:32:20 2026 OK, so
+after a diversion to deal with
+fallout from the DefaultLife ->
+StandardLife conversion, we're
+back to needing the code that
+actually sends a damn bolt back
+to host. Where the hell is that?
+[487:
+
+Tue Sep 29 16:21:17 2026 OK,
+we're returning bolts
+semiplausibly, but host isn't
+getting to clean 140 onphase.
+I'm thinking we need to get (at
+least) the HOLD_AT_BIRTH
+response working in the
+T6BoltResponder cinematic
+universe. [488:
+
+Tue Sep 29 16:57:58 2026 OK so
+the issue I'm focusing on (which
+might be the current bug) is how
+and when to actually have the
+bolt take effect, given various
+purposes for bolts. Aspects to
+this include:
+
+(1) CMD_ALL_HARTS_PAUSE wants to
+    make all harts pause
+
+(2) CMD_HOLD_AT_BIRTH probably
+    does too but is arguably
+    different
+
+(3) We already lost the battle
+    (again) to have a single
+    top-level loop. HUB/T1 has
+    its own loop
+
+(4) But all top-level hart
+    loops, standardized or not,
+    are (required to be and in
+    fact are) calling
+    beatTheStandardHeartBeat(hb)
+    at some kind of regularish
+    intervals. Including HUB/T1
+
+(5) So perhaps we could handle
+    'blockingish' bolts inside
+    the heartbeat?
+
+And so then further questions
+become:
+
+(6) How do we know when the bolt
+    is 'active' vs 'in prep' or
+    'expired'?
+
+(7) How do we make sure to
+    notice when the bolt may
+    have changed?
+
+[489:
+
+Tue Sep 29 17:06:02 2026 So I'm
+thinking
+(a) Make a
+    T6BoltResponder::handleBlocking
+(b) Call that from heartbeat
+
+[490:
+
+Tue Sep 29 23:16:03 2026 I'm
+wondering if we could deal with
+the blocking commands by just
+fucking holding T6BR::mLock in
+NC until the bolt seqno changes,
+and let everybody else pile up
+against the lock during their
+heartbeat. Because of this path:
+
+stdlife->
+  bool beatTheStandardHeartbeat(HostBlock & hb) {
+    // HEARTBEAT AND BOLT RESPONSE
+    ++fAll.mHeartSpin;
+    if ((fAll.mHeartSpin & 0x3f) == 0) {
+      theT6BoltResponder.boltResponderAllHarts();
+
+t6br->
+  void T6BoltResponder::boltResponderAllHarts() {
+ .. if (hartAcknowledgeBolt())
+
+t6br->
+  bool T6BoltResponder::hartAcknowledgeBolt() {
+>>> AtomicScopeLock guard(mLock);
+
+So, specifcally for blocking all
+the harts, just having NC
+holding the lock would seem to
+do that pretty quickly, right?
+
+:490]
+:489]
+
+:488]
+
+:487]
+
+:486]
+
+:485]
+
+:484]
+
+:483]
+[491:
+
+Wed Sep 30 01:56:44 2026 So we
+just saw a race instance. This
+one, I pretty strongly believe,
+went like this:
+
+    {74:178 0 0 4,7 hn FBCNus:(4,7)}
+4,7 -> I am a HUB
+ .. {74:179 0 0 4,7 hn FBCNthem:(3,6)}
+3,6 -> They are an EWP
+ .. {74:182 0 0 4,7 hn fBCin0:IC_EWP}
+their image code              ^^^^^^
+    {74:184 0 0 4,7 hn =(4,7)}
+ournoc0
+    {74:185 0 0 4,7 hn =(3,6)}
+theirnoc0
+    {74:186 0 0 4,7 hn ibh.mEntries:4}
+their ibh has 4 entires
+    {74:207 0 0 4,7 hn bc:6}
+one of which is 6 == EWPCARS
+    {184:51 0 0 4,7 hn PREFAIL:EwpBlock}
+but I - a HUB - am trying to
+init MY EwpBlocks..
+    {184:52 0 0 4,7 hn PREFAILsize:1024}
+..each of which is 1KB..
+    {184:53 0 0 4,7 hn PREFAILnext:4}
+..and I want to mark it OUTBOUND_DEPARTED..
+    {184:55 0 0 4,7 hn HBANG!:IC_HUB}
+..AND IT BETTER BE CLOSED BEFORE I DO SO..
+    {184:55 0 0 4,7 hn =3}
+..but it's 3==INBOUND_DEPARTED, not..
+    {184:55 0 0 4,7 hn =2}
+..2==CLOSED.
+
+So I - a HUB, a proud, sensible
+HUB - chose to honorably go
+bang.
+[492:
+
+Wed Sep 30 02:12:00 2026 And the
+explanation, I believe, is that
+3,6 finished its initialization
+earlier than 4,7, and started
+shipping ewp cars to 4,7. Such
+cars would correctly be marked
+INBOUND_DEPARTED, because a HUB
+is always inbound of an EWP.
+
+[493:
+
+Wed Sep 30 02:47:50 2026 OK, so
+we looked through EWP LiveB and
+noticed a substantial kind of
+lack of waiting for stuff.. so
+we made a hack:
+
+  void stepB(HostBlock & hb) {
+    if (theT6BoltResponder.shallWeCarryOn())
+      processEwpCars(hb,false);
+  }
+
+so we won't sent any EWP cars
+unless the bolt responder says
+(1) the current bolt is CARRY_ON
+(2) and it's been returned to host
+
+and (with a massive N of 1,) we
+have not seen 'the' race recur.
+
+[494:
+
+Wed Sep 30 02:50:57 2026 So,
+overall, I think we may have
+bashed the 'suspend'-oriented
+bolts into kind of working.
+
+A very good next question is how
+can we start handling the
+others.
+
+Which are:
+
+    #define ALL_PHASER_COMMANDS() \
+"DONE"  XX(CARRY_ON,0)            \
+"DONE"  XX(HOLD_AT_BIRTH,0)       \
+"DONE"  XX(ALL_HARTS_PAUSE,0)     \
+done?   XX(LOOP_BACK,0)           \
+        XX(SUSPEND_EWPS,1)        \
+        XX(SUPERCELL_LEADER,1)    \
+done?   XX(SPIKE_PING,4)          \
+
+I guess LOOP_BACK and SPIKE_PING
+might be done by default, since
+atm we return bolts once
+everybody has acknowledged, and
+maybe that's all a SPIKE_PING or
+a LOOP_BACK might deserve? We
+were just making shit up there.
+[495:
+
+Wed Sep 30 03:24:13 2026 But,
+before I head for second sleep,
+here, for sure we should commit,
+and perhaps even merge this
+phaser-simplification-attempt
+branch? 
+
+:495]
+         
+:494]
+
+:493]
+:492]
+:491]
