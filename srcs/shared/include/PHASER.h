@@ -9,6 +9,8 @@ namespace MFM {
   struct PhaserBolt {
     static constexpr u32 MAX_BOLT_SIZE = 40; //< for 64B packet size
 
+    static constexpr u32 MAX_PHASER_COMMANDS = 8*sizeof(u32); //< mask limits
+
 #define ALL_PHASER_COMMANDS() \
     XX(CARRY_ON,0)            \
     XX(HOLD_AT_BIRTH,0)       \
@@ -18,6 +20,9 @@ namespace MFM {
     XX(SUPERCELL_LEADER,1)    \
     XX(SPIKE_PING,4)          \
 
+#define ALL_PHASER_MASK_COMBOS()                                    \
+    XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::SUPERCELL_LEADER)  \
+
     enum Cmd : u8 {
 
 #define XX(name,argc) CMD_##name,      
@@ -26,6 +31,7 @@ namespace MFM {
 
       CMD_COUNT
     };
+    static_assert(CMD_COUNT <= MAX_PHASER_COMMANDS, "ALL_PHASER_COMMANDS too big");
 
     static constexpr const char * allPhaserCommandNames[CMD_COUNT+1] = {
 #define XX(name,argc) #name,
@@ -50,6 +56,18 @@ namespace MFM {
       if (cmd > CMD_COUNT) cmd = CMD_COUNT;
       return allPhaserArgCounts[cmd];
     }
+
+    enum class CmdMask : u32 {
+      // First do single flag per cmd
+#define XX(name,argc) name = 1u<<CMD_##name,      
+      ALL_PHASER_COMMANDS()
+#undef XX
+
+      // Now do predefined combos
+#define XX(name,val) name = val,            
+      ALL_PHASER_MASK_COMBOS()
+#undef XX
+    };
 
     enum Done : u8 {
       NONE_DONE = 0x00,

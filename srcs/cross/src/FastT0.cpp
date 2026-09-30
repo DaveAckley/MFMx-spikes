@@ -105,11 +105,10 @@ namespace MFM {
       }
 
       if (fT0.debugTicksElapsed != ticksElapsed) {
-        const u32 LIM = 10000;
-        if (ticksElapsed % LIM == 0) { // ~8s -> ~5.5s
-          HBPTAG(10kticks,ticksElapsed/LIM);
-          LOGPTAG(10kticksl,ticksElapsed/LIM);
-          //hb.addBytes('x','0'+(ticksElapsed/1000u)%10);
+        const u32 LIM = 1<<14;
+        if (ticksElapsed % LIM == 0) { // >~8s -> >~5.5s
+          HBPTAG(16kticks,ticksElapsed/LIM);
+          LOGPTAG(16kticksl,ticksElapsed/LIM);
         }
         fT0.debugTicksElapsed = ticksElapsed;
         t0TicksElapsed = ticksElapsed; // for the neighbors
