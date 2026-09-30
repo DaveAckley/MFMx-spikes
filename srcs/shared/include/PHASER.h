@@ -21,6 +21,7 @@ namespace MFM {
     XX(SPIKE_PING,4)          \
 
 #define ALL_PHASER_MASK_COMBOS()                                    \
+    XX(NONE,0)                                                      \
     XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::SUPERCELL_LEADER)  \
 
     enum Cmd : u8 {
@@ -69,6 +70,16 @@ namespace MFM {
 #undef XX
     };
 
+    friend constexpr CmdMask operator|(CmdMask a, CmdMask b) {
+      return (CmdMask) (((u32) a) | ((u32) b));
+    }
+
+    friend constexpr CmdMask operator&(CmdMask a, CmdMask b) {
+      return (CmdMask) (((u32) a) & ((u32) b));
+    }
+
+    friend constexpr bool any(CmdMask a) { return a != CmdMask::NONE; }
+
     enum Done : u8 {
       NONE_DONE = 0x00,
       DONE_HB =   0x01,
@@ -100,6 +111,8 @@ namespace MFM {
 
       Cmd getCmd() const { return mCmd; }
 
+      CmdMask getCmdAsMask() const { return (CmdMask) (1<<mCmd); };
+
       void setDone(Done d) { mDone = (Done) (mDone | d); }
 
       Done getDone() const { return mDone; }
@@ -111,7 +124,8 @@ namespace MFM {
     void reinit(Cmd c) { mPhaserHeader.reinit(c); }
     bool isValid() const { return mPhaserHeader.isValid(); }
     bool isHandled() const { return mPhaserHeader.isHandled(); }
-    Cmd getCmd() const { return mPhaserHeader.mCmd; }
+    Cmd getCmd() const { return mPhaserHeader.getCmd(); }
+    CmdMask getCmdAsMask() const { return mPhaserHeader.getCmdAsMask(); }
     void setDone(Done d) { mPhaserHeader.setDone(d); }
     Done getDone() const { return mPhaserHeader.getDone(); }
     u8 getSeqNo() const { return mPhaserHeader.getSeqNo(); }

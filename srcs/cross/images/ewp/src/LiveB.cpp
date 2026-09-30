@@ -62,7 +62,7 @@ namespace MFM {
   }
 
   void stepB(HostBlock & hb) {
-    if (theT6BoltResponder.shallWeCarryOn())
+    if (theT6BoltResponder.areWeAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
       processEwpCars(hb,false);
   }
 

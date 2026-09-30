@@ -48,12 +48,12 @@ namespace MFM {
     _handleBlockingNC();        // but hang here (holding the lock!) if supposed to
   }
 
-  bool T6BoltResponder::shallWeCarryOn() {
+  bool T6BoltResponder::areWeAnyOfThese(PhaserBolt::CmdMask mask) {
     // RACY RACY NO LOCK
     if (mLastSeqnoReturned != mLastSeqnoArrived) return false;
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
     PhaserBolt & pay = pb.payload();
-    return pay.isValid() && (pay.getCmd() == PhaserBolt::CMD_CARRY_ON);
+    return pay.isValid() && ((pay.getCmdAsMask() & mask) != PhaserBolt::CmdMask::NONE);
   }
 
   void T6BoltResponder::boltResponderAllHarts() {

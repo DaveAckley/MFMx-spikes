@@ -3,6 +3,7 @@
 #include "Constants.h"
 #include "AtomicLock.h"
 #include "XUtils.h" // for memset_s
+#include "PHASER.h" // for Phaser::CmdMask etc
 #include "Debug.h"
 
 namespace MFM {
@@ -16,7 +17,7 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
 
-    bool shallWeCarryOn() ;
+    bool areWeAnyOfThese(PhaserBolt::CmdMask flags) ;
 
     void boltDetectorNC() ;
 
