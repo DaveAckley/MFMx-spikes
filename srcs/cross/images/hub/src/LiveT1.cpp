@@ -6,6 +6,7 @@
 #include "EP_ACacheBlock.h"
 #include "HartTasks.h"
 #include "T6Phaser.h"
+#include "StandardLife.h" // for liveTheDefaultStandardLife
 
 namespace MFM {
   
@@ -14,7 +15,6 @@ namespace MFM {
   LZBuf l1dLZBytesOut;
 
   static s32 uncompressedByteSource(bool isReadable, void * context) {
-    //T6Phaser::handle();
     static u32 calls = 0;
     RCFlag f = RCFlag::RC_ZERO;
     if ((++calls & 0x3'ffff) == 0) {
@@ -32,7 +32,6 @@ namespace MFM {
   }
 
   static bool compressedByteSink(u8 byte, void * context) {
-    T6Phaser::handle();
     MFM_API_ASSERT_NONNULL(context);
     ACacheBlockL1Control & acbl1 = *(ACacheBlockL1Control*) context;
     bool ret = acbl1.writeByteToCurrentACB(byte);
@@ -59,7 +58,20 @@ namespace MFM {
     }
   };
   FAST_LOCAL(FastT1,fT1,1);
-  
+
+  void liveTheStandardLife(HostBlock & hb) { // HUB has a custom life for T1!
+    HBNOTE(CUSTOMLIFE);
+    if (fAll.mHartNum != HARTNUM_T1) return liveTheDefaultStandardLife(hb);
+    MFM_API_ASSERT_ON_HART(HARTNUM_T1); // as documentation
+
+    // Mark us in business
+    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
+
+    HBMARK;
+    LOGMARK;
+    fT1.live();
+  }  
+
   int myInitT1() {
     fT1.init();
     HBNOTE("initT1OK");

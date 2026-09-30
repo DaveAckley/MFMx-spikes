@@ -24,8 +24,8 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     memset_s(this,'\0',sizeof(*this)); // init all
     mIHL1Control = &ihl1;
-    mState = IHH_PAUSE;
-    HBPTAG(PIHinit,getIHHStateName(mState));
+    mPrivateState = IHH_PAUSE;
+    HBPTAG(PIHinit,getIHHStateName(mPrivateState));
   }
 
   static bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
@@ -75,14 +75,14 @@ namespace MFM {
   }
 
   void InterHubPrivateControl::stepB(HostBlock &hb) {
-    EACH(100'000,HBPTAG(IHPC-stepB,getIHHStateName(mState)));
+    EACH(100'000,HBPTAG(IHPC-stepB,getIHHStateName(mPrivateState)));
     L1GridManagerControl & lgmc = theL1GridManagerControl;
     InterHubL1Control & ihl1 = getL1();
     AtomicScopeLock guard(ihl1.mIHL1Lock);
 
-    switch (ihl1.mT6CurrentIHSt) {
-    case IHH_NONE:
-      FAIL(ILLEGAL_STATE);      // should have moved on by now bub
+    switch (mPrivateState) {
+    case IHH_NONE:              // this is initial AND NULL state
+      EACH(1'000'000,HBPTAG(NONETROM,getIHHStateName(mPrivateState)));
       break;
 
     case IHH_PAUSE:
@@ -90,7 +90,7 @@ namespace MFM {
         if (!lgmc.isEPSuspStatus()) {
           HBPTAG(ACTIVATOTROM,1);
           LOGPTAG(ACTIVALOTROM,1);
-          mState = IHH_RUN;
+          mPrivateState = IHH_RUN;
         }
       }
       break;
@@ -100,10 +100,10 @@ namespace MFM {
         if (lgmc.isEPSuspStatus()) {
           HBPTAG(ACTIVATOTROM,0);
           LOGPTAG(ACTIVALOTROM,0);
-          mState = IHH_PAUSE;
+          mPrivateState = IHH_PAUSE;
         } else {
-          EACH(1'000'000,HBPTAG(EVTOTROM,getIHHStateName(mState)));
-          EACH(1'000'000,LOGPTAG(EVTOTROM,getIHHStateName(mState)));
+          EACH(1'000'000,HBPTAG(EVTOTROM,getIHHStateName(mPrivateState)));
+          EACH(1'000'000,LOGPTAG(EVTOTROM,getIHHStateName(mPrivateState)));
           for (u32 e = 0u; e < 8u; ++e) {
             processHubCars(e,hb,true);
           }

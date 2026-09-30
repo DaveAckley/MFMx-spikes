@@ -12,10 +12,8 @@ namespace MFM {
       MFM_API_ASSERT_NONNULL(pb);
       return *pb;
     }
-
-    void handle() ;
-
-  };
+  }
 }
+
 
 

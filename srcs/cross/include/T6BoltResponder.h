@@ -16,9 +16,21 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
 
+    bool shallWeCarryOn() ;
+
     void boltDetectorNC() ;
 
+    void boltResponderAllHarts() ;
+
+    // SERVICE ROUTINES
     bool hartAcknowledgeBolt() ;
+
+
+  private:
+    /// _methods ARE CALLED WITH mLock HELD!
+
+    void _returnBoltToHostNC() ; 
+    void _handleBlockingNC() ; 
   };
 
   extern T6BoltResponder theT6BoltResponder;

@@ -50,7 +50,7 @@ namespace MFM {
       if (h.getTCState()!=TCState::CLOSED) {
         HBPTAG(PREFAIL,getName());
         HBPTAG(PREFAILsize,currentTCSize());
-        HBPTAG(PREFAILnext,departingState);
+        HBPTAG(PREFAILnext,getCarStateName(departingState));
       }
       HBASSERT_EQ(h.getTCState(),TCState::CLOSED);
       // tcmSize was set at closing

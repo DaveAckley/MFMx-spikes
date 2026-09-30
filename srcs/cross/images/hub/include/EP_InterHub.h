@@ -66,7 +66,7 @@ namespace MFM {
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_B;
 
     InterHubL1Control * mIHL1Control;
-    IHHState mState;
+    IHHState mPrivateState;
 
     void init(InterHubL1Control & acbl1) ;
     void stepB(HostBlock & hb) ;

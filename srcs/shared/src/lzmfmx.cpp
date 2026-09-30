@@ -18,14 +18,16 @@
 #include "XUtils.h"             // for memset_s
 #include "Debug.h"              // for LOG* etc
 
-#if 0
-#undef FAIL
-#define FAIL(msg) do { fprintf(stderr,"%s:%d:FAIL: %s\n",__FILE__,__LINE__,""#msg); exit(9); } while(0)
+#ifdef BUILD_HOST
+#define beatTheStandardHeartbeat(arg) false // host is zombie
+#else
+#include "StandardLife.h"       // for beatTheStandardHeartbeat
+namespace MFM { extern HostBlock theHostBlock; }
 #endif
 
 namespace MFM {
 
-#ifdef HOST
+#ifdef BUILD_HOST
   static void printTree(lzmfmx& lz, u8 tree) {
     printf("SDOFDSIO\n");
   }
@@ -52,28 +54,19 @@ namespace MFM {
 
   s32 lzmfmx::getNextByteBlocking() {
     s32 v;
-    u32 spin = 0;
-    while (true) {
-      v = mInPtr(false,mInCtxt);
-      if (v >= 0) break;
-      waitALittle();
-      if ((++spin % 1'000'000)==0) {
-        LOGPTAG(lzmgNBB,spin);
-        LOGPX(mBytesIn);
-        LOGPX(mBytesOut);
-      }
-    }
+    do {
+      if (beatTheStandardHeartbeat(theHostBlock)) EACH(100,LOGPX(mBytesIn));
+    } while ((v = mInPtr(false,mInCtxt)) < 0 && waitALittle());
+
     EACH(1'000'000,LOGPTAG(>xLZI,formatCountedByte(__EACHNUM__,v)));
     ++mBytesIn;
     return (s32) v;
   }
 
   s32 lzmfmx::putNextByteBlocking(u8 byte) {
-    while (!mOutPtr(byte,mOutCtxt)) {
-      //SNAP(100,LOGXTAG(BLOK,(u32)byte));
-      EACH(100'000,HBPTAG(pNBBb,__EACHNUM__));
-    }
-    //EACH(1,{if (__EACHNUM__ > 985) LOGPTAG(>LO,formatCountedByte(__EACHNUM__-1,byte));});
+    do {
+      if (beatTheStandardHeartbeat(theHostBlock)) LOGPX(mBytesOut);
+    } while (!mOutPtr(byte,mOutCtxt) && waitALittle());
     return (s32) byte;
   }
 
@@ -157,35 +150,27 @@ namespace MFM {
       s32 sb = getNextByteBlocking();
       if (sb < 0) LOGPTAG(lzenc,sb);
       else mRing[r + n++] = (u8) sb;
-      //LOGPTAG(lzprime,n);
     }
-
-    //    LOGPTAG(lzmenc,"PRIMD");
 
     for (u32 i = 1; i <= MAX_MATCH; ++i)
       insertNode(r - i);
     insertNode(r);
 
-    //    LOGPTAG(lzmencN,n);
     while (n > 0) {
       EACH(10'000,HBPTAG(lzmenc,n));
       
       u32 ml = mMlen > n ? n : mMlen;
       if (ml <= MIN_MATCH) {
-        //LOGXTAG(lzlit,(u32) mRing[r]);
         ml = 1; flags |= mask; code[cptr++] = mRing[r];
       } else {
         code[cptr++] = mMpos & 0xFF;
         code[cptr++] = ((mMpos >> 4) & 0xF0) | (ml - MIN_MATCH - 1);
-        //LOGXTAG(lzref,(u32) (((mMpos&0xff)<<16)|ml));
       }
     
       if (!(mask <<= 1)) {
-        //LOGXTAG(lzflg,(u32) flags);
         code[0] = flags;
         for (u32 i = 0; i < cptr; ++i)
           putNextByteBlocking(code[i]); // abstract: pack packets in here too
-        //LOGPTAG(lzwrt,(u32) cptr);
         EACH(1'000'000,HBPTAG(lz2wrt,(u32) cptr));
         flags = 0;
         mask = 1;
@@ -216,17 +201,6 @@ namespace MFM {
     }
     return true;
   }
-
-#if 0
-  bool lzmfmx::encode() {
-    while (true) {
-      s32 s = getNextByteBlocking();
-      if (s >= 0) putNextByteBlocking((u8) s);
-      else break;
-    }
-    return true;
-  }
-#endif
 
   bool lzmfmx::decode() {
     memset_s(mRing, '\0', RING_SIZE - MAX_MATCH);
@@ -262,7 +236,7 @@ namespace MFM {
     return true;
   }
 
-#ifdef HOST
+#ifdef HOST_DEBUG
   static void fp(u32 indent, u8 byte) {
     for (u32 i = 0; i < indent; ++i)
       fprintf(stderr, " ");
@@ -294,6 +268,6 @@ namespace MFM {
     fprintf(stderr,"0x%02x",key[0]);
     if (mLc[r] != NIL) printTree(mLc[r],indent + 2);
   }
-#endif //HOST
+#endif // BUILD_HOST
 }
 

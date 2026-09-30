@@ -101,65 +101,49 @@ namespace MFM {
     return 0;
   }
 
-  static int liveT2(HostBlock & hb) __attribute__ ((optimize("O2")));
+  void stepT2(HostBlock & hb) __attribute__ ((optimize("O2")));
 
-  int liveT2(HostBlock & hb) {
+  // SERVE BUFFERED RANDOM #s TO B,T0,T1,T2:
+  // THEORY: If they send us a msg, eat it and send back a PRNG#
 
-    // SERVE BUFFERED RANDOM #s TO B,T0,T1,T2:
-    // THEORY: If they send us a msg, eat it and send back a PRNG#
+  // To prime the pumps so that this works properly, each
+  // participating hart needs to call preloadT2Mailbox() precisely
+  // once early in their boot flow, to send the initial messages.
 
-    // To prime the pumps so that this works properly, each
-    // participating hart needs to call preloadT2Mailbox() precisely
-    // once early in their boot flow, to send the initial messages.
+  // After that's all set up, there will usually - hopefully - be a
+  // RND# waiting for each participating hart as soon as they call
+  // createByMail(). That will be sadly untrue if they are consuming
+  // #s so fast we haven't refilled their buffer by their next call
+  // on createByMail(), in which case they will block until we have.
 
-    // After that's all set up, there will usually - hopefully - be a
-    // RND# waiting for each participating hart as soon as they call
-    // createByMail(). That will be sadly untrue if they are consuming
-    // #s so fast we haven't refilled their buffer by their next call
-    // on createByMail(), in which case they will block until we have.
+  // It also means that shuffling the random state vector will occur
+  // - at least in part - _between_ calls for #s, rather than while
+  // a current request is pending.
 
-    // It also means that shuffling the random state vector will occur
-    // - at least in part - _between_ calls for #s, rather than while
-    // a current request is pending.
+  // Aaand, it also means nobody but hart T2 ever needs to see the
+  // actual PRNG state, so it can be hidden in T2's local RAM, to be
+  // accessed much faster and eat less L1 space.
 
-    // Aaand, it also means nobody but hart T2 ever needs to see the
-    // actual PRNG state, so it can be hidden in T2's local RAM, to be
-    // accessed much faster and eat less L1 space.
+  // (Aaaaaaand, oh yeah, the REASON we're doing all this is that
+  // there's no sure way to tell, from a standing start, if a WRITE
+  // to a mailbox will block or not. But we CAN test if a READ will
+  // block or not, so the idea here is to rotate the initiative 180
+  // degrees. At steady state, we do a WRITE to them only AFTER they
+  // did a read from us, which freed up one of our outgoing slots,
+  // so we can safely push once and not block.)
 
-    // (Aaaaaaand, oh yeah, the REASON we're doing all this is that
-    // there's no sure way to tell, from a standing start, if a WRITE
-    // to a mailbox will block or not. But we CAN test if a READ will
-    // block or not, so the idea here is to rotate the initiative 180
-    // degrees. At steady state, we do a WRITE to them only AFTER they
-    // did a read from us, which freed up one of our outgoing slots,
-    // so we can safely push once and not block.)
-
-    hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // announce entering event loop
-
-    HBNOTE(PRNG LIVE);
-    u32 spin = 0u;
-    while (true) {
-      T6Phaser::handle();
-      fT2.fillRandomBuffer();
-      if ((++spin & 0xff'ffff) == 0u) {
-        hb.hartbeat(fAll.mHartNum);
-        if (fT2.mBlocked > 0) DP.printf("RNDBLOCKED %d %d\n", spin, fT2.mBlocked);
-        if ((spin & 0x7ff'ffff) == 0) {
-          LOGXTAG(RNDOGHETTI,spin);
-          HBXTAG(RNDOGETTY,spin);
-        }
-      }
-      for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
-        u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);
-        bool canread = *((volatile u32 *) (addr+4u)); // TRYREAD
-        if (!canread) continue;
-        u32 toss = *((volatile u32 *) (addr+0u)); // READ, discard
-        *((volatile u32 *) (addr+0u)) = fT2.getFromRandomBuffer(); // WRITE
-      }
+  void stepT2(HostBlock & hb) {      
+    fT2.fillRandomBuffer();
+    for (u32 hartnum = HARTNUM_B; hartnum <= HARTNUM_T2; ++hartnum) {
+      u32 addr = MAILBOX_BASE + MAILBOX_INCR*(hartnum - HARTNUM_B);
+      bool canread = *((volatile u32 *) (addr+4u)); // TRYREAD
+      if (!canread) continue;
+      u32 toss = *((volatile u32 *) (addr+0u)); // READ, discard
+      *((volatile u32 *) (addr+0u)) = fT2.getFromRandomBuffer(); // WRITE
     }
-    return 0u; // NOT REACHED
   }
 
+  /*
   // ENTERED AFTER HartTaskerPrivate.run() returns!
   int hartMainT2(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T2);
@@ -171,6 +155,7 @@ namespace MFM {
     
     return liveT2(hb);          // go do your hart t2 thing you
   }
+  */
 
   ////////
   extern HostBlock theHostBlock;

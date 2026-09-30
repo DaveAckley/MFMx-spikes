@@ -26,10 +26,13 @@
 namespace MFM {
   struct FastAll { 
     /// DO NOT CHANGE THIS STRUCT WITHOUT CONSULTING _BUD.S ///
-    u8 mHartNum, mInspirationOnHand;
-    U8C mNoC0;             // local copy of HostBlock.mNoC0
-    u32 mCreativityBuffer; // see FastT2.h
-    ImageBlockHeader mIBH; // local copy of T6_IMAGE_BLOCK_ADDR: ImageBlockHeader
+    u8 mHartNum;           // [0]
+    u8 mInspirationOnHand; // [1]
+    U8C mNoC0;             // [2..3] local copy of HostBlock.mNoC0
+    u32 mCreativityBuffer; // [4..7] see FastT2.h
+    u8 mImageCode;         // [8] copy of T6_IMAGE_BLOCK_ADDR ImageBlockHeader -
+    u8 mEntries;           // [9] - fields of the same names
+    u16 mHeartSpin;        // [10..11] see StandardLife.cpp
   };
 
   void sleepCycles(u32 cycles) ;

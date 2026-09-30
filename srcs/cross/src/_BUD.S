@@ -124,8 +124,10 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
         lhu t3,24(t2)           # get hb.mNoC0
         sh t3,2(t1)             # stash in fAll.mNoC0
 	li t2, T6_IMAGE_BLOCK_ADDR  # get ImageBlockHeader address
-	lw t3,(t2)              # get IBH
-        sw t3,8(t1)             # stash in fAll.mIBH
+	lb t3,1(t2)             # get IBH.mImageCode
+        sb t3,8(t1)             # stash in fAll.mImageCode
+        lb t3,2(t2)             # get IBH.mEntries
+        sb t3,9(t1)             # stash in fAll.mEntries
 
  	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
         li t2, STACK_CANARY     # canary value

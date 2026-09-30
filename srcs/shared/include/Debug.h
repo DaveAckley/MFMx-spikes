@@ -35,7 +35,7 @@ namespace MFM {
 #define ONE_PING_ONLY()                         \
   do {                                          \
     static u32 __pings;                         \
-    HBPTAG(1PO,__FUNCTION__);                   \
+    HBPTAG(1PO,__PRETTY_FUNCTION__);            \
     ++__pings;                                  \
     memoryFence();                              \
     HBASSERT_LE(__pings,1);                     \
@@ -45,10 +45,10 @@ namespace MFM {
 #define LOGXX(EXPR) LOGXTAG(EXPR,EXPR)
 #define LOGMARK FIDLMARKLG(GET_FILE_ID(__FILE__),__LINE__)
 #define FIDLMARKLG(F,L) do {                                            \
-    markLogBlock(F,L, getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode)); \
+    markLogBlock(F,L, getNameFromImageCode((ImageCode) fAll.mImageCode)); \
   } while (0)
 
-#define LOGNOTE(MSG) LOGPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode))
+#define LOGNOTE(MSG) LOGPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mImageCode))
 
 #define LOGATOM(ATOM) FIDLMARKLGATOM(GET_FILE_ID(__FILE__),__LINE__,ATOM)
 #define FIDLMARKLGATOM(F,L,ATOM) do {                                   \
@@ -74,9 +74,9 @@ namespace MFM {
 
 #define HBMARK FIDLMARK(GET_FILE_ID(__FILE__),__LINE__)
 #define FIDLMARK(F,L) do {                                              \
-    markHostBlock(F,L, getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode),0); \
+    markHostBlock(F,L, getNameFromImageCode((ImageCode) fAll.mImageCode),0); \
   } while (0)
-#define HBNOTE(MSG) HBPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode))
+#define HBNOTE(MSG) HBPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mImageCode))
 //FIDLNOTE(GET_FILE_ID(__FILE__),__LINE__,MSG)
 //#define FIDLNOTE(F,L,M) do { markHostBlock(F,L,M,0); } while(0)
 
@@ -106,7 +106,7 @@ namespace MFM {
 
 #define HBASSERT_COMP(A,B,OP) do {              \
   if (!(A OP B)) {                              \
-    HBPTAG(HBANG!,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode)); \
+    HBPTAG(HBANG!,getNameFromImageCode((ImageCode) fAll.mImageCode)); \
     HBPVAL(A);                                  \
     HBPVAL(B);                                  \
   }                                             \

@@ -7,9 +7,9 @@
 
 #ifndef BUILD_HOST
 #include "FastLocal.h"
-inline void waitALittle() { MFM::sleepCycles(500); }
+inline bool waitALittle() { MFM::sleepCycles(500); return true; }
 #else
-inline void waitALittle() { }
+inline bool waitALittle() { return true; }
 #endif
 
 namespace MFM {

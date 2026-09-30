@@ -1,20 +1,31 @@
 #include "StandardLife.h"
 #include "FastLocal.h"
 #include "Debug.h"
-#include "T6Phaser.h"
+#include "T6BoltResponder.h"
 
 namespace MFM {
   
-  int liveTheStandardLife(HostBlock & hb) {
-    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mIBH.mImageCode));
+  bool beatTheStandardHeartbeat(HostBlock & hb) {
+    // HEARTBEAT AND BOLT RESPONSE
+    u32 oldspin = fAll.mHeartSpin++;
+    if ((oldspin & 0x3f) == 0) {
+      theT6BoltResponder.boltResponderAllHarts();
+      if (oldspin == 0) {
+        hb.hartbeat(fAll.mHartNum);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void liveTheDefaultStandardLife(HostBlock & hb) {
+    HBPTAG(JSTLV,getNameFromImageCode((ImageCode) fAll.mImageCode));
 
     u8 ch = hartChar(fAll.mHartNum);
     hb.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; 
-    u16 spin = 0u;
-    while (true) {
-      if (spin++ == 0) hb.hartbeat(fAll.mHartNum);
-      T6Phaser::handle();
 
+    while (true) {
+      beatTheStandardHeartbeat(hb);
       switch (ch) {
       case 'b': stepB(hb); break;
       case '0': stepT0(hb); break;
@@ -23,10 +34,9 @@ namespace MFM {
       case 'n': stepNC(hb); break;
       }
     }
-    // NOT REACHED
-    return 0;
   }
 
+  void __attribute__((weak)) liveTheStandardLife(HostBlock & hb) { liveTheDefaultStandardLife(hb); }
   void __attribute__((weak)) stepB(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); }
   void __attribute__((weak)) stepT0(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); } // NOTE FastT0.cpp has a strong stepT0
   void __attribute__((weak)) stepT1(HostBlock & hb) { FAIL(UNSUPPORTED_OPERATION); }

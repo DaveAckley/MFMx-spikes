@@ -10,6 +10,7 @@
 #include "Physics.h"
 #include "HartTasks.h" // for HTFuncPtr
 #include "T6Phaser.h" // for HTFuncPtr
+#include "T6BoltResponder.h" // for theT6BoltResponder
 
 namespace MFM {
 
@@ -61,13 +62,8 @@ namespace MFM {
   }
 
   void stepB(HostBlock & hb) {
-    static u32 spin = 0u;
-    if ((++spin & 0xfff) == 0) {
-      if ((spin & 0xffffff) == 0) LOGXTAG(LiveB,spin);
-      hb.hartbeat(fAll.mHartNum);
-    }
-    T6Phaser::handle();
-    processEwpCars(hb,false);
+    if (theT6BoltResponder.shallWeCarryOn())
+      processEwpCars(hb,false);
   }
 
   RCFlag manageEwpDemoT0(HTOpCode htoc) {

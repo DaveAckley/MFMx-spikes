@@ -854,7 +854,7 @@ namespace MFM {
                             pb.getCmd(),
                             tlbi,mOnPhase));
           } else 
-            EACH(100'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
+            EACH(10'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
                             rphase,
                             theirNonce,
                             pb.getSeqNo(),
@@ -892,14 +892,14 @@ namespace MFM {
                tag.to_string().c_str(),
                i,args[i]);
     }
+    u32 oldnonce = mShadowPHASER.getHeader().getPacketNonce();
     mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // BANG THE PHASER DRUM (incrs nonce)
-    HTprintf("%s PHASER SHOT %uB <%u:%u=%s:%u> (was %u=%s)\n",
-             tag.to_string().c_str(),
-             sizeof(mShadowPHASER),
+    HTprintf("PHASERBOLT <%u:%u=%s+%u> (was <%u:%u=%s>)\n",
              mShadowPHASER.getHeader().getPacketNonce(),
              c,PhaserBolt::phaserCmdName(c),
              args.size(),
-             pb.getCmd(),
+             oldnonce,
+             pb.getCmd(), // not updated til reinit
              PhaserBolt::phaserCmdName(pb.getCmd())
              );
     pb.reinit(c);

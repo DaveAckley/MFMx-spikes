@@ -94,7 +94,7 @@ namespace MFM {
   }
 
   int initNC() {
-    HBNOTE(BOLTR_INIT);
+    HBNOTE(BOLTI_INIT);
     theT6BoltResponder.init();
     HBNOTE("initNC");
     fNC.init();

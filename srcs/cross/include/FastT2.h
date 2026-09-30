@@ -35,5 +35,5 @@ namespace MFM {
   }
 
   extern void preloadT2Mailbox() /*__attribute__ ((optimize(3))) */;
-  extern int hartMainT2(HostBlock & hb) ;
+  //  extern int hartMainT2(HostBlock & hb) ;
 }
