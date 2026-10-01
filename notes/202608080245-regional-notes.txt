@@ -1,4 +1,4 @@
-{517}  -*-  mode: text; fill-column: 32;  -*-
+{547}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -9062,10 +9062,12 @@ Wed Sep 30 21:51:28 2026 So,
 let's have an implementation
 plan TODO here:
 
- - Review host-side 'interhubz'
+[518: Wed Sep 30 22:18:15 2026
+DONE :518] - Review host-side 'interhubz'
    processing, til we
 
- - Understand how we will drive
+[519: Wed Sep 30 22:18:29 2026
+DONE ish:519] - Understand how we will drive
    that sequence from host side.
 
  - Try to implement NEW_LEADER
@@ -9152,10 +9154,73 @@ phaser-simplification-attempt
 branch, push it all, and start a
 new next-interhub-comms-attempt
 branch, before tearing into
-host.. 
+host..
 [516:
 
-Wed Sep 30 22:12:46 2026 OK, did that.
+Wed Sep 30 22:12:46 2026 OK, did
+  that.[517:
+
+Wed Sep 30 22:15:27 2026 OK,
+let's tear into host.
+[520:
+
+Wed Sep 30 22:22:39 2026
+Tearing. So, 'the' problem with
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) CARRY_ON
+      (3) SUSPEND EVENTS
+      (4) SAVE CACHE
+
+as the supercycle is that - if X
+is an arg - it saves the cache
+at the end even if caller wanted
+to call again with X.
+
+But let's fold that into the
+super cycle. We'll pick the X,
+and we'll short-circuit
+internally if we repick X?
+
+But then we'd need to remember
+the 'final' non-X pick, for next
+time, or else we might
+'inefficiently' reload the
+caches we just saved.
+
+We could have caller shuffle the
+leaders, pass it as an arg, and
+then save caches blindly.
+
+Or we could have caller repick
+until the leader changes, and
+call with that. So the next
+leader will be different than
+the current, but there's no
+assurance of uniformity.
+Combined with a significantly
+variable amount of time to
+CARRY_ON, I'd think that
+wouldn't be too biased..
+
+[521:
+
+Wed Sep 30 22:29:40 2026 Let's
+have the caller pick.[522:
+
+Wed Sep 30 22:32:27 2026 (Aaaand
+just in case it wasn't obvious
+to all: Yes I'm going to start
+with purely time-based
+supercycle phases.)
+
+:522]
+
+:521]
+
+:520]
+:517]
 
 :516]
 :515]
@@ -9170,3 +9235,466 @@ Wed Sep 30 22:12:46 2026 OK, did that.
 
 :509]
 :508]
+[523:
+
+Wed Sep 30 23:05:49 2026 OK, so
+we're trying to implement
+NEW_LEADER in HUB (since host is
+now sending them), and we're
+wondering:
+
+ - Who should capture that
+   information? and
+
+ - Where should the code that
+   does that live? and
+
+ - Where should they store it?
+
+On that last, I'm thinking there
+must be an appropriate L1Data,
+right? Like EP_InterHubL1Data or
+something? [524:
+
+Wed Sep 30 23:21:39 2026 Well,
+the T6EPL1Data objects are
+pretty nailed down. But we do
+have InterHubL1Control, which,
+
+on the one hand, is going to
+need a bunch of work no matter
+what, since it's all tied up
+with the IHHState we're trying
+to deprecate. But which also,
+
+on the other hand, seems like a
+pretty natural place for
+mSuperCycleLeader or whatever,
+indeed.
+
+[525:
+
+Thu Oct  1 00:00:50 2026 OK we
+stuck u8 mSuperCycleLeader into
+InterHubL1Control. So, who
+should set it?
+
+Which (while always remembering
+MINIMALMINIMAL) raises the more
+general question: How and where
+do we customize hart responses
+to in-progress bolts?
+
+The obvious choice is, somehow,
+in here:
+
+      void T6BoltResponder::boltResponderAllHarts() {
+        EACH(1'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
+        // XXX JUST ACK FOR NOW
+        if (hartAcknowledgeBolt())
+          LOGPTAG(BOLTR_AH,(u32) mLastSeqnoAcked[fAll.mHartNum]);
+      }
+
+as suggested by the XXX. And
+that's called exclusively by:
+
+      bool beatTheStandardHeartbeat(HostBlock & hb) {
+        // HEARTBEAT AND BOLT RESPONSE
+        u32 oldspin = fAll.mHeartSpin++;
+        if ((oldspin & 0x3f) == 0) {
+          theT6BoltResponder.boltResponderAllHarts();
+          if (oldspin == 0) {
+            hb.hartbeat(fAll.mHartNum);
+            return true;
+          }
+        }
+        return false;
+      }
+
+at the moment. Which is nice in
+that it's "automatic" and "out
+of everybody's hands".. but for
+unique responses to particular
+bolts, we need to put it into
+some people's hands.
+
+I want to think about a table of
+hart x bolt, saying which harts
+want a custom reply to which
+bolts. (And yes I know that's
+not so MINIMAL sounding (and I
+also know it's sounding like
+fucking TaskManager all over
+again, which is a hill we do not
+want to die on again.))
+
+But even if we had such a table,
+then what?
+
+Why can't we [just] call like
+
+    bool T6BoltResponder::isReadyToAcknowledge() ;
+
+from all harts, and let.. urgh.
+
+Or [just] do the weak thing
+again:
+
+  bool __attribute__((weak)) readyToAcknowledgeBoltB() { return true; }
+  bool __attribute__((weak)) readyToAcknowledgeBoltT0() { return true; }
+  bool __attribute__((weak)) readyToAcknowledgeBoltT1() { return true; }
+  bool __attribute__((weak)) readyToAcknowledgeBoltT2() { return true; }
+  bool __attribute__((weak)) readyToAcknowledgeBoltNC() { return true; }
+
+and let the harts-per-image deal
+with it however they want to.
+That's MINIMALMINIMAL in that
+it's per-hart only, with no
+concept of 'tasks' (ahrm) of
+which a single hart might well
+have multiple to deal with.
+
+Could we eek out just a tiny bit
+of flexibility with like levels:
+
+  bool readyToAcknowledgeBoltB() {
+    if (!imageReadyToAckBoltB()) return false;
+    if (!crosslibReadyToAckBoltB()) return false;
+    return true;
+  }
+
+and we have no weak hackery, so
+each image has to define
+
+ bool imageReadyToAckBoltB() {
+   if (WECAREABOUTBOLTANDWEREHAPPY)
+     return true;
+   return false;
+ }
+[528:
+
+Thu Oct  1 04:28:45 2026 So it
+appears we are implementing:
+
+     bool imageReadyToAckBoltB() {
+       if (WECAREABOUTBOLTANDWERENOTREADY)
+         return false;
+       return true;
+     }
+
+We'll see how it goes.[529:
+
+Thu Oct  1 04:32:12 2026 We're
+messing up here. This better
+resolve quickly or we're in big
+trouble.
+
+At the moment we're saying
+
+beatTheStandardHeartbeat(..)
+calls theT6BR.bRAllHarts() which
+does imageReadyToAckBoltXX(..)
+'as appropriate'.
+
+That means that the imageReadyXX
+methods get called both when
+there's an unacknowledged bolt
+AND when there isn't. But that's
+got to be wrong, right? Acking a
+bolt requires an unacked bolt to
+ack. Right, Ackley?
+
+But boltResponderAllHarts
+doesn't specifically mention
+acknowledging. It talks about
+Responding. Which I thought we
+were going to say applied both
+during the ack process AND
+between an acked bolt and the
+next arrived unacked bolt.
+
+Is it possible that once a bolt
+is acked, it's up to anybody who
+cares about it to handle
+rechecking it or sequencing
+whatever the post-ack behavior
+is supposed to be? Are we trying
+to say there won't be any
+post-ack behavior specific to
+bolts?
+
+[530:
+
+Thu Oct  1 04:43:08 2026 So
+perhaps in boltResponder terms,
+instead of calling it
+imageReadyToAckBoltXX it should
+be imageDoneRespondingToBoltXX,
+and that would make clearer that
+there won't be any more calls
+like that until the next bolt
+arrives.
+
+Except the way it's designed
+now, there WILL be more calls,
+because StandardLife will keep
+calling until all harts are done
+responding.
+
+I guess officially it should
+check if each hart is already
+done and only call it if it
+isn't.. And that "won't" be
+scarily racy because it'll be
+the same hart that's marking it
+done and then later checking if
+it should call it again.. ?
+
+I'm going to branch here god
+damn it.[531:
+
+Thu Oct  1 04:49:38 2026 OK, now
+we're on branch
+no-bolt-responding-after-ack-attempt
+and we've committed all the WIP
+(except for notes).
+
+So now let's try it.
+
+[532:
+
+Thu Oct  1 05:04:16 2026 Well,
+we seem to be working as well as
+ever, but we're still not doing
+anything while responding.
+
+Shall we try to 'handle' NEW
+LEADER? Like:
+
+[533: Thu Oct  1 05:30:45 2026
+DONE :533](1) Have hub/B capture the
+    leader before acking.
+[534: Thu Oct  1 05:30:49 2026
+DONE :534](2) See that working?    
+
+[535:
+
+Thu Oct  1 05:30:53 2026
+Although it's not capturing the
+leader any place persistent.
+Next steps:
+
+[536: Thu Oct  1 06:42:11 2026
+DONE :536] - stash in InterHubL1Data, and
+
+[537: Thu Oct  1 06:42:16 2026
+Created u8 mSuperCycleState;
+have no idea what it will mean,
+but DONE  :537] - somehow mark that we have a
+   new leader, so internal
+   counters/states may want to
+   be reinitted..
+
+:535]
+:532]
+
+:531]
+
+:530]
+
+:529]
+
+:528]
+[526:
+
+Thu Oct  1 00:25:45 2026 But I
+think I'll try for a bit more
+sleep and then try to pull some
+trigger here..
+
+:526]
+
+:525]
+:524]
+
+:523]
+[527:
+
+Thu Oct  1 04:13:48 2026 OK I'm
+trying to do the
+
+      /// 'IMAGE' routines to be defined in each image
+      extern bool imageReadyToAckBoltB(PhaserBlock & pb) ;
+      extern bool imageReadyToAckBoltT0(PhaserBlock & pb) ;
+      extern bool imageReadyToAckBoltT1(PhaserBlock & pb) ;
+      extern bool imageReadyToAckBoltT2(PhaserBlock & pb) ;
+      extern bool imageReadyToAckBoltNC(PhaserBlock & pb) ;
+
+idea. Where do we want to define
+those in the image code?
+
+:527]
+[538:
+
+Thu Oct  1 06:43:42 2026 I guess
+really we should have the NEW
+LEADER response do the supercell
+analysis stuff and determine
+whether we are the leader or a
+follower. "Then We'd Be Ready"
+for the LOAD CACHE bolt that's
+a-coming.
+
+Now, some approximation to such
+code already exists, somewhere,
+right?
+
+[545: Thu Oct  1 11:46:58 2026
+DONE :545] - Find that code and review it.
+
+ - Figure out where we want it
+   to live, and how to get to
+   it.
+
+ - Hook it up to the NEW LEADER
+   response and see it working.
+
+ - Report back.
+
+:538]
+[539:
+
+Thu Oct  1 11:25:58 2026 OK, so
+CodeManager.cpp:63 has a piece
+of what we're looking for:
+
+        U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
+        U8C tt(2,2);
+
+        mHubInGridCoord = c / tt;
+        mSuperCellCoord = mHubInGridCoord % tt;
+        Eprintf("\n %s HUBVALUE tlbi%u -> ct6 (%u,%u) -> hig (%u,%u) + supercell (%u,%u)\n",
+                BHTag::t6adt(chipnum,tlbi).c_str(),
+                tlbi,
+                c.x, c.y,
+                mHubInGridCoord.x, mHubInGridCoord.y,
+                mSuperCellCoord.x, mSuperCellCoord.y);
+      }
+
+Also looks like:
+
+  void CodeManager::writeCacheSites(QuietBox& qb, u32 currentLeader, bool tofollowers) {
+
+could be helpful for getting
+into the ballpark. (Although we
+do recall something in the
+host-based cache processing was
+buggy, so we need to be ready
+for that.)[540:
+
+Thu Oct  1 11:31:48 2026 Opps!
+We already had:
+
+      struct L1GridManagerControl {
+        bool mEventProcessingSuspendRequest;     //< set by outside
+        bool mEventProcessingSuspendRequestSeen; //< set by GridManager
+        bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
+        u8 mSuperCellLeader;                     //< set by outside
+
+and this:
+
+      struct GridManager {
+        static constexpr u8 MAX_NGBS = 8;
+ ..lots..
+        u8 mSuperCellLeaderCode;  //< if there is a SCL, it's us if it's this
+      };
+
+and GridManager::init(..)
+already has:
+
+        // INIT SUPERCELL POSITIONING
+        HostBlock & hb = theHostBlock;
+        U8C ct6 = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+        U8C tt(2,2);
+
+        U8C hubInGridCoord = ct6 / tt;
+        U8C supercellc = hubInGridCoord % tt;
+        mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
+
+and what, exactly is this
+'leader code' business? Just
+0..3 reading the supercell in
+raster order?
+
+[541:
+
+Thu Oct  1 11:36:47 2026 Looks
+like it's in column-order? --
+
+        static UxC makeSuperCellCoordFromLeaderCode(u32 leadercode) {
+          UxC ret;
+          ret.x = (leadercode>>1)&1;
+          ret.y = (leadercode>>0)&1;
+          return ret;
+        }
+
+        static u8 makeLeaderCodeFromSuperCellCoord(UxC sc) {
+          if (sc.x > 1 || sc.y > 1) return U8_MAX;
+          u8 ret = 0;
+          if (sc.x == 1) ret |= 1<<1;
+          if (sc.y == 1) ret |= 1<<0;
+          return ret;
+        }
+
+but yeah, it's 0..3, or 255 for
+none.
+[542:
+
+Thu Oct  1 11:39:54 2026 Ooh,
+and watch out for this:
+
+ - hub/src/HubTaskManager.cpp
+   LOOKS like it's live code,
+   but:
+
+ - hub/include/ has only a
+   HubTaskManager.h-hold, and
+
+ - the .cpp is NOT in hub.cmake,
+   so it's not even getting
+   built, aand it won't actually
+   build due to phaser cmd name
+   changes (at least).
+
+Maybe we should hide that right
+now.. [543:
+
+Thu Oct  1 11:45:39 2026 OK, now
+that's committed (on our current
+subsubsubbranch) as a -hold.
+
+[544:
+
+Thu Oct  1 11:46:30 2026 OK!
+Well that was useful, and also
+gets us one check. [546:
+
+Thu Oct  1 11:47:03 2026 So we
+should pretty immediately switch
+to using L1GridManagerControl's
+mSuperCellLeader, if we can?
+
+Actually, let's commit the rest
+of our outstanding stuff first.. 
+
+:546]
+
+:544]
+
+:543]
+
+:542]
+:541]
+:540]
+
+:539]
