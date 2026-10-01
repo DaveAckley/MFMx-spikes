@@ -1,4 +1,4 @@
-{496}  -*-  mode: text; fill-column: 32;  -*-
+{516}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -8764,12 +8764,405 @@ before I head for second sleep,
 here, for sure we should commit,
 and perhaps even merge this
 phaser-simplification-attempt
-branch? 
+branch?
+[496:
 
+Wed Sep 30 03:46:54 2026 Well,
+committed and pushed, but didn't
+merge. We shall see.
+
+[497:
+
+Wed Sep 30 09:42:36 2026 OK, so
+I'm thinking of redoing the bolt
+definitions to kind of match the
+IHHState descriptions - at least
+enough to start doing IHH stuff
+based on host commands.
+
+I'm thinking we'll want a
+bitmask-per-bolt-type available
+to OR-up acceptable bolts for
+controlled gating at different
+points. For example, if we're
+going to support the IHH
+'draining events' concept we
+might want to have a gate that
+passes CARRY_ON and DRAINING_EWP
+or whatever.
+
+TODO this stuff, perhaps like:
+
+[502: Wed Sep 30 10:56:19 2026
+DONE :502] - Review IHHState
+
+[503: Wed Sep 30 10:56:25 2026
+started anyway :503] - Come discuss a redesign of
+   ALL_PHASER_COMMANDS based on
+   that
+
+[504: Wed Sep 30 11:53:16 2026
+DONE (once) [506: Wed Sep 30
+12:55:59 2026  DONE  :506]:504] - Commit often
+
+[505:
+
+Wed Sep 30 11:53:37 2026 OK, so
+the claims are:
+
+(1) We're going to deprecate
+    IHHState in favor of an
+    expanded set of phaser
+    bolts.
+
+(2) We should probably start the
+    bolts redesign now.
+
+[507: Wed Sep 30 19:17:40 2026
+DONE :507](3) Actually, we should write
+    the T6BoltResponder mask
+    gate stuff first, then
+
+(4) redesign
+
+:505]
+:497]
+
+:496]
 :495]
-         
+
 :494]
 
 :493]
 :492]
 :491]
+[498:
+
+Wed Sep 30 10:26:09 2026 OK, so
+let's look at both:
+
+    #define IHH_ALL_STATES()                               \
+      XX(IHH_NONE, initial and null state 0)               \
+      XX(IHH_PAUSE,events holding for external control)    \
+      XX(IHH_RUN,running events under current parms)       \
+      XX(IHH_RECV_SITES,leader accepting sites)            \
+      XX(IHH_SEND_SITES,follower sending sites)            \
+      XX(IHH_SEND_CACHE,leader sending cache)              \
+      XX(IHH_RECV_CACHE,follower accepting cache)          \
+
+    #define ALL_PHASER_COMMANDS() \
+        XX(CARRY_ON,0)            \
+        XX(HOLD_AT_BIRTH,0)       \
+        XX(ALL_HARTS_PAUSE,0)     \
+        XX(LOOP_BACK,0)           \
+        XX(SUSPEND_EWPS,1)        \
+        XX(SUPERCELL_LEADER,1)    \
+        XX(SPIKE_PING,4)          \
+
+so, lining them up
+
+ IHH_RUN -> CARRY_ON
+ IHH_PAUSE -> SUSPEND_EWPS
+
+but IHH_{SEND|RECV}_{SITES|CACHE}
+are all not directly mapped.
+
+[499:
+
+Wed Sep 30 10:37:08 2026 If we
+proliferate phaser commands -
+like by adding those - do we
+risk having to continually add
+all of them to the typical 'keep
+going' flags?
+
+A maximalish evilish approach is
+to think about phaser
+sub-commands or something.. but
+a less evilish approach is
+multibit flags doh which we are
+basically committed to already
+on this yak shave. Instead of
+
+IHH_RUN -> CMD_CARRY_ON
+
+say
+
+IHH_RUN -> MASK_EWPS_ACTIVE
+
+plus
+
+MASK_EWPS_ACTIVE = MASK_CARRY_ON | MASK_RECV_SITES | ..
+
+or whatever.
+
+[500:
+
+Wed Sep 30 10:44:17 2026 So I
+think we have to run with that
+for this go. So we'll need TODO
+
+ - a flag mask for each bolt
+   type, and
+
+ - probably an XX macro to
+   define combination masks, and
+
+ - a t6boltresponder gate that
+   accepts a flag mask
+
+[501:
+
+Wed Sep 30 10:52:46 2026 Is that
+clearly the direction to go?
+Could there be a reason to do
+the reverse (too)?
+
+Like, keep IHHState (I guess
+I've been imagining ditching it)
+and have mask combos going the
+other way too? Why? Perhaps to
+gate based on IHHStates? But how
+in the universe could such a
+thing be considered EVEN VAGUELY
+MINIMAL? Come ON NOW.
+
+
+:501]
+
+:500]
+
+:499]
+
+:498]
+[508:
+
+Wed Sep 30 21:00:13 2026 So, at
+a pretty fine grain, we imagine
+the supercell loop is like:
+
+(0) init: HOLD_AT_BIRTH
+(1) CARRY_ON
+(2) SUSPEND_EVENTS
+(3) SUPERCELL_LEADER create(4)
+(4) LOAD LEADER CACHES
+(5) CARRY_ON
+(6) SUSPEND_EVENTS
+(7) SAVE LEADER CACHES
+(8) goto (3)
+
+[509:
+
+Wed Sep 30 21:24:24 2026 Aand
+what if we simplify that some
+eh? Like I don't think we need
+separate ops for
+supercell_leader and load cache,
+right? Could we smash save cache
+into that two, with a special
+case for no supercell leader?
+Then it could be like:
+
+(0) SUSPEND EVENTS
+(1) SAVE CACHE/NEW LEADER/LOAD CACHE
+(2) CARRY_ON
+(3) goto (0)
+
+[510:
+
+Wed Sep 30 21:31:53 2026 But I
+guess that could be pretty racy
+in (1). How about:
+
+(0) SUSPEND EVENTS / SAVE CACHE
+(1) NEW LEADER / LOAD CACHE
+(2) CARRY_ON
+(3) goto (0)
+
+again with a special case for no
+leader. That would make SUSPEND
+EVENTS more different than
+ALL_HARTS_PAUSE, which is
+probably good..
+
+..But again, what about racing
+in (0)? We don't want to
+starting saving caches until
+events are drained. Let's keep
+things separated - feels like
+more phases is MORE minimal in
+this case.
+
+(0) SUSPEND EVENTS
+(1) SAVE CACHE
+(2) NEW LEADER
+(3) LOAD CACHE
+(4) CARRY_ON
+(5) goto (0)
+
+or
+
+(0) NEW LEADER
+(1) LOAD CACHE
+(2) CARRY_ON
+(3) SUSPEND EVENTS
+(4) SAVE CACHE
+(5) goto (0)
+
+[511:
+
+Wed Sep 30 21:39:12 2026 Yah,
+let's try for that.[512:
+
+Wed Sep 30 21:45:28 2026 Well,
+now have this:
+
+#define ALL_PHASER_COMMANDS() \
+    XX(CARRY_ON,0)            \
+    XX(HOLD_AT_BIRTH,0)       \
+    XX(ALL_HARTS_PAUSE,0)     \
+    XX(LOOP_BACK,0)           \
+    XX(SUSPEND_EWPS,0)        \
+    XX(LOAD_CACHE,1)          \
+    XX(SAVE_CACHE,1)          \
+    XX(SPIKE_PING,4)          \
+
+where 'supercell leader' is the
+arg passed to LOAD_CACHE and
+SAVE_CACHE (and it's on host to
+keep them the same).
+
+So the picture would be:
+
+(0) LOAD CACHE TO X
+(1) CARRY_ON
+(2) SUSPEND EVENTS
+(3) SAVE CACHE FROM X
+(4) goto (0)
+
+although then we have to ask why
+CARRY_ON doesn't have the same
+arg. If it doesn't, HUB still
+has to remember the leader
+anyway, so where's the win?
+
+So back to:
+
+(0) NEW LEADER: X
+(1) LOAD CACHE
+(2) CARRY_ON
+(3) SUSPEND EVENTS
+(4) SAVE CACHE
+(5) goto (0)
+
+I guess.
+[513:
+
+Wed Sep 30 21:51:28 2026 So,
+let's have an implementation
+plan TODO here:
+
+ - Review host-side 'interhubz'
+   processing, til we
+
+ - Understand how we will drive
+   that sequence from host side.
+
+ - Try to implement NEW_LEADER
+   by just recording the arg
+   someplace in HUB
+
+ - Demonstrate that working.
+
+ - Report back here.
+
+gogogo
+[514:
+
+Wed Sep 30 21:54:53 2026 So in
+python we have
+
+    self.quietbox.suspendIHH(suspend)
+
+dishing to
+
+    QuietBox::suspendInterHubHacks
+
+which just stores the state:
+
+    void suspendInterHubHacks(bool suspend) {
+      mSuspendInterHubHacks.store(suspend);
+    }
+
+which is a signal to a thread
+created in
+
+      void QuietBox::setupInterHubHackThread() {
+ ..     AtomicScopeLock guard(mInterHubHackThreadMutex);
+ ..     mQuitInterHubHackThread.store(false); // set up for thread: don't quit
+        mSuspendInterHubHacks.store(true);    // but do start suspended
+
+        mInterHubHackThreadPtr = std::make_unique<std::thread>([this]() {
+ ..       for (MFM::u64 i = 0u; ++i != 0u; ) {
+            if (this->mQuitInterHubHackThread.load()) { // should we quit?
+ ..           break;
+            }
+            if (this->mSuspendInterHubHacks.load()) { // should we not do an ihh loop?
+              sleepSec(1);
+            } else {
+ ..           this->doAnIHHHack();
+ ..         }
+ ..       }
+ ..     });
+ ..   }
+
+which we see dishes to
+
+      void QuietBox::doAnIHHHack() { // runs on IHHThread
+ ..     static u32 currentLeader = U32_MAX;
+        u32 nextLeader;
+ ..     //// PICK NEW LEADER
+        nextLeader = hostPRNG.Between(0,3);
+ ..     if (nextLeader == currentLeader) {
+ ..       sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE));
+          return; // Fast phase!
+        }
+ ..     if (currentLeader <= 3) {      // do we even have a leader?
+ ..       shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{1});
+ ..       sleepSec(EWP_DRAIN_SEC);  // haha we don't know how to atm
+ ..       writeCacheSites(currentLeader,true);
+ ..     }
+
+        //// ANNOUNCE NEW LEADER
+        currentLeader = nextLeader;
+        shootPHASER(PhaserBolt::CMD_SUPERCELL_LEADER,{(s32) currentLeader});
+ ..     writeCacheSites(currentLeader,false);
+ ..     shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{0});
+ ..     sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE));
+ ..     return;
+      }
+
+and that would be what we'll
+replace with our new stuff.
+[515:
+
+Wed Sep 30 22:04:37 2026 Fuck
+it, let's commit and merge this
+phaser-simplification-attempt
+branch, push it all, and start a
+new next-interhub-comms-attempt
+branch, before tearing into
+host.. 
+
+:515]
+
+:514]
+
+:513]
+:512]
+
+:511]
+:510]
+
+:509]
+:508]
