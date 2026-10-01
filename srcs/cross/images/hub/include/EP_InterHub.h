@@ -35,6 +35,7 @@ namespace MFM {
 
     /// BEGIN SUPERCYCLE STUFF
     u8 mSuperCycleLeader;
+    u8 mSuperCycleState;
     void initSuperCycle() {
       mSuperCycleLeader = U8_MAX; // no leader at first
     }

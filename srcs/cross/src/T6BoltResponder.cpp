@@ -74,24 +74,27 @@ namespace MFM {
     EACH(1'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
 
     // RACY RACY NO LOCK
-    if (mLastSeqnoReturned == mLastSeqnoArrived) return; // nothing to respond to
+    // if (mLastSeqnoReturned == mLastSeqnoArrived) return; // nothing to respond to
+    if (mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived) return; // we have already acked this
 
-    PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    PhaserBlock & block = T6Phaser::getPhaserBlock();
+    PhaserBolt & pb = block.payload();
+
     switch (fAll.mHartNum) {
     case HARTNUM_B:
-      if (!imageReadyToAckBoltB(pb)) return;
+      if (!imageDoneRespondingToBoltB(pb)) return;
       break;
     case HARTNUM_T0:
-      if (!imageReadyToAckBoltT0(pb)) return;
+      if (!imageDoneRespondingToBoltT0(pb)) return;
       break;
     case HARTNUM_T1:
-      if (!imageReadyToAckBoltT1(pb)) return;
+      if (!imageDoneRespondingToBoltT1(pb)) return;
       break;
     case HARTNUM_T2:
-      if (!imageReadyToAckBoltT2(pb)) return;
+      if (!imageDoneRespondingToBoltT2(pb)) return;
       break;
     case HARTNUM_NC:
-      if (!imageReadyToAckBoltNC(pb)) return;
+      if (!imageDoneRespondingToBoltNC(pb)) return;
       break;
     }
     //XXX if (!crosslibReadyToAckBolt(pb)) return;

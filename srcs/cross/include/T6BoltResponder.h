@@ -41,9 +41,9 @@ namespace MFM {
   extern T6BoltResponder theT6BoltResponder;
 
   /// 'IMAGE' routines to be defined in each image
-  extern bool imageReadyToAckBoltB(PhaserBlock & pb) ;
-  extern bool imageReadyToAckBoltT0(PhaserBlock & pb) ;
-  extern bool imageReadyToAckBoltT1(PhaserBlock & pb) ;
-  extern bool imageReadyToAckBoltT2(PhaserBlock & pb) ;
-  extern bool imageReadyToAckBoltNC(PhaserBlock & pb) ;
+  extern bool imageDoneRespondingToBoltB(PhaserBolt & pb) ;
+  extern bool imageDoneRespondingToBoltT0(PhaserBolt & pb) ;
+  extern bool imageDoneRespondingToBoltT1(PhaserBolt & pb) ;
+  extern bool imageDoneRespondingToBoltT2(PhaserBolt & pb) ;
+  extern bool imageDoneRespondingToBoltNC(PhaserBolt & pb) ;
 }
