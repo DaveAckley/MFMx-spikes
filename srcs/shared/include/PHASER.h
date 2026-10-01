@@ -16,13 +16,16 @@ namespace MFM {
     XX(HOLD_AT_BIRTH,0)       \
     XX(ALL_HARTS_PAUSE,0)     \
     XX(LOOP_BACK,0)           \
-    XX(SUSPEND_EWPS,1)        \
-    XX(SUPERCELL_LEADER,1)    \
+    XX(SUSPEND_EWPS,0)        \
+    XX(NEW_LEADER,1)          \
+    XX(LOAD_CACHE,0)          \
+    XX(SAVE_CACHE,0)          \
     XX(SPIKE_PING,4)          \
 
 #define ALL_PHASER_MASK_COMBOS()                                    \
     XX(NONE,0)                                                      \
     XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::SUPERCELL_LEADER)  \
+    XX(BLOCKS_ALL_HARTS,CmdMask::ALL_HARTS_PAUSE|CmdMask::HOLD_AT_BIRTH)  \
 
     enum Cmd : u8 {
 

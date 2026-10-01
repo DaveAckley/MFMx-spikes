@@ -17,7 +17,11 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
 
-    bool areWeAnyOfThese(PhaserBolt::CmdMask flags) ;
+    bool isBoltAnyOfThese(PhaserBolt::CmdMask flags) ;
+
+    void continueWhenBoltIsAnyOf(PhaserBolt::CmdMask flags) ;
+
+    void continueWhenBoltIsNoneOf(PhaserBolt::CmdMask flags) ;
 
     void boltDetectorNC() ;
 

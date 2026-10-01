@@ -48,12 +48,26 @@ namespace MFM {
     _handleBlockingNC();        // but hang here (holding the lock!) if supposed to
   }
 
-  bool T6BoltResponder::areWeAnyOfThese(PhaserBolt::CmdMask mask) {
+  bool T6BoltResponder::isBoltAnyOfThese(PhaserBolt::CmdMask mask) {
     // RACY RACY NO LOCK
     if (mLastSeqnoReturned != mLastSeqnoArrived) return false;
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
     PhaserBolt & pay = pb.payload();
     return pay.isValid() && ((pay.getCmdAsMask() & mask) != PhaserBolt::CmdMask::NONE);
+  }
+
+  void T6BoltResponder::continueWhenBoltIsAnyOf(PhaserBolt::CmdMask flags) {
+    while (!isBoltAnyOfThese(flags)) {
+      EACH(1'000'000,LOGPTAG(BOLTR_ABLOK,__EACHNUM__));
+      sleepCycles(100'000);
+    }
+  }
+
+  void T6BoltResponder::continueWhenBoltIsNoneOf(PhaserBolt::CmdMask flags) {
+    while (isBoltAnyOfThese(flags)) {
+      EACH(1'000'000,LOGPTAG(BOLTR_NBLOK,__EACHNUM__));
+      sleepCycles(100'000);
+    }
   }
 
   void T6BoltResponder::boltResponderAllHarts() {
@@ -107,25 +121,7 @@ namespace MFM {
 
   void T6BoltResponder::_handleBlockingNC() { // mLock HELD
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-
-    PhaserBlock & pb = T6Phaser::getPhaserBlock();
-    PhaserBolt & pay = pb.payload();
-    u8 pseq = mLastSeqnoReturned;
-    {
-      while (pseq == pay.getSeqNo() && pay.getCmd() == PhaserBolt::CMD_ALL_HARTS_PAUSE) {
-        EACH(100'000,HBNOTE(PHASEPAUSE));
-        sleepCycles(100'000);
-      }
-    }
-    {
-      HostBlock & hb = theHostBlock;
-      while (pseq == pay.getSeqNo() && pay.getCmd() == PhaserBolt::CMD_HOLD_AT_BIRTH &&
-             hb.mPerHartStatus[fAll.mHartNum] == FAILCode::LIVING) {
-        EACH(100'000,HBNOTE(PHASEHOLD));
-        sleepCycles(100'000);
-      }
-    }
+    continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
   }
-
   
 }
