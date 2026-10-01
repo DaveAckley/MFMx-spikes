@@ -9,6 +9,7 @@ target_sources(hub PRIVATE
   images/hub/src/EP_InterHub.cpp
   images/hub/src/EwpBlock.cpp
   images/hub/src/HubCacheMgr.cpp
+  images/hub/src/HubBoltResponder.cpp
   images/hub/src/Grid.cpp
   images/hub/src/InterHub.cpp
   images/hub/src/LiveB.cpp

@@ -22,10 +22,10 @@ namespace MFM {
     XX(SAVE_CACHE,0)          \
     XX(SPIKE_PING,4)          \
 
-#define ALL_PHASER_MASK_COMBOS()                                    \
-    XX(NONE,0)                                                      \
-    XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::SUPERCELL_LEADER)  \
-    XX(BLOCKS_ALL_HARTS,CmdMask::ALL_HARTS_PAUSE|CmdMask::HOLD_AT_BIRTH)  \
+#define ALL_PHASER_MASK_COMBOS()                                         \
+    XX(NONE,0)                                                           \
+    XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::NEW_LEADER)             \
+    XX(BLOCKS_ALL_HARTS,CmdMask::ALL_HARTS_PAUSE|CmdMask::HOLD_AT_BIRTH) \
 
     enum Cmd : u8 {
 

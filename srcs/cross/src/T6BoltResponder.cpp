@@ -72,7 +72,30 @@ namespace MFM {
 
   void T6BoltResponder::boltResponderAllHarts() {
     EACH(1'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
-    // XXX JUST ACK FOR NOW
+
+    // RACY RACY NO LOCK
+    if (mLastSeqnoReturned == mLastSeqnoArrived) return; // nothing to respond to
+
+    PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    switch (fAll.mHartNum) {
+    case HARTNUM_B:
+      if (!imageReadyToAckBoltB(pb)) return;
+      break;
+    case HARTNUM_T0:
+      if (!imageReadyToAckBoltT0(pb)) return;
+      break;
+    case HARTNUM_T1:
+      if (!imageReadyToAckBoltT1(pb)) return;
+      break;
+    case HARTNUM_T2:
+      if (!imageReadyToAckBoltT2(pb)) return;
+      break;
+    case HARTNUM_NC:
+      if (!imageReadyToAckBoltNC(pb)) return;
+      break;
+    }
+    //XXX if (!crosslibReadyToAckBolt(pb)) return;
+
     if (hartAcknowledgeBolt())
       LOGPTAG(BOLTR_AH,(u32) mLastSeqnoAcked[fAll.mHartNum]);
   }

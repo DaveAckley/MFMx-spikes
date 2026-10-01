@@ -15,6 +15,8 @@ namespace MFM {
     ONE_PING_ONLY();
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     memset_s(this,'\0',sizeof(*this)); 
+    initSuperCycle();
+
     for (u8 i = 0; i < IHUB_BLOCKS; ++i)
       mL1HubControls[i].init(i);
   }

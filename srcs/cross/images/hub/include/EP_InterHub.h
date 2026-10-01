@@ -33,6 +33,18 @@ namespace MFM {
     AtomicLock mIHL1Lock;
     IHHState mT6CurrentIHSt, mT6NextIHSt;  // controlled for T6 by HB::stepB()
 
+    /// BEGIN SUPERCYCLE STUFF
+    u8 mSuperCycleLeader;
+    void initSuperCycle() {
+      mSuperCycleLeader = U8_MAX; // no leader at first
+    }
+    u8 getSuperCycleLeaderIfAny() const { return mSuperCycleLeader; }
+    void setSuperCycleLeaderOrNone(u8 scl) {
+      MFM_API_ASSERT(scl < 4 || scl == U8_MAX, ILLEGAL_ARGUMENT);
+      mSuperCycleLeader = scl;
+    }
+    /// END SUPERCYCLE STUFF
+
     struct L1Hub1 {
       InterHubBlock * mCurrentInterHub;
       u8 mCurrentCarIndex;        // valid whenever mCurrentInterHub != 0

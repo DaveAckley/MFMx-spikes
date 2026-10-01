@@ -3,10 +3,11 @@ message("ZOTL ${CMAKE_CURRENT_LIST_FILE}")
 message("ZOTS ${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(zot)
 target_sources(zot PRIVATE
-  src/ImageConfig.cpp
   images/zot/src/LiveB.cpp
   images/zot/src/ZotBlock.cpp
+  images/zot/src/ZotBoltResponder.cpp
   images/zot/src/demo.cpp
+  src/ImageConfig.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})
 

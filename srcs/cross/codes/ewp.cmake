@@ -3,9 +3,10 @@ message("EWPL ${CMAKE_CURRENT_LIST_FILE}")
 message("EWPS ${CMAKE_CURRENT_SOURCE_DIR}")
 add_executable(ewp)
 target_sources(ewp PRIVATE
-  allimg/src/ImageConfig.cpp
   allimg/src/HartTasks.cpp
+  allimg/src/ImageConfig.cpp
   images/ewp/src/EwpBlock.cpp
+  images/ewp/src/EwpBoltResponder.cpp
   images/ewp/src/LiveB.cpp
   images/ewp/src/Physics.cpp
   ${S_FILES_LIST}

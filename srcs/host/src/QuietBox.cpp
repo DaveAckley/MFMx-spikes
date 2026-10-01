@@ -280,6 +280,60 @@ namespace MFM {
     }
   }
 
+  void QuietBox::doASuperCycle(u32 nextLeader) { // runs on IHHThread
+    /* A single SuperCycle, we declare, consists of
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) CARRY_ON
+      (3) SUSPEND EVENTS
+      (4) SAVE CACHE
+
+     */
+
+    static u32 scyCount = 0;
+    HTprintf("%u QuBo::SCY SUPERCYCLE #%u BEGINS WITH LEADER %u\n",gettid(),++scyCount,nextLeader);
+
+    static constexpr u32 MIN_MS_SMALL = 500;
+    static constexpr u32 MAX_MS_SMALL = 2'000;
+
+    static constexpr u32 MIN_MS_MEDIUM = 2'000;
+    static constexpr u32 MAX_MS_MEDIUM = 3'000;
+
+    static constexpr u32 MIN_MS_PHASE = 7'000;
+    static constexpr u32 MAX_MS_PHASE = 8'000;
+
+    static constexpr u32 EWP_DRAIN_SEC = 7;
+
+    //// ANNOUNCE NEW LEADER AND "LET THAT SINK IN"
+    HTprintf("%u QuBo::SCY ANNOUNCING NEW LEADER cL%u\n", gettid(), nextLeader);    
+    shootPHASER(PhaserBolt::CMD_NEW_LEADER,{(s32) nextLeader});
+    sleepMsec(hostPRNG.Between(MIN_MS_SMALL,MAX_MS_SMALL)); 
+
+    /// LOAD LEADER CACHES
+    HTprintf("%u QuBo::SCY cL%u follower sites loading to leader caches\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_LOAD_CACHE,{});
+    sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
+
+    /// RUN EVENTS
+    HTprintf("%u QuBo::SCY cL%u RUNNING EVENTS\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_CARRY_ON,{});
+    sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE)); 
+
+    /// SUSPEND EVENTS
+    HTprintf("%u QuBo::SCY cL%u SUSPENDING EVENTS\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{1});
+
+    /// FLUSH LEADER CACHES
+    HTprintf("%u QuBo::SCY cL%u leader saving caches to follower sites\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_SAVE_CACHE,{});
+    sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
+
+    HTprintf("%u QuBo::SCY SUPERCYCLE #%u ENDS WITH LEADER cL%u\n", gettid(), scyCount, nextLeader);
+    return;
+  }
+
+#if 0
   void QuietBox::doAnIHHHack() { // runs on IHHThread
     HTprintf("%u QuBo::IHH HACK BEGIN \n",gettid());
 
@@ -385,6 +439,7 @@ namespace MFM {
     HTprintf("%u QuBo::IHH HACK DONE\n", gettid());
     return;
   }
+#endif
 
   /* Write sections from the full grid to the caches sites around the
      currentLeader in (each) supercell.
@@ -428,9 +483,15 @@ namespace MFM {
         if (this->mSuspendInterHubHacks.load()) { // should we not do an ihh loop?
           sleepSec(1);
         } else {
-          Eprintf("QB::IHHThread (%u) START HACK vvvvv\n",bhl.getThrId());
-          this->doAnIHHHack();
-          Eprintf("QB::IHHThread (%u) HACK DONE  ^^^^^\n",bhl.getThrId());
+          Eprintf("QB::IHHThread (%u) START SUPERCYCLE vvvvv\n",bhl.getThrId());
+
+          static u32 lastLeader = U32_MAX;
+          u32 nextLeader;
+          do { nextLeader = hostPRNG.Between(0,3); }
+          while (nextLeader == lastLeader);
+          lastLeader = nextLeader;
+          this->doASuperCycle(lastLeader);
+          Eprintf("QB::IHHThread (%u) SUPERCYCLE DONE  ^^^^^\n",bhl.getThrId());
         }
           
         const MFM::u64 aMILLION = 1'000'000ul;

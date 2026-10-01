@@ -71,7 +71,8 @@ namespace MFM {
     }
 
     void setupInterHubHackThread();
-    void doAnIHHHack() ; // runs on IHHThread
+    //    void doAnIHHHack() ; // runs on IHHThread
+    void doASuperCycle(u32 nextLeader) ; // runs on IHHThread
 
     static BGRImageHD t6gridRenderBlock;
 
