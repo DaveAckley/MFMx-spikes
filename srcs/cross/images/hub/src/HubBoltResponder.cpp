@@ -10,9 +10,12 @@ namespace MFM {
       if (pb.getBoltDataWordIfAny(0,arg) && arg >= 0 && arg < 256) {
         LOGPTAG(BOLTR_NEWLEADER,arg);
         InterHubL1Control & ihlc = theInterHubL1Control;
-        AtomicScopeLock guard(ihlc.mIHL1Lock);
+        L1GridManagerControl & gml1 = ihlc.getL1GridManagerControl();
+        gml1.setSuperCellLeader((u8) arg); // NOLOK??
+        /*AtomicScopeLock guard(ihlc.mIHL1Lock);
         ihlc.mSuperCycleLeader = (u8) arg;
-        ihlc.mSuperCycleState = 0;   // whatever that means.
+        ihlc.mSuperCycleState = 0;   // whatever that means. */
+        
       } else 
         FAIL(OUT_OF_BOUNDS);
     }

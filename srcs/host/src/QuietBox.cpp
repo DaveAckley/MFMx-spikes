@@ -317,6 +317,7 @@ namespace MFM {
 
     /// RUN EVENTS
     HTprintf("%u QuBo::SCY cL%u RUNNING EVENTS\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{0});
     shootPHASER(PhaserBolt::CMD_CARRY_ON,{});
     sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE)); 
 

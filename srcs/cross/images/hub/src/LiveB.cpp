@@ -46,10 +46,10 @@ namespace MFM {
   void stepB(HostBlock & hb) {
     static u32 spin = 0u;
 
-    const u32 BITS = 16;//15;
+    const u32 BITS = 17;//15;
     const u32 LIM = (1<<BITS)-1;
     if ((++spin & LIM) == 0) {
-      HBPTAG(horg,spin>>BITS); // generate some HB logging please?
+      HBPTAG(stepB#,spin>>BITS); // generate some HB logging please?
     }
     if ((spin & 0x3ff) == 0)
       hb.hartbeat(fAll.mHartNum);

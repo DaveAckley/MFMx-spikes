@@ -41,7 +41,7 @@ namespace MFM {
     }
 
     // ready to go
-    LOGPTAG(BOLTR_READY,PhaserBolt::phaserCmdName(pay.getCmd()));
+    LOGPTAG(BOLTR_READY,formatPhaserBolt(pay));
 
     _returnBoltToHostNC();      // the bird is away
     mLastSeqnoReturned = pseq;  // admit we're done

@@ -198,4 +198,7 @@ namespace MFM {
   bool formatP4Atom(const P4Atom a, AtomCharBuf buf) ;
 
   char * formatCountedByte(u32 count, u8 byte) ;
+
+  struct PhaserBolt; // FORWARD
+  const char * formatPhaserBolt(const PhaserBolt & pb) ;
 }

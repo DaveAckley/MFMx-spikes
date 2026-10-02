@@ -16,7 +16,7 @@ namespace MFM {
     XX(HOLD_AT_BIRTH,0)       \
     XX(ALL_HARTS_PAUSE,0)     \
     XX(LOOP_BACK,0)           \
-    XX(SUSPEND_EWPS,0)        \
+    XX(SUSPEND_EWPS,1)        \
     XX(NEW_LEADER,1)          \
     XX(LOAD_CACHE,0)          \
     XX(SAVE_CACHE,0)          \
@@ -137,6 +137,11 @@ namespace MFM {
     static constexpr u32 BOLT_DATA_BYTES = MAX_BOLT_SIZE - sizeof mPhaserHeader;
     static_assert(BOLT_DATA_BYTES%4 == 0,"bad bolt size");
     static constexpr u32 BOLT_DATA_WORDS = BOLT_DATA_BYTES/4;
+
+    s32 getBoltDataWordOrDie(u32 idx) const {
+      MFM_API_ASSERT(idx < BOLT_DATA_WORDS,ILLEGAL_ARGUMENT);
+      return mBoltWords[idx];
+    }
 
     bool getBoltDataWordIfAny(u32 idx, s32 & dest) const {
       if (idx >= BOLT_DATA_WORDS) return false;

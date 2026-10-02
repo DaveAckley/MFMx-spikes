@@ -15,7 +15,7 @@ namespace MFM {
     ONE_PING_ONLY();
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     memset_s(this,'\0',sizeof(*this)); 
-    initSuperCycle();
+    mL1GridManagerControlPtr = &theL1GridManagerControl;
 
     for (u8 i = 0; i < IHUB_BLOCKS; ++i)
       mL1HubControls[i].init(i);
@@ -31,6 +31,7 @@ namespace MFM {
   }
 
   static bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_B);
     {
       static u32 spin = 0u;
       if ((++spin & 0x7f'ffff) == 0) {
@@ -77,7 +78,7 @@ namespace MFM {
   }
 
   void InterHubPrivateControl::stepB(HostBlock &hb) {
-    EACH(100'000,HBPTAG(IHPC-stepB,getIHHStateName(mPrivateState)));
+    EACH(1'000'000,HBPTAG(IHPC-stepB,getIHHStateName(mPrivateState)));
     L1GridManagerControl & lgmc = theL1GridManagerControl;
     InterHubL1Control & ihl1 = getL1();
     AtomicScopeLock guard(ihl1.mIHL1Lock);

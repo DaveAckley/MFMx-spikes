@@ -290,15 +290,15 @@ namespace MFM {
     case State::WAIT:
       {
         // Check if we're go to suspend
-        if (!theL1GridManagerControl.mEventProcessingSuspendStatus && // not already suspended
-            theL1GridManagerControl.mEventProcessingSuspendRequest && // but a request has been made
-            theL1GridManagerControl.mEventProcessingSuspendRequestSeen && // and applyEWT has seen it
+        if (!theL1GridManagerControl.isEPSuspStatus() && // not already suspended
+            theL1GridManagerControl.isEPSuspReq() &&     // but a request has been made
+            theL1GridManagerControl.isEPSuspReqSeen() && // and applyEWT has seen it
             dl.getLength() == 0) { // and we have nothing more to send
-          theL1GridManagerControl.mEventProcessingSuspendStatus = true;
-          LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
-        } else if (false && theL1GridManagerControl.mEventProcessingSuspendStatus && // if already suspended
-                   !theL1GridManagerControl.mEventProcessingSuspendRequest) { // but no request is active
-          theL1GridManagerControl.mEventProcessingSuspendStatus = false;
+          theL1GridManagerControl.setEPSuspStatus(true); // then suspend
+          LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.isEPSuspStatus());
+        } else if (false && theL1GridManagerControl.isEPSuspStatus() && // if already suspended
+                   !theL1GridManagerControl.isEPSuspReq()) { // but no request is active
+          theL1GridManagerControl.setEPSuspStatus(false);
           LOGPTAG(HERBO_NOSUSPACH,dl.getLength());
         }
 

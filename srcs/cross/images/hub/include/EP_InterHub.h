@@ -8,6 +8,8 @@
 #include "PT_InterHub.h"
 #include "TCStorage.h"
 
+#include "Grid.h" //< for L1GridManagerControl
+
 namespace MFM {
 
   static constexpr u32 IHUB_BLOCKS = 8u;
@@ -33,6 +35,14 @@ namespace MFM {
     AtomicLock mIHL1Lock;
     IHHState mT6CurrentIHSt, mT6NextIHSt;  // controlled for T6 by HB::stepB()
 
+    // Keep l1gridmanager ptr here to drive home the linkage.
+    L1GridManagerControl * mL1GridManagerControlPtr;
+    L1GridManagerControl & getL1GridManagerControl() {
+      MFM_API_ASSERT_NONNULL(mL1GridManagerControlPtr);
+      return *mL1GridManagerControlPtr;
+    }
+
+#if 0 //XXX instead see Grid.h
     /// BEGIN SUPERCYCLE STUFF
     u8 mSuperCycleLeader;
     u8 mSuperCycleState;
@@ -45,6 +55,7 @@ namespace MFM {
       mSuperCycleLeader = scl;
     }
     /// END SUPERCYCLE STUFF
+#endif
 
     struct L1Hub1 {
       InterHubBlock * mCurrentInterHub;
