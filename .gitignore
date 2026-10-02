@@ -17,8 +17,10 @@ __pycache__
 *.la
 *.a
 
-# Ignore emacs backup files
+# Ignore emacs backup, autosave, and lock files
 *~
+\#*\#
+.\#*
 
 # Ignore executables
 bin/*
@@ -38,4 +40,3 @@ codelog.txt
 
 # Leave out unofficially '-held' files
 *-hold
-
