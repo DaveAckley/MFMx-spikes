@@ -1,4 +1,4 @@
-{547}  -*-  mode: text; fill-column: 32;  -*-
+{575}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -9685,7 +9685,513 @@ to using L1GridManagerControl's
 mSuperCellLeader, if we can?
 
 Actually, let's commit the rest
-of our outstanding stuff first.. 
+of our outstanding stuff first..
+[547:
+
+Thu Oct  1 11:50:52 2026 OK
+we're all committed except for
+the fledgling build_sall.sh that
+has nothing going for it yet
+except a new filename.
+
+OK. Let's move the leader info.
+  [548:
+
+Thu Oct  1 11:56:05 2026 Woah,
+also: WARNING WILL ROBINSON
+there are two EASILY CONFUSABLE
+MEMBERS in Grid.h:
+
+      struct L1GridManagerControl {
+ ..     u8 mSuperCellLeader;                     //< set by outside
+
+vs
+
+      struct GridManager {
+        static constexpr u8 MAX_NGBS = 8;
+ ..lots..
+        u8 mSuperCellLeaderCode;  //< if there is a SCL, it's us if it's this
+
+[549:
+
+Thu Oct  1 12:01:06 2026 The
+latter is set in
+GridManager::init and seems
+obviously likely to be useful.. 
+[550:
+
+Thu Oct  1 13:38:25 2026 OK, we
+have evidence that.. well, we
+don't, quite.. hang on. (But
+leaving this here:
+
+    {80:29 13170 0 14,9 hn BOLTR_NEW:6}
+    {80:103 13170 0 14,9 h2 BOLTR_AH:6}
+    {25:11 13170 0 14,9 hb BOLTR_NEWLEADER:0}
+    {80:103 13170 0 14,9 hb BOLTR_AH:6}
+    {80:103 13170 0 14,9 h0 BOLTR_AH:6}
+    {80:103 13170 0 14,9 h1 BOLTR_AH:6}
+    {80:103 13170 0 14,9 hn BOLTR_AH:6}
+    {80:44 13170 0 14,9 hn BOLTR_READY:NEW_LEADER}
+)
+
+[551:
+
+Thu Oct  1 13:42:40 2026 Trying
+to find out where GridManager
+gets the initiative here -- we'd
+like to report a supercell
+leader change there, I'd think.
+
+But so far all I see is
+
+  bool GridManager::seekRandomNonEmptySite(U16C & found) {
+
+which is called by
+
+  void GridManager::applyEWT(EwpPayload &ewt, u32 ngbidx) {
+
+which is called by
+
+  static bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_B);
+
+[552:
+
+Thu Oct  1 13:45:45 2026 So.. is
+that latter the place to deal
+with supercell stuff? What else
+is in there?[553:
+
+Thu Oct  1 13:47:07 2026 It
+looks pretty specific to car
+handling. I think push up one
+more level..[567:
+
+Thu Oct  1 23:48:48 2026 OK, so
+we had a diversion (below) to
+get to IHH_RUN, but now we're
+back, I think, to the Where To
+Supercell Question. With the
+implied answer in :553: just
+above being IHPC::stepB, I
+guess.
+
+Let's take a look.[568:
+
+Thu Oct  1 23:55:33 2026 And I
+guess the/a bigger question is:
+how do we want the new supercell
+stuff to interact with IHH_ and
+stepB stuff? That's a design
+question: GOGO GADGET THINKER
+
+[569:
+
+Fri Oct  2 00:03:22 2026 So we
+have the phaser bolts, and we
+have the ihh states.
+
+    {80:103 5 0 16,11 hn BOLTR_AH:1}
+    {80:44 5 0 16,11 hn BOLTR_READY:HOLD_AT_BIRTH()}
+ ..
+    {80:103 3746 0 16,11 hn BOLTR_AH:2}
+    {80:44 3746 0 16,11 hn BOLTR_READY:CARRY_ON()}
+    {80:138 3746 0 16,11 hn RPHASEhbAddr:0x13ffffff'ffffc00}
+    {80:139 3746 0 16,11 hn RPHASEmDBAdr:0x13ffffff'ffffe40}
+    {80:140 3746 0 16,11 hn RPHASEtlbi:139}
+    {80:145 3746 0 16,11 hn RPHASEstatus:0x1}
+    {22:109 4522 0 16,11 hb EVTOTROM:IHH_RUN}
+ ..
+    {80:103 165924 0 16,11 h0 BOLTR_AH:3}
+    {80:44 165924 0 16,11 hn BOLTR_READY:SUSPEND_EWPS(1)}
+    {80:138 165924 0 16,11 hn RPHASEhbAddr:0x13ffffff'ffffc00}
+    {80:139 165924 0 16,11 hn RPHASEmDBAdr:0x13ffffff'ffffe40}
+    {80:140 165924 0 16,11 hn RPHASEtlbi:139}
+    {80:145 165924 0 16,11 hn RPHASEstatus:0x1}
+    {27:91 166039 0 16,11 hn d8:NT8}
+ .. {22:109 166885 0 16,11 hb EVTOTROM:IHH_RUN}
+
+..which doesn't look super
+SUSPEND_EWPS-ish, but we'll see. 
+
+    {80:103 193718 0 16,11 hn BOLTR_AH:4}
+    {80:44 193718 0 16,11 hn BOLTR_READY:SUSPEND_EWPS(0)}
+
+    {80:103 238394 0 16,11 hb BOLTR_AH:5}
+    {80:44 238394 0 16,11 hn BOLTR_READY:NEW_LEADER(3)}
+
+    {80:103 239406 0 16,11 h0 BOLTR_AH:6}
+    {80:44 239406 0 16,11 hn BOLTR_READY:LOAD_CACHE()}
+
+    {80:103 241852 0 16,11 hn BOLTR_AH:7}
+    {80:44 241852 0 16,11 hn BOLTR_READY:SUSPEND_EWPS(0)}
+
+    {80:103 241868 0 16,11 hb BOLTR_AH:8}
+    {80:44 241868 0 16,11 hn BOLTR_READY:CARRY_ON()}
+
+we look at L1GridManagerControl
+to see who's leader.
+
+    /// CHECK CURRENT EVENT BOUNDS
+    L1GridManagerControl & lgmc = theL1GridManagerControl;
+    EACH(100'000,{
+        LOGPTAG(SCLC-cur,(u32) lgmc.mSuperCellLeader);
+        LOGPTAG(SCLC-us,(u32) mSuperCellLeaderCode);
+      });
+
+
+    {24:76 242961 0 16,11 hb SCLC-cur:3}
+    {24:77 242961 0 16,11 hb SCLC-us:0}
+
+so it looks like the
+NEW_LEADER(3) is reaching
+lgmc.mSuperCellLeader in
+GridManager::seekRandomNonEmptySite(..)
+
+[570:
+
+Fri Oct  2 00:30:53 2026 But the
+suspend/resume logic in IHHState
+seems very complicated and
+scary. Could we think about
+ditching it and trying to come
+in fresh?
+
+ - Review IHH suspend/resume
+   logic.
+
+[571:
+
+Fri Oct  2 01:08:55 2026 The
+state seems primarily this:
+
+      struct L1GridManagerControl {
+        bool mEventProcessingSuspendRequest;     //< set by outside
+        bool mEventProcessingSuspendRequestSeen; //< set by GridManager
+        bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
+
+and it doesn't look quite so
+scary sitting there like that.
+Vs scattered all over the code: 
+
+        L1GridManagerControl & lgmc = theL1GridManagerControl;
+        if (!lgmc.isEPSuspReq() &&
+            ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
+
+          // not suspended and it has a dest: try to apply
+and 
+        // all EWPCs come through here
+ ..     if (!lgmc.isEPSuspReq() && seekRandomNonEmptySite(center)) {
+
+and
+        if (lgmc.isEPSuspReq() != lgmc.isEPSuspReqSeen())
+          lgmc.setEPSuspReqSeen(lgmc.isEPSuspReq());
+
+all in applyEWT, and this
+fucker:
+
+        case State::WAIT:
+          {
+            // Check if we're go to suspend
+            if (!theL1GridManagerControl.isEPSuspStatus() && // not already suspended
+                theL1GridManagerControl.isEPSuspReq() &&     // but a request has been made
+                theL1GridManagerControl.isEPSuspReqSeen() && // and applyEWT has seen it
+                dl.getLength() == 0) { // and we have nothing more to send
+              theL1GridManagerControl.setEPSuspStatus(true); // then suspend
+
+in ACacheBlockPrivateControl::tryToSendFrame(..) 
+
+[572:
+
+Fri Oct  2 01:13:42 2026 And
+that last reminds me of a
+question that's been hanging in
+my mind: Do we really think we
+could delay responding to
+SUSPEND_EVENTS(1) until after we
+had sent the final frame that
+flushes the dirty atom list?
+
+I've seen it happen in vidsrv
+and it seems like it can take a
+few seconds at least for all the
+different tiles to come to a
+halt. Are we going to be okay
+waiting that long for OnPhase
+acks?
+
+Aaand I guess also: Do we need
+to? Do we need to flush the
+display buffers before changing
+leaders?
+
+Or would it be enough like just
+to mark returning site changes
+for later shipment just like any
+other atom change?
+
+Or would the leader be in charge
+of reporting all the changes it
+wrought, even if in its caches
+rather than its sites? We were
+sort of thinking that's what we
+should do. If so that seems an
+argument for yes, delaying at
+least until the leader has
+flushed its dllist.[573:
+
+Fri Oct  2 01:24:38 2026 And it
+sounds like I really need a
+couple good slams to the head
+with the MINIMAL HAMMER:
+
+MINIMAL! BONE HEAD! MINIMAL!
+
+So yes, let's assume we can
+delay bolt response until the
+dllist is flushed. We'll see how
+it plays out.
+
+[574:
+
+Fri Oct  2 02:02:43 2026 So I
+guess one argument for how much
+progress I'll make says it
+depends on how much existing
+code review and understanding I
+to. At the moment, for example,
+I still don't feel confident
+about the IHH suspend/resume
+process, and that's hanging me
+up about what to do.
+
+:574]
+
+:573]
+
+:572]
+
+:571]
+
+:570]
+
+
+:569]
+
+:568]
+
+:567][554:
+
+Thu Oct  1 13:49:03 2026
+processHubCars is called from
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     case IHH_RUN:
+ ..           for (u32 e = 0u; e < 8u; ++e) {
+                processHubCars(e,hb,true);
+              }
+ ..
+
+(and it ain't getting called at
+all, at present, because we're
+never in IHH_RUN -
+
+    ./all.mfmk 5947:{22:81 59 0 2,3 hb IHPC-stepB:IHH_PAUSE} 
+    ./all.mfmk 6813:{22:81 0 0 4,3 hb IHPC-stepB:IHH_PAUSE}
+ .. ./all.mfmk 135060:{22:81 62654 0 12,5 hb IHPC-stepB:IHH_PAUSE} 
+    ./all.mfmk 135064:{22:81 62683 0 12,5 hb IHPC-stepB:IHH_PAUSE} 
+
+)
+
+[555:
+
+Thu Oct  1 13:53:21 2026 So at
+least two questions:
+
+ - How should we get into
+   IHH_RUN these days? and
+
+ - What IHH state(s) do we want
+   to handle new supercell
+   leader in? and so also
+
+ - Do we ditch IHHState or not?
+[557:
+
+Thu Oct  1 14:32:15 2026 Well,
+how were we ever supposed to get
+to IHH_RUN?
+
+[565: Thu Oct  1 23:42:49 2026
+DONE :565] - Review IHHState
+   implementation status
+
+[558:
+
+Thu Oct  1 14:34:00 2026 Well,
+so there's this:
+
+      struct InterHubPrivateControl { // with state for IHUB_BLOCKS blocks
+ ..     IHHState mPrivateState;
+
+with this:
+
+      void InterHubPrivateControl::init(InterHubL1Control & ihl1) {
+ ..     mPrivateState = IHH_PAUSE;
+
+and this:
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     AtomicScopeLock guard(ihl1.mIHL1Lock);
+
+        switch (mPrivateState) {
+ ..
+
+[559:
+
+Thu Oct  1 14:36:07 2026 Also
+with this:
+
+ ..
+        case IHH_PAUSE:
+          {
+            if (!lgmc.isEPSuspStatus()) {
+              HBPTAG(ACTIVATOTROM,1);
+              LOGPTAG(ACTIVALOTROM,1);
+              mPrivateState = IHH_RUN;
+            }
+          }
+          break;
+
+so we should get to IHH_RUN if
+isEPSuspStatus is false..
+
+which is a getter for
+L1GMC::mEventProcessingSuspendStatus
+
+which the setter of is
+
+    void setEPSuspStatus(bool b) {
+
+..which is apparently called by
+nobody. Doh.
+
+[560:
+
+Thu Oct  1 14:38:58 2026 But,
+cheaters exist, like:
+
+      void ACacheBlockPrivateControl::tryToSendFrame(HostBlock & hb) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+ ..
+        switch (mState) {
+ ..     case State::WAIT:
+          {
+            // Check if we're go to suspend
+            if (!theL1GridManagerControl.mEventProcessingSuspendStatus && // not already suspended
+                theL1GridManagerControl.mEventProcessingSuspendRequest && // but a request has been made
+                theL1GridManagerControl.mEventProcessingSuspendRequestSeen && // and applyEWT has seen it
+                dl.getLength() == 0) { // and we have nothing more to send
+>>            theL1GridManagerControl.mEventProcessingSuspendStatus = true;
+              LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
+            } else if (false && theL1GridManagerControl.mEventProcessingSuspendStatus && // if already suspended
+                       !theL1GridManagerControl.mEventProcessingSuspendRequest) { // but no request is active
+              theL1GridManagerControl.mEventProcessingSuspendStatus = false;
+              LOGPTAG(HERBO_NOSUSPACH,dl.getLength());
+
+[561:
+
+Thu Oct  1 15:22:30 2026 Well,
+changing this:
+
+      struct L1GridManagerControl {
+ ..     void init() {
+          memset_s(this,0,sizeof(*this));
+          mEventProcessingSuspendStatus = true; // XXX hold at first positions?
+          mSuperCellLeader = U8_MAX; // no SCL to start
+        }
+
+to this
+
+      struct L1GridManagerControl {
+ ..     void init() {
+          memset_s(this,0,sizeof(*this));
+          //count on HOLD_AT_BIRTH instead? -- mEventProcessingSuspendStatus = true; // XXX hold at first positions?
+          mSuperCellLeader = U8_MAX; // no SCL to start
+        }
+
+got us visible events on stream
+for the first time in a while,
+so I've got that going for me.
+
+And clicking off the events
+toggle in the TUI actually seems
+to stop the events.
+
+But clicking back on the events
+toggle does not seem to resume
+them.. [562:
+
+Thu Oct  1 15:37:14 2026 Which
+seems to be, perhaps, because
+the new QuietBox::doASuperCycle
+does a CMD_SUSPEND_EVENTS 1 to
+stop events, but then does a
+CMD_CARRY_ON to 'restart' them.
+
+[563:
+
+Thu Oct  1 23:40:06 2026 (Once
+we did
+
+    HTprintf("%u QuBo::SCY cL%u RUNNING EVENTS\n", gettid(), nextLeader);
+    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{0});
+    shootPHASER(PhaserBolt::CMD_CARRY_ON,{});
+
+we finally started seeing events
+in the vidsrv again - and could
+even, apparently, turn them on
+and off.)
+
+:563]
+
+:562]
+
+:561]
+:560]
+
+
+:559]
+
+:558]
+
+:557]
+Taking a break.
+[556:
+
+Thu Oct  1 14:26:53 2026 OK did
+22min of Beat Saber & Thrill of
+the Fight.
+
+:556]
+:555]
+
+:554]
+
+:553]
+
+:552]
+
+:551]
+
+:550]
+:549]
+
+
+:548]
+
+:547]
 
 :546]
 
@@ -9698,3 +10204,22 @@ of our outstanding stuff first..
 :540]
 
 :539]
+[564:
+
+Thu Oct  1 23:41:39 2026 So
+where the fuck are we, here? Can
+I claim anything? What's next?
+It's going to be COUNTDOWN
+FRIDAY in just a few minutes.
+
+[566:
+
+Thu Oct  1 23:43:02 2026 So the
+IHHState question remains. It
+seems like there's significant
+crap in EP_InterHub that's at
+least kind of work and depends
+on it..
+
+:566]
+:564]
