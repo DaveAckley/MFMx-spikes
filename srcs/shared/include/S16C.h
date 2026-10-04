@@ -20,6 +20,12 @@ namespace MFM {
     S16C operator+(const S16C other) const { return S16C(x+other.x,y+other.y); }
     S16C operator-(const S16C other) const { return S16C(x-other.x,y-other.y); }
 
+    bool operator==(const S16C & other) const { return x==other.x && y==other.y; }
+    bool operator!=(const S16C & other) const { return !(*this == other); }
+    S16C operator*(const S16C & other) const { return S16C(x * other.x, y * other.y); }
+    S16C operator/(const S16C & other) const { return S16C(x / other.x, y / other.y); }
+    S16C operator%(const S16C & other) const { return S16C(x % other.x, y % other.y); }
+
     u32 length() const {
       u32 l = 0;
       l += (x<0) ? -x: x;

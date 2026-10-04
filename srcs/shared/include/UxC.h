@@ -49,6 +49,7 @@ namespace MFM {
     constexpr UxC operator%(const UxC & other) const { return UxC(x % other.x, y % other.y); }
     constexpr UxC operator+(const UxC & other) const { return UxC(x + other.x, y + other.y); }
     constexpr UxC operator-(const UxC & other) const { return UxC(x - other.x, y - other.y); }
+
     //    U8C operator+(const S8C & s8) const ;
     //    S8C operator-(const UxC & other) const { return S8C(((s32)x) - other.x, ((s32)y) - other.y); }
     //    bool addTo(const S8C & s8) ;
@@ -162,16 +163,16 @@ namespace MFM {
 
     static UxC makeSuperCellCoordFromLeaderCode(u32 leadercode) {
       UxC ret;
-      ret.x = (leadercode>>1)&1;
-      ret.y = (leadercode>>0)&1;
+      ret.x = (leadercode>>0)&1;
+      ret.y = (leadercode>>1)&1;
       return ret;
     }
 
     static u8 makeLeaderCodeFromSuperCellCoord(UxC sc) {
       if (sc.x > 1 || sc.y > 1) return U8_MAX;
       u8 ret = 0;
-      if (sc.x == 1) ret |= 1<<1;
-      if (sc.y == 1) ret |= 1<<0;
+      if (sc.x == 1) ret |= 1<<0;
+      if (sc.y == 1) ret |= 1<<1;
       return ret;
     }
 
@@ -202,6 +203,11 @@ namespace MFM {
     UC stop;                     // EXCLUSIVE
 
     struct iterator {
+      iterator()
+        : range(UxCRange())
+        , at(0,0)
+      { }
+
       iterator(UxCRange & r) : iterator(r,r.start) { }
 
       iterator(UxCRange & r, UC sat)
@@ -210,6 +216,8 @@ namespace MFM {
       {
         MFM_API_ASSERT(range.area() > 0,ILLEGAL_ARGUMENT);
       }
+
+      iterator & operator=(const iterator & other) = default;
 
       UC operator*() const { return at; }
       iterator& operator++() {
@@ -223,7 +231,7 @@ namespace MFM {
         return other.range != range || other.at != at;
       }
 
-      UxCRange & range;
+      UxCRange range;
       UC at;
     };
 
