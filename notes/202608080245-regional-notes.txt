@@ -1,4 +1,4 @@
-{575}  -*-  mode: text; fill-column: 32;  -*-
+{624}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -9964,7 +9964,161 @@ to. At the moment, for example,
 I still don't feel confident
 about the IHH suspend/resume
 process, and that's hanging me
-up about what to do.
+up about what to do.[575:
+
+Fri Oct  2 02:18:45 2026 Well,
+how about we commit and then
+head for a merge-boltr-to-ihh
+branch, to give us some cover.
+
+SAREK (to President of Earth):
+Before it's too late.
+
+[576:
+
+Fri Oct  2 02:38:45 2026 OK:
+
+    Switched to a new branch 'merge-boltr-and-ihh-attempt'
+
+and I guess first step is maybe
+
+ - Review logs to trace the
+   current boltr supercycle, and
+   note IHH actions, if any,
+   within it.
+
+[577:
+
+Fri Oct  2 02:41:04 2026 First
+off, it appears that events
+start up running, even tho
+iNterHuBZ is unchecked? So we
+see onlyish
+
+    {80:103 1 0 3,3 hn BOLTR_AH:1}
+    {80:44 1 0 3,3 hn BOLTR_READY:HOLD_AT_BIRTH!}
+ .. {80:68 1 0 3,3 hn BOLTR_NBLOK:1}
+    {80:74 2904 0 3,3 h1 BOLTR_AHS:1000001}
+    {80:29 3761 0 3,3 hn BOLTR_NEW:2}
+ .. {80:44 3761 0 3,3 hn BOLTR_READY:CARRY_ON!}
+
+[578:
+
+Fri Oct  2 02:43:49 2026 Now,
+let's just uncheck 'events' in
+the TUI and see if that does
+anything visible.[579:
+
+Fri Oct  2 02:44:33 2026 Well,
+it seems to have shot a bolt:
+
+    {135:875 1 5 203,43 ht ->} hc000 OurTLBs::shootPHASER 4=SUSPEND_EWPS 1
+    {135:891 1 5 203,43 ht ->} hc000 stored PHASER arg 0 0x00000001
+    {135:897 1 5 203,43 ht ->} PHASERBOLT <4:4=SUSPEND_EWPS+1> (was <3:0=CARRY_ON>)
+
+which seems to've been seen:
+
+    {80:103 233454 0 16,11 h0 BOLTR_AH:3}
+    {80:44 233454 0 16,11 hn BOLTR_READY:SUSPEND_EWPS 1!}
+
+but it seems we're still trying
+to run, at least in this spot:
+
+    {22:39 280292 0 16,11 hb hubPrcHCL:0x17800000}
+    {22:109 281100 0 16,11 hb EVTOTROM:IHH_RUN}
+    {22:39 281473 0 16,11 hb hubPrcHCL:0x18000000}
+    {72:137 281490 0 16,11 h0 LBStep:11}
+    {22:109 282225 0 16,11 hb EVTOTROM:IHH_RUN}
+    {22:39 282652 0 16,11 hb hubPrcHCL:0x18800000}
+    {22:109 283351 0 16,11 hb EVTOTROM:IHH_RUN}
+
+        if (lgmc.isEPSuspStatus()) {
+          HBPTAG(ACTIVATOTROM,0);
+          LOGPTAG(ACTIVALOTROM,0);
+          mPrivateState = IHH_PAUSE;
+        } else {
+          EACH(1'000'000,HBPTAG(EVTOTROM,getIHHStateName(mPrivateState)));
+>>        EACH(1'000'000,LOGPTAG(EVTOTROM,getIHHStateName(mPrivateState)));
+          for (u32 e = 0u; e < 8u; ++e) {
+            processHubCars(e,hb,true);
+          }
+        }
+
+so processHubCars is still
+getting called, but I don't see
+anything changing on screen.
+Perhaps there are no cars
+arriving to process.
+
+[580:
+
+Fri Oct  2 02:49:13 2026 Now,
+from this position, if we click
+on iNterRHuBZ, what do we
+expect?
+
+I sort of expect the bolt
+supercycle to start up, which
+should at some point turn off
+SUSPEND_EVENTS, so things should
+start moving again?
+
+Ho ho could happen. Let's
+see.[581:
+
+Fri Oct  2 02:51:53 2026 Well,
+indeed, things started right up
+again.
+
+And we see, heavily simplified:
+
+    {80:103 669342 0 16,11 hb BOLTR_AH:4}
+    {80:44 669342 0 16,11 hn BOLTR_READY:NEW_LEADER 0!}
+ .. {80:103 670507 0 16,11 h0 BOLTR_AH:5}
+    {80:44 670507 0 16,11 hn BOLTR_READY:LOAD_CACHE!}
+ .. {22:109 670861 0 16,11 hb EVTOTROM:IHH_RUN}
+ .. {22:39 672351 0 16,11 hb hubPrcHCL:0xbc800000}
+    {212:68 672439 0 16,11 h1 mBytesOut:0}
+    {22:109 673153 0 16,11 hb EVTOTROM:IHH_RUN}
+ .. {80:103 673486 0 16,11 h1 BOLTR_AH:6}
+    {80:44 673486 0 16,11 hn BOLTR_READY:SUSPEND_EWPS 0!}
+ .. {80:103 673519 0 16,11 hb BOLTR_AH:7}
+    {80:44 673519 0 16,11 hn BOLTR_READY:CARRY_ON!}
+ .. {21:283 674967 0 16,11 h0 WAITSENT:13500}
+    {24:76 674996 0 16,11 hb SCLC-cur:0}
+    {24:77 674996 0 16,11 hb SCLC-us:0}
+    {212:68 675617 0 16,11 h1 mBytesOut:0}
+ .. {212:58 679317 0 16,11 h1 mBytesIn:17874179}
+ .. {80:103 680547 0 16,11 h0 BOLTR_AH:8}
+    {80:44 680547 0 16,11 hn BOLTR_READY:SUSPEND_EWPS 1!}
+ .. {80:103 680575 0 16,11 h0 BOLTR_AH:9}
+    {80:44 680575 0 16,11 hn BOLTR_READY:SAVE_CACHE!}
+ .. {212:61 681068 0 16,11 h1 >xLZI:818000001 0x03}
+    {22:109 681238 0 16,11 hb EVTOTROM:IHH_RUN}
+    {212:68 681667 0 16,11 h1 mBytesOut:0}
+    {22:39 681725 0 16,11 hb hubPrcHCL:0xbd800000}
+    {22:109 682386 0 16,11 hb EVTOTROM:IHH_RUN}
+ .. {80:103 683227 0 16,11 hn BOLTR_AH:10}
+    {25:11 683230 0 16,11 hb BOLTR_NEWLEADER:1}
+    {80:103 683230 0 16,11 hb BOLTR_AH:10}
+    {80:44 683230 0 16,11 hn BOLTR_READY:NEW_LEADER 1!}
+
+and so on.
+
+:581]
+
+:580]
+
+:579]
+
+:578]
+
+:577]
+
+
+:576]
+
+:575]
 
 :574]
 
@@ -10223,3 +10377,954 @@ on it..
 
 :566]
 :564]
+[582:
+
+Fri Oct  2 10:41:46 2026 So we
+have something like
+
+    {80:44 1154643 0 16,11 hn BOLTR_READY:NEW_LEADER 1!}
+
+'implemented' up to alterning gml1:
+
+        L1GridManagerControl & gml1 = ihlc.getL1GridManagerControl();
+        gml1.setSuperCellLeader((u8) arg); // NOLOK??
+
+    {80:44 1156030 0 16,11 hn BOLTR_READY:LOAD_CACHE!}
+
+need it
+
+    {80:44 1158863 0 16,11 hn BOLTR_READY:SUSPEND_EWPS 0!}
+
+got it / a start
+
+    {80:44 1158901 0 16,11 hn BOLTR_READY:CARRY_ON!}
+
+got it / a start
+
+    {80:44 1166512 0 16,11 hn BOLTR_READY:SUSPEND_EWPS 1!}
+got it / a start
+
+    {80:44 1166544 0 16,11 hn BOLTR_READY:SAVE_CACHE!}
+
+need it
+
+So let's just head at LOAD_CACHE
+and push as hard as we can. TODO
+
+[583: Fri Oct  2 11:25:29 2026
+Doesn't exist; only saving;
+DONE :583] - Review code 1: Host side
+   loading? Does it exist? No,
+   right, only 'saving'?
+
+[584: Fri Oct  2 11:26:02 2026
+Well, NEW_LEADER happens in HUB
+imageDoneRespondingToBoltB so
+let's say LOAD_CACHE should too?
+DONE :584] - Review code 2: T6 side
+   loading - where to put it?
+
+[585: DONE  :585] - Report back.
+
+[586:
+
+Fri Oct  2 11:27:10 2026 So
+let's go at LOAD_CACHE, top-down
+through the boltresponder code
+that's now running. TODO
+
+[589: Fri Oct  2 13:18:04 2026
+E.g.,
+    {80:29 289015 0 10,3 hn BOLTR_NEW:4}
+    {80:105 289015 0 10,3 h2 BOLTR_AH:4}
+    {80:105 289015 0 10,3 h1 BOLTR_AH:4}
+>>  {25:22 289015 0 10,3 hb BOLTR_LOAD_CACHE:WE_LEAD}
+    {80:105 289015 0 10,3 hb BOLTR_AH:4}
+    {80:105 289042 0 10,3 h0 BOLTR_AH:4}
+    {80:105 289042 0 10,3 hn BOLTR_AH:4}
+    {80:44 289042 0 10,3 hn BOLTR_READY:LOAD_CACHE!}
+
+so, DONE :589] - Show evidence that hb notices
+   load cache at all
+
+[590: Also:
+    {25:22 304115 0 10,3 hb BOLTR_LOAD_CACHE:WE_FOLLOWX}
+    {80:105 304115 0 10,3 hb BOLTR_AH:10}
+    {80:44 304116 0 10,3 hn BOLTR_READY:LOAD_CACHE!}
+
+so, DONE :590] - Show evidence that hb knows
+   whether it's leader or
+   follower here.
+
+ - Show evidence that follower
+   has a plan for what needs to
+   be sent to leader.
+
+ - Report back.
+
+:586]
+
+
+:582]
+[587:
+
+Fri Oct  2 11:42:31 2026 OK,
+while we're building, here: How
+do we tell if we're supercell
+leader? What is the mapping?
+
+I think u8 mSuperCellLeader is
+0..3 or 255 for 'no leader'.
+
+And how do we tell what we are
+(which of 0..3 for sure)? We
+have computed that somewhere T6
+side. 
+[588:
+
+Fri Oct  2 12:08:15 2026 OK,
+while building again: So we made
+enum SCStatus with like:
+
+    #define ALL_SUPERCELL_LEADER_STATUSES() \
+        XX(NO_LEADER)                       \
+        XX(WE_LEAD)                         \
+        XX(WE_FOLLOWX)                      \
+        XX(WE_FOLLOW0)                      \
+        XX(WE_FOLLOW1)                      \
+        XX(WE_FOLLOW2)                      \
+        XX(WE_FOLLOW3)                      \
+
+where only the first three are
+used so far, but the hope is to
+identify WHO we're supposed to
+follow to help downstream
+processing yet to come..
+
+:588]
+:587]
+[591:
+
+Fri Oct  2 13:19:26 2026 So
+okay: What would it mean for a
+follower to have a plan for what
+needs to be sent to leader?
+TODO:
+
+ - Follower needs to know which
+   Dir8 points to the leader.
+   (NOTE THESE Dir8s WILL OFTEN
+   POINT TO A DIFFERENT
+   SUPERCELL.)
+
+ - Follower needs to know if
+   there actually is a leader in
+   that Dir8, given local
+   circumstances.
+
+ - Follower needs to know (say
+   the) S8C offsets from its own
+   sites to the leader's cache.
+
+ - Follower needs to know the
+   size of the rectangle to be
+   moved.
+
+ - Follower needs to know where
+   it is in the process of
+   sending those sites.
+
+ - Follower needs to know what
+   to do until all sites have
+   been sent.
+
+ - Follower finally must know
+   when it's done and then ack
+   the LOAD_CACHE bolt.
+
+:591]
+[592:
+
+Fri Oct  2 15:49:17 2026 ErrrrT!
+(Sound of sudden braking). So
+wait a minute. Wait. If
+
+(1) our supercell size is 2x2 in
+    hub coords (so 4x4 in CT6
+    coords), and
+
+(2) any of those four hubs might
+    be leader, then
+
+(3) the typical (non-edge)
+    follower will be Dir8 from
+    TWO leaders simultaneously,
+    and so
+
+(4) the typical follower needs
+    to LOAD_CACHE completely in
+    TWO (opposite) Dir8s, before
+    acknowledging the LOAD_CACHE
+    bolt.
+
+RIGHT?
+
+RIIIIIIIIIIIGHT?
+
+[594:
+
+Fri Oct  2 16:06:08 2026 So it
+seems that's right, and we could
+probably 'prove' it by matching
+aggregate load_cache transfers
+now to aggregate save_cache
+transfers later, but let's take
+it on faith for the moment.
+
+So a follower needs at least
+this state:
+
+ - For each leader, it needs:
+
+   = mDir8 to that leader (or
+     none), and/or grid offset
+     from us to that leader),
+
+   = Iterator (at least morally)
+     over sites bound for that
+     leader
+
+ - And then it needs an array of
+   two of those.
+
+And do we maybe want to reset
+those arrays in NEW_LEADER, so
+we'll be ready to rock as soon
+as we see LOAD_CACHE?
+
+Have we got a persistable rect
+iterator? [595:
+
+Fri Oct  2 16:13:18 2026 Yes, we 
+have UxCRange::Iterator -
+although it looks like we'd want
+to add operator= or a config()
+method or something to restart
+it without always constructing
+it from scratch
+
+[596:
+
+Fri Oct  2 16:20:22 2026 OK,
+looking at that - but note that
+iterator currently has a
+'UxCRange & range' data member,
+so we can't just overwrite any
+iterator with any other. So does
+that mean we need to
+
+(a) Switch to UxCRange* there?
+(b) or .. fail if op= range is
+    different?
+
+buuuut wait: why do we need a
+UxCRange& anyway? Why not just
+use iterator::start and
+iterator::stop (plus
+iterator::at)?
+
+OOOOOOR, why don't we just use a
+UxCRange instead of UxCRange &
+anyway? We never modify range.
+
+[597:
+
+Fri Oct  2 16:36:27 2026 OK,
+switched to UxCRange range and
+added operator=(..) = default;
+
+So now, I think we can persist
+and reinit a UxCRange::iterator.
+I guess I was scared because
+iterator is a nested class, so I
+was like "you can't put an
+instance of a class inside a
+member of the class!" but just
+nesting the class doesn't mean
+the outer class has any data
+members of the nested class
+type.
+
+[598:
+
+Fri Oct  2 16:39:43 2026 OK so
+that builds and seems to run as
+before.
+
+POP YAK POP
+
+So now we can have a per-leader
+struct of stuff a follower might
+need:
+
+ struct CacheLoader {
+   U8CRange::iterator mIndex; //< in local coords
+   S16C mOffset; //< in grid distance between our sites and leader's cache
+   Dir8 mLeaderDir8; //< where leader is from us (for routing?)
+ };
+
+and then we have to stick
+mCacheLoaders[2]
+someplace persistent, like fB,
+if we want to take the space, or
+I guess just more L1 in
+HubBoltResponder.cpp? (Or in the
+packet itself shut up shaddup.)
+
+[599:
+
+Fri Oct  2 17:02:51 2026 OK we
+made
+
+  CacheLoader theL1CacheLoaders[2];
+
+just lying around in
+HubBoltResponder.cpp. We'll see
+how it develops.[600:
+
+Fri Oct  2 17:11:29 2026 Had
+some bugs in the op='able
+UxCRange::iterator, going
+again.. Looks like it builds
+now. [601:
+
+Fri Oct  2 17:14:48 2026 OK now
+we see like:
+
+    {25:37 50230 0 10,3 hb BOLTR_LOAD_CACHE:WE_FOLLOWX}
+    {25:45 50230 0 10,3 hb BOLTR_LOAD_CACHE_SIZE:32}
+
+So pop pop miniyak where are we
+now?
+
+Figured out mDir8 to leader(s)
+and init those structs? --which,
+again NEW_LEADER response could
+do.. [602:
+
+Fri Oct  2 17:22:36 2026 Moved
+the init stuff to NEW_LEADER.
+Still don't know where to look
+for Dir8 computation logic.
+We've gotta have something
+relevant in host, right? The
+buggy stuff we showed last
+T2sup? 
+
+:602] 
+
+:601]
+
+:600]
+
+:599]
+
+:598]
+
+:597]
+:596]:595]
+
+:594]
+[593:
+
+Fri Oct  2 16:02:11 2026 (Would
+it be completely sleazy or
+insane to store our state
+associated with responding to a
+bolt INSIDE OF THE BOLT BEING
+RESPONDED TO? That'll keep
+coming back to us until the bolt
+is all acked. I guess it would
+be at least kind of sleazy if
+more than one hart had stateful
+work to do on the same bolt. And
+it's [just] an optimization so
+it's at least kind of insance to
+be considering it NOW MINIMAL
+MINIMAL MINIMAL.)
+
+:593]
+
+:592]
+[603:
+
+Fri Oct  2 18:18:58 2026 OK,
+after dinner. Now we really
+really need to map 0..3 leader
+codes to Dir8 or 255 leader
+directions.
+
+ - Search for relevant code in
+   host
+
+ - If not found or still
+   necessary, lay out SMALL
+   STEPS to it here.
+
+ - Implement in
+   bRespondToCMD_NEW_LEADER.
+
+:603]
+[604:
+
+Fri Oct  2 18:20:34 2026 So, we
+think
+host/CodeManager::writeCacheSites
+should have something useful (if
+backwards). What does it do?
+
+Simplified:
+
+      void CodeManager::writeCacheSites(QuietBox& qb, u32 currentLeader, bool tofollowers) {
+ ..     U8C superc = U8C::makeSuperCellCoordFromLeaderCode(currentLeader);
+        u32 count = 0;
+        for (auto & item : mHubTLBIToHubValue) {
+          HubValue & hv = item.second;
+          if (hv.mSuperCellCoord == superc) {
+            ++count;
+            U8C noc0 = U8C::makeUxCNoCCoordFromTLBI(hv.mTLBI);
+ ..         if (!tofollowers)
+              pushGlobalSitesToIHLeaderCaches(hv);
+            else
+              pushGlobalSitesToIHFollowerSites(hv);
+          }
+        }
+ ..   }
+
+which involved
+mHubTLBIToHubValue, and that's
+like:
+
+        typedef std::unordered_map<HubTLBI,HubValue> HubTLBIToHubValue;
+        HubTLBIToHubValue mHubTLBIToHubValue;
+with
+        typedef u32 HubTLBI;
+        typedef u32 ChangeCount;
+        struct HubValue {
+          HubValue()
+            : mChangeCount(0)
+            , mTLBI(U32_MAX)
+          { }
+ ..       ChangeCount mChangeCount;
+          HubTLBI mTLBI;
+          u32 mChipNum;
+          U8C mHubInGridCoord;
+          U8C mSuperCellCoord;
+        };
+
+so we'd think for our purposes
+we'd mostly care about:
+
+          U8C mHubInGridCoord;
+          U8C mSuperCellCoord;
+
+aand, how does the map get
+populated? 
+
+[605:
+
+Fri Oct  2 18:26:12 2026 Via
+
+        void addHub(u32 tlbi,u32 chipNum) {
+          MFM_API_ASSERT(!definedHubTLBI(tlbi),DUPLICATE_ENTRY);
+          mHubTLBIToHubValue.try_emplace(tlbi);
+          mHubTLBIToHubValue[tlbi].init(tlbi,chipNum);
+        }
+with
+      void CodeManager::HubValue::init(HubTLBI tlbi, u32 chipnum) {
+        mTLBI = tlbi;
+        mChipNum = chipnum;
+ ..     ///XXX HARDCODING 2x2 SUPERCELL FOR NOW Sun Aug 30 17:12:45 2026 
+        U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
+        U8C tt(2,2);
+
+        mHubInGridCoord = c / tt;
+        mSuperCellCoord = mHubInGridCoord % tt;
+ ..   }
+
+[606:
+
+Fri Oct  2 18:27:46 2026 Aand,
+over on the T6 side, we already have
+HostBlock::mTLBI, so we could say:
+
+  U8C c = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+  U8C tt(2,2);
+  U8C hubInGridCoord = c / tt;
+  U8C superCellCoord = hubInGridCoord % tt;
+  
+[607:
+
+Fri Oct  2 19:10:15 2026 Aand
+then what? Then, I guess, we
+actually need to find ALL
+leaders that are Dir8 from us -
+even if they are in different
+superCells, but not if they
+don't exist.
+
+So we could, for example (again
+hardcoding for a 2x2 supercell):
+
+[610:
+
+Fri Oct  2 22:37:04 2026 Let's
+try this again, here,
+considering our possible four
+leaders, and these defs:
+
+    U8C ourCT6 = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+    U8C ct6ToRegion(2,2);        // convert CT6 to region #
+    U8C regionToSupercell(2,2);  // convert region # to supercell #
+
+    U8C ourRegionC = ourCT6 / ct6ToRegion; //< our region in region coords
+    U8C ourT6InRegion = ourCT6 % ct6ToRegion; //< our T6 offset within region
+    U8C ourRegionCinCT6 = ourRegionC * ct6ToRegion;    //< UL corner of our region in CT6
+    U8C ourSuperCellC = ourRegionC / regionToSupercell; //< UL corner of our supercell in region coords
+    U8C ourSuperCellCInRegions = ourSuperCellC % regionToSupercell; //
+
+ - reset all CacheLoaders
+   (including setting their
+   offsets to (0,0));
+
+ - iterate over Dir8s.
+
+ - for each d8, find the CT6
+   coord that's
+   ourCT6+ct6ToRegion in that
+   d8. And we can fucking take
+   that all the way to code:
+
+S8C d8ngbCT6 = S8C(ourCT6) + makeS8CFromDir8(d8) * S8C(ct6ToRegion);
+
+   Right? Then check against
+   card edges or whatever to see
+   if it exists.
+
+ - If it does exist, it's
+   (supposed to be) a hub just
+   like us (given the
+   close-packed single region
+   rule that we assume).
+
+ - So we save that info in the
+   next available CacheLoader
+   struct, and continue.
+
+Would that not load the
+CacheLoaders? Could we not write
+that right now?[611:
+
+Fri Oct  2 23:22:12 2026 OK but
+not quite. That could - I think
+- lead to requiring up to EIGHT
+CacheLoaders, because it's not
+taking the supercell leader
+structure into consideration.
+
+Remember, (Dave,) it's the
+REGION that has the actual
+sites. The only way we can need
+to cache is for Dir8 adjacent
+REGIONs. [612:
+
+Fri Oct  2 23:51:25 2026 OK
+looking at my krita pic, I say:
+First, remember all this
+CacheLeader business only
+applies to FOLLOWERS (for now).
+So we should declare success
+immediately if we are in fact a
+leader hub. Do we?[613:
+
+Sat Oct  3 00:00:50 2026 Wow
+we're blowing up in a completely
+different place than I
+expected.. [614:
+
+Sat Oct  3 00:06:11 2026 But I
+guess I think - since the
+'actual fail' makes sense and we
+believe the stack dumping stuff
+can be a little fragile..? -
+let's call that a red herring
+for now, and stick to supercell
+coords and cacheloader counts..
+
+:614]at least for one
+captured stack dump:
+
+    CodeManager.cpp:937: 608.426 at043[HUB] STUCK? {25:28 1 0 4,3 hb ILLEGAL_ARGUMENT}
+
+which is:
+
+        CacheLoader & get(u32 idx) {
+>>        MFM_API_ASSERT(idx < CacheLoaders::CACHELOADER_COUNT, ILLEGAL_ARGUMENT);
+          return mCacheLoaders[idx];
+        }
+
+which is what we expected to
+fail.. but the ensuing stack
+dump: 
+
+    CodeManager.cpp:944: 608.427 at043 HUB REGZ sp: 0xffb01f00, ra: 0x0000490c, fp: 0xffb01f20
+    OurTLBs.cpp:404: <<at043>> #0 (4,3) hb STACKBOT:0xffb01ffc MAPSTACK:0xffb15ffc
+    CodeManager.cpp:975: 608.467 at043 HUB hb 0xffb01f1c!sp[16] = 0x0000490c {13:41 1 0 4,3 hb MFM::InterHubL1Control::getL1GridManagerControl()} '.I..'
+
+is pointing at:
+
+    L1GridManagerControl & getL1GridManagerControl() {
+>>    MFM_API_ASSERT_NONNULL(mL1GridManagerControlPtr);
+      return *mL1GridManagerControlPtr;
+
+which we were definitely not
+expecting to fail. hmmmmmmm.
+
+    CodeManager.cpp:986: 608.467 at043 HUB hb 0xffb01f20>sp[17] = 0x38203235 '52 8'
+    CodeManager.cpp:975: 608.510 at043 HUB hb 0xffb01f7c!sp[40] = 0x0000d4bc {80:85 1 0 4,3 hb MFM::T6BoltResponder::boltResponderAllHarts()} '....'
+    CodeManager.cpp:986: 608.510 at043 HUB hb 0xffb01f80>sp[41] = 0x0009f180 '....'
+    CodeManager.cpp:975: 608.548 at043 HUB hb 0xffb01f8c!sp[44] = 0x0000d010 {79:12 1 0 4,3 hb MFM::beatTheStandardHeartbeat(MFM::HostBlock&)} '.
+
+:613]
+
+:612]
+
+:611]
+
+:610]
+
+ - reset all CacheLoaders
+   (including setting their
+   offsets to (0,0));
+
+ - iterate over Dir8s.
+
+ - for each d8, find the next
+   supercell coord in that
+   direction (whether in our
+   supercell or not).
+
+   = if that supercoord != our
+     new leader coord, continue
+     [609: Fri Oct  2 22:35:51
+     2026 I think this is
+     another example of
+     something I missed. :609]
+
+   = otherwise, compute a
+     CT6Coord for that coord. if
+     that coord doesn't exist,
+     continue
+
+   = otherwise, we have found
+     a(nother) dir8 leader. if
+     we have found more than
+     two, fail.
+
+   = otherwise, init the next
+     available CacheLoader
+     structure for that dir8,
+     necessarily including
+     setting the offset
+     non-zero. 
+
+ - WALA.
+[608:
+
+Fri Oct  2 20:20:24 2026
+Errrrrt! (again.)
+
+So, I was trying to sketch this
+all very roughly in krita
+
+  (inkscape would be a better
+  choice for this but I need
+  krita practice a lot more)
+
+and - if we are saying that a
+supercell is 2x2 regions (and a
+region is 2x2 T6s) so we have a
+choice of four possible regional
+leaders per supercell.
+
+But here's the thing: A follower
+might be cache-adjacent to up to
+FOUR DIFFERENT REGIONAL LEADERS
+on its diagonals, not just the
+two like I thought (on its
+orthogonals).
+
+So my little
+
+      struct CacheLoaders {
+        CacheLoader mCacheLoaders[2];
+        void init() {
+          memset_s(this, '\0', sizeof(*this));
+        }
+      };
+
+needs to be
+
+      struct CacheLoaders {
+        CacheLoader mCacheLoaders[4];
+        void init() {
+          memset_s(this, '\0', sizeof(*this));
+        }
+      };
+
+(in addition to whatever else I
+missed in these here parts.)
+
+:608]
+:607]
+:606]
+
+
+:605]
+:604]
+[615:
+
+Sat Oct  3 01:19:23 2026 So
+okay. How can I make it clearer
+how the supercell leader reduces
+the necessary cache updates?
+
+I'm thinking I should make a
+picture that suppresses T6s and
+starts at regions as the
+smallest entity.
+
+But I really don't want to right
+now. Urgh.[616:
+
+Sat Oct  3 02:27:08 2026 OK so I
+drew 20261003-021018-slide.kra
+showing just the region and
+supercell levels, and yes it's
+plenty clear that four
+CacheLoaders are the max
+possibly needed.
+
+[Just] have to backfill that
+down to consequences in
+CT6-land.[617:
+
+Sat Oct  3 10:58:24 2026 OK,
+reviewing our latest code with
+an eye on the latest drawing.. 
+[618:
+
+Sat Oct  3 10:59:18 2026 I think
+I want to try being a bit more
+systematic about coord units and
+naming. Dealing with like three
+spatial scales in one code
+stretch is a lot. 
+
+SPATIAL UNIT NAMES
+
+  UCT6 ('compact T6' - smallest units)
+   internal: -none-
+   position: CT6C (coord)
+   distance: CT6V (vector)
+   external: UREG
+   superpower: physical computation
+
+  UREG (region - bigger units)
+   internal: UCT6
+   position: REGC
+   distance: REGV
+   external: USCL
+   superpower: defines simulation space
+
+  USCL (supercell - bigger units)
+   internal: UREG
+   position: SCLC
+   distance: SCLV
+   external: UBLK
+   superpower: guides data movement
+
+  UBLK (blackhole chips - bigger units)
+   internal: USCL
+   position: BLKC
+   distance: BLKV
+   external: UQBX
+   superpower: fucking fast data movement
+
+  UQBX (quietboxes - biggest units ATM)
+   internal: UBLK
+   position: QBXC (only (0,0) atm)
+   distance: QBXV
+   external: -none-
+   superpower: one is owned by me
+
+[619:
+
+Sat Oct  3 11:40:14 2026 Well
+that's kind of clean in some
+ways. Also problematic because
+we'll (I think) want to have
+USCL span cards down the road..
+So we'll see.
+
+But it seems plausible-ish and
+cleaner-ish for now.
+
+:619]
+
+:618]
+:617]
+
+:616]
+
+:615]
+[620:
+
+Sat Oct  3 16:34:29 2026 So, now
+we're getting like:
+
+    {25:36 198755 0 4,11 hb BOLTR_NEWLEADER:2}
+    {25:43 198755 0 4,11 hb BOLTR_NEW_LEADER_CACHE_SIZE:64}
+    {25:58 198755 0 4,11 hb ourCT6C:(3,9)}
+    {25:59 198755 0 4,11 hb ourREGC:(1,4)}
+    {25:60 198755 0 4,11 hb ourCT6V_of_REGC:(1,1)}
+    {25:61 198755 0 4,11 hb ourREGC_in_UCT6:(2,8)}
+    {25:62 198755 0 4,11 hb ourSCLC_in_REGC:(0,2)}
+    {25:63 198755 0 4,11 hb ourREGV_of_SCLC:(0,0)}
+    {25:68 198755 0 4,11 hb d8:NT8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(3,7)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:NW8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(1,7)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:WT8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(1,9)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:SW8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(1,11)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:ST8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(3,11)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:SE8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(5,11)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:ET8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(5,9)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:68 198755 0 4,11 hb d8:NE8}
+    {25:71 198755 0 4,11 hb d8ngbCT6V:(5,7)}
+    {25:74 198755 0 4,11 hb nextCLI:0}
+    {25:81 198755 0 4,11 hb finalCLIdx:0}
+    {80:105 198755 0 4,11 hb BOLTR_AH:81}
+    {80:44 198755 0 4,11 hn BOLTR_READY:NEW_LEADER 2!}
+
+[621:
+
+Sat Oct  3 17:40:01 2026 OK
+after a bit more tweaking it
+looks like we are generating
+plausible, existing NoC0 coords
+for the up to eight Dir8 hub
+ngbs. Now we need to know the
+REGV of USCL of each of them, to
+determine which of them are
+currently leaders.
+
+So how do we map to USCL and
+REGV inside SCL? Our main defs
+so far are:
+
+        U8C uct6_per_ureg(2,2);        // UCT6 conversion to UREG
+        U8C ureg_per_uscl(2,2);        // UREG conversion to USCL
+
+        U8C ourCT6C = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+        U8C ourREGC = ourCT6C / uct6_per_ureg; //< our position in region space
+
+        U8C ourCT6V_of_REGC = ourCT6C % uct6_per_ureg;           //< our UCT6 offset in region ourREGC
+        U8C ourREGC_in_UCT6 = ourREGC * uct6_per_ureg;           //< UL corner of our region in CT6
+        U8C ourSCLC_in_REGC = ourREGC / ureg_per_uscl;           //< UL corner of our supercell in region coords
+        U8C ourREGV_of_SCLC = ourSCLC_in_REGC % ureg_per_uscl;   //< our UREG offset in supercell ourSCLC
+
+and then, given a d8, like:
+
+          S8C d8ngbREGV = S8C::makeS8CFromDir8(d8);
+
+          /*  /-CT6V-\  = /-REGV-\  *  /--UCT6/UREG---\  */
+          S8C d8ngbCT6V = d8ngbREGV * S8C(uct6_per_ureg);
+
+          /*  /-CT6C-\  =  /-CT6C---\  +  /-CT6V-\  */
+          S8C d8ngbCT6C = S8C(ourCT6C) + d8ngbCT6V;
+
+          U8C ud8ngbCT6C;
+          if (!d8ngbCT6C.toU8C(ud8ngbCT6C)) continue; // off chip N or W
+
+          U8C d8ngbNoC0C = U8C::makeNoC0CoordFromCT6Coord(ud8ngbCT6C);
+          if (d8ngbNoC0C == U8C::UxC_MAX_VAL) continue; // off chip E or S
+
+so.. if we had d8ngbREGC, we
+could do like
+
+          U8C d8nSCLC_in_REGC = d8nREGC / ureg_per_uscl;   //< UL corner of d8n supercell in region coords
+          U8C d8nREGV_of_SCLC = d8nREGC % ureg_per_uscl;   //< d8n UREG offset in supercell ourSCLC
+
+and then if we had ldrREGV_of_SCLC (?)
+then we could do like
+
+  if (d8nREGV_of_SCLC != ldrREGV_of_SCLC) continue;
+
+and we would then be in The
+Correct Place to define a
+CacheLoader.
+
+That seems really quite
+plausible. But it's getting to
+be dinner time!
+[622:
+
+Sat Oct  3 19:45:56 2026 OK,
+well! I'm kind of believing that
+we're finding our friendly
+neigbhorhood leaders
+successfully!
+
+Should probably check a 'corner'
+case or two, though...[623:
+
+Sat Oct  3 21:07:47 2026 Well I
+have to say I'm starting to
+believe this. I did go back and
+reorder the leader codes into
+reading order -
+
+    0    1
+
+    2    3
+
+which had always been my intent
+(and I used it in pictures), but
+then had somehow implementd - 
+
+    0    2
+
+    1    3
+
+But other than tweaks like that,
+as I say, I'm starting to
+believe this.
+
+:623]
+
+:622]
+:621]
+:620]
