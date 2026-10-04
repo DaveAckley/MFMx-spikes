@@ -121,9 +121,11 @@ namespace MFM {
             if (qb.mDrawGrid) {
               U16C nocacheo = o + DG::getGlobalGridOffset() + U16C(4,4); // (4,4) to get into EW center range
               RGBPix fg(255,255,255), bg(0,0,0);
+              /*
               std::string label = mBHTag.to_string() + "\n" +
-                o.to_string() + "\n" +
-                t6i.mT6GridOrigin.to_string();
+                o.to_string() + "\n" + t6i.mT6GridOrigin.to_string();
+              */
+              std::string label = o.to_string() + "\n" + mBHTag.to_string();
               bgr.drawString(nocacheo,label,fg,bg,2,2);
             }
 

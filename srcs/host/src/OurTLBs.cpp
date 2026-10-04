@@ -847,11 +847,16 @@ namespace MFM {
           u8 ourNonce = mShadowPHASER.getHeader().getPacketNonce();
           if (theirNonce == ourNonce) {
             ++mOnPhase;
-            EACH(1,KTprintf(t6tag,"-onPhase- %p 0x%02x 0x%02x:%02x tlbi%u %u\n",
+            PhaserBolt::Cmd cmd = pb.getCmd();
+            const char * cmdname = PhaserBolt::phaserCmdName(cmd);
+            u32 args = PhaserBolt::phaserArgCount(cmd);
+
+            EACH(100,KTprintf(t6tag,"-onPhase- %p %3d %3d:%s(%s) tlbi%u %u\n",
                             rphase,
                             theirNonce,
                             pb.getSeqNo(),
-                            pb.getCmd(),
+                            cmdname,
+                            args > 0 ? std::to_string(pb.getBoltDataWordOrDie(0)).c_str() : "",
                             tlbi,mOnPhase));
           } else 
             EACH(10'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
