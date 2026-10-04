@@ -1,4 +1,4 @@
-{635}  -*-  mode: text; fill-column: 32;  -*-
+{649}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -11569,3 +11569,373 @@ Let's commit and nap.
 :627]
 
 :626]
+[635:
+
+Sun Oct  4 10:37:05 2026 OK here
+we go. TODO
+
+ - Review anything touching
+   PT_InterHub packets. We used
+   to have them zooming around,
+   right?[642:
+
+Sun Oct  4 11:26:48 2026 Well
+there's this in hub/LiveB.cpp:
+
+      /*
+      bool processInterHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+        fB.mPIHControl.updateCars(ngbidx,hb,inside);
+        EACH(1'000'000,HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx)));
+        return false; // ??
+      }
+      */
+
+plus like this:
+
+    ./MFMX-20260921-093228/all.mfmk 194326:{26:75 6126 0 2,3 hb ihPROCAR:0x1a1b0} 
+    ./MFMX-20260921-093228/all.mfmk 223956:{26:75 11262 0 16,7 hb ihPROCAR:0x1a1b0} 
+    ./MFMX-20260921-093228/all.mfmk 257098:{26:75 36289 0 10,3 hb ihPROCAR:0x1a1b0} 
+
+and 'ihPROCAR' appears nowhere
+else in the (current) codebase,
+so, yeah, we believe we were
+running that code at one point.
+
+Although in this review I find
+it quite concerning here:
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     switch (mPrivateState) {
+ ..     case IHH_RUN:
+ ..           for (u32 e = 0u; e < 8u; ++e) {
+                processHubCars(e,hb,true);
+              }
+
+because, anyway we slice it,
+shouldn't that be
+
+  processInterHubCars
+
+inside InterHubPrivateControl?
+But the code there looks like:
+
+      static bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+ ..     if (theEwpL1Data.isUninitted(ngbidx)) return false;
+ ..     using EwpData = T6EPL1Data<EwpBlockStg,8>;
+        EwpData::CarIdxs & idxs = theEwpL1Data.mTheCarIdxs[ngbidx];
+        EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[ngbidx];
+ ..     fB.mGridManager.applyEWT(pay,ngbidx);
+ ..     crbo.add(carindex);         // hand control back to comm
+        return true;
+      }
+
+which is pretty fucking clearly
+HUB<=>EWP comms, not HUB<=>HUB.
+[643:
+
+Sun Oct  4 11:37:25 2026 Aand
+yet again, that appears to be
+the only live call to applyEWT
+here:
+
+./cross/images/hub/include/Grid.h 299:    void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
+./cross/images/hub/src/Grid.cpp 185:  void GridManager::applyEWT(EwpPayload &ewt, u32 ngbidx) {
+./cross/images/hub/src/Grid.cpp 214:    EACH(100'000,HBPTAG(applyEWT-Seek,__EACHNUM__));
+./cross/images/hub/src/EP_ACacheBlock.cpp 295:            theL1GridManagerControl.isEPSuspReqSeen() && // and applyEWT has seen it
+./cross/images/hub/src/EP_InterHub.cpp 71:    fB.mGridManager.applyEWT(pay,ngbidx);
+
+so it's not like it's a 'minor
+copypaste issue'.[644:
+
+Sun Oct  4 11:39:34 2026 So:
+Ugh. Gah. Barf.
+
+This is the kind of mess we were
+dreading running into, once we
+were forced back to packet comms
+stuff. Could git blame perhaps
+give us a little info fast
+enough to be worthwhile?[645:
+
+Sun Oct  4 11:46:52 2026 Well,
+not clear. At least, my git
+blame fu is too weak.[646:
+
+Sun Oct  4 11:48:07 2026 But I
+CAN say this: As of:
+
+    ./ihub12/srcs/cross/images/hub/src/LiveB.cpp 63:    fB.mGridManager.applyEWT(pay,ngbidx);
+
+around the end of August,
+
+  bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+
+was
+
+ - in LiveB, not EP_InterHub,
+
+ - and was called ALONG WITH
+   processInterHubCars, like
+   this: 
+
+      int stepB(HostBlock & hb) {
+ ..     for (u32 i = 0u; i < 4u; ++i) {
+          processInterHubCars(i,hb,(i&1)==0);
+        }
+
+        for (u32 e = 0u; e < 8u; ++e) {
+          processHubCars(e,hb,true);
+        }
+ ..   }
+
+[647:
+
+Sun Oct  4 12:06:15 2026 Well,
+I'm not sure it's worth the time
+so far, but for the record:
+
+    $ git blame -C -C -M -L 71,71 srcs/cross/images/hub/src/EP_InterHub.cpp 
+    38dfe41d (Dave Ackley 2026-09-28 15:04:37 -0600 71)     fB.mGridManager.applyEWT(pay,ngbidx);
+plus
+    $ git show 38dfe41d
+
+got me
+
+    commit 38dfe41da68e7055f71553d0c90965b2c2cff630
+    Author: Dave Ackley <ackley@livingcomputation.org>
+    Date:   Mon Sep 28 15:04:37 2026 -0600
+
+        Checkpoint before simplification attempt
+ ..
+    diff --git a/srcs/cross/images/hub/src/EP_InterHub.cpp b/srcs/cross/images/hub/src/EP_InterHub.cpp
+    index 3b1d86c..a4d8dfb 100644
+    --- a/srcs/cross/images/hub/src/EP_InterHub.cpp
+    +++ b/srcs/cross/images/hub/src/EP_InterHub.cpp
+ .. +  //////// LIVEB STEP TASK?
+    +  //FAST_LOCAL(InterHubPrivateControl,myPIHControlHB,b); >> moved to LiveB/fB
+    +
+ .. +  static bool processHubCars(u32 ngbidx, HostBlock & hb,bool inside) {
+ .. +    fB.mGridManager.applyEWT(pay,ngbidx);
+    +
+ .. +  void InterHubPrivateControl::stepB(HostBlock &hb) {
+ .. +    case IHH_RUN:
+ .. +          for (u32 e = 0u; e < 8u; ++e) {
+    +            processHubCars(e,hb,true);
+ ..
+
+so all this mess is part of the
+hideous IHH debacle(s),
+unsurprisingly.
+
+[648:
+
+Sun Oct  4 12:24:41 2026
+Soooooo, a couple obvious
+questions right now:
+
+ (1) Where SHOULD we be doing
+     processHubCars=>applyEWT?
+ (2) How to we get (a version
+     of) processInterHubCars
+     back into the picture?
+
+As I write that, I'm thinking we
+should start some kind of
+bailout-of-IHH-attempt right
+about now. Although we ARE
+already on branch
+merge-boltr-and-ihh-attempt.
+
+But this next stuff feels extra
+scary.
+
+:648]
+
+:647]
+:646]
+
+:645]
+
+:644]
+
+:643]
+:642]
+
+ - Review the theory such as it
+   was for the round-the-corner
+   bank shots. How were we
+   supposed to decide which
+   orthogonal direction to use
+   for a bank shot?
+
+ - Be considering how to
+   indicate ordering and
+   progress in multi-packet IH
+   sequences.
+
+ - Come back and report in.
+
+:635]
+[636:
+
+Sun Oct  4 10:43:40 2026 OK. So
+we've got
+
+      extern T6EPL1Data<InterHubStorage,8> theInterHubL1Data;
+
+      extern T6EPL1Data<InterHubStorage,4> theCornerHubL1Data;
+
+in InterHub.h. With
+
+      struct T6EPL1Data {
+        static constexpr u32 CAR_COUNT = SUBTCBLOCKSTG::CAR_COUNT;
+        static u8 constexpr BLOCK_COUNT = BLOCKCOUNT;
+        static u8 constexpr MASK_BITS = _getLogBase2(2u*CAR_COUNT+1u); // +1 chicken 2* superchicken
+        typedef RingBuffer<u8,MASK_BITS> CarIdxRB;
+        struct CarIdxs {
+          static u8 constexpr COMM2COMP = 0u;
+          static u8 constexpr COMP2COMM = 1u;
+          CarIdxRB mTheIdxs[2];
+        };
+  ..much stuf..
+        SUBTCBLOCKSTG mTheTCStorages[BLOCK_COUNT];
+        AtomicLock mTheLocks[BLOCK_COUNT];
+        CarIdxs mTheCarIdxs[BLOCK_COUNT];
+        EPState mThePublicEPState[BLOCK_COUNT];
+      };
+
+So, there are the actual cars,
+and the CarIdx ring buffers for
+HN<=>HB xfers.[637:
+
+Sun Oct  4 10:51:50 2026
+
+ - And we have
+
+      XIC_BLOCKADDR(BC_INTERHUB,8,theInterHubL1Data.mTheTCStorages,InterHubStorage)
+      XIC_BLOCKADDR(BC_CORNERHUB,4,theCornerHubL1Data.mTheTCStorages,InterHubStorage)
+
+   in the HUB ImageBlock.
+
+ - And we have
+
+      static RCFlag manageInterHubNC(HTOpCode htoc) {
+  ..    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+  ..      //// ONE-TIME INITS
+          theInterHubL1Data.reset(); // zero all
+          theCornerHubL1Data.reset(); 
+plus
+      __attribute__((section(".rodata_fp_table_nc")))
+      HTFuncPtr interhubEPPtr = &manageInterHubNC;
+
+in InterHub.cpp - but that is it
+for references to
+theCornerHubL1Data. So nothing
+functional is happening there,
+yet. You'd think there'd need to
+be something in matching down in
+
+        } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+
+but all we see there so far is: 
+
+ ..       //// LIVING
+          for (u32 d = D8_NT; d <= D8_NE; ++d) {
+            Dir8 d8 = (Dir8) d;
+            InterHubEP & myIHEPNC = myInterHubEP[d8];
+ ..         if (!myIHEPNC.isInitted()) continue;
+ ..         myIHEPNC.updateOps();
+ ..       }
+[641:
+
+Sun Oct  4 11:15:05 2026 And
+don't forget that - in between
+INIT and LIVE - there's
+
+        } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+ ..       for (u8 d8 = D8_NT; d8 <= D8_NE; ++d8) {
+            if (theInterHubL1Data.getPublicEPState(d8) != EPState::CONFIGURED) continue;
+            myInterHubEP[d8].activate(); // release the hounds
+ ..       }
+
+:641][638:
+
+Sun Oct  4 10:59:21 2026 And as
+a reminder, heavily thinned,
+since it's been awhile - 
+
+      template<class SUBEP, class SUBTC>
+      bool EP<SUBEP,SUBTC>::updateOps() {
+ ..     AtomicScopeLock guard(getPlatformLock());
+
+        bool ret = false;
+        /// TRY RECEIVING ARRIVALS
+        while (mGoneCount > 0) {    // if we have gone cars
+ ..       SUBTC * carp = getCarPtr(mOldestGone); // oldest departed next to return
+ ..       SUBTC & car = *carp;
+          if (!car.isComplete()) {
+ ..stuf..   break;
+          }
+
+          // Welcome! Let's get you set up here.
+          TCOpsData & data = getOpsData(mOldestGone);
+ ..       if (recvTC(car, mOldestGone)) {
+CALL DOWN---->^^^^^^
+            ++mRecvTCCount;
+ ..stuf.. }
+ ..     /// TRY SHIPPING DEPARTURES
+        while (mHereCount > 0u) { // if we have cars here
+ ..stuf.. SUBTC * carp = getClosedTCPtrIfAny();
+ ..       if (!isDeparting(cs)) break; // (still) not ready to go
+
+          // Bye now, come back soon!
+          TCOpsData & data = getOpsData(mOldestHere);
+ ..       if (shipTC(car,mOldestHere)) {        // SHIPT!
+CALL DOWN---->^^^^^^
+            ++mShipTCCount;
+ ..stuf.. } else
+            break;                  // try again later.
+        }
+        /// AND PROMENADE
+ ..     return ret;
+      }
+
+[639:
+
+Sun Oct  4 11:10:05 2026 So
+there's all that.
+
+:639]
+
+:638]
+
+:637]
+[640:
+
+Sun Oct  4 11:11:39 2026 With
+      FAST_LOCAL_ARRAY(InterHubEP,8,myInterHubEP,n);
+
+which I believe doesn't mention
+corners at all, so far.
+
+But here we can stop and say:
+That's not necessarily 'bad',
+because we were thinking that
+the InterHubEP[d8] were the
+'real state', and we were going
+to pretend that, say, that
+InterHubEP[D8_NE] here is
+'directly connected' to
+InterHubEP[D8_SW] at REGV(1,-1)
+even though such packets are
+actually going to take bank
+shots through orthogonal ngbs.
+
+And as far as we know, that
+might still be possible.
+
+:640]
+
+
+:636]
