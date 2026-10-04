@@ -44,7 +44,7 @@ namespace MFM {
     L1GridManagerControl & lgmc = theL1GridManagerControl;
     if (lgmc.mSuperCellLeader > 3) return SCStatus::NO_LEADER;
     if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) return SCStatus::WE_LEAD;
-    return SCStatus::WE_FOLLOWX; // but unanalyzed WHO we follow
+    return SCStatus::WE_FOLLOW; 
   }
 
   bool GridManager::seekRandomNonEmptySite(U16C & found) {

@@ -1,21 +1,19 @@
 #include "T6BoltResponder.h"
 #include "EP_InterHub.h"  //< for InterHubL1Control
 #include "HubLiveB.h"     //< for fB
+#include "NgbCacheMgr.h"  //< for sites-and-caches constants
 
 namespace MFM {
   /// HUB BOLT RESPONDERS
 
   struct CacheLoader {
-    //CacheLoader() = default;
 
-    S16C mOffset; //< in grid distance between our sites and leader's cache
-    U8CRange::iterator mIndex; //< in local coords
+    U8CRange::iterator mLocalItr; //< in local coords
+    U8CRange::iterator mRemoteItr; //< in their local coords
     Dir8 mLeaderDir8; //< where leader is from us (for routing?)
-
-    bool inUse() const { return mOffset != S16C(0,0); }
+    u8 mCacheLoaderIndex;
 
     void init() {
-      // mOffset==0 => 'struct not currently in use'
       memset_s(this, '\0', sizeof(*this));
     }
   };
@@ -23,8 +21,14 @@ namespace MFM {
   struct CacheLoaders {
     static constexpr u32 CACHELOADER_COUNT = 4;
     CacheLoader mCacheLoaders[CACHELOADER_COUNT];
+    u8 mCacheLoadersInUse;
     void init() {
       memset_s(this, '\0', sizeof(*this));
+    }
+    CacheLoader & allocate() {
+      CacheLoader & ret = get(mCacheLoadersInUse);
+      ret.mCacheLoaderIndex = mCacheLoadersInUse++;
+      return ret;
     }
     CacheLoader & get(u32 idx) {
       MFM_API_ASSERT(idx < CacheLoaders::CACHELOADER_COUNT, ILLEGAL_ARGUMENT);
@@ -66,7 +70,6 @@ namespace MFM {
     LOGPX(ourREGV_of_SCLC);
     */
 
-    u32 nextCacheLoaderIdx = 0;
     for (u32 i = D8_NT; i <= D8_NE; ++i) {
       Dir8 d8 = (Dir8) i;
 
@@ -97,26 +100,39 @@ namespace MFM {
 
       LOGPTAG(d8LDR,dir8ToByteString(d8));
       LOGPX(d8nNoC0C);
-      LOGPX(d8nCT6C);
-      LOGPX(d8nREGC);
-      LOGPX(d8nREGV_of_SCLC);
-      LOGPX(d8nSCLC_in_NoC0C);
-      LOGPTAG(thisCLI,nextCacheLoaderIdx);
+      if (false) {
+        LOGPX(d8nCT6C);
+        LOGPX(d8nREGC);
+        LOGPX(d8nREGV_of_SCLC);
+        LOGPX(d8nSCLC_in_NoC0C);
+      }
 
-      CacheLoader & cl = theL1CacheLoaders.get(nextCacheLoaderIdx++);
+      CacheLoader & cl = theL1CacheLoaders.allocate();
+      LOGPTAG(thisCLI,cl.mCacheLoaderIndex);
+
+      U8C uroa_per_ureg(NgbCacheMgr::BW,NgbCacheMgr::BH);
+      S8C o2oREGV = d8nREGV; // origin to origin region vector
+      S16C o2oROAV = S16C(o2oREGV) * S16C(uroa_per_ureg);
+
+      LOGPX(o2oROAV);
+
+      U8CRange mySitesForYourCache = NgbCacheMgr::SITE_RANGES[d8];      // my ST sites go
+      U8CRange yourCacheForMySites = NgbCacheMgr::CACHE_RANGES[oppositeDir8(d8)]; // in your NT cache
+
+      LOGPX(mySitesForYourCache);
+      LOGPX(yourCacheForMySites);
+
       cl.mLeaderDir8 = d8;
-      cl.mOffset = S16C(100,100); // XXXX FISK ME
-      // cl.mOffset TBD
-      // cl.mIndex TBD
+      cl.mLocalItr = U8CRange::iterator(mySitesForYourCache);
+      cl.mRemoteItr = U8CRange::iterator(yourCacheForMySites);
     }
-
-    for (u32 i = 0; i < CacheLoaders::CACHELOADER_COUNT; ++i) {
+    
+    for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
       CacheLoader & cl = theL1CacheLoaders.get(i);
-      if (!cl.inUse()) continue;
       LOGPTAG(CLidx,i);
       LOGPTAG(CLdir8,dir8ToByteString(cl.mLeaderDir8));
     }
-    LOGPTAG(#CLs,nextCacheLoaderIdx);
+    LOGPTAG(#CLs,theL1CacheLoaders.mCacheLoadersInUse);
     return true;                // response complete
   }
 
@@ -127,11 +143,23 @@ namespace MFM {
     if (stat == SCStatus::WE_LEAD || stat == SCStatus::NO_LEADER)
       return true;              // followers deal with loading cache
 
-    /* - Follower needs to know which Dir8 points to the leader. (NOTE
-      THESE Dir8s WILL OFTEN POINT TO A DIFFERENT SUPERCELL.) */
-    //    U8C superc = U8C::makeSuperCellCoordFromLeaderCode(currentLeader);
-    // RIGHTMEEE
-    return true;                // response complete
+    bool allDone = true;
+    for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
+      CacheLoader & cl = theL1CacheLoaders.get(i);
+      U8CRange::iterator & itr = cl.mLocalItr;
+      if (itr.atEnd()) continue;
+      allDone = false;
+      LOGPTAG(d8,dir8ToByteString(cl.mLeaderDir8));
+      LOGPTAG(SHI2,itr.range);
+      for (u32 a = 0; a < 339 && !itr.atEnd(); ++a) {
+        ++itr;
+        // pretend to ship
+      }
+      LOGPTAG(SHI@,itr.at);
+      if (itr.atEnd()) LOGPTAG(SHIPT!,itr.at);
+    }
+    LOGPTAG(SHID,allDone);
+    return allDone;             // response complete when shipping done
   }
 
 

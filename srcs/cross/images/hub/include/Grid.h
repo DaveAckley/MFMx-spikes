@@ -256,11 +256,7 @@ namespace MFM {
 #define ALL_SUPERCELL_LEADER_STATUSES() \
     XX(NO_LEADER)                       \
     XX(WE_LEAD)                         \
-    XX(WE_FOLLOWX)                      \
-    XX(WE_FOLLOW0)                      \
-    XX(WE_FOLLOW1)                      \
-    XX(WE_FOLLOW2)                      \
-    XX(WE_FOLLOW3)                      \
+    XX(WE_FOLLOW)                       \
     
   enum class SCStatus : u8 {
 #define XX(name) name,
