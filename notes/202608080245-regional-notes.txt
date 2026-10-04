@@ -1,4 +1,4 @@
-{624}  -*-  mode: text; fill-column: 32;  -*-
+{635}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -11321,10 +11321,251 @@ then had somehow implementd -
 
 But other than tweaks like that,
 as I say, I'm starting to
-believe this.
+believe this.[624:
+
+Sat Oct  3 21:10:09 2026 I guess
+we should stay
+
+    On branch merge-boltr-and-ihh-attempt
+
+but we should commit this. The
+idea we're believing FOLLOWER
+processing during a NEW_LEADER
+bolt. 
+[625:
+
+Sat Oct  3 21:18:19 2026 OK,
+committed and pushed.
+
+Nap time, then start into cache
+loading, which will force us to
+the main event of multiple
+months standing: sending atoms
+inter-L1.
+
+:625]
+:624]
 
 :623]
 
 :622]
 :621]
 :620]
+[626:
+
+Sat Oct  3 23:01:47 2026 OK,
+cache loading come on. We're not
+quite dead yet let's see what we
+can do.[627:
+
+Sat Oct  3 23:03:31 2026 OK,
+first up: We have yet to
+initialize this:
+
+      struct CacheLoader {
+
+        S16C mOffset; //< in grid distance between our sites and leader's cache
+
+and we'd think we should be able
+to do so, with all our sensible
+coords. We need, I guess, mainly
+two more pieces of information:
+
+ - the UxCRange (or whatever)
+   defining the sites that we
+   need to push to each leader, 
+
+ - and where the leader's cache
+   of that range begins.
+
+I guess also we need to extend
+our system of units to include
+grid sites.
+
+Grid sites are a derivative or
+multiple or something of region
+coords. They also care about
+chip number, which we haven't
+had to use yet in this round.
+
+UTAA (tile atom array)
+ position U8C (0..157,0..127)
+ ranges defined in NgbCacheMgr,
+   currently referenced T6 side
+   a total of once, by
+   hub/src/HubCacheMgr.cpp 
+
+Let's dig into NgbCacheMgr just
+a bit here, and see where we
+are. 
+[628:
+
+Sat Oct  3 23:21:16 2026 So the
+main thing we'll want is this
+stuff that relates Dir8s and
+site ranges and cache ranges:
+
+        using Dir8Ranges = U8CRange[D8_NE+1];
+
+        static constexpr const Dir8Ranges CACHE_RANGES = {
+          //  (start,          end]
+          { { OW, 0 },        {TW-OW, OH} }, // NT
+          { { 0, 0 },         {OW, OH} },    // NW
+          { { 0, OH },        {OW, TH-OH} }, // WT
+          { { 0, TH-OH },     {OW, TH} },    // SW
+          { { OW, TH-OH },    {TW-OW, TH} }, // ST
+          { { TW-OW, TH-OH }, {TW, TH} },    // SE
+          { { TW-OW, OH },    {TW, TH-OH} }, // ET
+          { { TW-OW, 0 },     {TW, OH} },    // NE
+        };
+
+ground truth for the Dir8 cache
+blocks defined in terms of
+'B'ase W+H, 'O'verlap W+H, and
+'T'otal W+H.
+
+        static constexpr const Dir8Ranges SITE_RANGES = {
+          U8CRange(CACHE_RANGES[D8_NT],{ 0, OH }), 
+          U8CRange(CACHE_RANGES[D8_NW],{ OW, OH }),
+          U8CRange(CACHE_RANGES[D8_WT],{ OW, 0 }), 
+          U8CRange(CACHE_RANGES[D8_SW],{ OW,(u8)-OH }), 
+          U8CRange(CACHE_RANGES[D8_ST],{ 0,(u8)-OH }), 
+          U8CRange(CACHE_RANGES[D8_SE],{(u8)-OW,(u8)-OH }), 
+          U8CRange(CACHE_RANGES[D8_ET],{(u8)-OW, 0 }), 
+          U8CRange(CACHE_RANGES[D8_NE],{(u8)-OW, OH }), 
+        };
+
+and ditto for the Dir8 site
+blocks, defined as mods on the
+cache blocks using the weird
+'offset' ctor:
+
+        constexpr UxCRange(const UxCRange base, const UC offset)
+          : start(base.start + offset)
+          , stop(base.stop + offset)
+        { }
+
+and finally the rest of the
+tiles sites, part of no cache: 
+
+        static constexpr const U8CRange HIDDEN_RANGE = { { 2*OW,2*OH }, { TW-2*OW, TH-2*OH } };
+
+[629:
+
+Sat Oct  3 23:46:14 2026 So, we
+need some stuff like
+
+   U16C ownedAtomsPerT6 = DG::getSingleT6GridBaseSize();
+
+which would be like a TAAV or
+something, in the units scheme
+we were making up?
+
+whups it's region not tile we
+should be talking about.
+
+ROA - regional owned atoms?
+
+With a conversion like
+
+U16C uroa_per_ureg(BW,BH);
+
+so distance between goes like 
+
+  distanceROAV(diffREGV) = diffREG * uroa_per_ureg;
+
+or something? So that would be
+the origin-to-origin offset
+between regions. And we could
+convert that to a
+my-site-to-your-cache offset
+with something like:
+
+      // origin to origin region vector
+      S8C o2oREGV = S8C::makeS8CFromDir8(d8);
+
+      // origin to origin owned atom vector
+      S16C o2oROAV = S16C(o2oREGV) * S16C(uroa_per_ureg);
+
+      U8CRange mySitesForYourCache = SITE_RANGES[d8];      
+      U8CRange yourCacheForMySites = CACHE_RANGES[d8];
+
+      // total offset to load this cache
+      S16C xferROAV = S16C(mySitesForYourCache.start) + o2oROAV - S16C(yourCacheForMySites.start);
+
+or something like that. [630:
+
+Sun Oct  4 00:49:02 2026 Time's
+a-wasting; let's try to set it
+up.. GOGOGO
+[631:
+
+Sun Oct  4 00:54:23 2026 OK
+build up some of it; trying for
+more logging..[632:
+
+Sun Oct  4 01:40:07 2026 Well,
+this stuff
+
+    {25:98 42820 0 2,3 hb d8LDR:ET8}
+ .. {25:117 42821 0 2,3 hb mySitesForYourCache:[138,10<148,118]}
+    {25:118 42821 0 2,3 hb yourCacheForMySites:[0,10<10,118]}
+or
+
+    {25:98 42823 0 6,9 hb d8LDR:NW8}
+ .. {25:112 42823 0 6,9 hb o2oROAV:(-138,-108)}
+    {25:117 42823 0 6,9 hb mySitesForYourCache:[10,10<20,20]}
+    {25:118 42823 0 6,9 hb yourCacheForMySites:[148,118<158,128]}
+
+are starting to look pretty
+plausible, and I'm thinking
+those last two values may be
+'all I need' given that we're
+not expecting to do genuine UROA
+coordinate mapping as the packet
+travels.
+
+[633:
+
+Sun Oct  4 01:50:16 2026 So
+looking at redoing what
+CacheLoader wants to hold. It
+certainly wants the iterator,
+and I guess still the
+mLeaderDir8, which will require
+a little extra code for routing
+the diagonals.. but that might
+be about it. Maybe we should
+just include like u8
+CacheLoaders::mInUseCount and
+not worry about how to detect
+in-user CacheLoader internally?
+
+[634:
+
+Sun Oct  4 03:39:18 2026 Well,
+I'm getting aaaaawfullly close
+to having nothing to do except
+send some fucking PT_InterHub
+packets, but I'm out of gas for
+the moment.
+
+Let's commit and nap.
+
+:634]
+
+:633]
+
+:632]
+
+:631]
+:630]
+
+
+:629]
+
+
+:628]
+:627]
+
+:626]
