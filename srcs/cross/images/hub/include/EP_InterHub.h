@@ -42,21 +42,6 @@ namespace MFM {
       return *mL1GridManagerControlPtr;
     }
 
-#if 0 //XXX instead see Grid.h
-    /// BEGIN SUPERCYCLE STUFF
-    u8 mSuperCycleLeader;
-    u8 mSuperCycleState;
-    void initSuperCycle() {
-      mSuperCycleLeader = U8_MAX; // no leader at first
-    }
-    u8 getSuperCycleLeaderIfAny() const { return mSuperCycleLeader; }
-    void setSuperCycleLeaderOrNone(u8 scl) {
-      MFM_API_ASSERT(scl < 4 || scl == U8_MAX, ILLEGAL_ARGUMENT);
-      mSuperCycleLeader = scl;
-    }
-    /// END SUPERCYCLE STUFF
-#endif
-
     struct L1Hub1 {
       InterHubBlock * mCurrentInterHub;
       u8 mCurrentCarIndex;        // valid whenever mCurrentInterHub != 0
