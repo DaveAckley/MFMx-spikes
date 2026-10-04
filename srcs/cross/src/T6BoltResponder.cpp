@@ -96,6 +96,8 @@ namespace MFM {
     case HARTNUM_NC:
       if (!imageDoneRespondingToBoltNC(pb)) return;
       break;
+    default:
+      FAIL(UNREACHABLE_CODE);
     }
     //XXX if (!crosslibReadyToAckBolt(pb)) return;
 

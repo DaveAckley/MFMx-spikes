@@ -60,8 +60,8 @@ namespace MFM {
   FAST_LOCAL(FastT1,fT1,1);
 
   void liveTheStandardLife(HostBlock & hb) { // HUB has a custom life for T1!
-    HBNOTE(CUSTOMLIFE);
     if (fAll.mHartNum != HARTNUM_T1) return liveTheDefaultStandardLife(hb);
+    HBNOTE(CUSTOMLIFE);
     MFM_API_ASSERT_ON_HART(HARTNUM_T1); // as documentation
 
     // Mark us in business

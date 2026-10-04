@@ -40,6 +40,13 @@ namespace MFM {
     LOGPTAG(DL2Dinit,mLength);
   }
 
+  SCStatus GridManager::leadFollowOrGetOutOfWay() const {
+    L1GridManagerControl & lgmc = theL1GridManagerControl;
+    if (lgmc.mSuperCellLeader > 3) return SCStatus::NO_LEADER;
+    if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) return SCStatus::WE_LEAD;
+    return SCStatus::WE_FOLLOWX; // but unanalyzed WHO we follow
+  }
+
   bool GridManager::seekRandomNonEmptySite(U16C & found) {
     if (mAutoseedWaitCount == U32_MAX)
       mAutoseedWaitCount = /*create(1'000'000)+*/1'000'000;
@@ -78,21 +85,22 @@ namespace MFM {
       });
 
     U16CRange ewbounds;
-    if (lgmc.mSuperCellLeader > 3) {
+    SCStatus s = leadFollowOrGetOutOfWay();
+    if (s == SCStatus::NO_LEADER) {
       // there is currently no SCL: avoid the caches
       ewbounds.start.x = T6Grid::SELF_ORIGIN.x+4; //inclusive
       ewbounds.stop.x = T6Grid::SELF_MAX.x-4;     //exclusive
       ewbounds.start.y = T6Grid::SELF_ORIGIN.y+4; //inclusive
       ewbounds.stop.y = T6Grid::SELF_MAX.y-4;     //exclusive
 
-    } else if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) {
+    } else if (s == SCStatus::WE_LEAD) {
       // we are currently the SCL: own the caches
       ewbounds.start.x = 0+4;                     //inclusive
       ewbounds.stop.x = T6Grid::FULL_WIDTH-4;     //exclusive
       ewbounds.start.y = 0+4;                     //inclusive
       ewbounds.stop.y = T6Grid::FULL_HEIGHT-4;    //exclusive
 
-    } else {
+    } else { /* s == some kind of follower */
       // we are currently an SCL follower: avoid our own edges
       ewbounds.start.x = T6Grid::SELF_ORIGIN.x+DG::T6GRID_OVERLAP_WIDTH+4;  //inclusive
       ewbounds.stop.x = T6Grid::SELF_MAX.x-DG::T6GRID_OVERLAP_WIDTH-4;      //exclusive

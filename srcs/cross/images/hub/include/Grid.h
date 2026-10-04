@@ -253,6 +253,30 @@ namespace MFM {
 
   extern L1GridManagerControl theL1GridManagerControl;
 
+#define ALL_SUPERCELL_LEADER_STATUSES() \
+    XX(NO_LEADER)                       \
+    XX(WE_LEAD)                         \
+    XX(WE_FOLLOWX)                      \
+    XX(WE_FOLLOW0)                      \
+    XX(WE_FOLLOW1)                      \
+    XX(WE_FOLLOW2)                      \
+    XX(WE_FOLLOW3)                      \
+    
+  enum class SCStatus : u8 {
+#define XX(name) name,
+    ALL_SUPERCELL_LEADER_STATUSES()
+#undef XX
+  };
+
+  constexpr const char * getSCStatusName(SCStatus s) {
+    switch (s) {
+#define XX(name) case SCStatus::name: return ""#name;
+    ALL_SUPERCELL_LEADER_STATUSES()
+#undef XX
+    }
+    return "ILLEGAL SCSTATUS";
+  }
+
   struct GridManager {
     static constexpr u8 MAX_NGBS = 8;
     
@@ -266,6 +290,8 @@ namespace MFM {
       return S16C(sp);
     }
 
+    SCStatus leadFollowOrGetOutOfWay() const ;
+    
     bool seekRandomNonEmptySite(U16C & found) ;
 
     bool matchesEW(const EventWindow & ew,U16C center) const ;
