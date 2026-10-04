@@ -231,6 +231,8 @@ namespace MFM {
         return other.range != range || other.at != at;
       }
 
+      bool atEnd() const { return at.x == range.start.x && at.y == range.stop.y; }
+
       UxCRange range;
       UC at;
     };

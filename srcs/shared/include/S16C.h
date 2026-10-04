@@ -5,6 +5,7 @@
 #include "MDist.h"
 #include "Point.h" // for SPoint
 #include "UxC.h" // for U16C
+#include "S8C.h" // for S8C
 
 namespace MFM {
   //  struct U16C; // FORWARD
@@ -13,6 +14,9 @@ namespace MFM {
     S16C() = default;
     S16C(const SPoint sp) : x(sp.GetX()), y(sp.GetY()) { }
     S16C(s32 sx, s32 sy) : x(sx), y(sy) { }
+
+    S16C(const S8C c) : x(c.x), y(c.y) { } // safe, widening
+    S16C(const U8C c) : x((s32) c.x), y((s32) c.y) { } 
     S16C(U16C u) ;
     
     s16 x, y;
