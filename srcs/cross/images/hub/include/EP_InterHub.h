@@ -3,7 +3,7 @@
 #include "EP.h"
 #include "T6EPs.h"
 
-#include "IHHState.h"
+//#include "IHHState.h"
 
 #include "PT_InterHub.h"
 #include "TCStorage.h"
@@ -33,7 +33,7 @@ namespace MFM {
     using TheL1Data = InterHubEP::Super::L1Data;
 
     AtomicLock mIHL1Lock;
-    IHHState mT6CurrentIHSt, mT6NextIHSt;  // controlled for T6 by HB::stepB()
+    //IHHState mT6CurrentIHSt, mT6NextIHSt;  // controlled for T6 by HB::stepB()
 
     // Keep l1gridmanager ptr here to drive home the linkage.
     L1GridManagerControl * mL1GridManagerControlPtr;
@@ -45,13 +45,15 @@ namespace MFM {
     struct L1Hub1 {
       InterHubBlock * mCurrentInterHub;
       u8 mCurrentCarIndex;        // valid whenever mCurrentInterHub != 0
-      u8 mBlockIndex;
-      IHHState mL1HNextIHSt; // controlled for IHUB_BLOCK by.. whoever?
+      Dir8 mL1HubDir8;
+      //IHHState mL1HNextIHSt; // controlled for IHUB_BLOCK by.. whoever?
 
       void init(u8 idx) {
         memset_s(this,'\0',sizeof(*this));
-        mBlockIndex = idx;
+        mL1HubDir8 = (Dir8) idx;
       }
+      void setupNewCar(TheL1Data::CarIdxRB & crbi) ;
+      void dropCar() { mCurrentInterHub = nullptr; }
     };
 
     L1Hub1 mL1HubControls[IHUB_BLOCKS];
@@ -65,7 +67,11 @@ namespace MFM {
     
     bool readyToClose() ;
 
-    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
+#if 0
+    void setupNewCar(TheL1Data::CarIdxRB & crbi) { // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
+      FAIL(INCOMPLETE_CODE);
+    }
+#endif
   };
 
   struct InterHubPrivateControl { // with state for IHUB_BLOCKS blocks
@@ -75,7 +81,7 @@ namespace MFM {
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_B;
 
     InterHubL1Control * mIHL1Control;
-    IHHState mPrivateState;
+    //IHHState mPrivateState;
 
     void init(InterHubL1Control & acbl1) ;
     void stepB(HostBlock & hb) ;

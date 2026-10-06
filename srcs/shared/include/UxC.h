@@ -220,6 +220,12 @@ namespace MFM {
       iterator & operator=(const iterator & other) = default;
 
       UC operator*() const { return at; }
+      iterator operator++(int) {
+        iterator ret = *this;
+        ++(*this);
+        return ret;
+      }
+
       iterator& operator++() {
         if (++at.x >= range.stop.x) {
           ++at.y;

@@ -97,6 +97,15 @@ namespace MFM {
       return 0u + (u32) (((u8*) &mAtoms[mDataUsed]) - (u8*) this);
     }
 
+    bool isFull() const {
+      return mDataUsed >= MAX_ATOMS;
+    }
+
+    void storeAtomOrDie(const P4Atom a) {
+      MFM_API_ASSERT(!isFull(), OUT_OF_ROOM);
+      mAtoms[mDataUsed++] = a;
+    }
+
     S16C mOrigin;               //< origin relative coord, updates on transits
     U16CRange mRange;
     u16 mDataUsed;
@@ -182,6 +191,11 @@ namespace MFM {
       default:
         FAIL(ILLEGAL_STATE);
       }
+    }
+
+    IHPAtoms & asAtomsOrDie() {
+      MFM_API_ASSERT(isValid() && mIHPHeader.mPayloadType == IHPT_ATOMS, ILLEGAL_STATE);
+      return *(IHPAtoms*) &mIHPData[0];
     }
 
     bool isValid() const {

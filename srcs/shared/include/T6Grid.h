@@ -52,6 +52,10 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
 
+    P4Atom getAtom(U8C c) const {
+      return getAtom(U16C(c.x,c.y));
+    }
+
     P4Atom getAtom(U16C c) const {
       HBASSERT_EQ(isValidT6GridC(c),true);
       return mT6Grid[c.x][c.y];

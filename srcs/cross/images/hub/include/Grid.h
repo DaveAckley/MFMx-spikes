@@ -278,6 +278,11 @@ namespace MFM {
     
     void init(T6Grid & grid, ACacheBlockL1Control & acbl1, DLGridList & gridlist) ;
 
+    T6Grid & getT6GridOrDie() {
+      MFM_API_ASSERT_NONNULL(mT6GridPtr);
+      return *mT6GridPtr;
+    }
+
     U16C selectRandomSite(U16CRange bounds) ;
 
     S16C siteNumberToOffset(u32 sn) const {

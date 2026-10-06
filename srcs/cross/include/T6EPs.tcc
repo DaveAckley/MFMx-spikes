@@ -114,6 +114,7 @@ namespace MFM {
     u32 wordCount = car.getHeader().getPacketWords();
 
     if (U8C::isNoC0CoordAT6(destnoc0)) {
+      EACH(1'000'000,LOGPTAG(INTERVENEHEREFORBOUNCESHOT,__EACHNUM__));
       s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, (u32) destcaraddr);
       return status > 0;
     }
