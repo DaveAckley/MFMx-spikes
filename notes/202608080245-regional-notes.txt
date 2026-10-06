@@ -1,4 +1,4 @@
-{649}  -*-  mode: text; fill-column: 32;  -*-
+{693}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -11937,5 +11937,910 @@ might still be possible.
 
 :640]
 
-
 :636]
+[649:
+
+Sun Oct  4 12:34:04 2026 OK, now
+we're on:
+
+    $ git switch -c destroy-ihh-with-prejudice
+    Switched to a new branch 'destroy-ihh-with-prejudice'
+
+and we need a plan.
+[650:
+
+Sun Oct  4 12:57:01 2026 In
+particular, we need a plan that
+simplifies things without too
+too much breakage of things. EZ!
+
+So one little set of goals is:
+
+[658: Sun Oct  4 14:09:26 2026
+DONE :658] - Don't do processHubCars in
+   EP_InterHub
+
+[659: Sun Oct  4 14:09:40 2026
+Back in hub LiveB.cpp stepB, so
+DONE  :659] - Do it someplace more
+   sensible,
+
+ - Do it processInterHubCars in
+   EP_InterHub,
+
+ - Observe stuff still running
+   as it seems to be now.
+
+Let's try for just that.
+
+[651:
+
+Sun Oct  4 13:21:59 2026
+Question: Should we just ditch
+IHHState.h entirely and see what
+breaks? That would get us off
+the dime anyway.[652:
+
+Sun Oct  4 13:25:29 2026 OK,
+went to IHHState.h-hold. Let's
+see what breaks.[653:
+
+Sun Oct  4 13:26:27 2026 Well,
+so
+InterHubPrivateControl::mPrivateState
+is/was an IHHState, so the whole
+switch statements guts of
+IHPC::stepB has to go:
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     switch (mPrivateState) {
+
+..well let's just let that
+happen and see what breaks. No
+events visible in vidsrv?
+[654:
+
+Sun Oct  4 13:37:28 2026 Yes we
+have no events. We have no
+events in vidsrv.
+
+And suppose we move
+processHubCars (back) to hub
+LiveB and call it from stepB
+there? Have events visible, but
+no ability to pause and restart
+events, maybe?[655:
+
+Sun Oct  4 13:51:15 2026 Looked
+like that prediction was right,
+but with both events and
+iNteRHuBZ clicked off in the
+TUI, events seem to stop anyway?
+How is that happening?[656:
+
+Sun Oct  4 13:52:44 2026 Because the
+suspend_ewps bolt still works? -
+
+    {79:44 424838 0 2,3 hn BOLTR_READY:SUSPEND_EWPS 1!}
+
+[657:
+
+Sun Oct  4 14:08:17 2026 Well,
+I'm still not sure what's the
+mechanism of action here, but
+clicking interhubz on and off
+does appear to reliably (if
+eventually) start and stop event
+processing. So let's roll with
+that unless and until we get
+bitten. 
+[660:
+
+Sun Oct  4 14:23:46 2026 So
+okay, we see evidence that we're
+getting to
+
+    InterHubPrivateControl::updateCars
+
+(from IHPC::stepB), but
+updateCars isn't doing anything
+except occasional logging.
+
+(Do we expect to see anything
+obvious if IH cars ARE actually
+moving?)[661:
+
+Sun Oct  4 16:47:07 2026 OK
+we're working from
+IHPC::updateCars(..), which is a
+cuttenpaist from EP_ACacheBlock,
+trying to get it into some kind
+of shape to run. Could we
+quickly review what we think it
+should do?
+
+void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+
+ - It takes ngbidx, which is
+   going to vary over the eight
+   possible IH ngbs.
+
+ - It's running on HB, and is
+   supposed to process the given
+   crbi/crbos from HN.
+
+ - Could we say, based on the
+   phaser bolt state, whether we
+   want to keep empties at this
+   end or that? That might be a
+   plausible way to handle the
+   mixed initiative of
+   LOAD_CACHE vs SAVE_CACHE.
+
+ - If, for the moment, we are
+   saying that IH cars will ONLY
+   be for local cache mgmt, then
+   we could say that in states
+
+     PhaserBolt::CMD_NEW_LEADER
+     PhaserBolt::CMD_LOAD_CACHE
+
+   we want empties to accumulate
+   in the followers, while in
+
+     PhaserBolt::CMD_CARRY_ON
+     PhaserBolt::CMD_SAVE_CACHE
+
+   we want to push empties
+   toward the leader.
+
+[662:
+
+Sun Oct  4 16:57:36 2026 So,
+now, who exactly is going to be
+filling and emptying the cars?
+Is it still in HubBoltResponder
+somehow? [663:
+
+Sun Oct  4 17:10:53 2026 Well,
+yes, right? Because we're not
+going to ack the bolt until the
+caches have been moved.
+[664:
+
+Sun Oct  4 17:12:53 2026 So the
+idea is right here:
+
+      static bool bRespondToCMD_LOAD_CACHE() {
+ ..     bool allDone = true;
+        for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
+ ..       if (itr.atEnd()) continue;
+          allDone = false;
+ >>       for (u32 a = 0; a < 339 && !itr.atEnd(); ++a) {
+ >>         ++itr;
+ >>         // pretend to ship
+ >>       }
+        }
+ ..     return allDone;             // response complete when shipping done
+      }
+
+gets replaced by pulling an
+empty car from crbi, filling it
+as best we can, and pushing it
+to crbo, and HN takes it from
+there.
+
+So does that mean IH
+readyToClose is like return
+true? I don't really know where
+in the packet readyToClose is
+called, doh. Which side of the
+crbs, for example?
+[665:
+
+Sun Oct  4 18:29:12 2026 So why
+don't we just try to fill a
+packet, right there in
+(something called from)
+bRespondToCMD_LOAD_CACHE?
+
+Time's a-wasting and we need to
+know what shape the to-be-called
+code is in..
+
+So what can we pattern-match
+from? We did have some stub
+packet fillers in IH land, at
+some point, I do believe.[666:
+
+Sun Oct  4 18:38:14 2026 Now
+trying to access the L1Hub
+structs inside
+InterHubL1Control.. 
+
+:666]
+
+:665]
+:664]
+(We want host side to measure
+max/min/avg times for each
+supercycle state.)
+
+:663]
+
+:662]
+:661]
+
+:660]
+:657]
+:656]
+
+:655]
+
+:654]
+:653]
+
+:652]
+
+:651]
+
+:650]
+:649]
+[667:
+
+Sun Oct  4 22:31:26 2026 OK
+after first sleep. Where are we?
+
+[668:
+
+Sun Oct  4 22:32:38 2026 Well,
+we're in
+
+      static bool bRespondToCMD_LOAD_CACHE() {
+ ..     bool allDone = true;
+        for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
+          CacheLoader & cl = theL1CacheLoaders.get(i);
+          Dir8 leaderD8 = cl.mLeaderDir8;
+          U8CRange::iterator & itr = cl.mLocalItr;
+          if (itr.atEnd()) continue;
+          allDone = false;
+          LOGPTAG(ldrD8,dir8ToByteString(leaderD8));
+
+          MFM_API_ASSERT_ON_HART(HARTNUM_B);
+          InterHubPrivateControl & ihpc = fB.mPIHControl;
+          MFM_API_ASSERT_NONNULL(ihpc.mIHL1Control);
+          InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(leaderD8);
+          InterHubBlock * curihb = ihl1.mCurrentInterHub; // if any
+
+          LOGPX(curihb);
+  ..      LOGPTAG(SHI2,itr.range);
+          LOGPTAG(SHI@,itr.at);
+          if (itr.atEnd()) LOGPTAG(SHIPT!,itr.at);
+        }
+        LOGPTAG(SHID,allDone);
+        return allDone;             // response complete when shipping done
+      }
+
+and we're seeing lots of like:
+
+    {24:142 50095 0 2,3 hb BOLTR_LOAD_CACHE:WE_FOLLOW}
+    {24:153 50095 0 2,3 hb ldrD8:ET8}
+    {24:161 50095 0 2,3 hb curihb:0x0}
+    {24:166 50095 0 2,3 hb SHI2:[138,10<148,118]}
+    {24:172 50095 0 2,3 hb SHI@:(147,43)}
+    {24:175 50095 0 2,3 hb SHID:0}
+
+So what next? ..Well, perhaps:
+
+[669: Sun Oct  4 22:52:14 2026
+DONE :669] - pull the loop guts out to a
+   separate func like
+
+   bool CacheLoader::tryLoad() ;  //< return true iff done
+
+   or something, to heed our
+   hard lessons lately and cut
+   the mess as we go.
+
+   "If you've time to dress,
+    you've time to cut the mess"
+   
+[670:
+
+Sun Oct  4 22:52:26 2026 So now
+what?
+
+ - Investigate why curihb is 0?
+
+ - Review intended/actual IH car
+   flow?
+
+[671:
+
+Sun Oct  4 23:12:03 2026 So I
+guess one point is that nobody
+is using L1Hub1 yet -
+
+    ./cross/images/hub/include/EP_InterHub.h 45:    struct L1Hub1 {
+    ./cross/images/hub/include/EP_InterHub.h 57:    L1Hub1 mL1HubControls[IHUB_BLOCKS];
+    ./cross/images/hub/include/EP_InterHub.h 59:    L1Hub1 & getL1Hub1(u8 idx) {
+    ./cross/images/hub/src/EP_InterHub.cpp 108:    InterHubL1Control::L1Hub1 & ihl1 = mIHL1Control->getL1Hub1(ngbidx);
+    ./cross/images/hub/src/HubBoltResponder.cpp 32:      InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
+
+    Grep finished with 8 matches found at Sun Oct  4 23:11:51
+
+and I'm wondering if I can't
+simplify all this stuff a lot
+yet further. Up to perhaps
+ditching either
+
+  struct InterHubL1Control { // with state for IHUB_BLOCKS blocks
+
+or
+
+  struct InterHubPrivateControl { // with state for IHUB_BLOCKS blocks
+
+or even both?
+
+I need a simpler and clearer
+flow through HubBoltResponder
+here. I'd rather try to build
+on actually-used car stuff
+instead of this.
+
+So, well, okay, if I was to
+consider that, what do I think
+it would look like?
+
+ - Review, perhaps, EWP liveB
+   and see how it moves cars
+   back to the hub.
+
+ - See if that sparks joy?
+
+[672:
+
+Sun Oct  4 23:40:05 2026 Well,
+the EWP side is pretty short and
+understandable, by our scales of
+things, here:
+
+      bool processEwpCars(HostBlock & hb,bool inside) {
+        if (!theEwpL1Data.isActive(0)) {
+          return false;             // wait a bit
+        }
+ ..     using EwpData = T6EPL1Data<EwpBlockStg,1>;
+        EwpData::CarIdxs & idxs = theEwpL1Data.mTheCarIdxs[0];
+        EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
+        EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
+
+ ..     u8 carindex;
+        if (!crbi.remove(carindex)) return false; // no arriving cars
+ ..     EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[0];
+        HBASSERT_LT(carindex, cars.getCarCount());
+        EwpBlock & car = cars.getTC(carindex);
+        HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
+ ..     EwpPayload & pay = car.payload();
+        bool ret = fB.mThePhysics.doTransition(pay);
+
+        car.closeTC(pay.currentPayloadSize()); // ready to go
+ ..     MFM_API_ASSERT(!crbo.isFull(),OUT_OF_ROOM);
+        crbo.add(carindex);         // hand control back to comm
+
+        return true;
+      }
+
+[676:
+
+Mon Oct  5 00:03:15 2026 Sooo,
+could we try making something
+right at that level, for
+interhub during LOAD_CACHE in
+HubBoltResponder?
+
+Let's take a look. (We are
+officially under 36 hours to
+air, BTW..)[677:
+
+Mon Oct  5 00:06:49 2026 So, we
+need to map from CacheLoader to
+InterHubData::CarIdxRBs, at
+least. 
+[678:
+
+Mon Oct  5 00:21:14 2026 OK, so
+we're seeing:
+
+    {24:187 8968 0 2,3 hb BOLTR_LOAD_CACHE:WE_FOLLOW}
+    {24:24 8968 0 2,3 hb ldrD8:ST8}
+    {24:33 8968 0 2,3 hb crbi.isEmpty():1}
+    {24:34 8968 0 2,3 hb crbo.isEmpty():1}
+    {24:35 8968 0 2,3 hb crbi.isFull():0}
+    {24:36 8968 0 2,3 hb crbo.isFull():0}
+
+in our
+
+        bool tryLoad() { //< return true iff done
+ ..       using IHubData = InterHubEP::Super::L1Data;
+          IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[d8];
+          IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
+          IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
+
+          LOGPX(crbi.isEmpty());
+          LOGPX(crbo.isEmpty());
+          LOGPX(crbi.isFull());
+          LOGPX(crbo.isFull());
+
+and we're not going to be able to
+load IH cars any time soon with
+that layout.
+
+So we'd be looking to HN to push
+cars into crbi, right? Where's
+that supposed to happen for
+IH?[679:
+
+Mon Oct  5 00:26:21 2026 Well,
+InterHubL1Control::init() does
+this:
+
+    for (u8 i = 0; i < IHUB_BLOCKS; ++i)
+      mL1HubControls[i].init(i);
+
+so that's how those struct
+L1Hub1 blocks inside
+InterHubL1Control get initted..
+[680:
+
+Mon Oct  5 00:28:04 2026 So
+we'd think
+
+      void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
+
+would be involved.. but that's
+plainly on HB not HN.. and it's
+called from
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     InterHubL1Control & ihl1 = getL1();
+        AtomicScopeLock guard(ihl1.mIHL1Lock);
+
+        // "processInterHubCars"
+        for (u32 i = 0u; i < 8u; ++i) {
+          updateCars(i,hb,(i&1)==0);
+        }
+
+so wtf runs on HN in image HUB?
+Who pushes out the EWPs, for
+example? [681:
+
+Mon Oct  5 00:31:56 2026 So in
+crosslib we have:
+
+      void stepNC(HostBlock & hb) {
+        theT6BoltResponder.boltDetectorNC();
+        RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
+ ..   }
+
+so we have some HTFuncNC(s) in
+HUB? 
+[682:
+
+Mon Oct  5 00:33:51 2026 OK
+finally, geez:
+
+      __attribute__((section(".rodata_fp_table_nc")))
+      HTFuncPtr interhubEPPtr = &manageInterHubNC;
+
+in HUB InterHub.cpp, with stuff
+like:
+
+    if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
+      
+      //// ONE-TIME INITS
+      theInterHubL1Data.reset(); // zero all
+      theCornerHubL1Data.reset(); 
+
+and
+
+    } else if (unlikely(htoc == HTOpCode::HTOC_OPEN)) {
+ ..   for (u8 d8 = D8_NT; d8 <= D8_NE; ++d8) {
+        if (theInterHubL1Data.getPublicEPState(d8) != EPState::CONFIGURED) continue;
+        myInterHubEP[d8].activate(); // release the hounds
+ ..   }
+
+and
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+ ..   for (u32 d = D8_NT; d <= D8_NE; ++d) {
+        Dir8 d8 = (Dir8) d;
+        InterHubEP & myIHEPNC = myInterHubEP[d8];
+ ..     if (!myIHEPNC.isInitted()) continue;
+ ..     myIHEPNC.updateOps();
+ ..   }
+
+and somewhere within 
+
+        myInterHubEP[d8].activate(); // release the hounds
+and/or
+
+ ..     myIHEPNC.updateOps();
+
+we need to push empties to where
+they need to be, based on the
+phaser bolt type.
+
+And given that that's going to
+be an ongoing need, as phases
+pass, I'm thinking updateOps
+would more likely be the place
+for it. But we'll see -
+updateOps is way up in crosslib
+space. 
+[683:
+
+Mon Oct  5 00:56:22 2026 So it's
+updateOps(..) that calls down to
+recvTC and sendTC, which are
+part of these:
+
+    SUBTC * getClosedTCPtrIfAny() const { return self().getClosedTCPtrIfAny(); }
+    SUBTC * getCarPtrIfAny(u8 carindex) const { return self().getCarPtrIfAny(carindex); }
+    TCOpsData & getOpsData(u8 carindex) { return self().getOpsData(carindex); }
+    bool recvTC(SUBTC & car, u8 carindex) { return self().recvTC(car, carindex); }
+    bool shipTC(SUBTC & car, u8 carindex) { return self().shipTC(car, carindex); }
+
+recvTC happens on actual network
+traffic.. do we maybe want to
+push stuff into crbi there
+immediately? I guess we have to
+rererereview recvTC examples to
+see what the neighbors do.
+[684:
+
+Mon Oct  5 00:59:45 2026 Well,
+here's what InterHub does,
+apparently:
+
+      bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
+        EACH(1,HBPTAG(IHrecvTC,__EACHNUM__));
+
+        Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+        if (crbi.isFull()) return false; // bail if can't notify??
+
+        // Open it up
+        car.openTC();
+        crbi.add(carindex); //notify hB
+
+        return true;
+      }
+
+..or rather, evidently, since it
+is getting called:
+
+    {21:177 4 0 16,11 hn IHrecvTC:10}
+    {20:261 4 0 16,11 h0 mSt:Uninit.0} 
+    {21:158 4 0 16,11 hb MT-CRBI:IC_HUB} 
+    {21:177 4 0 16,11 hn IHrecvTC:11}
+
+So if anybody actually moved an
+IH car, in such a way that it
+actually arrived, it should
+arrive at the destination's hb
+crbi, I'd think.
+[685:
+
+Mon Oct  5 01:04:10 2026 And
+elsewhere we see like this:
+
+    {21:157 4 0 16,11 hb ihl1:0} 
+
+coming from this:
+
+      if (!crbi.isEmpty()) { // ready to init?
+        HBMARK;
+        //        ihl1.setupNewCar(crbi) ;
+>>      HBPTAG(ihl1,ihl1.mCurrentCarIndex);
+      } else HBNOTE(MT-CRBI);
+
+which is inside:
+
+      void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+
+so that's evidence that it's
+possible for HB to see a
+non-empty IH crbi..
+[686:
+
+Mon Oct  5 01:07:43 2026 And the
+suspicion now falls on these
+comments: 
+
+          // RECEIVING
+ >>       //      ihl1.setupNewCar(crbi);                                   
+        } else if (curihb == 0) { // if have no car
+          if (!crbi.isEmpty()) { // ready to init?
+            HBPTAG(IHEPucD8,ngbidx);
+ >>         //        ihl1.setupNewCar(crbi) ;
+            HBPTAG(ihl1,ihl1.mCurrentCarIndex);
+          } else HBNOTE(MT-CRBI);
+
+and that could indeed smell like
+a dev frontier if we crinkle our
+nose and squint.
+[687:
+
+Mon Oct  5 01:45:30 2026 OK, so,
+we're making
+
+  void InterHubL1Control::L1Hub1::setupNewCar(TheL1Data::CarIdxRB & crbi) {
+
+and so far
+
+ - have evidence that it gets
+   called, and
+
+ - crbi is non-empty at the
+   time.
+
+and we think our job is to do
+something like:
+
+  if (!crbi.remove(mCurrentCarIndex))
+    FAIL(ILLEGAL_ARGMENT);
+
+I guess after checking if we're
+in a position to accept a new
+index..
+
+And then we're supposed to set
+up mCurrentCarIndex as well,
+based on the current car index,
+I guess.
+
+And I guess the
+
+    struct L1Hub1 {
+      InterHubBlock * mCurrentInterHub;
+      u8 mCurrentCarIndex;        // valid whenever mCurrentInterHub != 0
+>>    u8 mBlockIndex;
+
+would have been more clearly
+named or commented mDir8 or
+something but we'll see.
+[688:
+
+Mon Oct  5 01:54:55 2026 And
+how, again, do we get a
+  InterHubBlock * mCurrentInterHub; 
+from a
+  u8 mCurrentCarIndex; 
+?
+
+[689:
+
+Mon Oct  5 01:56:36 2026 Well,
+EP_ACacheBlock.cpp does like:
+
+      void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING FROM COMM2COMP
+        AtomicScopeLock guard(mLock);
+ ..     u8 newcarindex;
+        bool got = crbi.remove(newcarindex);
+        HBASSERT_EQ(got,true);
+ ..     ACacheBlockStg & lbs = theACacheBlockL1Data.mTheTCStorages[0];
+        HBASSERT_LT(newcarindex, lbs.getCarCount());
+        ACacheBlock & nlb = lbs.getTC(newcarindex);
+        HBASSERT_EQ(nlb.getTCState(), TCState::OPEN); 
+
+        mCurrentACacheBlock = &nlb;
+        mCurrentCarIndex = newcarindex;
+
+Do we even have a lock in
+InterHubL1Control land?
+[690:
+
+Mon Oct  5 02:09:23 2026 Well
+OK! It's mostly unanalyzed slop,
+but now we're seeing like:
+
+    {24:24 17783 0 2,5 hb ldrD8:NT8}
+    {24:33 17783 0 2,5 hb crbi.isEmpty():0}
+    {24:34 17783 0 2,5 hb crbo.isEmpty():1}
+    {24:35 17783 0 2,5 hb crbi.isFull():0}
+    {24:36 17783 0 2,5 hb crbo.isFull():0}
+ .. {24:47 17783 0 2,5 hb curihb:0x2a440} <<<<<
+    {24:52 17783 0 2,5 hb SHI2:[10,10<148,20]}
+    {24:58 17783 0 2,5 hb SHI@:(73,12)}
+
+from CacheLoader's:
+
+        bool tryLoad() { //< return true iff done
+          U8CRange::iterator & itr = mLocalItr;
+          if (itr.atEnd()) return true;
+          Dir8 d8 = mLeaderDir8;
+          LOGPTAG(ldrD8,dir8ToByteString(d8));
+ ..       LOGPX(crbi.isEmpty());
+          LOGPX(crbo.isEmpty());
+          LOGPX(crbi.isFull());
+          LOGPX(crbo.isFull());
+ 
+          InterHubPrivateControl & ihpc = fB.mPIHControl;
+ ..       InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
+          InterHubBlock * curihb = ihl1.mCurrentInterHub; // if any
+
+ >>       LOGPX(curihb);
+ ..
+
+So that's something! We
+apparently have a car to 
+tryLoading into!
+
+But I need to take a break.
+  [691:
+
+Mon Oct  5 04:57:49 2026 Well
+bashing into it, trying to load
+atoms into an InterHubPayload
+car. Not building successfully
+yet. [692:
+
+Mon Oct  5 11:35:05 2026 Well,
+I've finally shipped a packet
+full of atoms
+
+    {24:65 143707 0 2,3 hb SHI@:(147,43)}
+    {24:70 143707 0 2,3 hb SHIPT:4084}
+    {24:209 143707 0 2,3 hb SHID:0}
+
+but there's way lots to do.
+
+:692]
+
+:691]
+
+:690]
+:689]
+
+:688]
+:687]
+:686]
+:685]
+:684]
+:683]
+:682]
+:681]
+
+
+:680]
+
+
+
+:679]
+
+:678]
+:677]
+
+:676]
+
+and who calls that, exactly, EWP
+side? [673:
+
+Sun Oct  4 23:42:44 2026 Well,
+nice, it's here:
+
+      void stepB(HostBlock & hb) {
+        if (theT6BoltResponder.isBoltAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
+          processEwpCars(hb,false);
+      }
+
+(with
+    XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::NEW_LEADER)             \
+
+so that's one way to stop events
+from happening - whether HUB
+wants them to or not.. (Though
+it makes me think that if the
+gate is effectivaly here, we'd
+potentially have a bunch of
+events left over from the
+previous leader that hadn't been
+processed yet, and might be
+invalid under the new leader?
+
+(Or maybe no, if the explicit
+NEW_LEADER pass there allows
+'old leader EWPs' to drain? Not
+sure.
+
+(Although that also makes me
+wonder about SAVE_CACHE, since
+we don't go to NEW_LEADER
+directly from CARRY_ON. I'd
+think that would imply we need
+SAVE_CACHE explicitly to wait
+for EWPs to drain (as evidenced
+by dllist length == 0, although
+that's not technically
+reliable?) before confirming
+SAVE_CACHE.
+
+(And while we're here, what
+reads as the current bolt type,
+before we reach consensus on the
+next one? I can't remember how
+that goes. Does pre-consensus
+SAVE_CACHE read as SAVE_CACHE or
+what?)))))
+[674:
+
+Sun Oct  4 23:54:21 2026 Well,
+it kind of doesn't, in the sense
+of:
+
+      bool T6BoltResponder::isBoltAnyOfThese(PhaserBolt::CmdMask mask) {
+        // RACY RACY NO LOCK
+        if (mLastSeqnoReturned != mLastSeqnoArrived) return false;
+ ..
+
+so a pre-consensus bolt always
+replies 'no' to questions about
+whether it's type this or that.
+
+So that means pre-consensus
+SAVE_CACHE will NOT match given
+like: 
+
+   theT6BoltResponder.continueWhenBoltIsAnyOf(PhaserBolt::CmdMask::SAVE_CACHE)
+
+but it WILL match given like:
+
+   theT6BoltResponder.continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::SAVE_CACHE)
+
+because once again we're
+returning a fucking bool instead
+of a ternary of some kind.
+
+Is anybody using
+continueWhenBoltIsNoneOf? 
+
+[675:
+
+Mon Oct  5 00:00:07 2026 Well,
+yes:
+
+      void T6BoltResponder::_handleBlockingNC() { // mLock HELD
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+        continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+      }
+
+..which is
+
+(1) maybe okay? and
+(2) the only user at present. 
+
+so that gate opens as soon as
+the current bolt goes invalid,
+in addition to staying open as
+long as it isn't a consensus
+BLOCKS_ALL_HARTS.. Maybe it's
+okay.
+
+ANNNNNNYGODDDAMMWAY.
+
+:675]
+
+:674]
+
+:673]
+
+:672]
+:671]
+
+:670]
+
+:668]
+
+:667]
