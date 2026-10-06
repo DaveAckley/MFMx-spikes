@@ -1,4 +1,18 @@
-# c4i_mfm
+# MFMx-spikes
+
+This is a repo to store livcomp's early experiments with a Tenstorrent
+Blackhole QuietBox. It uses the Tenstorrent `tt-kmd` kernel module,
+but _does not_ use the `tt-umd` userspace code. 
+
+Which was probably a big mistake but here we are.
+
+## Warning
+
+livcomp makes NO REPRESENTATION that this code is usable for
+_anything_ including instruction. In fact, livcomp explicitly DECLARES
+and REPRESENTS that This Is Bad Code.
+
+# RANDOM CRAP FROM SAMPLE CODE BELOW
 
 [![Gitter][gitter-badge]][gitter-link]
 
