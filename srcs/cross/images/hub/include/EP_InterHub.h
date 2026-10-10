@@ -24,6 +24,7 @@ namespace MFM {
       HBASSERT_LT(carindex, CAR_COUNT);
       return mOpsDataStg[carindex];
     }
+    bool shipTC(SUBTC & car, u8 carindex) ;
     bool recvTC(InterHubBlock & car, u8 carindex) ;
 
     void initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) ;
@@ -86,7 +87,7 @@ namespace MFM {
     void init(InterHubL1Control & acbl1) ;
     void stepB(HostBlock & hb) ;
     void updateCars(u32 ngbidx,HostBlock & hb,bool inside) ;
-    int updateAllBlocks(HostBlock & hb) ;
+    //int updateAllBlocks(HostBlock & hb) ;
 
   private:
     /// State machine helper methods

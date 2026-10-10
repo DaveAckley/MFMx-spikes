@@ -27,6 +27,8 @@ namespace MFM {
     SUBTC * getClosedTCPtrIfAny() const ;
 
     bool shipTC(SUBTC & car, u8 carindex) ;
+    bool shipTCTo(SUBTC & car, U8C ournoc0, U8C destnoc0, u64 destcaraddr) ;
+
     void initT6EP(EndPointAddress srcEPA, bool isin, L1Data &l1Data) ;
     void configureDest(U8C ournoc0, U8C destnoc0, EndPointAddress destEPA) ;
 

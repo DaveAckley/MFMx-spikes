@@ -29,7 +29,6 @@ namespace MFM {
       return Super::mOpsDataStg[carindex];
     }
     bool recvTC(EwpBlock & car, u8 carindex) ;
-    //    bool shipTC(EwpBlock & car, u8 carindex) ; ..handled by T6EP
 
     void initEwpEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) ;
   };

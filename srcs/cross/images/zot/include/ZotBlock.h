@@ -60,7 +60,6 @@ namespace MFM {
       return mOpsDataStg[carindex];
     }
     bool recvTC(ZotBlock & car, u8 carindex) ;
-    //    bool shipTC(ZotBlock & car, u8 carindex) ; ..handled by T6EP
 
     void initZotEP(EndPointAddress srcEPA, bool isin, Super::L1Data & l1data) ;
 

@@ -89,32 +89,20 @@ namespace MFM {
   bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTC(SUBTC & car, u8 carindex) {
     ASSERT_RIGHT_HART();
     
-    /* OK. Now our goals here are to:
-
-     [Now done by configureDest, above:
-       - Use ImageBlock stuff to find the IBA for mDestBlockCode
-       - Ensure mDestBlockCodeIndex < iba.getArrayLength()
-       - compute u32 destblockbaseaddr = iba.getBlockAddr() + TC_BLOCK_SIZE*mDestBlockCodeIndex
-     ]
-
-     - compute u32 destcaraddr = destblockbaseaddr + CAR_SIZE*carindex
-
-     - use NRIUtils to SHIP DAT MOFO
-
-     */
-
-    BlockCode destbc = this->getDestBlockCode();
-    u8 destbcindex = this->getDestBlockCodeIndex();
-
     u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
     U8C ournoc0 = fAll.mNoC0;
     U8C destnoc0 = mDestNoC0;
+    return shipTCTo(car,ournoc0,destnoc0,destcaraddr);
+  }
+
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTCTo(SUBTC & car, U8C ournoc0, U8C destnoc0, u64 destcaraddr) {
+    ASSERT_RIGHT_HART();
 
     u32 wordCount = car.getHeader().getPacketWords();
 
     if (U8C::isNoC0CoordAT6(destnoc0)) {
-      EACH(1'000'000,LOGPTAG(INTERVENEHEREFORBOUNCESHOT,__EACHNUM__));
       s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, (u32) destcaraddr);
       return status > 0;
     }
