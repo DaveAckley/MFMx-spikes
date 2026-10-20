@@ -1,4 +1,4 @@
-{764}  -*-  mode: text; fill-column: 32;  -*-
+{863}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -10456,11 +10456,12 @@ so, DONE :590] - Show evidence that hb knows
    whether it's leader or
    follower here.
 
- - Show evidence that follower
+[792: Mon Oct 12 14:21:28 2026
+DONE :792] - Show evidence that follower
    has a plan for what needs to
    be sent to leader.
 
- - Report back.
+[793: DONE  :793] - Report back.
 
 :586]
 
@@ -10511,22 +10512,22 @@ follower to have a plan for what
 needs to be sent to leader?
 TODO:
 
- - Follower needs to know which
+[788: Mon Oct 12 14:20:44 2026 DONE  :788] - Follower needs to know which
    Dir8 points to the leader.
    (NOTE THESE Dir8s WILL OFTEN
    POINT TO A DIFFERENT
    SUPERCELL.)
 
- - Follower needs to know if
+[789: DONE  :789] - Follower needs to know if
    there actually is a leader in
    that Dir8, given local
    circumstances.
 
- - Follower needs to know (say
+[790: DONE  :790] - Follower needs to know (say
    the) S8C offsets from its own
    sites to the leader's cache.
 
- - Follower needs to know the
+[791: Mon Oct 12 14:21:13 2026 DONE  :791] - Follower needs to know the
    size of the rectangle to be
    moved.
 
@@ -11141,6 +11142,7 @@ SPATIAL UNIT NAMES
    superpower: physical computation
 
   UREG (region - bigger units)
+     WARNING: AKA 'cell' in some older code
    internal: UCT6
    position: REGC
    distance: REGV
@@ -11574,7 +11576,8 @@ Let's commit and nap.
 Sun Oct  4 10:37:05 2026 OK here
 we go. TODO
 
- - Review anything touching
+[787: Mon Oct 12 14:20:20 2026
+DONE :787] - Review anything touching
    PT_InterHub packets. We used
    to have them zooming around,
    right?[642:
@@ -12902,9 +12905,9 @@ Thu Oct  8 03:27:43 2026 So
 ANNIE WEIGH where the fuck are
 we? TODO
 
- - REVIEW these notes.
+[785: DONE  :785] - REVIEW these notes.
 
- - REVEAL WTF we are.
+[786: DONE  :786] - REVEAL WTF we are.
 
 [698:
 
@@ -12959,21 +12962,22 @@ Thu Oct  8 03:36:19 2026
 Thu Oct  8 08:13:01 2026 Let's
 have a little bit TODO:
 
- - Re-find and re-see a "packet
+[780: DONE :780] - Re-find and re-see a "packet
    of atoms shipping" -
    {24:70 143707 0 2,3 hb SHIPT:4084}
 
- - Review the intended flow such
+[781: I think DONE  :781] - Review the intended flow such
    as we have it
 
- - Review, yes, the previous
+[782: DONE  :782] - Review, yes, the previous
    reviews, to see how we've
    done on all this so far.
 
- - Explicitly identify the gaps,
+[783: Let's say DONE  :783] - Explicitly identify the gaps,
    first, and
 
- - Identify a proposed
+[784: Mon Oct 12 14:19:42 2026
+and here too, DONE   :784] - Identify a proposed
    implementation plan, second.
 
 :701]
@@ -13721,10 +13725,11 @@ Maybe already have a usable one
 
 [739: DONE  :739] - Report back here
 
- - Make a freshly-informed
+[778: Mon Oct 12 14:18:41 2026
+DONE :778] - Make a freshly-informed
    implementation plan
 
- - Make more to-do.
+[779: DONE  :779] - Make more to-do.
 
 GOGOGO
 
@@ -13790,24 +13795,26 @@ entered at least once. DONE :742] - Demonstrate it just dishing
 DONE :746] - Demonstrate it detecting when
    it should divert
 
- - Figure out the address offset
+[843: Sun Oct 18 00:06:13 2026
+DONE :843] - Figure out the address offset
    for diverting to CHUB inside
    of IHUB.
 
- - Also figure out the CCW edge
+[844: DONE  :844] - Also figure out the CCW edge
    associated with each corner.
 
- - Print out the diversion addrs
+[845: DONE  :845] - Print out the diversion addrs
    without using them
 
- - Ship corner packets across
+[846: DONE  :846] - Ship corner packets across
    the CCW edge to the ngb's
    CHUB.
 
- - Demonstrate corner packets
+[847: DONE  :847] - Demonstrate corner packets
    arriving in CHUBs
 
- - Come make more to-do.
+[848: Sun Oct 18 00:06:39 2026
+DONE :848] - Come make more to-do.
 
 GOGOGO
 
@@ -13816,7 +13823,7 @@ GOGOGO
 
 Sat Oct 10 01:24:09 2026 OK
 looking for the cleanest way to
-find out which storaged block
+find out which storage block
 (not which caridx) we are in
 given we're down in shipTC..
 
@@ -13918,7 +13925,27 @@ guess it's something like
     MFM_API_ASSERT((corner<=D8_NE) && (corner&1),ILLEGAL_ARGUMENT);
     return ((corner+1)>>1)&3;
   }
+[765: Sat Oct 10 22:57:54 2026
+Well, something like, perhaps..
+but not actually that code,
+considering, for example,
 
+ D8_NW==1,
+ ((1+1)>>1)&3==1.
+
+We want:
+
+  NW 1 => WT 2
+  SW 3 => ST 4
+  SE 5 => ET 6
+  NE 7 => NT 0
+
+Jeez that's not such a
+complicated pattern now, is it?
+We can figure that one out
+ourselves, can't we?
+
+   :765]
 Dir8 edgeD8 = dir8CornerToCCWdir8Edge(cornerD8);
 
 ..and how do we know which CHUB
@@ -13940,9 +13967,9 @@ something like:
 
   enum ChubBlock4 {
     CB4_iSoE = D4_NT,
-    CB4_iWoS = D4_ET,
-    CB4_iNoW = D4_ST,
     CB4_iEoN = D4_WT,
+    CB4_iNoW = D4_ST,
+    CB4_iWoS = D4_ET,
   };
 
 and be done with it?
@@ -13978,7 +14005,7 @@ Then it seems like there's no
 
         u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
-will be right for everybody? 
+will be right for everybody?
 
 Can It Be That Simple? (TM)
 [759:
@@ -14000,7 +14027,7 @@ InterHub.cpp.  :761] - Determine/confirm that this
 
 [760: Sat Oct 10 11:24:12 2026
 Buildable, dirty work repo.   :760] - Review where we are now:
-   Buildable? Changes tryable? 
+   Buildable? Changes tryable?
 
 :759]
 [752:
@@ -14087,7 +14114,7 @@ never reading.. But
 (3) I don't see how that can
     change in this case, and
 (4) Let's leave it alone for
-    now.    
+    now.
 
 [758:
 
@@ -14149,6 +14176,1379 @@ NOT ALL it is CRACKED UP TO BE.):754] )
 
 Sat Oct 10 11:25:45 2026 Going
 to commit here - since we're
-'runnable' - and then branch..
+'runnable' - and then
+branch..[764:
+
+Sat Oct 10 11:32:59 2026 OK,
+we're now
+
+    On branch configureDest-for-CHUB
+
+:764]
 
 :763]
+[766:
+
+Sat Oct 10 23:22:14 2026 OK, so
+we're making progress through
+T6EP::configureDest. Current
+failure is
+
+    {75:207 0 0 4,3 hn bc:8}
+    {57:61 0 0 4,3 hn HBANG!:IC_HUB}
+    {57:61 0 0 4,3 hn =6}
+    {57:61 0 0 4,3 hn =4}
+
+which is
+
+      // dest is T6
+      bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, destbc, iba);
+      LOGPTAG(t6dest0,destnoc0);
+      LOGPTAG(dBlkIdx,destblockindex);
+      HBASSERT_EQ(ret,true);
+>>    HBASSERT_LT(destblockindex, iba.mStorageCount);
+
+because, I think, we need to
+remap destblockindex from Dir8
+corners to some Corner4-ish
+format.. since CHUB only has 4
+blocks.
+
+:766]
+[767:
+
+Sun Oct 11 09:24:35 2026 OK so
+nothing is going bang anymore,
+but the phaser bolts are timing
+out and such and I'm massively
+uncertain what's going on.
+
+I feel like I need to do another
+round of stoichiometry and
+variable renaming, to clearly
+distinguish source-side values
+and measurements from dest-side
+ones. Let's
+
+ - Summarize what T6EP and
+   configureDest have now, and
+
+ - Note what would be the
+   exquisitely proper unit for
+   each one.
+
+ - Confirm some notation scheme
+
+ - Do it globally
+
+ - Fix the breakage
+
+:767]
+[768:
+
+Sun Oct 11 10:20:40 2026 WHAT WE
+HAVE:
+
+      struct EndPointAddress {
+        BlockCode mBlockCode;
+        u8 mBlockCodeIndex;
+      };
+
+ => legitimately meant to be
+ neutral about src/dest, so
+ USERS must disambiguate:
+  mSrcEPA vs mDstEPA
+ or whatever.
+
+[770:
+
+Sun Oct 11 11:32:47 2026 T6EP
+has
+
+    TCOpsData mOpsDataStg[CAR_COUNT];
+
+that's
+  struct TCOpsData {
+    u32 mArrivalTime;           // in whatever units host vs cross
+    u32 mDepartureTime;         // ditto
+  };
+
+which are be being set but not
+reported atm and seem harmless
+
+    L1Data * mL1Data;
+
+L1Data is T6EPL1Data (see
+below).
+
+    U8C mDestNoC0;
+    u64 mDestBlockAddr;         // blockindex already applied; needs only carindex
+
+Now these are aptly named, it
+seems, but we're not sure if
+they are always used properly.
+
+[771:
+
+Sun Oct 11 11:46:04 2026
+T6EPL1Data has
+
+    SUBTCBLOCKSTG mTheTCStorages[BLOCK_COUNT];
+the actual packet storage
+
+    AtomicLock mTheLocks[BLOCK_COUNT];
+again, locks, who knows if
+they're really needed or used.
+
+    CarIdxs mTheCarIdxs[BLOCK_COUNT];
+the crbs
+
+    EPState mThePublicEPState[BLOCK_COUNT];
+and god knows..
+
+:771]
+:770]
+[769:
+
+Sun Oct 11 10:21:56 2026 EP has
+
+    EPState mFastEPState;       //< shadowed in L1Data
+
+..I don't know which states
+matter or who looks.. 'shadowed
+in L1Data' likely means
+mThePublicEPState..
+
+    AtomicLock * mLockPtr;
+
+..I don't know who locks via
+this and why. Also, we're trying
+to move to explicitly
+context-based lock naming rather
+than mLock for everybody.
+
+    u32 mShipTCCount, mRecvTCCount;
+
+..these look plausible but don't
+appear to ever be reported atm.
+
+    u8 mCarCount;
+    bool mIsIn;
+    bool mCarsStartIn;
+
+..I feel like I kind of
+understand those three.
+
+    u8 mOldestHere, mHereCount;
+    u8 mOldestGone, mGoneCount;
+
+..we're depending on these but
+I'm just waiting for something
+involving them to esplode.
+
+:769]
+
+:768]
+[772:
+
+Sun Oct 11 11:51:54 2026 Now, we
+do need to ensure the car index
+gets mapped.. no, no we don't.
+We have to make sure the BLOCK
+index gets mapped. The
+carindices stay the same; we're
+allocating the same number of
+cars per platform in IHUB and
+CHUB. (There's just twice as
+many IHUB platforms.)
+[773:
+
+Sun Oct 11 15:30:25 2026 OK,
+let's walk through the current
+logging and see what we can
+learn. And let's assemble our
+fucking units as we go!
+
+OK, here's a long stretch:
+
+    {26:45 0 0 10,3 hn d:0}
+
+d is the index over Dir8 in
+managerInterHubNC.HTOC_INIT.
+
+    {26:46 0 0 10,3 hn origD8:NT8}
+    {26:48 0 0 10,3 hn goForCHUB:0}
+
+and d == 0/NT8 is not a corner
+direction. (And furthermore -
+not shown - 10,3 doesn't have a
+north hub ngb, so that iteration
+ends.)
+
+    {26:45 0 0 10,3 hn d:1}
+    {26:46 0 0 10,3 hn origD8:NW8}
+    {26:48 0 0 10,3 hn goForCHUB:1}
+
+NW8, however, IS a corner hub
+direction. [Should we be saying
+that the 'units' of d is
+InterHubEP-index? Not sure.]
+
+    {26:64 0 0 10,3 hn ourCellNum:(3,0)}
+
+ourCellNum is in units of 'cell
+coords' - CellC - each of which
+is a 2x2 block of T6's (measured
+in CT6C). And
+
+  (3,0)CellC * (2,2)CT6C/CellC
+    == (6,0)CT6C
+and
+
+  (6,0)CT6C * NoC0C/CT6C
+    == (7,2)NoC0C
+
+(although the NoC0C/CT6C
+conversion is non-linear)
+
+and (7,2)NoC0C is indeed the
+cell origin of (3,0)CellC.
+
+    {26:65 0 0 10,3 hn offc:(-1,0)}
+    {26:66 0 0 10,3 hn norgct6:(4,0)}
+    {26:67 0 0 10,3 hn nhubct6:(5,1)}
+    {26:68 0 0 10,3 hn atct6:(5,1)}
+    {26:73 0 0 10,3 hn atnoc0:(6,3)}
+    {26:85 0 0 10,3 hn d8Now:WT8}
+    {26:86 0 0 10,3 hn 8IHEP-WEIN:0}
+    {21:157 0 0 10,3 hn sizeof(IHPAtoms):4084}
+    {21:158 0 0 10,3 hn sizeof(InterHubPayload):4096}
+    {21:160 0 0 10,3 hn sizeof(InterHubStorage):16640}
+    {57:138 0 0 10,3 hn FORHART:4}
+    {57:139 0 0 10,3 hn srcBLOCK_COUNT:8}
+    {155:8 0 0 10,3 hn initEEP:IHEPo}
+    {26:91 0 0 10,3 hn 8IHEP-srcD8:NW8}
+    {26:95 0 0 10,3 hn 8IHEP-car:0}
+    {26:95 0 0 10,3 hn 8IHEP-car:1}
+    {26:95 0 0 10,3 hn 8IHEP-car:2}
+    {26:95 0 0 10,3 hn 8IHEP-car:3}
+    {75:178 0 0 10,3 hn FBCNus:(10,3)}
+    {75:179 0 0 10,3 hn FBCNthem:(6,3)}
+    {75:223 0 0 10,3 hn "BRIBH0":IC_HUB}
+    {75:227 0 0 10,3 hn usct6:(7,1)}
+    {75:231 0 0 10,3 hn themct6:(5,1)}
+    {75:235 0 0 10,3 hn diffct6:(-2,0)}
+    {75:182 0 0 10,3 hn fBCin0:IC_HUB}
+    {66:69 0 0 10,3 h0 LB1WAITP:40000}
+    {66:70 0 0 10,3 h0 LB1WAITS:0}
+    {75:184 0 0 10,3 hn ournoc0:(10,3)}
+    {75:185 0 0 10,3 hn theirnoc0:(6,3)}
+    {75:186 0 0 10,3 hn ibh.mEntries:8}
+    {75:207 0 0 10,3 hn bc:8}
+    {75:208 0 0 10,3 hn bcn:BC_CORNERHUB}
+    {26:99 0 0 10,3 hn destBlockIndex:1}
+    {26:45 0 0 10,3 hn d:2}
+    {26:46 0 0 10,3 hn origD8:WT8}
+    {26:48 0 0 10,3 hn goForCHUB:0}
+    {26:64 0 0 10,3 hn ourCellNum:(3,0)}
+    {26:65 0 0 10,3 hn offc:(-1,0)}
+    {26:66 0 0 10,3 hn norgct6:(4,0)}
+    {26:67 0 0 10,3 hn nhubct6:(5,1)}
+    {26:68 0 0 10,3 hn atct6:(5,1)}
+    {26:73 0 0 10,3 hn atnoc0:(6,3)}
+    {26:85 0 0 10,3 hn d8Now:WT8}
+    {26:86 0 0 10,3 hn 8IHEP-WEIN:0}
+    {21:157 0 0 10,3 hn sizeof(IHPAtoms):4084}
+    {21:158 0 0 10,3 hn sizeof(InterHubPayload):4096}
+    {21:160 0 0 10,3 hn sizeof(InterHubStorage):16640}
+    {57:138 0 0 10,3 hn FORHART:4}
+    {57:139 0 0 10,3 hn srcBLOCK_COUNT:8}
+    {155:8 0 0 10,3 hn initEEP:IHEPo}
+    {26:91 0 0 10,3 hn 8IHEP-srcD8:WT8}
+    {26:95 0 0 10,3 hn 8IHEP-car:0}
+    {26:95 0 0 10,3 hn 8IHEP-car:1}
+    {26:95 0 0 10,3 hn 8IHEP-car:2}
+    {26:95 0 0 10,3 hn 8IHEP-car:3}
+    {75:178 0 0 10,3 hn FBCNus:(10,3)}
+    {75:179 0 0 10,3 hn FBCNthem:(6,3)}
+    {75:223 0 0 10,3 hn "BRIBH0":IC_HUB}
+    {75:227 0 0 10,3 hn usct6:(7,1)}
+    {75:231 0 0 10,3 hn themct6:(5,1)}
+    {75:235 0 0 10,3 hn diffct6:(-2,0)}
+    {75:182 0 0 10,3 hn fBCin0:IC_HUB}
+    {75:184 0 0 10,3 hn ournoc0:(10,3)}
+    {75:185 0 0 10,3 hn theirnoc0:(6,3)}
+    {75:186 0 0 10,3 hn ibh.mEntries:8}
+    {75:207 0 0 10,3 hn bc:7}
+    {75:208 0 0 10,3 hn bcn:BC_INTERHUB}
+    {26:99 0 0 10,3 hn destBlockIndex:6}
+    {26:45 0 0 10,3 hn d:3}
+
+
+:773]
+:772]
+[774:
+
+Mon Oct 12 10:01:59 2026 OK,
+still debugging a bang we're
+getting due to .. oh I see it:
+The goForCHUB code in the diago
+cases modifies the d8 to be an
+edge, and then goes ahead with
+initting to send to that edge -
+EVEN IF THE ORIGINAL DEST CORNER
+DOESN'T EXIST.
+
+The code needs to establish that
+the ultimate destination exists,
+not just the (now not
+necessarily the same) first hop
+toward the destination. If it
+doesn't, don't configure the
+first fucking bridge to nowhere
+hop!
+[775:
+
+Mon Oct 12 10:45:35 2026 And we
+want to improve the local
+variable naming while we
+reordering the code, here..
+
+So what are the units of
+S8C::makeS8CFromDir8(d8)? That
+must be 'interhub distance' so
+the unit is (2,2)*CT6C? Which we
+should call IHUBV?[776:
+
+Mon Oct 12 10:48:52 2026 Looking
+back at :618: above, it seems
+like it should be: UREG as the
+unit, and REGV as a distance.
+
+(And our naming should be like
+this BE-FUCKING-CLEAR to
+GET-IT-FUCKING-RIGHT sample:
+
+    {25:58 198755 0 4,11 hb ourCT6C:(3,9)}
+    {25:59 198755 0 4,11 hb ourREGC:(1,4)}
+    {25:60 198755 0 4,11 hb ourCT6V_of_REGC:(1,1)}
+    {25:61 198755 0 4,11 hb ourREGC_in_UCT6:(2,8)}
+    {25:62 198755 0 4,11 hb ourSCLC_in_REGC:(0,2)}
+    {25:63 198755 0 4,11 hb ourREGV_of_SCLC:(0,0)}
+
+which comes from HubBoltResponder.cpp)
+[777:
+
+Mon Oct 12 14:15:25 2026 OK so
+our InterHub init code is quite
+a bit clearer and
+HubBoltResponder-like than
+before, and now we aren't
+blowing up anymore.
+
+Can we claim anything, and then
+move forward a bit? For example,
+we might be getting close to
+checking for CHUB arrivals, I'd
+think..
+[794:
+
+Mon Oct 12 14:21:55 2026 Well,
+claimed a bunch of stuff, going
+back quite a ways, that is all,
+I think, either done or moot.
+
+Now, some more TODO:
+
+[813: DONE  :813] - Review CHUB initialization
+   status.
+
+[814: Wasn't really, DONE  :814] - Determine if anybody is
+   looking at CHUB at all, yet?
+
+[815: Mon Oct 12 16:28:06 2026
+ DONE :815] - Report back.
+
+GOGOGO
+
+:794]
+:777]
+:776]
+
+:775]
+:774]
+[795:
+
+Mon Oct 12 14:28:52 2026 What
+CHUB-related material even
+exists, beyond the block itself?
+There's no CornerHubL1Control or
+anything, right? Like it's all
+supposed to freeload on
+InterHubL1Control, yes? Or No?
+[796:
+
+Mon Oct 12 14:32:06 2026 CHUB
+plans status:
+
+ - It is only handled by HN.
+
+ - It needs no crbi/crbo.
+
+ - It never needs to wait for
+   downstream. (That's not
+   special to CHUB tho chum).
+
+ - We were thinking we would
+   keep a mLastCHUBSeqNo
+   somewhere, so we could
+   recognize when we had
+   forwarded a complete CHUB
+   packet vs when we hadn't.
+
+Perhaps let's just focus on
+that. Suppose we were TODO:
+
+[808: DONE  :808] - Create an appropriately typed
+   array in InterHubL1Control
+   (probably) to do that.
+   Actually it could be in
+   private, right, since we're
+   aall HNs here?
+
+[809: DONE  :809] - Find a logical place to
+   initialize it, somehow OoB so
+   the first seqno we see will
+   definitely not match.
+
+[810: DONE  :810] - Find a place to check that
+   array against the CHUB slots.
+
+[811: DONE  :811] - Print a message whenever we
+   update a mLastCHUBSeqNo, so
+   that we have evidence we are
+   getting there.
+
+[812: Mon Oct 12 16:27:40 2026
+DONE :812] - Report back that success.
+
+:796]
+:795]
+[797:
+
+Mon Oct 12 14:39:40 2026
+
+  void InterHubPrivateControl::init(InterHubL1Control & ihl1) {
+
+exists. And updateCars exists,
+but it's not for HN:
+
+  void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_B);
+
+[798:
+
+Mon Oct 12 14:40:56 2026
+InterHubPrivateControl::init is
+called from HUB myInitB.
+[799:
+
+Mon Oct 12 14:42:17 2026 Wait.
+Wait. Wait: The only instance of
+InterHubPrivateControl is in fB:
+
+  struct FastB {
+    GridManager mGridManager;
+    InterHubPrivateControl mPIHControl;
+  };
+  extern FastB fB;
+
+which is only seen by, duh, HB.
+If we're serious about this
+being an HN-only task,
+InterHubPrivateControl can't be
+the place to do it.
+[800:
+
+Mon Oct 12 14:46:33 2026 So,
+okay, trying again: For NC
+stuff, the official and pretty
+well-trodden path would be via
+manageInterHubNC(HTOC_INIT) to
+set up, and
+manageInterHubNC(HTOC_LIVE) to
+service. Or we could make a
+manageCornerHubNC if we wanted
+to keep things separate, which
+might be a worthy idea.
+
+What's HN doing for private stg
+so far?[801:
+
+Mon Oct 12 14:54:11 2026 It
+exists in FastNC.h/cpp, and
+stores the table of function
+pointers, and that's about it.
+We could certainly make a
+CHUB-related thing and drop it
+in there, but that's not a
+pattern we've done before.[802:
+
+Mon Oct 12 14:57:11 2026 Ah,
+there it is:
+
+      FAST_LOCAL_ARRAY(InterHubEP,8,myInterHubEP,n);
+
+puts myInterHubEP into HN
+fastram. Let's try just
+paralleling that (but boiled
+down?) for cornerhub.[803:
+
+Mon Oct 12 15:51:14 2026 OK,
+in InterHub.cpp we've made
+
+      struct CornerHubStateNC {
+        u8 mLastCHUBNonceSeen;
+        u8 mLastNonceInitted;
+ ..methods..
+      };
+
+      static constexpr u32 CHUB_COUNT = STORAGE_COUNT_BC_CORNERHUB;
+      FAST_LOCAL_ARRAY(CornerHubStateNC,4,fastCornerHubStateNC,n);
+
+and
+
+      static RCFlag manageCornerHubNC(HTOpCode htoc) {
+        RCFlag ret = RCFlag::RC_ZERO;
+ ..stuf..
+        return ret;
+      }
+      __attribute__((section(".rodata_fp_table_nc")))
+      HTFuncPtr cornerHubMgrPtr = &manageCornerHubNC;
+
+to go with it.
+
+[804:
+
+Mon Oct 12 15:59:25 2026 And we
+have evidence that we're getting
+to the chubby-checker code -
+
+    {26:232 0 0 2,3 hn CHUBLIVE:0}
+
+- though not yet any evidence
+that any complete packets are
+found. [805:
+
+Mon Oct 12 16:04:21 2026 OK, now
+we need to iterate over the
+chubs looking for complete
+packets. So we'll need the
+CornerHubStorage? Is that what
+it's called, again?[806:
+
+Mon Oct 12 16:06:22 2026 I think
+it's
+
+    theCornerHubL1Data.mTheTCStorages
+
+[807:
+
+Mon Oct 12 16:24:33 2026 And,
+woah! It looks like we've
+received a complete CHUB!
+
+    ./at0a3.mfmk 345:{26:237 58674 0 10,3 hn CHUBCOMP:10001}
+
+Let's claim some stuff.
+[816:
+
+Mon Oct 12 16:28:22 2026 Well OK
+then! Some progress! Almost time
+for cocktails here so I'm going
+to break, I think, but coming up
+TODO
+
+[817: Tue Oct 13 14:09:27 2026
+I'm aiming I'm aiming.
+DONE :817] - Aim for forwarding to dest
+
+[825: Wed Oct 14 00:47:42 2026 I
+guess DONE:825] - Review the dispatch and recv
+   code for IHUB and think what
+   we need.
+
+ - Report back, and sketch the
+   plan here.
+
+ - Make more to-do.
+
+
+:816]
+:807]
+:806]
+
+:805]
+
+:804]
+
+:803]
+
+:802]
+
+:801]
+
+:800]
+:799]
+:798]
+:797]
+[818:
+
+Tue Oct 13 14:11:27 2026 OK, so
+InterHubPrivateControl::updateCars
+is both
+
+(1) definitely being called, and
+(3) a giant fucking mess.
+
+and that's where ihub cars
+should be received? There's no
+other code competing for that
+job? [819:
+
+Tue Oct 13 14:13:22 2026 No,
+wait. updateCars runs on HB. the
+car receiving happens pre-crbi
+on HN. So the relevant recvTC
+call is probably up in T6EP or
+so. [820:
+
+Tue Oct 13 14:43:12 2026 So,
+EP::updateOps() gets called for
+EWPs and LogBlocks but not IHUB:
+
+    {155:38 7402 0 4,2 hn EPuo:[EwpO:EWCR:0] c2 h0o0 g2o0 S28136 R28136 fs3}
+    {155:38 7402 0 4,2 hn EPuo:[LOGo:LGBK:0] c4 h4o0 g0o0 S0 R4 fs3}
+
+but never EPuo:[IHUB:.. Why not?
+[821:
+
+Tue Oct 13 15:16:48 2026 Well,
+during
+manageInterHubNC(HTOC_LIVE), we
+call
+
+        myIHEPNC.updateOps();
+
+and myIHEPNC is an InterHubEP,
+and InterHubEP is a T6EP
+
+    struct InterHubEP : public T6EP<InterHubEP,InterHubStorage,IHUB_BLOCKS,HARTNUM_NC> {
+
+and T6EP is an EP
+
+      struct T6EP : public EP<SUBEP,typename SUBTCBLOCKSTG::CAR_TYPE> {
+
+and EP exists and defines
+updateOps
+
+  template<class SUBEP, class SUBTC>
+  struct EP {
+..stuf..
+    bool updateOps() ;
+
+and that's what we are NAZI-ing
+at the moment.
+
+So we think it is getting [822:
+
+Tue Oct 13 15:41:31 2026 OK, so
+yes, IHUB is getting there:
+
+    ./tiles/at0a3.mfmk 8:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h0o255 g4o0 S0 R0 fs3}
+    ./tiles/at0a3.mfmk 10:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:5] c4 h4o0 g0o0 S0 R4 fs3}
+    ./tiles/at0a3.mfmk 11:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:6] c4 h0o255 g4o0 S0 R0 fs3}
+    ./tiles/at0a3.mfmk 13:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:2] c4 h4o0 g0o0 S0 R4 fs3}
+
+so there may be some sanity in
+the universe.
+[823:
+
+Wed Oct 14 00:30:40 2026 So,
+where are we here? So I guess
+we've reviewed the dispatch and
+recv code for IHUB, and now we
+are to think about what we need.
+
+[824:
+
+Wed Oct 14 00:32:48 2026 I guess
+we have had evidence of CHUBs
+being seen on Midway. So
+couldn't we try just forwarding
+them from there? We don't, I
+think, want to end up in
+standard EP processing for
+CHUBs.
+
+So let's just push forward
+there? Next stops TODO:
+
+[827: Wed Oct 14 01:47:48 2026
+DONE :827] - Review CHUB block layout and
+   access
+
+ - Figure out where a CHUBCOMP
+   is supposed to go, as
+
+   = a noc0c, and
+
+   = an IHUB slot.
+
+ - Log that info.
+
+ - Ensure there's clear logging
+   for receiving IHUB cars on
+   corner blocks.
+
+[826:
+
+Wed Oct 14 01:00:16 2026 Hmm,
+bug? - We have a four-long array
+of CornerHubStateNC, one for
+each diago corner, and each one
+keeps a mLastCHUBNonceSeen, but
+don't we need a
+mLastCHUBNonceSeen for each car
+in each block?
+[828:
+
+Wed Oct 14 01:48:00 2026 So,
+okay: Where is a CHUBCOMP
+supposed to go?
+
+CHUBCOMP BLOCK b, CAR c: Should
+go to IHUB BLOCK (2*b)?
+
+wait.. review CHUB sender again.
+  [829:
+
+Wed Oct 14 01:56:23 2026 It's
+like this:
+
+        Dir8 finalDestDir8 = (Dir8) d; // whether diversion or not
+ ..
+        u8 finalDestBlockIndex = oppositeDir8(finalDestDir8);
+ ..
+          blockCode = BC_CORNERHUB;
+          firstDestDir8 = dir8CornerToCCWDir8Edge(finalDestDir8);
+          firstDestBlockIndex = dir8ToDir4CW(firstDestDir8);
+ ..
+          firstDestREGV = S8C::makeS8CFromDir8(firstDestDir8);
+          firstDestRegionCT6C = (usREGC + firstDestREGV) * uct6_per_ureg + cb.mLayoutOffset;
+          firstDestHubCT6C = firstDestRegionCT6C + cello.mUsCellPos;
+          if (!S8C::onBoardCT6Coord(firstDestHubCT6C)) continue; // no first dest
+ ..
+        U8C firstDestHubUCT6;
+        bool sane = firstDestHubCT6C.toU8C(firstDestHubUCT6);
+        MFM_API_ASSERT(sane,ILLEGAL_STATE);
+ ..
+        U8C firstDestHubNoC0C = U8C::makeNoC0CoordFromCT6Coord(firstDestHubUCT6);
+ ..
+            ihep.configureDest(ournoc0, firstDestHubNoC0C, { blockCode, firstDestBlockIndex });
+
+[830:
+
+Wed Oct 14 02:37:44 2026 So how
+do we get the
+finalDestBlockIndex when we're
+looking at CHUBs on Midway?
+
+[831:
+
+Wed Oct 14 02:49:21 2026 Well,
+we talked about stuff like
+
+      enum ChubBlock4 {
+        CB4_iSoE = D4_NT,
+        CB4_iEoN = D4_WT,
+        CB4_iNoW = D4_ST,
+        CB4_iWoS = D4_ET,
+      };
+
+but that didn't make it to code,
+right?
+[832:
+
+Wed Oct 14 02:50:33 2026 It did
+not. Could we figure out what
+we've implemented so far?
+
+And just see, we've got
+
+          firstDestDir8 = dir8CornerToCCWDir8Edge(finalDestDir8);
+          firstDestBlockIndex = dir8ToDir4CW(firstDestDir8);
+
+so that's
+
+ finalDestDir8  firstDestDir8  firstDestBlockIndex  'iXoY' Midway code
+    D8_NW=1        D8_WT=2             1             iEoN D4_W=1
+    D8_SW=3        D8_ST=4             2             iNoW D4_S=2
+    D8_SE=5        D8_ET=6             3             iWoS D4_E=3
+    D8_NE=7        D8_NT=0             0             iSoE D4_N=0
+
+:832]
+:831]
+:830]
+
+:829]
+
+:828]
+:826]
+:824]
+
+:823]
+
+:822]
+
+
+:821]
+:820]
+
+:819]
+
+:818]
+[833:
+
+Sat Oct 17 01:04:11 2026 OK
+where the hell are we? Bunch of
+diversions last couple days,
+dealing with appts and convos
+and life.
+
+I guess still trying to move an
+IH car from CHUB to final IHUB.
+
+ - Review current code
+
+ - Report back.
+
+ - (Be thinking about how to
+   concentrate logging to see
+   less of what we don't need
+   to see right now..)
+
+:833]
+[834:
+
+Sat Oct 17 01:08:01 2026 We have
+CornerHubStateNC and
+
+  FAST_LOCAL_ARRAY(CornerHubStateNC,CHUB_BLOCK_COUNT,fastCornerHubStateNC,n);
+
+and
+
+  static RCFlag manageCornerHubNC(HTOpCode htoc) ..
+
+and in its
+
+    } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+
+we see
+
+      //// LIVING
+      for (u32 i = 0; i < CHUB_BLOCK_COUNT; ++i) {
+        CornerHubStateNC & chs = fastCornerHubStateNC[i];
+        InterHubStorage & chstg = theCornerHubL1Data.mTheTCStorages[i];
+        for (u32 c = 0; c < InterHubStorage::CAR_COUNT; ++c) {
+          EACH(10'000'000,LOGPTAG(CHUBLIVE,__EACHNUM__));
+          InterHubBlock & chbcar = chstg.getTC(c);
+          if (chbcar.isComplete()) {
+            u8 carnonce = chbcar.getHeader().getPacketNonce();
+            if (chs.updateSavedNonce(c,carnonce)) {
+              SNAP(10,LOGPTAG(CHUBSEQN,c));
+              // Forward to dest
+            }
+          }
+        }
+      }
+    } else LOGPTAG(unknown htoc,htoc);
+
+.
+
+Let's try running the current
+code again, to warm us up.
+[835:
+
+Sat Oct 17 01:16:53 2026 OK, so
+we are getting to
+
+            if (chs.updateSavedNonce(c,carnonce)) {
+              SNAP(10,LOGPTAG(CHUBSEQN,c));
+              // Forward to dest
+            }
+
+though it does take a while, so
+that's frontier territory for
+sure.[836:
+
+Sat Oct 17 01:18:01 2026 Aand
+according to :829: above, we're
+trying to figure out to which
+IHUB we should forward our
+CHUB-in-hand.[837:
+
+Sat Oct 17 01:29:34 2026 And
+:832: above was supposed to help
+us with that. Does it?[838:
+
+Sat Oct 17 01:30:40 2026 I guess
+that says like: A NW(D8=1)-bound
+packet will first arrive in
+CHUB#1 of the hub west of us.
+And it should forward that to
+SE(D8=5) of the hub north of it.
+
+                    /------D8CCW--\
+                   +--D4CW-\       |
+                   ^        v      v
+sendTo   viaT6   CHUB#   viaT6   IHUB#
+D8_NW=1  D4_W=1  D4_W=1  D4_N=0  D8_SE=5
+D8_SW=3  D4_S=2  D4_S=2  D4_W=1  D8_NE=7
+D8_SE=5  D4_E=3  D4_E=3  D4_S=2  D8_NW=1
+D8_NE=7  D4_N=0  D4_N=0  D4_E=3  D8_SW=3
+
+[839:
+
+Sat Oct 17 08:13:06 2026 OK,
+come on, let's pass this to
+code.
+
+:839]
+:838]
+
+:837]
+
+:836]
+
+:835]
+:834]
+[840:
+
+Sat Oct 17 08:44:11 2026 OK, so
+I'm laying out the steps here -
+trying to be THREE FUCKING
+MONTHS LATE SLOW AND CAREFUL -
+and I'm 'really' thinking we
+should stash an initted T6CellO
+somewhere rather than
+re-init()-ing them all the time.
+
+[841:
+
+Sat Oct 17 08:48:02 2026 Buut as
+I'm relooking at the code I'm
+not sure that it does what we
+want in this case anyway.. In
+particular, atome cache loading
+& saving is not just intracell.
+
+So let's let that go for now and
+stay on the money. I think was
+we really want next is CT6
+coords. [842:
+
+Sat Oct 17 11:56:05 2026 OK, how
+do we find imageblock addresses,
+again? 
+
+:842]
+
+:841]
+
+:840]
+[849:
+
+Sun Oct 18 00:28:59 2026 OK
+where are we? I think maybe
+we're tentatively believing
+CornerHubStateNC.mCWDir4IHUBBaseAddress
+is plausible. And so the next
+stop is computing the actual
+dest address and then trying to
+forward a fucking IH car?[850:
+
+Sun Oct 18 01:55:32 2026 Well,
+we're forwarding IH cars to what
+we believe is their final
+destinations, but we don't have
+proof they've arrived
+intact.[851:
+
+Sun Oct 18 02:17:35 2026 Ooh,
+wait: I'm pretty sure we're
+sending the cars to the wrong
+place. We're doing
+
+          u32 interhubBlockBaseAddr = chs.mCWDir4IHUBBaseAddress;
+ ..       u32 caroff = c * chstg.getCarSize();
+ ..       u32 destaddr = interhubBlockBaseAddr + caroff;
+
+but that caroff multiplication
+assumes the destination is the
+same car slot into its block
+that we are into ours. But
+that's wrong because we are
+using Dir4 slots but the dest is
+using Dir8 slots.
+
+We want something like
+
+ dir8EdgeToCWDir8Corner(dir4ToDir8(c)) * chstg.getCarSize();
+
+- whatever undoes that what
+brought us here..
+
+Pick up there. Getting closer. 
+
+:851]
+
+:850]
+
+
+:849]
+[852:
+
+Sun Oct 18 07:59:11 2026 Well,
+it's beginning to look a lot
+like packets are arriving around
+corners. Not 100% slam dunk yet,
+but the counts are finally
+rising
+
+    {155:42 5583 0 12,5 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h4o0 g0o0 S0 R4 fs3}
+    {155:42 5583 0 12,5 hn EPuoHUBXX:[IHEPo:IHUB:0] c4 h4o0 g0o0 S0 R4 fs3}
+
+    {155:42 19397 0 12,5 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h0o0 g4o0 S4 R4 fs3}
+    {155:42 19397 0 12,5 hn EPuoHUBXX:[IHEPo:IHUB:0] c4 h0o0 g4o0 S4 R4 fs3}
+
+    {155:42 90444 0 12,5 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h1o3 g3o0 S7 R8 fs3}
+    {155:42 90444 0 12,5 hn EPuoHUBXX:[IHEPo:IHUB:0] c4 h1o3 g3o0 S7 R8 fs3}
+
+    {155:42 90464 0 12,5 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h0o0 g4o0 S8 R8 fs3}
+    {155:42 90465 0 12,5 hn EPuoHUBXX:[IHEPo:IHUB:0] c4 h0o0 g4o0 S8 R8 fs3}
+
+    {155:42 314963 0 12,5 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h4o0 g0o0 S12 R16 fs3}
+    {155:42 314963 0 12,5 hn EPuoHUBXX:[IHEPo:IHUB:0] c4 h4o0 g0o0 S12 R16 fs3}
+
+suggesting at least SOME
+round-tripping is happening..
+although now I notice IHUB:4 and
+IHUB:0 are, I think, referring
+to D8_ST and D8_NT.. so no proof
+of diago round-tripping there.
+Fudge. [854:
+
+Sun Oct 18 08:11:24 2026 So,
+yeah - in a bit of poking
+around, we do NOT see any diago
+counts getting above S0 R4..
+
+But let's proceed anyway; the
+latest to-dos stand to help
+anyway. 
+
+:854]
+
+[853:
+
+Sun Oct 18 08:04:16 2026 TODO
+
+ - Review where we are on
+   handling arriving cache
+   packets
+
+ - Pay special attention to
+   whether we empty cars before
+   we push them to crbo (if they
+   get that far).
+
+ - Make specific IHUB handling
+   logging and cut back or ditch
+   isIHUBXX
+
+[857:
+
+Sun Oct 18 14:17:02 2026 OK
+let's face this:
+
+Q1: What, exactly, do we want 
+
+  bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex)
+
+to be doing with car?
+
+A1: For now, we want it to
+    either (A1.1) digest the
+    atoms it contains, if we're
+    in a bolt state that does
+    that, and then mark it
+    empty; or (A1.2) fill it
+    with more atoms if it's
+    empty and we're in a
+    shipping state, and it comes
+    in empty.
+
+Q2: But do we really want
+    InterHubEP::recvTC to do any
+    of that? Somebody is *already*
+    filling cars with atoms,
+    right? Shouldn't we dish to
+    somebody like that.
+
+A2: OK, yes, well, there's
+    CacheLoader::tryLoad that
+    does a ton of stuff, like: 
+
+        bool tryLoad(GridManager & gm) { //< return true iff done
+          U8CRange::iterator & itr = mLocalItr;
+          if (itr.atEnd()) return true;
+          Dir8 d8 = mLeaderDir8;
+  ..      MFM_API_ASSERT_ON_HART(HARTNUM_B);
+          using IHubData = InterHubEP::Super::L1Data;
+          IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[d8];
+          IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
+          IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
+  ..      InterHubPrivateControl & ihpc = fB.mPIHControl;
+  ..      InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
+  ..      InterHubBlock & ihb = *ihl1.mCurrentInterHub;
+          u8 carindex = ihl1.mCurrentCarIndex;
+  ..      InterHubPayload & pay = ihb.payload();
+          IHPAtoms & patoms = pay.asAtomsOrDie();
+          patoms.init();
+          while (!itr.atEnd()) {
+  ..        patoms.storeAtomOrDie(a);
+          }
+          if (patoms.isFull() || itr.atEnd()) {
+  ..        crbo.add(carindex);         // hand control back to comm
+  ..      return false;
+        }
+
+Q3: So could InterHubEP::recvTC
+    call CacheLoader::tryLoad?
+    Who calls it now?[858: Sun
+    Oct 18 14:54:03 2026
+
+A3: InterHubEP::recvTC
+      <= bRespondToCMD_LOAD_CACHE()
+      <= imageDoneRespondingToBoltB(PhaserBolt & pb) 
+      <= boltResponderAllHarts() 
+      <= beatTheStandardHeartbeat(HostBlock & hb) 
+      <= liveTheDefaultStandardLife(HostBlock & hb) 
+
+    All we really know is that
+    imageDoneRespondingToBoltB
+    and below runs on HB, while
+    InterHubEP::recvTC runs on
+    NC, so having the latter
+    call anything like the
+    former looks fucked.
+
+    Almost surely we want
+    InterHubEP::recvTC to do
+    just what it's currently
+    doing:
+
+      bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+  ..    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+        if (crbi.isFull()) return false; // bail if can't notify??
+  ..    car.openTC();
+        crbi.add(carindex); //notify hB
+  ..    return true;
+      }
+
+    and no more.
+
+    And then we want HB to take
+    over.. which brings the
+    oxcart right back to earth,
+    smack dab in the middle of
+    
+      void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
+
+        TheL1Data::CarIdxRB & crbi = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+        TheL1Data::CarIdxRB & crbo = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+
+Q4: So we leave
+    InterHubEP::recvTC alone and
+    focus on updateCars? Who
+    calls that?
+
+A4: InterHubPrivateControl::stepB(HostBlock &hb) 
+    calls it. We should probably
+    rewrite updateCars more or
+    less from scratch, using
+    input from
+    bRespondToCMD_LOAD_CACHE and
+    such. 
+
+[859:
+
+Mon Oct 19 12:59:43 2026 OK,
+back from getting a sack of
+medium green chiles roasted at
+Wagner Farms. Have a convo
+coming up at 1:30 then will be
+peeling chiles for the (likely)
+rest of the afternoon.
+
+So here let's spin a few
+fantasies about handling atoms
+during LOAD_CACHE.
+
+ - Say there's just an entry
+   point based on time. recvTC
+   [just] pushes cars into crbi,
+   and shipTC [just] pulls them
+   out of crbo.
+
+ - and updateCars is that entry
+   point, running on HB
+
+ - so how does bolt response
+   integrate with updateCars?
+
+[860:
+
+Mon Oct 19 13:11:06 2026
+
+ - Right now,
+
+  T6BoltResponder::boltResponderAllHarts
+  => imageDoneRespondingToBoltB
+  => bRespondToCMD_LOAD_CACHE
+  => CacheLoader.tryLoad()
+  =>   InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
+       InterHubBlock & ihb = *ihl1.mCurrentInterHub;
+    ..  ihb.closeTC(pktsize);
+        crbo.add(carindex);         // hand control back to comm
+        ihl1.dropCar();             // flush the current car
+
+So CacheLoader wants 'somebody'
+to load ihl1.mCurrentInterHub
+with the next cache car, but
+CacheLoader pushes the result
+into crbo when it's done.
+
+Now, is there sufficient reason
+for mCurrentInterHub to exist?
+Might we be unable to use up a
+complete car atomically in
+tryLoad? Why? Can't we either
+fill a car or be done with
+filling, in which case we're
+going to ship the car anyway?
+
+So couldn't tryLoad either be
+handed a car or try to pull one
+off crbi, and not be done until
+it's pushed back onto crbo?
+
+Seems easier to follow if
+tryLoad is purely a car handler.
+
+[861:
+
+Mon Oct 19 13:23:16 2026 Close
+to convo time but wondering
+about a quick branch to try
+
+(1) ditching mCurrentInterHub
+(2) making tryLoad be an atomic
+    IH car handler, crbi->crbo
+(3) get that to work.
+
+
+[862:
+
+Mon Oct 19 20:32:48 2026 Maybe
+make tryLoad be like moveAtoms
+and expect cases moving
+forwards. 
+
+:862]
+
+:861]
+
+
+
+:860]
+:859]
+:858]
+
+
+
+:857]
+
+:853]
+
+:852]
+
+
+[855:
+
+Sun Oct 18 08:34:53 2026 OK,
+without worrying about edge vs
+corner ATM, we are getting to
+
+      void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+
+which is currently a mess, but,
+we think, is also where we
+should be handling arriving and
+departing atoms..
+
+So let's be thinking about that
+during morning coffee and the
+day.
+
+[856:
+
+Sun Oct 18 09:33:01 2026 So as
+least part of the flow goes
+like:
+
+=> InterHub.cpp:
+
+      static RCFlag manageInterHubNC(HTOpCode htoc) 
+
+ ..      else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
+ ..       for (u32 d = D8_NT; d <= D8_NE; ++d) {
+            Dir8 d8 = (Dir8) d;
+            InterHubEP & myIHEPNC = myInterHubEP[d8];
+
+ ..         myIHEPNC.updateOps();
+
+=> EP.tcc:
+
+      bool EP<SUBEP,SUBTC>::updateOps() {
+ ..       // Welcome! Let's get you set up here.
+          TCOpsData & data = getOpsData(mOldestGone);
+          data.mArrivalTime = millisElapsed();
+ ..       if (recvTC(car, mOldestGone)) {
+            ++mRecvTCCount;
+ ..         ++mHereCount;
+ ..       }
+        }
+ ..     /// TRY SHIPPING DEPARTURES
+
+but let's just deal with
+arrivals first..
+
+:856]
+
+:855]
