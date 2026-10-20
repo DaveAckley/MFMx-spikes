@@ -187,6 +187,8 @@ t6hang:
 	or t0,t0,t1             # include 1<<hartnum in mFails
         sb t0,23(t2)            # (we explicitly ignore races here)
 1:      j 1b                    # "HANG" 
+	nop                     # "BANG" speculation can hit here
+        nop                     # "CLANG" or even here?
         .cfi_endproc
 	
 	.global estimateStackUsage

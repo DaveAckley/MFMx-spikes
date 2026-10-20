@@ -30,10 +30,12 @@ namespace MFM {
       IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
       IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
     
-      LOGPX(crbi.isEmpty());
-      LOGPX(crbo.isEmpty());
-      LOGPX(crbi.isFull());
-      LOGPX(crbo.isFull());
+      if (false) {
+        LOGPX(crbi.isEmpty());
+        LOGPX(crbo.isEmpty());
+        LOGPX(crbi.isFull());
+        LOGPX(crbo.isFull());
+      }
 
       InterHubPrivateControl & ihpc = fB.mPIHControl;
       MFM_API_ASSERT_NONNULL(ihpc.mIHL1Control);

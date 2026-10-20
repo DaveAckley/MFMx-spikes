@@ -26,8 +26,14 @@ namespace MFM {
     S8C operator/(const S8C & other) const { return S8C(x / other.x, y / other.y); }
     S8C operator%(const S8C & other) const { return S8C(x % other.x, y % other.y); }
 
-    bool toU8C(U8C& u) ;        //< return false if x or y < 0
+    S8C operator*(const s32 scalar) const { return S8C(x * scalar, y * scalar); }
+    S8C operator/(const s32 scalar) const { return S8C(x / scalar, y / scalar); }
+    S8C operator%(const s32 scalar) const { return S8C(x % scalar, y % scalar); }
+    
+    static bool onBoardCT6Coord(S8C c) ;
 
+    bool toU8C(U8C& u) const ;        //< return false if x or y < 0
+    U8C toU8COrDie() const ;
     U8C abs() const ;           //< component-wise
 
     u16 length() const {

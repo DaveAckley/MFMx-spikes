@@ -82,6 +82,10 @@ namespace MFM {
 
     u8 getPacketNonce() const { return mTCMNonce; }
 
+    void spoilCompletePacket() {
+      mTCMNonce--;
+    }
+
     void init(u8 initnonce = 0u) {
       mTCMMagic = TCM_MAGIC;
       mTCMNonce = initnonce;

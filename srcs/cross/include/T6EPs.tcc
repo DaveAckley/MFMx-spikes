@@ -134,9 +134,9 @@ namespace MFM {
     ASSERT_RIGHT_HART();
     MFM_API_ASSERT_L1_ADDRESS(&l1data);
     mL1Data = &l1data;
-    HBMARK;
+    //    HBMARK;
     HBPX(FORHART);
-    HBPX(BLOCK_COUNT);
+    HBPTAG(srcBLOCK_COUNT,BLOCK_COUNT);
     mDestNoC0 = { U8_MAX, U8_MAX }; // init to illegal addr
     this->initEP(srcEPA, this->getAtomicLock(), isin, CAR_COUNT, false);
   }

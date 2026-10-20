@@ -7,10 +7,16 @@ namespace MFM {
     MFM_API_ASSERT(u.x <= S8_MAX && u.y <= S8_MAX, ILLEGAL_ARGUMENT);
   }
 
-  bool S8C::toU8C(U8C& u) {
+  bool S8C::toU8C(U8C& u) const {
     if (x < 0 || y < 0) return false;
     u = U8C(x,y);
     return true;
+  }
+
+  U8C S8C::toU8COrDie() const {
+    U8C ret;
+    if (!toU8C(ret)) FAIL(ILLEGAL_STATE);
+    return ret;
   }
 
   U8C S8C::abs() const {
@@ -18,6 +24,11 @@ namespace MFM {
     ret.x = (u8) (x < 0 ? -x : x);
     ret.y = (u8) (y < 0 ? -y : y);
     return ret;
+  }
+
+  bool S8C::onBoardCT6Coord(S8C c) {
+    U8C u;
+    return c.toU8C(u) && U8C::onBoardCT6Coord(u);
   }
 
 }

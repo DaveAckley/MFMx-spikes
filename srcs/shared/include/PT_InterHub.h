@@ -136,10 +136,10 @@ namespace MFM {
       }
     }
 
+#if 0 // all unused?
     bool tryRoute(Dir4 d4, bool inside) {
       LOGPTAG(IHPtR,mIHPHeader.mHops2Dest);
-      char str[2];
-      LOGPTAG(IHPd4,dir4ToByteCodeStr(str,d4));
+      LOGPTAG(IHPd4,dir4ToByteString(d4));
       // XXX WRITE ME
       return false;
     }
@@ -192,6 +192,7 @@ namespace MFM {
         FAIL(ILLEGAL_STATE);
       }
     }
+#endif
 
     IHPAtoms & asAtomsOrDie() {
       MFM_API_ASSERT(isValid() && mIHPHeader.mPayloadType == IHPT_ATOMS, ILLEGAL_STATE);

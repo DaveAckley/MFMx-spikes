@@ -69,7 +69,13 @@ namespace MFM
     D4_E = 3,
   };
   
+  static const char * dir4ToByteString(const Dir4 d4) {
+    return "D4_N\0D4_W\0D4_S\0D4_E" + (u8)d4*5u;
+  }
+
   static u8 dir4ToByteCode(const Dir4 d4) { return (u8) "NWSE"[d4]; }
+
+  // DEPRECATED - USE dir4ToByteString(Dir4)
   static const char * dir4ToByteCodeStr(char str[2],const Dir4 d4) {
     str[0] = dir4ToByteCode(d4);
     str[1] = 0;
@@ -95,6 +101,18 @@ namespace MFM
   }
 
   static constexpr Dir8 oppositeDir8(const Dir8 from) { return (Dir8) ((from+4u)&0x7); }
+  static constexpr Dir8 dir8ToCWDir8(const Dir8 from) { return (Dir8) ((from+7u)&0x7); }
+  static constexpr Dir8 dir8ToCCWDir8(const Dir8 from) { return (Dir8) ((from+1u)&0x7); }
+
+  static Dir8 dir8CornerToCWDir8Edge(Dir8 corner) {
+    MFM_API_ASSERT((corner<=D8_NE) && (corner&1),ILLEGAL_ARGUMENT);
+    return (Dir8) (corner-1u);
+  }
+
+  static Dir8 dir8CornerToCCWDir8Edge(Dir8 corner) {
+    MFM_API_ASSERT((corner<=D8_NE) && (corner&1),ILLEGAL_ARGUMENT);
+    return (Dir8) ((corner+1u)&7u);
+  }
 
   static constexpr Dir8 dir4ToDir8(const Dir4 d4) { return (Dir8) (d4*2u); }
   static constexpr Dir4 dir8ToDir4CW(const Dir8 d8) { return (Dir4) (d8/2u); }

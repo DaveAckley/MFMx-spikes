@@ -360,7 +360,7 @@ class EWD(App):
           yield Checkbox(id="pausecheck",label="pause",value=False,compact=True)
           yield Checkbox(id="ewpcheck",label="events",value=True,compact=True)
           yield Checkbox(id="ihhcheck",label="iNteRHuBZ",value=False,compact=True)
-          yield Button(id="stepbutton",label="step",compact=True)
+          #yield Button(id="stepbutton",label="step",compact=True)
           yield Button(id="pingbutton",label="ping",compact=True)
         # with Vertical(id="scrollbuttons"):
         #   for id,(label,arg) in EWD.ZOOM_BUTTONS.items():
@@ -502,6 +502,9 @@ class EWD(App):
     self.animation_timer = self.set_interval(1 / self.animation_frames_per_second,
                                              self.update_animation_content, pause=False)
 
+    # Call ihhcheck_changed at startup:
+    self.query_one("#ihhcheck", Checkbox).value = True
+
     self.slowscan_updates = 0
     self.slowscan_tlbis_per_update = 1
     self.slowscan_updates_per_second = .5
@@ -566,11 +569,11 @@ class EWD(App):
     self.ewc.setActive(False)
     #self.stop()
 
-  @on(Button.Pressed,"#stepbutton")
-  def stepbutton_pressed(self,event):
-    runch = self.query_one("#runcheck")
-    runch.value = False       # stepping ends running
-    # trigger step
+  # @on(Button.Pressed,"#stepbutton")
+  # def stepbutton_pressed(self,event):
+  #   runch = self.query_one("#runcheck")
+  #   runch.value = False       # stepping ends running
+  #   # trigger step
 
   @on(Button.Pressed,"#pingbutton")
   def pingbutton_pressed(self,event):

@@ -181,8 +181,8 @@ namespace MFM {
     HBASSERT_EQ(ibh.isValid(),true);
     HBPTAG(fBCin0,getNameFromImageCode((ImageCode) ibh.getImageCode()));
 
-    HBPVAL(ournoc0);
-    HBPVAL(theirnoc0);
+    HBPX(ournoc0);
+    HBPX(theirnoc0);
     HBPX(ibh.mEntries);
     
     //  SEARCH THEIR IBAS FOR BC (always on noc0, using a lot more packets & bandwidth than needed, but hey..)
@@ -205,6 +205,7 @@ namespace MFM {
       if (iba.mBlockCode == bc) { //  IF FOUND,
         //  SET FOUNDIBA AND RETURN TRUE
         HBPX(bc);
+        HBPTAG(bcn,getNameFromBlockCode(bc));
         foundiba = iba;
         return true;
       } //else HBXTAG(not,*(u32*)&iba);

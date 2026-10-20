@@ -151,12 +151,12 @@ namespace MFM {
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
 
-    HBPTAG(IHPT,getNameFromIHPType(IHPT_PING));
-    HBPX(sizeof(IHPPing));
-    HBPX(sizeof(IHPPing::HopReport));
+    //    HBPTAG(IHPT,getNameFromIHPType(IHPT_PING));
+    //    HBPX(sizeof(IHPPing));
+    //    HBPX(sizeof(IHPPing::HopReport));
     HBPX(sizeof(IHPAtoms));
     HBPX(sizeof(InterHubPayload));
-    HBPX(sizeof(InterHubBlock));
+    //    HBPX(sizeof(InterHubBlock));
     HBPX(sizeof(InterHubStorage));
     this->initT6EP(srcEPA, isin, l1data);
   }
@@ -164,14 +164,21 @@ namespace MFM {
   bool InterHubEP::shipTC(SUBTC & car, u8 carindex) {
     ASSERT_RIGHT_HART();
 
-    /* Plan: Intervene if this IH car needs a bankshot to reach our NE
-       or SW corner. Then dispatch to shipTCTo in any case. */
+    /* New plan: Intervene at configureDest so that mDestNoC0 and
+       mDestBlockAddr are already modified for the diagonal shots, and
+       there's no diversion here.
+
+       (Old) Plan: Intervene if this IH car needs a bankshot to reach
+       our NE or SW corner. Then dispatch to shipTCTo in any case.
+    */
     
-    const EndPointAddress sEPA = getSrcEPA();
-    u8 d8 = sEPA.mBlockCodeIndex;
-    MFM_API_ASSERT(d8 <= D8_NE, ILLEGAL_STATE);
-    const char * n = dir8ToByteString((Dir8) d8);
-    EACH(1,{ if (d8&1) LOGPTAG(IHEPsTCDIVERT,n); else LOGPTAG(IHEPsTC,n); });
+    if (false) {
+      const EndPointAddress sEPA = getSrcEPA();
+      u8 d8 = sEPA.mBlockCodeIndex;
+      MFM_API_ASSERT(d8 <= D8_NE, ILLEGAL_STATE);
+      const char * n = dir8ToByteString((Dir8) d8);
+      EACH(1,{ if (d8&1) LOGPTAG(IHEPsTCDIVERT,n); else LOGPTAG(IHEPsTC,n); });
+    }
 
     u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
 
@@ -183,7 +190,7 @@ namespace MFM {
   bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
 
-    EACH(1,HBPTAG(IHrecvTC,__EACHNUM__));
+    EACH(1,LOGPTAG(IHrecvTC,__EACHNUM__));
 
     Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
     if (crbi.isFull()) return false; // bail if can't notify??
@@ -192,7 +199,7 @@ namespace MFM {
     car.openTC();
     crbi.add(carindex); //notify hB
 
-    EACH(1,HBPTAG(IHrecvTCD,carindex));
+    EACH(1,LOGPTAG(IHrecvTCD,carindex));
 
     return true;
   }
@@ -200,7 +207,7 @@ namespace MFM {
   InterHubBlock * InterHubEP::getCarPtrIfAny(u8 carindex) const {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     if (carindex >= CAR_COUNT) return 0;
-    LOGPTAG(IHGotp,&this->getCarStg());
+    EACH(1'000'000,LOGPTAG(IHGotp,&this->getCarStg()));
     return &this->getCarStg().getTC(carindex);
   }
 

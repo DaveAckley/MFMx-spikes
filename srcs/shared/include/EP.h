@@ -110,10 +110,11 @@ namespace MFM {
     char * report(u32 size, char * buf) const ;
 
     void activate() {
-      LOGPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
-      LOGPTAG(s,mSrcEPA.mBlockCodeIndex);
+      HBPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));
+      HBPTAG(s,mSrcEPA.mBlockCodeIndex);
+      HBPX(mDestEPA.mBlockCode);
       HBPTAG(dest,getNameFromBlockCode(mDestEPA.mBlockCode));
-      LOGPTAG(d,mDestEPA.mBlockCodeIndex);
+      HBPTAG(d,mDestEPA.mBlockCodeIndex);
       HBASSERT_EQ(getFastEPState(),EPState::CONFIGURED);
       setFastEPState(EPState::ACTIVE);
     }

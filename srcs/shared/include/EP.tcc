@@ -32,8 +32,16 @@ namespace MFM {
   template<class SUBEP, class SUBTC>
   bool EP<SUBEP,SUBTC>::updateOps() {
     bool isLogXX = (this->getName()[0] == 'A');
+    bool isIHUBXX = (this->getName()[0] == 'I');
     constexpr u32 BS = 100;
     char buf[BS];
+
+    if (false && isIHUBXX) {
+      // every damn time say will we see THIS?
+      //EACH(100,HBPTAG(EPuoHUBXX,this->report(BS,buf)));
+      EACH(1'000,LOGPTAG(EPuoHUBXX,this->report(BS,buf)));
+    }
+
     EACH(1'000'000,HBPTAG(EPuo,this->report(BS,buf)));
     //EACH(10'000,LOGPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
@@ -54,9 +62,12 @@ namespace MFM {
       SUBTC & car = *carp;
       if (!car.isComplete()) {
         if (isLogXX) SNAP(5,HBPTAG(gonBLK,carp));
+        if (isIHUBXX) EACH(5'000,LOGPTAG(incompIHUB,carp));
         break;
       }
 
+      if (isIHUBXX) EACH(1'000,LOGPTAG(compIHUB,carp));
+      
       //HBPTAG(EPgonect,mGoneCount);
       //      HBPTAG(EPoldidx,mOldestGone);
 
@@ -68,6 +79,8 @@ namespace MFM {
         break;
       }
 
+      if (isIHUBXX) LOGPTAG(arrvIHUB,getCarStateName(cs));
+
       // Welcome! Let's get you set up here.
       TCOpsData & data = getOpsData(mOldestGone);
       data.mArrivalTime = millisElapsed();
@@ -78,6 +91,7 @@ namespace MFM {
 
       if (recvTC(car, mOldestGone)) {
         ++mRecvTCCount;
+        if (isIHUBXX) LOGPTAG(postRecvTC,mRecvTCCount);
         // successful recvTC MEANS:
         //  - one less gone car
         //  - one more here car
