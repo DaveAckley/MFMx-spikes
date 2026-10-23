@@ -1,4 +1,4 @@
-{863}  -*-  mode: text; fill-column: 32;  -*-
+{896}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -15160,7 +15160,7 @@ coords. [842:
 
 Sat Oct 17 11:56:05 2026 OK, how
 do we find imageblock addresses,
-again? 
+again?
 
 :842]
 
@@ -15209,7 +15209,7 @@ We want something like
 - whatever undoes that what
 brought us here..
 
-Pick up there. Getting closer. 
+Pick up there. Getting closer.
 
 :851]
 
@@ -15256,7 +15256,7 @@ counts getting above S0 R4..
 
 But let's proceed anyway; the
 latest to-dos stand to help
-anyway. 
+anyway.
 
 :854]
 
@@ -15282,7 +15282,7 @@ Sun Oct 18 08:04:16 2026 TODO
 Sun Oct 18 14:17:02 2026 OK
 let's face this:
 
-Q1: What, exactly, do we want 
+Q1: What, exactly, do we want
 
   bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex)
 
@@ -15308,7 +15308,7 @@ Q2: But do we really want
 
 A2: OK, yes, well, there's
     CacheLoader::tryLoad that
-    does a ton of stuff, like: 
+    does a ton of stuff, like:
 
         bool tryLoad(GridManager & gm) { //< return true iff done
           U8CRange::iterator & itr = mLocalItr;
@@ -15341,10 +15341,10 @@ Q3: So could InterHubEP::recvTC
 
 A3: InterHubEP::recvTC
       <= bRespondToCMD_LOAD_CACHE()
-      <= imageDoneRespondingToBoltB(PhaserBolt & pb) 
-      <= boltResponderAllHarts() 
-      <= beatTheStandardHeartbeat(HostBlock & hb) 
-      <= liveTheDefaultStandardLife(HostBlock & hb) 
+      <= imageDoneRespondingToBoltB(PhaserBolt & pb)
+      <= boltResponderAllHarts()
+      <= beatTheStandardHeartbeat(HostBlock & hb)
+      <= liveTheDefaultStandardLife(HostBlock & hb)
 
     All we really know is that
     imageDoneRespondingToBoltB
@@ -15374,7 +15374,7 @@ A3: InterHubEP::recvTC
     over.. which brings the
     oxcart right back to earth,
     smack dab in the middle of
-    
+
       void InterHubPrivateControl::updateCars(u32 ngbidx,HostBlock & hb,bool inside) {
         MFM_API_ASSERT_ON_HART(HARTNUM_B);
         MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
@@ -15387,13 +15387,13 @@ Q4: So we leave
     focus on updateCars? Who
     calls that?
 
-A4: InterHubPrivateControl::stepB(HostBlock &hb) 
+A4: InterHubPrivateControl::stepB(HostBlock &hb)
     calls it. We should probably
     rewrite updateCars more or
     less from scratch, using
     input from
     bRespondToCMD_LOAD_CACHE and
-    such. 
+    such.
 
 [859:
 
@@ -15477,8 +15477,28 @@ about a quick branch to try
 Mon Oct 19 20:32:48 2026 Maybe
 make tryLoad be like moveAtoms
 and expect cases moving
-forwards. 
+forwards.
+[863:
 
+Tue Oct 20 02:27:37 2026 OK,
+
+    Switched to a new branch 'moveAtoms-spike'
+
+Let's just ditch
+mCurrentInterHub and let that
+force our hand.
+[864:
+
+Tue Oct 20 02:35:07 2026 Well,
+ditching mCurrentInterHub looks
+to kind of implicate the entire
+struct L1Hub1, which has some
+chunks of involved code and I'm
+kind of afraid to touch it right
+now.
+
+:864]
+:863]
 :862]
 
 :861]
@@ -15524,7 +15544,7 @@ like:
 
 => InterHub.cpp:
 
-      static RCFlag manageInterHubNC(HTOpCode htoc) 
+      static RCFlag manageInterHubNC(HTOpCode htoc)
 
  ..      else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
  ..       for (u32 d = D8_NT; d <= D8_NE; ++d) {
@@ -15552,3 +15572,549 @@ arrivals first..
 :856]
 
 :855]
+[865:
+
+Tue Oct 20 07:55:19 2026 OK
+after a nap went ahead and
+started ditching L1Hub1 and just
+now are back to runnability.
+
+And getting (very likely)
+intentional fails and wondering:
+Why don't we hang at the point
+of the failure? It's only a
+couple of instructions, and the
+PC would then put us at the site
+of the failure, which we would
+Like A LOT.
+
+[866:
+
+Tue Oct 20 08:18:44 2026 Well,
+on a sidequest to go for that,
+and now running into
+
+..: warning: 'asm' in 'constexpr' function only available with '-std=c++20' or '-std=gnu++20' [-Wc++20-extensions]
+   19 |       MFM_API_ASSERT(tcms < 255u, ILLEGAL_ARGUMENT);
+
+so that's a bummer. The whole
+point was to hang inside the
+failing function, so we can't
+hide the asm inside some other
+called function. Can we just
+make a(n unoptimizable-away) C++
+infinite loop and use it there
+instead? [867:
+
+Tue Oct 20 08:49:42 2026 OK,
+using a C++-only loop we now
+arrive at the Dave-the-genius
+moment:
+
+Yay, we have solved the 'all
+fails look the same so we can't
+tell which code failed' problem!
+
+Except..
+
+Boo, now we have a 'fails look
+exactly the same as non-fails so
+we can't tell if code has failed
+at all' problem:
+
+WAS BEFORE:
+ CodeManager.cpp:910: 48.200 at043[HUB] LIVE {89:189 1 0 4,3 hn t6hang 0x0002b4}
+ CodeManager.cpp:910: 48.232 at043[HUB] LIVE {89:189 1 0 4,3 hn t6hang 0x0002b4}
+ CodeManager.cpp:910: 48.261 at043[HUB] LIVE {89:189 1 0 4,3 hn t6hang 0x0002b4}
+
+IS NOW:
+ CodeManager.cpp:910: 47.914 at043[HUB] LIVE {21:89 1 0 4,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool) 0x0041f0}
+ CodeManager.cpp:910: 47.945 at043[HUB] LIVE {21:89 1 0 4,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool) 0x0041e4}
+ CodeManager.cpp:910: 47.978 at043[HUB] LIVE {21:89 1 0 4,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool) 0x0041d8}
+
+so before we could just search
+for t6hang and immediately see
+if some hart(s) had hung..
+
+..aaand now we can't. Genius!
+
+[868:
+
+Tue Oct 20 13:22:01 2026 OK,
+with various whacking and
+hacking I've now got like:
+
+    CodeManager.cpp:910: 67.917 at0g3[HUB] LIVE {21:89 1 0 16,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool)::bhang_110::bhangc() 0x0039d4}
+    CodeManager.cpp:910: 67.950 at0g3[HUB] LIVE {21:89 1 0 16,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool)::bhang_110::bhangc() 0x0039d8}
+    CodeManager.cpp:910: 67.978 at0g3[HUB] LIVE {21:89 1 0 16,3 hb MFM::InterHubPrivateControl::updateCars(unsigned long, MFM::HostBlock&, bool)::bhang_110::bhangc() 0x0039d4}
+
+so I can search for bhang and
+find stuff. Good enough for now.
+Hopefully it's not costing me
+much space or compile time.
+
+YAK POP KAY
+
+:868]
+:867]
+
+:866]
+
+:865]
+[869:
+
+Tue Oct 20 13:41:30 2026 OK,
+we're trying to push forward
+again. Current at
+INCOMPLETE_CODE in
+IHPC::updateCars.
+
+And I'm thinking we want to know
+if crbi's non-empty and crbo's
+non-full, and if so, try to
+load a car from scratch on this
+one call.
+
+At least, let's go for that
+first. Eventually we'll
+integrate a decision about
+whether we NEED to load another
+car.[870:
+
+Tue Oct 20 14:04:10 2026 So I'm
+kind of feeling like
+IHPC::updateCars doesn't
+need to do anything, really,
+given that
+
+beatTheStandardHeartbeat is
+called in a loop, and we have
+
+beatTheStandardHeartbeat
+=> T6BoltResponder::boltResponderAllHarts
+=> imageDoneRespondingToBoltB
+=> bRespondToCMD_LOAD_CACHE (if in CMD_LOAD_CACHE)
+=> CacheLoader.tryLoad
+   => from crbi to crbo all in one
+
+[871:
+
+Tue Oct 20 14:11:44 2026 So
+let's, for now, advertise
+updateCars as vestigial, and
+move on to like tryStore or
+whatever happens at the other
+end. [872:
+
+Tue Oct 20 14:16:26 2026 Woah,
+wait: Couldn't/shouldn't we use
+updateCars to handle FULL cars
+we have received? But how do we
+now we have a full or an empty
+without receiving it?
+
+We could move the tryLoad stuff
+from the boltresponder path to
+the updateCars path, and have
+boltresponder set the state
+(e.g., CMD_LOAD_CACHE), and then
+wait to be notified when it was
+done. Both (this) boltresponder
+and IHPC::stepB run on HB, so
+they can't race with each other
+directly.
+[873:
+
+Tue Oct 20 14:31:52 2026 I'm
+thinking we wouldn't want bolt
+responders to 'do it all',
+because we want to acknowledge
+the DO LEADER / FOLLOWER events
+bolt long before we have
+finished doing the events.
+
+And I'm thinking that
+updateCars, being more generic
+about full-vs-empty and such..
+might be an okay way to go?
+
+[874:
+
+Tue Oct 20 14:56:38 2026 And
+let's say it's like this maybe:
+
+ updateCars.
+  return unless
+    crbi not empty and
+    crbo not full
+
+  check operating state for any
+  situations where we don't want
+  to process IH cars? return if
+  so?
+
+  crbi.remove(carindex) or FAIL(ILLEGAL_STATE)
+
+  handle cases? which are? --
+
+    BOLT STATE    US STATE  ACTION
+    ==========    ========  ======
+
+    LOAD_CACHE    leader    expect full cars,
+                            stash atoms in cache,
+                            ship emptied or empties
+
+    LOAD_CACHE    follower  expect empty cars,
+                            load&ship from sites
+
+    CARRY_ON      leader    let crbi ride, do big ewps
+
+    CARRY_ON      follower  flush crbi, ship empties
+                            so they accumulate at the leader,
+                            do small ewps
+
+    SAVE_CACHE    leader    expect empty cars,
+                            fill&ship from caches
+
+    SAVE_CACHE    follower  expect full cars,
+                            stash atoms in sites
+                            ship empties
+
+[875:
+
+Tue Oct 20 15:24:02 2026 Well,
+that kind of seems a little
+plausible, right? I guess in
+each situation we also need to
+know when HB should ack the bolt.
+
+And since we're using a sleazy,
+non-scalable global barrier to
+sequence bolt operations, like
+some kind of 1990s MPI chump, we
+don't have to worry about the
+bolt changing before everybody
+is ready..
+
+[876:
+
+Tue Oct 20 15:34:29 2026 Well,
+let's try to implement it in
+updateCars. Will we have some
+special flag - separate from the
+official bolt-ack-flag - to let
+updateCars tell bolt responder
+it's ready to go? They're both
+on HB so it could be fastram.
+[877:
+
+Tue Oct 20 16:10:40 2026 So
+we've already got
+
+    u8 mLastSeqnoArrived;
+    u8 mLastSeqnoAcked[HART_COUNT];
+    u8 mLastSeqnoReturned;
+
+in struct T6BoltResponder, and
+it really seems like
+mLastSeqnoAcked[HARTNUM_HB]
+should be the way for updateCars
+et seq to tell the boltresponder
+when things are done.
+
+BUTT KNOW! It goes the other
+way, basically.
+hartAcknowledgeBolt does like
+
+      bool T6BoltResponder::hartAcknowledgeBolt() {
+ ..       mLastSeqnoAcked[fAll.mHartNum] = mLastSeqnoArrived;
+
+and boltResponderAllHarts does like:
+
+      void T6BoltResponder::boltResponderAllHarts() {
+
+        // RACY RACY NO LOCK
+        if (mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived) return; // we have already acked this
+
+        PhaserBlock & block = T6Phaser::getPhaserBlock();
+        PhaserBolt & pb = block.payload();
+
+        switch (fAll.mHartNum) {
+        case HARTNUM_B:
+          if (!imageDoneRespondingToBoltB(pb)) return;
+          break;
+ ..     }
+
+        if (hartAcknowledgeBolt())
+          LOGPTAG(BOLTR_AH,(u32) mLastSeqnoAcked[fAll.mHartNum]);
+      }
+
+so with this structure, only
+continually returning false from
+imageDoneRespondingToBoltB will
+keep hartAcknowledgeBolt from
+marking HB as ready to go.
+
+So that makes us want to want
+some other bool signal that
+updateCars could set and
+imageDoneRespondingToBoltB could
+return.. and then we have to
+manage that signal correctly.
+
+I suppose if we wanted to own
+this, we could do something
+like:
+
+      struct T6BoltResponder {
+        AtomicLock mLock;
+        u8 mLastSeqnoArrived;
+        u8 mLastSeqnoAcked[HART_COUNT];
+        u8 mLastSeqnoReturned;
+>>      bool mDelegateSeqnoAcked[HART_COUNT];
+
+
+and then something like
+
+  bool imageDoneRespondingToBoltB(PhaserBolt & pb) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_B);
+    if (mDeletedSeqnoAck[HARTNUM_B])
+      return mLastSeqnoAcked[HARTNUM_B]==mLastSeqnoReturned;
+
+or I guess we don't even need
+the data member if we're just
+going to hardcode the
+relationships on a, say,
+per-image basis:
+
+  bool HUB::imageDoneRespondingToBoltB(PhaserBolt & pb) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_B);
+    // Somebody else (in this case XXX) will ack..
+    return mLastSeqnoAcked[HARTNUM_B]==mLastSeqnoReturned;
+  }
+
+and then just let 'whoever' call
+T6BoltResponder::hartAcknowledgeBolt
+when they are ready, which will
+unblock the bolt as far as HB is
+concerned. (It will also cause
+imageDoneRespondingToBoltB to
+start returning true, but that
+seems irrelevant since that just
+allows the bolt to be acked by
+HB, which it already is.)
+
+Is that too disgusting?
+[878:
+
+Tue Oct 20 16:31:38 2026 I don't
+know. Let's say it's not too
+disgusting and see how it goes.
+[879:
+
+Wed Oct 21 03:01:20 2026 So I'm
+doing it again: I'm making
+up things to do but then
+not breaking them down
+into small enough
+pieces to be
+obviously
+implem
+enta
+bl
+e
+.
+D
+o
+h
+!
+
+So come on. TODO
+
+[880: Wed Oct 21 03:29:28 2026
+As in :870: above, DONE  :880] - Rereview the calling sequence
+   for bolt response
+
+[881: Wed Oct 21 03:31:08 2026
+liveTheDefaultStandardLife
+(=> beatTheStandardHeartBeat, plus)
+=>stepB, DONE :881] - Rereview the calling sequence
+   for stepB
+
+[882: Wed Oct 21 03:42:42 2026
+DONE :882] - Change the HUB
+   imageDoneRespondingToBoltB as
+   discussed late in :877:
+   above.
+
+ - Take a guess where to call
+   hartAcknowledgeBolt and call
+   it there.
+
+ - Get that building
+
+ - Report back here.
+
+:879]
+:878]
+:877]
+:876]
+
+:875]
+
+:874]
+
+:873]
+:872]
+
+:871]
+
+:870]
+
+:869]
+[883:
+
+Wed Oct 21 03:53:17 2026 So
+okay: To acknowledge the bolt in
+IHPC::updateCars requires
+getting the phaser bolt,
+analysing the type, and so on.
+On the one hand, if we're
+committing to 'doing it all' on
+the updateCars side, then that's
+just as it should be.
+
+Aand that's why we're here on
+moveAtoms-spike, to do just
+that.
+
+Napito.
+[884:
+
+Wed Oct 21 10:48:53 2026 Aand
+we're really not already storing
+'the current Phase' ANYWHERE
+except in the phaser bolt
+itself?
+
+[890: Wed Oct 21 22:25:24 2026
+DONE  :890] - Reconfirm that crap
+
+[885:
+
+Wed Oct 21 10:53:28 2026
+Response gets sent by
+
+  void T6BoltResponder::boltDetectorNC()
+  <= stepNC()
+
+and there's no obvious place
+where the cmd-being-returned is
+copied to. But if we:
+
+[886: Wed Oct 21 22:15:49 2026
+Made mNewestCmdReceived and
+mNewestCmdReturned in
+T6BoltResponder, so DONE  :886] - added say mLastCmdReturned
+   after mLastSeqnoReturned in
+   T6BoltResponder and
+
+[887: Setting mNewestCmdReceived
+after mLastSeqnoArrived, DONE :887] - set ..Cmd.. when we set
+   ..Seqno.. in boltDetectorNC
+
+[888: Wed Oct 21 22:18:14 2026
+Made
+    PhaserBolt::Cmd getInProgressCmdIfAny() ; //< mNewestCmdReceived if arr!=ret else no_cmd
+    PhaserBolt::Cmd getPrevailingCmdIfAny() ; //< mNewestCmdReturned if arr==ret else no_cmd
+so, DONE :888] - made a (lock-free?) accessor
+   for ..Cmd.. called
+   getPrevailingPhase or
+   something.
+
+then we could use it in
+IHPC::updateCars and so forth.
+[889:
+
+Wed Oct 21 22:19:01 2026 Also
+defined Cmd::NO_CMD = U8_MAX to
+return as a flag.
+
+So where are we now? YAK POP KAY?
+
+[891:
+
+Wed Oct 21 22:25:52 2026 I guess
+we're trying to call
+hartAcknowledgeBolt from
+somewhere new?
+
+:891]
+:889]
+:885]
+:884]
+:883]
+[892:
+
+Thu Oct 22 14:43:08 2026 OK, I'm
+trying to shape CacheLoader.cpp
+code to use in IHPC::updateCars
+and I don't want to forget that
+I don't know where
+theL1CacheLoaders are going to
+get initialized in all this
+marching around.[893:
+
+Thu Oct 22 15:03:14 2026 OK, for
+the record, it's currently the
+(- 107 11 -1) 97 line function:
+
+  static bool bRespondToCMD_NEW_LEADER(s32 arg) {
+
+in HubBoltResponder.cpp that
+sets up the cache loaders. And
+that actually seems plausible I
+guess. But right now we'd have
+to search CacheLoaders to find a
+ngbidx.
+
+Which isn't really that bad, in
+the grand scheme of things..
+
+and we desperately need to move
+forward more than optimize
+fiddly shit instead..
+
+[894:
+
+Thu Oct 22 16:51:23 2026 OK,
+we've started filling in the
+EP_InterHub updateCars handlers.
+
+Still very early but I'm here
+now to tell myself that I want
+to be thinking about the overall
+flow of steps within a phase and
+across the images and harts..
+Think about that chumley: You
+need it and you really ain't got
+it. 
+
+:894]
+
+
+:893]
+
+:892]
+[895:
+
+Fri Oct 23 09:31:34 2026
+Starting up a new emacs, here,
+because the last one got buried
+in gc after I blew out its size
+with GBs of log files in memory.
+
+Also committed WIP as a
+precaution. 
+
+:895]
