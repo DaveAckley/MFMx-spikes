@@ -12,11 +12,11 @@ namespace MFM {
     u32 getCarCount() const { return CAR_COUNT; }
 
     CAR_TYPE& getTC(u32 idx) {
-      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
+      HBASSERT_LT(idx,CAR_COUNT);
       return mTCs[idx];
     }
     CAR_TYPE const & getTC(u32 idx) const {
-      MFM_API_ASSERT(validIndex(idx),ILLEGAL_ARGUMENT);
+      HBASSERT_LT(idx,CAR_COUNT);
       return mTCs[idx];
     }
 

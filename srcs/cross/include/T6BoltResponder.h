@@ -12,10 +12,18 @@ namespace MFM {
     u8 mLastSeqnoArrived;
     u8 mLastSeqnoAcked[HART_COUNT];
     u8 mLastSeqnoReturned;
+    PhaserBolt::Cmd mNewestCmdReceived;
+    PhaserBolt::Cmd mNewestCmdReturned;
 
     void init() {
       memset_s(this,'\0',sizeof(*this));
+      mNewestCmdReceived = PhaserBolt::Cmd::NO_CMD;
+      mNewestCmdReturned = PhaserBolt::Cmd::NO_CMD;
     }
+
+    PhaserBolt::Cmd getInProgressCmdIfAny() ; //< mNewestCmdReceived if arr!=ret else no_cmd
+
+    PhaserBolt::Cmd getPrevailingCmdIfAny() ; //< mNewestCmdReturned if arr==ret else no_cmd
 
     bool isBoltAnyOfThese(PhaserBolt::CmdMask flags) ;
 
@@ -27,6 +35,8 @@ namespace MFM {
 
     void boltResponderAllHarts() ;
 
+    bool weHaveAcknowledgedCurrentBolt() ;
+    
     // SERVICE ROUTINES
     bool hartAcknowledgeBolt() ;
 

@@ -66,7 +66,7 @@ namespace MFM {
         break;
       }
 
-      if (isIHUBXX) EACH(1'000,LOGPTAG(compIHUB,carp));
+      if (isIHUBXX) EACH(1'000'000,LOGPTAG(compIHUB,this->report(BS,buf)));
       
       //HBPTAG(EPgonect,mGoneCount);
       //      HBPTAG(EPoldidx,mOldestGone);

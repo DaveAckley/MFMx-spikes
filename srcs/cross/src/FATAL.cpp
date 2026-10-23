@@ -5,12 +5,18 @@
 #include "FastLocal.h"
 #include "CrossUtils.h"
 #include "HostBlock.h"
+#include "ExtraConstants.h"
 
 namespace MFM {
   extern HostBlock theHostBlock;
+
+  /// CONFIRM ExtraConstants.h decls
+  static_assert(spOffHB==offsetof(HostBlock, mAtFailRegSP),"Bad SP offset");
+  static_assert(raOffHB==offsetof(HostBlock, mAtFailRegRA),"Bad RA offset");
+  static_assert(fpOffHB==offsetof(HostBlock, mAtFailRegFP),"Bad FP offset");
 }
 
-void DieHereNow(signed code, unsigned fileId, unsigned line) {
+void PrepareToDie(signed code, unsigned fileId, unsigned line) {
   if (fileId != 0u) {
     using namespace MFM;
     HostBlock & hb = theHostBlock;
@@ -21,6 +27,11 @@ void DieHereNow(signed code, unsigned fileId, unsigned line) {
     hb.mAtFailRegRA = getRegisterRA();
     hb.mAtFailRegFP = getRegisterFP();
   }
-  volatile MFM::u8 flag[] = "IDIEHERENOW.";
-  t6hang(code);
+  t6hangprep(code);
 }
+
+/*
+extern "C" void bhang(void) {
+  __asm__ __volatile__("1: j 1b" ::: "memory");
+}
+*/

@@ -40,7 +40,7 @@ namespace MFM {
     LOGPTAG(DL2Dinit,mLength);
   }
 
-  SCStatus GridManager::leadFollowOrGetOutOfWay() const {
+  SCStatus GridManager::leadFollowOrGetOutOfTheWay() const {
     L1GridManagerControl & lgmc = theL1GridManagerControl;
     if (lgmc.mSuperCellLeader > 3) return SCStatus::NO_LEADER;
     if (lgmc.mSuperCellLeader == mSuperCellLeaderCode) return SCStatus::WE_LEAD;
@@ -85,7 +85,7 @@ namespace MFM {
       });
 
     U16CRange ewbounds;
-    SCStatus s = leadFollowOrGetOutOfWay();
+    SCStatus s = leadFollowOrGetOutOfTheWay();
     if (s == SCStatus::NO_LEADER) {
       // there is currently no SCL: avoid the caches
       ewbounds.start.x = T6Grid::SELF_ORIGIN.x+4; //inclusive

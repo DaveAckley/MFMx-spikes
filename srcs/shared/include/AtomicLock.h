@@ -4,6 +4,7 @@
 
 #ifndef BUILD_HOST  // then build for T6/RISCV
 #include "FastLocal.h"          // for fAll
+#include "Debug.h"
 
 namespace MFM {
   
@@ -73,14 +74,14 @@ namespace MFM {
     void lock()  {
       // don't try for the lock if already have it doh
       u8 hartplusone = fAll.mHartNum + 1;  // +1 so 0's not a hart
-      MFM_API_ASSERT(mHartPlusOne != hartplusone,LOCK_FAILURE);
+      HBASSERT_NE(mHartPlusOne,hartplusone); // LOCK_FAILURE
       acquireLockASM(&mLock);
       mHartPlusOne = hartplusone;
     }
     void unlock() {
       // don't release a lock that isn't ours doh
       u8 hartplusone = fAll.mHartNum + 1; 
-      MFM_API_ASSERT(mHartPlusOne == hartplusone,WRONG_HART);
+      HBASSERT_EQ(mHartPlusOne,hartplusone); // WRONG_HART
       mHartPlusOne = 0;
       releaseLockASM(&mLock);
     }

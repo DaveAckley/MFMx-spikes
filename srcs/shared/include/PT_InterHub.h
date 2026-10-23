@@ -97,6 +97,10 @@ namespace MFM {
       return 0u + (u32) (((u8*) &mAtoms[mDataUsed]) - (u8*) this);
     }
 
+    bool isEmpty() const {
+      return mDataUsed == 0;
+    }
+
     bool isFull() const {
       return mDataUsed >= MAX_ATOMS;
     }

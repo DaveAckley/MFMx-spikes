@@ -171,11 +171,11 @@ runmain:
 done:   j done                  # "HALT"
         .cfi_endproc
 	
-	.global t6hang
-        .type   t6hang, @function
+	.global t6hangprep
+        .type   t6hangprep, @function
 
 	.cfi_startproc
-t6hang:
+t6hangprep:
         la t0, __fast_start     # addr of stashed hartnum
 	lbu t0,0(t0)             # get hartnum
 	la t2, __hostblock_start+4  # get host block, skipping HBMAGIC
@@ -183,12 +183,10 @@ t6hang:
         sw a0,0(t1)             # store arg
 	li t1,1                 # get 1
 	sll t1,t1,t0            # get 1<<hartnum
-	lbu t0,23(t2)           # get mFails from hostblock+27
-	or t0,t0,t1             # include 1<<hartnum in mFails
-        sb t0,23(t2)            # (we explicitly ignore races here)
-1:      j 1b                    # "HANG" 
-	nop                     # "BANG" speculation can hit here
-        nop                     # "CLANG" or even here?
+	lbu a0,23(t2)           # get mFails from hostblock+27
+	or a0,a0,t1             # include 1<<hartnum in mFails
+        sb a0,23(t2)            # (we explicitly ignore races here)
+        ret                     # end of t6hang preparations
         .cfi_endproc
 	
 	.global estimateStackUsage

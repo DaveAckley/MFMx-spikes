@@ -4,6 +4,11 @@
 
 namespace MFM {
 
+  //// HOSTBLOCK OFFSETS WITHOUT INCLUDING HostBlock.h
+  constexpr u32 spOffHB = 72;  //offsetof(HostBlock, mAtFailRegSP); 
+  constexpr u32 raOffHB = 76; //offsetof(HostBlock, mAtFailRegRA); 
+  constexpr u32 fpOffHB = 80; //offsetof(HostBlock, mAtFailRegFP); 
+
   //// NoC DEFS
   static const u32 NIU_BASE_NOC0 =    0xFFB2'0000;
   static const u32 NIU_BASE_NOC1 =    0xFFB3'0000;

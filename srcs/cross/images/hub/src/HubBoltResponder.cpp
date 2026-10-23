@@ -2,101 +2,11 @@
 #include "EP_InterHub.h"  //< for InterHubL1Control
 #include "HubLiveB.h"     //< for fB
 #include "NgbCacheMgr.h"  //< for sites-and-caches constants
+#include "CacheLoader.h"  //< for theL1CacheLoaders
 
 namespace MFM {
   /// HUB BOLT RESPONDERS
 
-  struct CacheLoader {
-
-    U8CRange::iterator mLocalItr; //< in local coords
-    U8CRange::iterator mRemoteItr; //< in their local coords
-    Dir8 mLeaderDir8; //< where leader is from us (for routing?)
-    u8 mCacheLoaderIndex;
-
-    void init() {
-      memset_s(this, '\0', sizeof(*this));
-    }
-
-    bool tryLoad(GridManager & gm) { //< return true iff done
-      U8CRange::iterator & itr = mLocalItr;
-      if (itr.atEnd()) return true;
-      Dir8 d8 = mLeaderDir8;
-      LOGPTAG(ldrD8,dir8ToByteString(d8));
-
-      MFM_API_ASSERT_ON_HART(HARTNUM_B);
-
-      using IHubData = InterHubEP::Super::L1Data;
-      IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[d8];
-      IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
-      IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
-    
-      if (false) {
-        LOGPX(crbi.isEmpty());
-        LOGPX(crbo.isEmpty());
-        LOGPX(crbi.isFull());
-        LOGPX(crbo.isFull());
-      }
-
-      InterHubPrivateControl & ihpc = fB.mPIHControl;
-      MFM_API_ASSERT_NONNULL(ihpc.mIHL1Control);
-      //LOGPX(ihpc.mIHL1Control);  // same
-      //LOGPX(&theInterHubL1Control); // same?
-      //LOGPX(&theInterHubL1Data); 
-
-      InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
-      if (!ihl1.mCurrentInterHub) {
-        LOGNOTE(LDC$WAIT);
-        return false;
-      }
-      InterHubBlock & ihb = *ihl1.mCurrentInterHub;
-      u8 carindex = ihl1.mCurrentCarIndex;
-
-      LOGPTAG(SHI2,itr.range); 
-
-      T6Grid & t6grid = gm.getT6GridOrDie();
-      InterHubPayload & pay = ihb.payload();
-      IHPAtoms & patoms = pay.asAtomsOrDie();
-      patoms.init();
-      while (!itr.atEnd()) {
-        if (patoms.isFull()) break;
-        U8C ac = *itr++;
-        P4Atom a = t6grid.getAtom(ac);
-        patoms.storeAtomOrDie(a);
-      }
-      if (patoms.isFull() || itr.atEnd()) {
-        LOGPTAG(SHI@,itr.at);
-        u32 pktsize = patoms.getCurrentPayloadSize();
-        ihb.closeTC(pktsize);
-        crbo.add(carindex);         // hand control back to comm
-        ihl1.dropCar();             // flush the current car
-        LOGPTAG(SHIPT,pktsize);
-      }
-      if (itr.atEnd()) LOGPTAG(SHIPT!,itr.at);
-
-      return false;
-    }
-
-  };
-
-  struct CacheLoaders {
-    static constexpr u32 CACHELOADER_COUNT = 4;
-    CacheLoader mCacheLoaders[CACHELOADER_COUNT];
-    u8 mCacheLoadersInUse;
-    void init() {
-      memset_s(this, '\0', sizeof(*this));
-    }
-    CacheLoader & allocate() {
-      CacheLoader & ret = get(mCacheLoadersInUse);
-      ret.mCacheLoaderIndex = mCacheLoadersInUse++;
-      return ret;
-    }
-    CacheLoader & get(u32 idx) {
-      MFM_API_ASSERT(idx < CacheLoaders::CACHELOADER_COUNT, ILLEGAL_ARGUMENT);
-      return mCacheLoaders[idx];
-    }
-  };
-
-  CacheLoaders theL1CacheLoaders;
 
   static bool bRespondToCMD_NEW_LEADER(s32 arg) {
     LOGPTAG(BOLTR_NEWLEADER,arg);
@@ -196,23 +106,6 @@ namespace MFM {
     return true;                // response complete
   }
 
-  static bool bRespondToCMD_LOAD_CACHE() {
-    GridManager & gm = fB.mGridManager;
-    SCStatus stat = gm.leadFollowOrGetOutOfWay();
-    LOGPTAG(BOLTR_LOAD_CACHE,getSCStatusName(stat));
-    if (stat == SCStatus::WE_LEAD || stat == SCStatus::NO_LEADER)
-      return true;              // followers deal with loading cache
-
-    bool allDone = true;
-    for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
-      CacheLoader & cl = theL1CacheLoaders.get(i);
-      if (!cl.tryLoad(gm)) allDone = false;
-    }
-    LOGPTAG(SHID,allDone);
-    return allDone;             // response complete when shipping done
-  }
-
-
   bool imageDoneRespondingToBoltB(PhaserBolt & pb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     if (pb.getCmd() == PhaserBolt::CMD_NEW_LEADER) {
@@ -223,7 +116,8 @@ namespace MFM {
     }
 
     if (pb.getCmd() == PhaserBolt::CMD_LOAD_CACHE) {
-      return bRespondToCMD_LOAD_CACHE();
+      //// DELEGATE HANDLING+ACK TO IHPC::updateCars
+      return theT6BoltResponder.weHaveAcknowledgedCurrentBolt();
     }
 
     return true; // done either way.

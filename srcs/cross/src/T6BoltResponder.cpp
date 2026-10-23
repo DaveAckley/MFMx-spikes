@@ -11,6 +11,20 @@ namespace MFM {
   // L1 DATA
   T6BoltResponder theT6BoltResponder;
 
+  PhaserBolt::Cmd T6BoltResponder::getInProgressCmdIfAny() {
+    AtomicScopeLock guard(mLock);
+    if (mLastSeqnoArrived == mLastSeqnoReturned)
+      return PhaserBolt::Cmd::NO_CMD; // nothing in progress
+    return mNewestCmdReceived; // or here it is
+  }
+
+  PhaserBolt::Cmd T6BoltResponder::getPrevailingCmdIfAny() {
+    AtomicScopeLock guard(mLock);
+    if (mLastSeqnoArrived != mLastSeqnoReturned)
+      return PhaserBolt::Cmd::NO_CMD; // nothing prevailing
+    return mNewestCmdReturned; // or here it is
+  }
+
   void T6BoltResponder::boltDetectorNC() {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     EACH(10'000'000,LOGPTAG(BOLTR_DET,__EACHNUM__));
@@ -28,6 +42,7 @@ namespace MFM {
     if (pseq != mLastSeqnoArrived) { // new arrival
       LOGPTAG(BOLTR_NEW,pseq);
       mLastSeqnoArrived = pseq;
+      mNewestCmdReceived = pay.getCmd();
       return;
     }
 
@@ -42,9 +57,11 @@ namespace MFM {
 
     // ready to go
     LOGPTAG(BOLTR_READY,formatPhaserBolt(pay));
+    PhaserBolt::Cmd pcmd = pay.getCmd();
 
     _returnBoltToHostNC();      // the bird is away
-    mLastSeqnoReturned = pseq;  // admit we're done
+    mLastSeqnoReturned = pseq;  // admit we did it
+    mNewestCmdReturned = pcmd;  // admit what we did
     _handleBlockingNC();        // but hang here (holding the lock!) if supposed to
   }
 
@@ -74,7 +91,6 @@ namespace MFM {
     EACH(1'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
 
     // RACY RACY NO LOCK
-    // if (mLastSeqnoReturned == mLastSeqnoArrived) return; // nothing to respond to
     if (mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived) return; // we have already acked this
 
     PhaserBlock & block = T6Phaser::getPhaserBlock();
@@ -105,6 +121,11 @@ namespace MFM {
       LOGPTAG(BOLTR_AH,(u32) mLastSeqnoAcked[fAll.mHartNum]);
   }
 
+  bool T6BoltResponder::weHaveAcknowledgedCurrentBolt() {
+    AtomicScopeLock guard(mLock);
+    return mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived;
+  }
+  
   bool T6BoltResponder::hartAcknowledgeBolt() {
     AtomicScopeLock guard(mLock);
 
@@ -137,8 +158,8 @@ namespace MFM {
     u64 destBlockAddr = hostbaseaddr + 64u * hchunk; // (3)
     u32 ourtlbi = hb.mTLBI;
     //LOGXTAG(RPHASElast,&lastPHASER[0]);
-    LOGPTAG64(RPHASEhbAddr,hostbaseaddr);
-    LOGPTAG64(RPHASEmDBAdr,destBlockAddr);
+    //LOGPTAG64(RPHASEhbAddr,hostbaseaddr);
+    //LOGPTAG64(RPHASEmDBAdr,destBlockAddr);
     LOGPTAG(RPHASEtlbi,ourtlbi);
 
     PhaserBlock & pb = T6Phaser::getPhaserBlock();

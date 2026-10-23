@@ -33,7 +33,8 @@ namespace MFM {
       ALL_PHASER_COMMANDS()
 #undef XX
 
-      CMD_COUNT
+      CMD_COUNT,
+      NO_CMD = U8_MAX
     };
     static_assert(CMD_COUNT <= MAX_PHASER_COMMANDS, "ALL_PHASER_COMMANDS too big");
 

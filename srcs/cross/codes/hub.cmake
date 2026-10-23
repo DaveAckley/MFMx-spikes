@@ -5,12 +5,13 @@ add_executable(hub)
 target_sources(hub PRIVATE
   allimg/src/HartTasks.cpp
   allimg/src/ImageConfig.cpp
+  images/hub/src/CacheLoader.cpp
   images/hub/src/EP_ACacheBlock.cpp
   images/hub/src/EP_InterHub.cpp
   images/hub/src/EwpBlock.cpp
-  images/hub/src/HubCacheMgr.cpp
-  images/hub/src/HubBoltResponder.cpp
   images/hub/src/Grid.cpp
+  images/hub/src/HubBoltResponder.cpp
+  images/hub/src/HubCacheMgr.cpp
   images/hub/src/InterHub.cpp
   images/hub/src/LiveB.cpp
   images/hub/src/LiveT1.cpp

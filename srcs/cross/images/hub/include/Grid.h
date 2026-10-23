@@ -291,7 +291,7 @@ namespace MFM {
       return S16C(sp);
     }
 
-    SCStatus leadFollowOrGetOutOfWay() const ;
+    SCStatus leadFollowOrGetOutOfTheWay() const ;
     
     bool seekRandomNonEmptySite(U16C & found) ;
 

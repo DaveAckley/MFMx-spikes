@@ -38,16 +38,13 @@ namespace MFM {
 
     // Keep l1gridmanager ptr here to drive home the linkage.
     L1GridManagerControl * mL1GridManagerControlPtr;
-    L1GridManagerControl & getL1GridManagerControl() {
-      MFM_API_ASSERT_NONNULL(mL1GridManagerControlPtr);
-      return *mL1GridManagerControlPtr;
-    }
+    L1GridManagerControl & getL1GridManagerControl() ;
 
+#if 0    
     struct L1Hub1 {
       InterHubBlock * mCurrentInterHub;
       u8 mCurrentCarIndex;        // valid whenever mCurrentInterHub != 0
       Dir8 mL1HubDir8;
-      //IHHState mL1HNextIHSt; // controlled for IHUB_BLOCK by.. whoever?
 
       void init(u8 idx) {
         memset_s(this,'\0',sizeof(*this));
@@ -63,6 +60,7 @@ namespace MFM {
       MFM_API_ASSERT(idx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
       return mL1HubControls[idx];
     }
+#endif
 
     void init() ;
     
@@ -86,10 +84,36 @@ namespace MFM {
 
     void init(InterHubL1Control & acbl1) ;
     void stepB(HostBlock & hb) ;
-    void updateCars(u32 ngbidx,HostBlock & hb,bool inside) ;
+    void updateCarsB(u32 ngbidx,HostBlock & hb,bool inside) ;
     //int updateAllBlocks(HostBlock & hb) ;
 
   private:
+    /// PHASE PROCESSING
+    void _ucLeaderLOAD_CACHE_B(u32 ngbidx,
+                               GridManager & gm,
+                               TheL1Data::CarIdxRB & crbi,
+                               TheL1Data::CarIdxRB & crbo) ;
+
+    void _ucFollowerLOAD_CACHE_B(u32 ngbidx,
+                                 GridManager & gm,
+                                 TheL1Data::CarIdxRB & crbi,
+                                 TheL1Data::CarIdxRB & crbo) ;
+
+    void _ucFollowerCARRY_ON_B(u32 ngbidx,
+                               GridManager & gm,
+                               TheL1Data::CarIdxRB & crbi,
+                               TheL1Data::CarIdxRB & crbo) ;
+
+    void _ucLeaderSAVE_CACHE_B(u32 ngbidx,
+                               GridManager & gm,
+                               TheL1Data::CarIdxRB & crbi,
+                               TheL1Data::CarIdxRB & crbo) ;
+
+    void _ucFollowerSAVE_CACHE_B(u32 ngbidx,
+                                 GridManager & gm,
+                                 TheL1Data::CarIdxRB & crbi,
+                                 TheL1Data::CarIdxRB & crbo) ;
+    
     /// State machine helper methods
     InterHubL1Control & getL1() {
       MFM_API_ASSERT_NONNULL(mIHL1Control);
