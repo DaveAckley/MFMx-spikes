@@ -1,4 +1,4 @@
-{896}  -*-  mode: text; fill-column: 32;  -*-
+{985}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -16098,7 +16098,7 @@ flow of steps within a phase and
 across the images and harts..
 Think about that chumley: You
 need it and you really ain't got
-it. 
+it.
 
 :894]
 
@@ -16115,6 +16115,1693 @@ in gc after I blew out its size
 with GBs of log files in memory.
 
 Also committed WIP as a
-precaution. 
+precaution.
 
 :895]
+[896:
+
+Fri Oct 23 09:42:39 2026 So come
+on:
+
+ - Review EP_InterHub
+
+ - Review phaser bolt order
+
+[897: Fri Oct 23 13:06:22 2026
+DONE :897] - Thin logging to emphasize
+   phaser and IH stuff
+
+:896]
+[898:
+
+Fri Oct 23 13:06:27 2026 So,
+could I just seed one or two
+hubs instead of all of them? to
+thin the din even more?[899:
+
+Fri Oct 23 13:21:07 2026 OK,
+that's helping.. we're starting
+to see denser phase-related
+stuff in the logs.
+
+:899]
+
+:898]
+[900:
+
+Fri Oct 23 16:36:21 2026 OK, so,
+I'm tracing through
+HubBoltResponder.cpp's
+bRespondToCMD_NEW_LEADER and not
+really following the logic. And
+that's where the fucking
+supercycle begins (for our
+purposes at least), so
+understanding it would be a good
+idea.
+
+TODO
+
+ - Review
+   bRespondToCMD_NEW_LEADER more
+   deeply
+
+ - Prove your understanding by
+   explaining how we get this:
+
+    LOGPTAG(#CLs,theL1CacheLoaders.mCacheLoadersInUse);
+
+   to report this:
+
+   {26:100 789075 0 6,7 hb #CLs:0}
+
+   after we saw this:
+
+   {26:12 789075 0 6,7 hb BOLTR_NEWLEADER:0}
+
+:900]
+[901:
+
+Sat Oct 24 00:00:49 2026 OK.
+bRespondToCMD_NEW_LEADER in
+depth; here we go.
+
+    {81:45 789066 0 6,7 hn BOLTR_NEW:77}
+    {81:46 789066 0 6,7 hn BOLTR_CMD:NEW_LEADER}
+    {136:674 1 5 17,246 ht ->} LOGBLK13798
+    ---799.177---
+    {26:12 789075 0 6,7 hb BOLTR_NEWLEADER:0}
+
+OK, we think the answer to 'why
+#CLs:0' is going to be: Because
+WE are the leader so there
+obviously can be no OTHER
+leaders in the Dir8 around us.
+
+And then a revised question will
+be: Is that not what we want?
+
+    {26:34 789075 0 6,7 hb ourCT6C:(5,5)}
+    {26:35 789075 0 6,7 hb ourREGC:(2,2)}
+    {26:66 789075 0 6,7 hb d8LDR:NT8}
+ ..clipping b/c we think we do
+ understand this passage..
+    {26:100 789075 0 6,7 hb #CLs:0}
+    {81:60 789075 0 6,7 hn BOLTRDONE:NEW_LEADER 0!}
+    {81:166 789075 0 6,7 hn BOLTBACK:77}
+    {23:240 789075 0 6,7 hb _ducMySTATUS:WE_LEAD}
+    {23:241 789075 0 6,7 hb _ducMyCmd:NEW_LEADER}
+
+
+:901]
+[902:
+
+Sat Oct 24 01:04:46 2026 So
+okay. I think we're back to
+wanting to implement phaser bolt
+handlers as updateCars
+dispatches (again).
+
+We have seen all the steps of
+this comment:
+
+  void QuietBox::doASuperCycle(u32 nextLeader) { // runs on IHHThread
+    /* A single SuperCycle, we declare, consists of
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) CARRY_ON
+      (3) SUSPEND EVENTS
+      (4) SAVE CACHE
+
+     */
+
+arriving at hubs - both as
+leader and as follower.
+
+So now we would like to see LOAD
+CACHE actually happening:
+
+ - Follower fills and sends
+   atoms
+
+ - Leader receives atoms and
+   writes them to caches.
+
+ - We'd also like to confirm
+   that host-side is moving on
+   the LOAD CACHE because
+   everybody's responded, not
+   because of time out.
+
+[903: Sat Oct 24 10:49:27 2026
+DONE :903] - Let's have an ID for every
+   phase of every supercycle, so
+   we can match across them
+   across locations.
+
+[904: DONE  :904] - Maybe add another arg -
+   supercycle# - to each of
+   those bolts?
+
+:902]
+[905:
+
+Sat Oct 24 10:49:39 2026 OK, so
+we've moved the flag again which
+means it's really really really
+time to drill baby drill drill.
+
+[906:
+
+Sat Oct 24 10:50:23 2026 So,
+where is the code for 'Follower
+fills and sends atoms'? It
+should be in
+follower_load_cache, right,
+whatever that's called?
+[907:
+
+Sat Oct 24 10:51:31 2026
+InterHubPrivateControl::_ucFollowerLOAD_CACHE_B
+
+Right now we're doing
+
+        crbi.remove(carindex);
+        LOGPTAG(_ducFLCBcix,carindex);
+
+        CacheLoaders & cls = theL1CacheLoaders;
+        CacheLoader * clp = cls.getIfAny((Dir8) ngbidx);
+        MFM_API_ASSERT_NONNULL(clp);
+
+        LOGPTAG(_ducFLCB,clp);
+
+so what do logs look like about
+that? [908:
+
+Sat Oct 24 10:53:31 2026 Appears
+not to get called in the last
+log. Running a longer one.[909:
+
+Sat Oct 24 11:24:39 2026 Still
+nothing. Might be we got to move
+these microwave ovens off the
+leader before the followers can
+move the color tvs?
+[910:
+
+Sat Oct 24 11:44:30 2026 I guess
+I need to be more aware of HN's
+handling of IH cars here. Are we
+sure that HN never sits on any
+IH cars itself? That it always
+pushes them onto a COMM2COMP
+crbi? Even it the very
+beginning?
+
+ - Review HN IH initialization
+
+ - Prove your understanding by
+   explaining where all the IH
+   cars end up at the moment
+   HOLD_AT_BIRTH is released (or
+   whatever the appropriate
+   epoch; is HOLD_AT_BIRTH too
+   early?)
+
+
+:910]
+:909]
+
+:908]
+
+
+:907]
+:906]
+
+:905]
+[911:
+
+Sat Oct 24 11:47:57 2026
+managerInterHubNC in
+InterHub.cpp is the guts of HN's
+IH work.[912:
+
+Sat Oct 24 14:15:49 2026 And
+I've now 'stepped through' its
+HTOC_OPEN case, and that's
+setting up srcEPA and destEPA
+with diago diversions and looks
+plausible as far as what I saw,
+but didn't seem to be doing
+anything with IH cars..[913:
+
+Sat Oct 24 14:20:38 2026
+Actually wait: The HTOC_INIT
+code there does deal with IH
+cars.. tracing..[914:
+
+Sat Oct 24 14:26:57 2026 Running
+again for denser HTOC_INIT
+logging, but it looks like all
+the IH cars are initted as type
+IHPT_EMPTY and tcstate
+OUTBOUND_DEPARTED. Which seems
+plausible enough, again, as far
+as it goes.[915:
+
+Sat Oct 24 14:58:22 2026 So,
+yeah, it seems that the car
+inits happening in HTOC_INIT are
+vaguely plausible, and we
+already looked at HTOC_OPEN.
+Pushing on to HTOC_LIVE to try
+to find where the IH cars should
+get stuffed up somebody's
+crbi.[916:
+
+Sat Oct 24 15:01:35 2026 Looks
+like HTOC_LIVE gets to
+myIHEPNC.updateOps();
+
+:916]
+
+:915]
+
+:914]
+
+:913]
+
+:912]
+
+:911]
+[917:
+
+Sat Oct 24 16:27:32 2026 So
+here's maybe a thing:
+
+EP<>::updateOps does:
+
+    /// TRY RECEIVING ARRIVALS
+    while (mGoneCount > 0) {    // if we have gone cars
+  ..
+
+and then does
+
+    /// TRY SHIPPING DEPARTURES
+    while (mHereCount > 0u) { // if we have cars here
+
+. Now in the case we're looking
+at,
+
+    {157:42 14117 0 2,3 hn EPuoHUBXX:[IHEPo:IHUB:5] c4 h4o0 g0o0 S0 R4 fs3}
+
+that R4 means "we've received
+four IH cars", and the h4 means
+"there's four cars here".
+
+:917]
+[918:
+
+Sun Oct 25 09:57:30 2026 We have
+to understand our moving pieces
+and gates for the supercycle a
+lot more clearly than we do now,
+and we need to do that TODAY if
+we're going to have any chance
+to get this shit running.
+
+I want
+
+ - A 'hart diagram' showing the
+   five harts as columns, with
+   an 'build space' near the top
+   representing its init seq
+   (very abstractly at first),
+   then a large 'living space'
+   underneath it representing
+   the cycle that each hart goes
+   through, with the cycle
+   defined by when the code
+   repeats rather than by (1)
+   any particular duration or
+   (2) anything as big as a
+   supercycle.
+
+ - Actually I want a template
+   for such as diagram, so I can
+   make a bunch of them, for
+   (1) different images, (2)
+   different phases, or
+   whatever.
+
+Perhaps use a spreadsheet sheet
+to per diagram? [919:
+
+Sun Oct 25 10:36:58 2026 Well,
+the AI is trying to convince me
+to do a python shim over
+graphviz for such diagrams..
+[920:
+
+Mon Oct 26 02:32:55 2026 Aaand,
+I did that. Now I have
+'diageno', a bespoke diagram
+generator that seems vastly too
+complicated considering the
+tabular simplicity of the
+diagrams I'm making. Oh
+well.[921:
+
+Mon Oct 26 14:51:39 2026 OK
+(finally) back to composing
+here.[922:
+
+Tue Oct 27 10:07:45 2026 OK it's
+T2sday countdown and we are in
+big trouble, big big trouble in
+MFMx-land, because we
+
+(1) have once again lost track
+of where we are, and
+
+(2) don't know how to debug
+where we are.
+
+COME ON MAN
+MAKE A FUCKING PLAN
+
+MAKE A FUCKING PLAN
+AND FUCK IT BUCKLE DOWN
+
+JUST SUCK IT UP AND DO IT
+YOU LAZY FUCKING SHIT
+
+MAKE A FUCKING PLAN
+AND FUCK IT BUCKLE DOWN
+
+", I said, in an encouraging,
+super-supportive, gentle, and
+massively good-spirited kind of
+way.
+
+:922]
+
+:921]
+
+:920]
+:919]
+
+:918]
+[923:
+
+Tue Oct 27 10:14:26 2026 TODO
+
+ - Guess where we are
+
+ - Review code and log status to
+   check that guess
+
+ - Report results
+
+ - Make more steps.
+
+:923]
+[924:
+
+Tue Oct 27 10:15:10 2026 I guess
+that we are trying to figure out
+where all the different bits and
+pieces of a phaser-based
+supercycle are supposed to be
+located in the code.
+
+I guess that we are quietly
+freaking out at the apparent
+multitude of such decisions that
+still appear to be ahead of us
+to get to plausible supercyle
+processing.
+
+I guess part of the fear is
+because we don't have a master
+list of such places.
+
+I guess that our current logging
+doesn't help us (enough) with
+seeing facts useful in that
+endeavor.
+
+:924]
+[925:
+
+Tue Oct 27 10:46:37 2026 What
+would a master list of such
+places look like?
+
+Perhaps:
+
+For each supercycle phase,
+ for each image,
+  for each hart,
+   note any actions we 'naively'
+   think that hart might need to
+   do
+
+then go back and consolidate
+around 'tasks' and 'gates',
+perhaps, or something to that
+effect.
+
+:925]
+[926:
+
+Tue Oct 27 11:06:17 2026 We're
+currently saying:
+
+      void QuietBox::doASuperCycle(u32 nextLeader) { // runs on IHHThread
+        /* A single SuperCycle, we declare, consists of
+
+          (0) NEW LEADER: X
+          (1) LOAD CACHE
+          (2) CARRY_ON
+          (3) SUSPEND EVENTS
+          (4) SAVE CACHE
+
+         */
+
+do we want to stick by
+that?[927:
+
+Tue Oct 27 11:08:32 2026 I
+think:
+
+ - CARRY_ON should become
+   RUN_EVENTS
+
+ - SUSPEND_EVENTS should always
+   mean 'suspend' and should not
+   take a (second) arg.
+
+Let's do that right now.[928:
+
+Tue Oct 27 11:45:26 2026 So I'm
+rethinking RUN_EVENTS and
+SUSPEND_EVENTS. I mean consider:
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) RUN EVENTS
+      (3) SUSPEND EVENTS
+      (4) SAVE CACHE
+
+do events run during (0), (1),
+or (4)? No, they don't. So that
+really more supports either the
+CARRY_ON view, or says we don't
+need SUSPEND_EVENTS, because
+everything except CARRY_ON /
+RUN_EVENTS implies that.
+
+So it'd be like
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) RUN EVENTS
+      (3) SAVE CACHE
+
+where leaving RUN EVENTS would
+require draining all active
+events before the bolt gets
+acknowledged. [929:
+
+Tue Oct 27 12:26:55 2026 That
+SEEMS simpler and clearer.. who
+knows, though, as we drill into
+it.
+
+[930:
+
+Tue Oct 27 12:46:28 2026 So.
+
+For each supercycle phase,
+ for each image,
+  for each hart,
+   for each step in {enter,occupy,exit}
+
+
+enter.HB.HUB.NEW_LEADER
+   update grid leader
+occupy.HB.HUB.NEW_LEADER
+
+
+enter.HN.HUB.NEW_LEADER
+   boltdetectorNC
+
+exit.HN.HUB.NEW_LEADER
+
+
+---
+boltdetectorNC:
+ accept new bolt
+ determine if phase change
+  if so, initiate step EXIT old phase
+  then wait for consensus on that
+  then initiate step ENTER new phase
+  then wait for consensus on that
+  then initiate step OCCUPY new phase
+ in any case, then reply to bolt
+
+[931:
+
+Wed Oct 28 01:38:39 2026 And for
+gates we want to easily write a
+trigger for STEP-PHASE-HART that
+does whatever and joins that
+consensus when it's done.
+
+and some examples of using that
+would be
+
+in processEWPCarsNC:
+
+     if (@exit:RUN_EVENTS:HN) {
+       if (any EWPs missing) @wait;
+     }
+
+and
+
+in selectEWPCentersHB:
+
+     if (@exit:RUN_EVENTS:HB) {
+       if (all EWPs here) @agree;
+     }
+
+[932:
+
+Wed Oct 28 02:07:28 2026 So I
+think occupy is probably wrong.
+We want
+
+(1) only exit and enter as real
+    'edges' and
+
+(2) gates are obligated to say
+    @wait if they want to delay
+    the edge, and
+
+(3) if gate happens not to be
+    executed while the edge is
+    pending, it will be accepted
+    by default? urgh.
+
+So do we positive assertion
+only? Until a gate say @ready,
+@wait is implied? So the code
+flows during an edge will have
+to find a gate that will pass it
+or the edge propagation stalls
+out.
+
+But the point remains - there is
+no 'occupy' edge, because occupy
+is a level.
+
+There could be like:
+
+   if (@phase:RUN_EVENTS:HB)
+
+which means if we're in
+RUN_EVENTS and no enter or exit
+edge is pending, then TRUE.
+
+Which we could call occupy if we
+wanted:
+
+   if(@occupy:RUN_EVENTS:HB)
+
+since this whole notation is
+fantasy anyway.
+[933:
+
+Wed Oct 28 02:38:17 2026 it
+would pass to static functions,
+I guess:
+
+  if (PHASER::exiting(RUN_EVENTS,HARTNUM_HN)) {
+    if (all EWPs here) PHASER::ackExit(HARTNUM_HN);
+    else PHASER::nakExit(HARTNUM_HN); //double-ended?
+  }
+
+  if (PHASER::exiting(RUN_EVENTS,HARTNUM_HB) {
+
+[934:
+
+Wed Oct 28 02:42:56 2026 If we
+required exactly one or ack or
+nak from everybody, we could
+fail if anybody was taking too
+long, which could maybe help the
+code development.
+
+:934]
+
+:933]
+
+:932]
+
+:931]
+
+:930]
+
+:929]
+
+
+:928]
+
+:927]
+
+
+:926]
+[935:
+
+Wed Oct 28 08:49:37 2026 OK last
+fucking hurrah here. TODO
+
+ - Confirm using T6BoltResponder
+   as the basis of the edges /
+   levels / gates method
+
+ - Define the edge
+   representation in T6BR.
+
+ - Rename to PhaseStepper? It's
+   more than just bolt response.
+
+ - Make the global be theT6BR?
+   or thePS? Something to be
+   tight.
+
+ - implement enum T6BR::Step :
+   u8 { ENTERING,..
+
+Could we have prev vs current
+phase vs next and have the edges
+be implicit in their
+relationships?
+
+prev == next == NO_CMD -> occupy current
+prev ==
+
+  prev    current     next    state
+
+ no_cmd     ANY1     no_cmd   occupy(ANY1)
+ ANY1       ANY1     ANY2     exiting(ANY1)
+ ANY1       ANY2     ANY2     entering(ANY2)
+
+I guess current and next/pending
+is enough.
+
+current   pending   state
+  no_cmd   ANY1     uninitted
+  ANY1     no_cmd   occupy(ANY1)
+  ANY1     ANY2     exiting(ANY1)
+  ANY2     ANY2     entering(ANY2)
+
+mCurrentCmd
+mPendingCmd
+mCmdAcks     hartFlags? |1<<HARTNUM?
+
+[936:
+
+Wed Oct 28 09:08:04 2026 So, how
+does this interact with seqno
+arr/ack/returned? Does seqno
+ack[HART_COUNT] get replaced by
+this?
+
+  struct T6PhaseStepper {
+    using PBCmd = PhaserBolt::Cmd;
+    AtomicLock mLock;
+    u8 mLastSeqnoArrived;
+    u8 mLastSeqnoAcked[HART_COUNT];
+    u8 mLastSeqnoReturned;
+    PBCmd mCurrentCmd;
+    PBCmd mPendingCmd;
+    u8 mHartAckFlags;
+
+    bool exiting(PBCmd cmd) {
+      AtomicScopeLock guard(mLock);
+      return _exiting(cmd);
+    }
+
+    bool entering(PBCmd cmd) {
+      AtomicScopeLock guard(mLock);
+      return _entering(cmd);
+    }
+
+    void ackExit(PBCmd cmd) {
+      AtomicScopeLock guard(mLock);
+      MFM_API_ASSERT(_exiting(cmd),ILLEGAL_ARGUMENT);
+      MFM_API_ASSERT(!_hartAcked(),ILLEGAL_STATE);
+      mHartAckFlags |= _thisHartFlag();
+    }
+
+    void ackEnter(PBCmd cmd) {
+      AtomicScopeLock guard(mLock);
+      MFM_API_ASSERT(_entering(cmd),ILLEGAL_ARGUMENT);
+      MFM_API_ASSERT(!_hartAcked(),ILLEGAL_STATE);
+      mHartAckFlags |= _thisHartFlag();
+    }
+
+  private:
+    bool _exiting(PBCmd cmd) { return mCurrentCmd==cmd && mPendingCmd!=cmd; }
+    bool _entering(PBCmd cmd) { return mCurrentCmd!=cmd && mPendingCmd==cmd; }
+    bool _hartAcked() { return mHartAckFlags & _thisHartFlag(); }
+
+    u8 _thisHartFlag() { return 1<<fAll.mHartNum; }
+  }
+[937:
+
+Wed Oct 28 09:29:04 2026 Well,
+maybe plausible. It's all we got
+now, anyway. It does limit us to
+a single ack per hart, though
+(as does the extant method.)
+
+Are we going to be able to deal
+with that? With all the
+different block types getting
+updated by NC or HB? I just
+don't see any simple way to get
+beyond this? Define an XX list
+of 'semantic gates', separate
+from the one-per-hart? Have an
+array of hart flags for the
+semantic gates? Have an
+automatic process that acks per
+hart once all the semantic gates
+have been acked by the current
+hart?
+
+:937]
+
+:936]
+
+:935]
+[938:
+
+Wed Oct 28 15:20:24 2026 OK, so
+we're running again, now with
+the simplified supercycle events
+of :928: above, but without the
+edge-stuff actually implemented.
+
+But still this is like the most
+progress we've had in a few days
+so let's take it.
+
+Next step should be to push the
+entering and exiting stuff
+farther into code.
+
+[941: Wed Oct 28 15:33:00 2026 So,
+DONE :941] - Review entering and exiting
+   code
+
+ - Identify your top two
+   problems with it.
+
+ - Propose solutions
+
+ - Implement them.
+
+[939:
+
+Wed Oct 28 15:30:22 2026
+Existing code:
+
+we have a new
+
+struct PhaseStepper, housed in
+T6BoltResponder.h:
+
+      struct PhaseStepper {
+        bool _exiting(PBCmd cmd) { return mCurrentCmd==cmd && mPendingCmd!=cmd; }
+        bool _entering(PBCmd cmd) { return mCurrentCmd!=cmd && mPendingCmd==cmd; }
+        bool _hartAcked() { return mHartAckFlags & _thisHartFlag(); }
+        u8 _thisHartFlag() const { return (u8) (1u<<fAll.mHartNum); }
+
+      private:
+        PBCmd mCurrentCmd;
+        PBCmd mPendingCmd;
+        u8 mHartAckFlags;
+      };
+
+I'd say that's not horrible as
+far as it goes..[940:
+
+Wed Oct 28 15:31:53 2026 Aand,
+an instance of it is declared:
+
+      struct T6BoltResponder {
+        AtomicLock mLock;
+ ..     PhaseStepper mPS;
+
+but used nowhere so far.
+
+
+:940]
+
+:939]
+
+:938]
+[942:
+
+Wed Oct 28 15:33:36 2026
+
+Problems
+
+ #1: mPS is not used anywhere
+ #2: fuck it work on #1
+
+(well better: #2: some existing
+bolt responder stuff - like:
+
+    PBCmd mNewestCmdReceived;
+    PBCmd mNewestCmdReturned;
+
+seems to parallel if not
+duplicate PS stuff - like:
+
+    PBCmd mCurrentCmd;
+    PBCmd mPendingCmd;
+)
+
+:942]
+[943:
+
+Wed Oct 28 15:36:04 2026 Current
+key to current idea is the defs
+of entering and exiting:
+
+      struct PhaseStepper {
+        bool _exiting(PBCmd cmd) { return mCurrentCmd==cmd && mPendingCmd!=cmd; }
+        bool _entering(PBCmd cmd) { return mCurrentCmd!=cmd && mPendingCmd==cmd; }
+ ..
+
+We're saying 'master control' of
+the PhaseStepper is going to be
+boltDetectorNC. Let's get that
+at least starting to orchestrate
+the steps-within-the-phase.[944:
+
+Wed Oct 28 15:40:20 2026 And
+what should that look like?
+
+ if (exiting in progress) check exiting
+ else if (entering in progress) check entering
+ else if (new bolt detection)
+      check command
+
+maybe? that would say we don't
+even look for new bolts until we
+are stable. Which doesn't sound
+like a half-bad idea, from some
+angles anyway...
+
+Let's try it that way.
+[945:
+
+Wed Oct 28 15:48:56 2026 Quick
+yak push to rename
+theT6BoltResponder to thePS, for
+'the Phase Stepper'.[946:
+
+Wed Oct 28 15:51:12 2026 OK did
+that; building to check.
+[947:
+
+Wed Oct 28 16:18:01 2026 OK it
+runs (and then I wasted a chunk
+of time there closing firefox
+tabs and shit, gah, what a
+slacker), and everybody goes
+bhang at
+
+  void T6BoltResponder::phaseStepperControlNC() {
+    FAIL(INCOMPLETE_CODE);
+  }
+
+which makes perfect sense.
+
+YAK POP KAY?
+[948:
+
+Wed Oct 28 17:08:13 2026 OK, so
+we have I think plausible stuff
+in PhaseStepper, now that we
+expanded state to
+
+    PBCmd mOutgoingCmd;
+    PBCmd mCurrentCmd;
+    PBCmd mIncomingCmd;
+
+so we could say, for example,
+
+    PBCmd _exitingIfAny() const {
+      if (mOutgoingCmd == mCurrentCmd && mCurrentCmd != mIncomingCmd)
+        return mCurrentCmd;
+      return PBCmd::CMD_NO_CMD;
+    }
+
+[949:
+
+Wed Oct 28 18:14:05 2026 Orite,
+after an early dinner. Where are
+we here. I guess we need a bit
+of implementation sequence to
+drive using our new phaser-edge
+API. Should we perhaps:
+
+ - Review the new leader
+   sequence
+
+ - Ensure we have logging to
+   detect new leader bolt
+   arrival or detection
+
+ - See a new leader bolt
+   arriving.
+
+ - Come back and describe how
+   the PHASERS-EDGE API would
+   apply in this case.
+
+ - Implement that
+
+ - See it working
+
+ - Call that a touch of FUCKING
+   PROGRESS.
+
+GOGOGO
+
+[950:
+
+Wed Oct 28 18:17:52 2026 so the
+'new bolt' atm is
+
+        if (pseq != mLastSeqnoArrived) { // new arrival
+          mLastSeqnoArrived = pseq;
+          mNewestCmdReceived = pay.getCmd();
+          LOGPTAG(BOLTR_NEW,formatPhaserBolt(pay));
+          return;
+        }
+
+which mentions mPS not at all.
+That will need to be
+redone.[951:
+
+Wed Oct 28 18:19:46 2026 So we
+have HubBoltResponder.cpp:
+
+      static bool bRespondToCMD_NEW_LEADER(s32 arg) {
+  ..
+
+called from:
+
+      bool imageDoneRespondingToBoltB(PhaserBolt & pb) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        if (pb.getCmd() == PhaserBolt::CMD_NEW_LEADER) {
+          s32 arg;
+          if (pb.getBoltDataWordIfAny(0,arg) && arg >= 0 && arg < 256)
+            return bRespondToCMD_NEW_LEADER(arg);
+
+called from:
+
+      void T6BoltResponder::boltResponderAllHarts() {
+ ..     switch (fAll.mHartNum) {
+        case HARTNUM_B:
+          if (!imageDoneRespondingToBoltB(pb)) return;
+
+called from:
+
+      bool beatTheStandardHeartbeat(HostBlock & hb) {
+        // HEARTBEAT AND BOLT RESPONSE
+        u32 oldspin = fAll.mHeartSpin++;
+        if ((oldspin & 0x3f) == 0) {
+          thePS.boltResponderAllHarts();
+
+So: questions:
+
+ - Do we want that structure?
+
+ - Doesn't like
+
+        if (pb.getCmd() == PhaserBolt::CMD_NEW_LEADER) {
+
+   want to be something
+   involving thePS, rather than
+   looking at pb directly
+   any more?
+
+ - What happens if
+   imageDoneRespondingToBoltB
+   returns true?[952:
+
+Wed Oct 28 18:27:58 2026
+
+Answer: We ack the bolt
+
+    if (hartAcknowledgeBolt())
+      EACH(139,LOGPTAG(BOLTR_AHx,(u32) mLastSeqnoAcked[fAll.mHartNum]));
+
+which makes sense and which only
+means THIS HART acknowledges the
+bolt, not that a bolt response
+should (yet) be sent.[953:
+
+Wed Oct 28 18:39:00 2026 So how
+do we get edges into this?
+
+[954:
+
+Wed Oct 28 18:50:39 2026
+Overall, we have stuff for edge
+'clients' to call, primarily to
+register their approval of some
+next step; and we have stuff to
+the 'edge controller' to call,
+to recognize consensus and make
+next steps happen.
+[955:
+
+Wed Oct 28 20:30:16 2026 I guess
+we also need something to say
+'if this hart has not already
+approved this edge'.
+[956:
+
+Wed Oct 28 20:40:32 2026 So,
+we've got a bunch of stuff
+some of which is somewhat used,
+but it's pre-edge and it's
+confusing me about how to push
+forwards. So I think we should
+maybe dike a bunch of that shit
+out and just see what
+breaks.[957:
+
+Wed Oct 28 20:43:29 2026 OK,
+trying that.
+[958:
+
+Wed Oct 28 20:43:47 2026 First
+esplosion is:
+
+  void T6BoltResponder::_handleBlockingNC() { // mLock HELD
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+  }
+
+and it's currently called from
+late in _boltDetectorNC. I'd
+think now (1) we'd want to
+happen in phaseStepperControlNC
+instead, and (2) does that
+really BLOCK ALL HARTS by
+itself?
+[959:
+
+Wed Oct 28 21:16:46 2026 I don't
+know if it does or not, but it
+seems like we want an analog
+that says:
+
+Continue when not occupying
+phase FOO, which would mean
+ - when occupying phase BAR
+ - when entering or exiting any
+   phase, including FOO
+[960:
+
+Wed Oct 28 21:51:42 2026 Aand it
+should be called
+continueWhenNotOccupying(CmdMask),
+I guess. Let's just go for it.
+[961:
+
+Wed Oct 28 22:13:52 2026 Urgh.
+We just fussed over
+continueWhenNotOccupying but now
+we think
+
+    continueWhenNotOccupying(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+
+is the wrong thing to use
+anyway - because the key to
+
+    continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+
+is that its truth value can
+change 'spontaneously' by a
+packet arrival, even if all the
+harts are currently spinning on
+that exact command.
+
+Now, I guess if we defined
+'occupying' to also include
+matching seqnos, then we could
+be thrown out of occupation by a
+new bolt. Except then we'd be
+going from occupying FOO to
+not-occupying FOO without going
+through a FOO exit edge.
+
+[962:
+
+Wed Oct 28 22:20:30 2026 Sooo,
+is it possible we want to keep
+
+    T6BoltResponder::getInProgressCmdIfAny()
+
+and/or
+
+     T6BoltResponder::getPrevailingCmdIfAny()
+
+? We need a clean distinction
+between the actual bolt state
+and the phase steps derived from
+it.. or we need an exact mapping
+between them such that something
+in phase stepping can change
+solely because of a new bolt
+arrival.
+
+[963:
+
+Wed Oct 28 23:37:55 2026 In this
+model the T6(hubs) are
+essentially reactive. The host
+pokes them, they react with a
+little flurry of activity, and
+then they reply to the host, and
+then things go along steadily
+until the host pokes them again.
+
+So the detailed phase stepping
+is part of the reaction. And
+what shall we call the 'poking'
+part of it?
+
+ - Poked?
+ - Interrupt
+ - Input
+ - Alert
+
+Alert isn't terrible. At least
+we're not using it for six other
+things already.
+
+And how long does an alert last?
+Until we send back the reply?
+That seems sort of plausible.
+
+isAlerted means
+
+ mLastSeqnoReturned != mLastSeqnoArrived
+
+? no that can't be it; it has to
+involve the PHASER packet
+explicitly, if we're going to
+allow BLOCK_ALL_HARTS to live up
+to its name. It has to be more
+like:
+
+ bool alert() {
+    PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    PhaserBolt & pay = pb.payload();
+    if (!pay.isValid()) return true; // maybe?
+
+    u8 pseq = pay.getSeqNo();
+    return pseq != mLastSeqnoReturned;
+ }
+
+The question of is an invalid
+packet an alert is not
+immediately obvious. I also
+suppose we could have a special
+alertNC() that would do that
+stuff, and a looser alertClients
+or something that just does
+
+  return mLastSeqnoReturned != mLastSeqnoArrived
+
+or maybe a combo:
+
+  bool alerted() {
+    if (fAll.mHartNum == HARTNUM_NC)
+      return alertNC();
+    return mLastSeqnoReturned != mLastSeqnoArrived;
+  }
+
+[964:
+
+Wed Oct 28 23:48:37 2026 And in
+the case at hand, it might be
+like:
+
+  void T6BoltResponder::continueWhenNotOccupying(PhaserBolt::CmdMask cmdset) {
+    MFM_API_ASSERT(!(cmdset & PBCmd::NOT_A_CMD), ILLEGAL_ARGUMENT);
+    while (true) {
+      AtomicScopeLock guard(mLock); // reacquire lock each iteration
+      if (_alerted()) return;
+      PBCmdMask occupyingMask = PhaserBolt::getCmdAsMask(mPS._occupyingIfAny());
+      if (!(occupyingMask & cmdset)) return;
+      sleepCycles(1'000'000);
+    }
+  }
+
+? [965:
+
+Wed Oct 28 23:52:52 2026 And
+then we could do
+
+  void T6BoltResponder::doAllHartsBlocking() {
+    continueWhenNotOccupying(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+  }
+
+maybe?
+
+:965]
+
+:964]
+
+:963]
+
+:962]
+
+:961]
+:960]
+:959]
+:958]
+:957]
+
+:956]
+:955]
+:954]:953]
+
+:952]
+
+:951]
+
+:950]
+:949]
+
+:948]
+:947]
+:946]
+
+:945]
+:944]
+
+:943]
+[966:
+
+Thu Oct 29 00:24:26 2026 OK now
+we're looking at
+
+  void InterHubPrivateControl::updateCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
+
+which previously had like
+
+    PhaserBolt::Cmd myCmd = thePS.getPrevailingCmdIfAny();
+ .. if (myCmd == PBCmd::NOT_A_CMD) return;
+
+to express 'nothing to do'. But
+getPrevailingCmdIfAny is gone
+now. What should the replacement
+be?
+
+if we're not [967:
+
+Thu Oct 29 00:30:14 2026 Maybe
+just ditch it? Fall through the
+cases and if there's nothing to
+do just drop off the bottom?
+
+[968:
+
+Thu Oct 29 00:33:35 2026 And so
+does
+
+  void InterHubPrivateControl::updateCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
+
+NOT want to be dispatching EWPs?
+Who is supposed to be doing
+that?[969:
+
+Thu Oct 29 00:34:55 2026 Looks
+like processHubCars in Live.cpp?
+Do we need/want that separation?
+Feels now like consolidating
+around the mainline of phase
+stepping would be a welcome
+simplification. [970:
+
+Thu Oct 29 01:02:49 2026 Let's
+try to consolidate. Or at least
+seriously evaluate what that
+might mean.[971:
+
+Thu Oct 29 01:03:34 2026 The
+current shape amounts to:
+
+      void stepB(HostBlock & hb) {
+  ..    // HANDLE EWPs
+        for (u32 e = 0u; e < 8u; ++e) {
+          processHubCars(e,hb,true);
+        }
+  ..    // HANDLE IHubs
+        fB.mPIHControl.stepB(hb);
+      }
+
+with stepB called like:
+
+      void liveTheDefaultStandardLife(HostBlock & hb) {
+ ..     while (true) {
+          beatTheStandardHeartbeat(hb);
+          switch (ch) {
+          case 'b': stepB(hb); break;
+ ..
+
+[972:
+
+Thu Oct 29 01:06:30 2026 And so
+wait, so that LiveB stepB line:
+
+        fB.mPIHControl.stepB(hb);
+
+is exactly a call to:
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+ ..     for (u32 i = 0u; i < 8u; ++i) {
+          updateCarsB(i,hb,(i&1)==0);
+        }
+
+and updateCarsB is what we were
+just considering 'consolidating'
+around..
+
+[973:
+
+Thu Oct 29 08:21:08 2026 So
+let's leave it. [974: Thu Oct 29
+08:23:04 2026  Well I renamed it
+to updateIHCarsB just for a bit
+more emphasis.
+
+updateIHCarsB's purpose is to
+move IH cars. It's aboue loading
+and saving caches and totally
+NOT about running events.
+
+So what is the proper analog for
+
+    //XXX    if (iLead && myCmd == PhaserBolt::Cmd::CARRY_ON) return;
+
+in edge-level land? I guess the
+closest thing would be
+occupy?[975:
+
+Thu Oct 29 08:29:56 2026 Well
+that line is part of:
+
+    //// BOLT STATE    US STATE  ACTION
+    //// ==========    ========  ======
+    //// RUN_EVENTS      leader    let crbi ride, do big ewps
+    //XXX    if (iLead && myCmd == PhaserBolt::Cmd::CARRY_ON) return;
+
+and what do we think the BOLT
+STATE should be called? I think
+for updateIHCars we want to be
+focusing on edges. Let's try
+rewriting the table.
+
+    /////////
+    ///// STATES THAT DO NOT REQUIRE CRBI OR CRBO
+
+    //// BOLT STATE    US STATE  ACTION
+    //// ==========    ========  ======
+    //// RUN_EVENTS      leader    let crbi ride, do big ewps
+
+I guess that could be
+isAnyStepOfPhase(PBCmd::RUN_EVENTS)
+? Because in that case we don't
+do anything special on entering
+or existing RUN_EVENTS?
+
+Aaaaaaand so, why do we even
+need LOAD_CACHE and SAVE_CACHE
+as separate phases? Couldn't
+they be like
+
+ if (iFollow && thePS.isEntering() == RUN_EVENTS)
+   // ship sites to leader,
+   // approve edge once all sent
+
+ if (iLead && thePS.isEntering() == RUN_EVENTS)
+   // monitor arriving sites
+   // approve edge once all in cache
+
+But! We enter updateIHCarsB
+separately for each EP_IH, but
+the edge approval needs to
+depend on the GridManager, and
+span all involved EP_IH's.
+
+    if (iLead && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
+      return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+
+    if (iFollow && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
+      return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+
+[976:
+
+Thu Oct 29 08:44:40 2026 And
+those two are just more of the
+same, I think.
+
+SO WHAT IF WE DITCHED LOAD_CACHE
+AND SAVE_CACHE AND JUST
+EXPRESSED THOSE CONCEPTS AS
+ENTERING AND EXITING RUN_EVENTS,
+CONDITIONED ON ILEAD/IFOLLOW?
+
+Survey: This idea is:
+
+(A) A great simplification that
+    even in just the remaining
+    time will give Dave a real
+    chance to succeed
+
+(B) Just another turn of the
+    Wheel of Design Karma that
+    will waste Dave's time and
+    all but ensure failure
+
+[977:
+
+Thu Oct 29 08:48:14 2026 I'm
+pretty worried about (B), but I
+think I have to act on (A).
+
+:977]
+
+:976]
+
+    //// BOLT STATE    US STATE  ACTION
+    //// ==========    ========  ======
+    //// CARRY_ON      follower  flush crbi, ship empties
+    ////                         so they accumulate at the leader,
+    ////                         do small ewps
+    if (iFollow && myCmd == PhaserBolt::Cmd::RUN_EVENTS)
+      return _ucFollowerRUN_EVENTS_B(ngbidx, gm, crbi, crbo);
+
+    //// BOLT STATE    US STATE  ACTION
+    //// ==========    ========  ======
+    //// SAVE_CACHE    leader    expect empty cars,
+    ////                         fill&ship from caches
+    if (iLead && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
+      return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+
+    //// SAVE_CACHE    follower  expect full cars,
+    ////                         stash atoms in sites
+    ////                         ship empties
+    if (iFollow && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
+      return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+
+
+:975]
+
+:974]
+
+:973]
+:972]
+
+:971]
+
+:970]
+
+:969]
+
+:968]
+
+:967]
+
+:966]
+[978:
+
+Thu Oct 29 08:52:43 2026 And the
+(B) camp is right here buying ad
+time to say: WHY NOT DITCH
+NEW_LEADER TOO, AND FOLD THAT
+INTO "ENTERING(RUN_EVENTS)"?
+YOU'RE THROWING AWAY THE ENTIRE
+SUPERCYCLE STRUCTURE! (A) IS
+WRONG FOR MFMX AND WRONG FOR
+AMERICA!
+
+      (0) NEW LEADER: X
+      (1) LOAD CACHE
+      (2) RUN EVENTS
+      (3) SAVE CACHE
+
+And the response is The Reason
+To Keep NEW_LEADER Is That
+Entering/Occupying/Exiting Are
+Per-Hub And Invisible At The
+Host Until They Are Done. So We
+Couldn't Delay LOAD_CACHE Until
+Everbody Has Handled NEW_LEADER
+If They Are Both Just Pieces of
+Entering(RUN_EVENTS). Don't Be
+Fooled By Cynical Oligarchs
+Trying To Confuse You And Waste
+Your Precious Time.
+
+:978]
+[979:
+
+Thu Oct 29 09:02:55 2026
+
+      GRID MGR:
+        NEW LEADER: X
+          entering:
+            capture X
+            determine leader/follower
+          occupying: --
+          exiting: --
+
+     UPDATE IH:
+       RUN EVENTS
+           entering:
+            leader: recv cache info
+            follower: send site info
+          occupying: --
+          exiting:
+            leader: send cache info
+            follower: recv site info
+
+
+or push handlers farther in:
+
+     NEW LEADER: X
+       entering:
+         UpdateIH: (save caches)
+            leader: send cache info
+            follower: recv site info
+       occupying: --
+       exiting:
+         GridMgr:
+           capture X
+           determine new leader/follower
+
+     RUN EVENTS
+         entering:
+          UpdateIH: (load caches)
+            leader: recv cache info
+            follower: send site info
+        occupying:
+          GridMgr:
+            leader: run big ewps
+            follower: run little ewps
+        exiting:
+          GridMgr:
+            leader: drain big ewps
+            follower: drain little ewps
+
+[980:
+
+Thu Oct 29 09:30:59 2026 Well,
+that maybe kinda seems
+
+(1) pretty simple-ish, and
+(2) covers-ish all the fucking
+    cases?
+
+And it brings us down to a two
+phase supercycle, which seems
+likely to be MINIMAL
+MINIMAL.[981:
+
+Thu Oct 29 09:45:46 2026 So from
+our depths of pitiful urgency
+what do we do right here now?
+
+If we could init the local
+supercycle to start out
+occupying NEW LEADER X..? Nah,
+just wait for the first real
+NEW_LEADER, but either have some
+flag to skip saves caches, or
+just fucking go ahead send a
+bunch of empties from caches to
+sites?
+[982:
+
+Thu Oct 29 10:22:45 2026 Fuck it
+can't dick around let's just go
+for it. TODO
+
+ - Simplify to two-phase
+   supercycle
+
+ - Get it to build
+
+ - Report new stress points.
+
+[983:
+
+Thu Oct 29 10:24:36 2026 Fuck
+it, also ditching
+ALL_HARTS_PAUSE. We have
+HOLD_AT_BIRTH and that's all I'm
+using so far.[984:
+
+Thu Oct 29 10:26:44 2026
+Actually, starting a
+simplify-supercycle branch.
+That's what they're here for. 
+
+:984]
+
+
+:983]
+
+:982]
+:981]
+
+:980]
+:979]
