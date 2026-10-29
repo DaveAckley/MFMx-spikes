@@ -74,6 +74,8 @@ namespace MFM {
     //    void doAnIHHHack() ; // runs on IHHThread
     void doASuperCycle(u32 nextLeader) ; // runs on IHHThread
 
+    u32 mSuperCycleCount;
+
     static BGRImageHD t6gridRenderBlock;
 
     static BGRImageHD & getT6GridImage() {
@@ -175,7 +177,7 @@ namespace MFM {
       // Expose Cmd for 1st arg to shootPHASER
       py::class_<PhaserBolt> ph(m,"PhaserBolt");
       py::native_enum<PhaserBolt::Cmd>(ph,"Cmd","enum.Enum")
-#define XX(name,argc) .value("CMD_" #name, PhaserBolt::Cmd::CMD_##name)
+#define XX(name,argc) .value("" #name, PhaserBolt::Cmd::##name)
       ALL_PHASER_COMMANDS()
 #undef XX
         .export_values()

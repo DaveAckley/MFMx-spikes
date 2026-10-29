@@ -361,7 +361,7 @@ class EWD(App):
           yield Checkbox(id="ewpcheck",label="events",value=True,compact=True)
           yield Checkbox(id="ihhcheck",label="iNteRHuBZ",value=False,compact=True)
           #yield Button(id="stepbutton",label="step",compact=True)
-          yield Button(id="pingbutton",label="ping",compact=True)
+          #yield Button(id="pingbutton",label="ping",compact=True)
         # with Vertical(id="scrollbuttons"):
         #   for id,(label,arg) in EWD.ZOOM_BUTTONS.items():
         #     b = Button(id=id,label=label,
@@ -443,8 +443,8 @@ class EWD(App):
     afch = self.query_one("#autofire")
     if not afch.value: return
     if self.autofire_countdown == 0:
-      cmd = MFMx.PhaserBolt.Cmd.CMD_LOOP_BACK
-      args = ()    #(+1,-1)
+      cmd = MFMx.PhaserBolt.Cmd.LOOP_BACK
+      args = (0)
       self.quietbox.shootPHASER(cmd,args)
       logcb("AUTOF",f"UpAF>{cmd},{args},{self}")      
       self.autofire_countdown = 20
@@ -458,8 +458,8 @@ class EWD(App):
     
   def release_the_puppies(self):
     print("RELEASE THE PUPPIES")
-    cmd = MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
-    args = ()
+    cmd = MFMx.PhaserBolt.Cmd.RUN_EVENTS
+    args = (0,)
     self.quietbox.shootPHASER(cmd,args)
 
   def update_animation_content(self):
@@ -575,14 +575,14 @@ class EWD(App):
   #   runch.value = False       # stepping ends running
   #   # trigger step
 
-  @on(Button.Pressed,"#pingbutton")
-  def pingbutton_pressed(self,event):
-    af = self.query_one("#autofire")
-    af.value = False       # ping ends autofire
-    # trigger step
-    cmd = MFMx.PhaserBolt.Cmd.CMD_SPIKE_PING
-    args = (+1,-1,12,7)   # (1,-1):NE, (12,7):tlbi79
-    self.quietbox.shootPHASER(cmd,args)
+  # @on(Button.Pressed,"#pingbutton")
+  # def pingbutton_pressed(self,event):
+  #   af = self.query_one("#autofire")
+  #   af.value = False       # ping ends autofire
+  #   # trigger step
+  #   cmd = MFMx.PhaserBolt.Cmd.SPIKE_PING
+  #   args = (+1,-1,12,7)   # (1,-1):NE, (12,7):tlbi79
+  #   self.quietbox.shootPHASER(cmd,args)
 
   @on(Checkbox.Changed,"#runcheck")
   def runcheck_changed(self,event):
@@ -594,7 +594,7 @@ class EWD(App):
   def pausecheck_changed(self,event):
     id = event.checkbox.id
     logcb("EWDA",f"ChBoxCh>{id},{event.value},{self.ewc.isActive()}")
-    cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+    cmd = MFMx.PhaserBolt.Cmd.ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.RUN_EVENTS
     self.quietbox.shootPHASER(cmd,[0])
     logcb("EWDA",f"PHASER>{id},{cmd}")
 
@@ -602,7 +602,7 @@ class EWD(App):
   def ewpcheck_changed(self,event):
     id = event.checkbox.id
     newval = 0 if event.value else 1
-    cmd = MFMx.PhaserBolt.Cmd.CMD_SUSPEND_EWPS
+    cmd = MFMx.PhaserBolt.Cmd.SUSPEND_EWPS
     self.quietbox.shootPHASER(cmd,[newval])
     logcb("EWDA",f"EWPHASER>{id},{cmd},{newval}")
 
@@ -618,7 +618,7 @@ class EWD(App):
   def autofire_changed(self,event):
     id = event.checkbox.id
     logcb("AUTOF",f"ChBoxCh>{id},{event.value},{self.ewc.isActive()}")
-    # cmd = MFMx.PhaserBolt.Cmd.CMD_ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.CMD_CARRY_ON
+    # cmd = MFMx.PhaserBolt.Cmd.ALL_HARTS_PAUSE if event.value else MFMx.PhaserBolt.Cmd.RUN_EVENTS
     # self.quietbox.shootPHASER(cmd,0)
     # logcb("AUTOF",f"PHASER>{id},{cmd}")
 

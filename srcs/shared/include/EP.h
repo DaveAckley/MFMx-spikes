@@ -31,7 +31,7 @@ namespace MFM {
     // "API": SUBEP must implement all of these!
     void setPublicEPState(EPState newstate) { self().setPublicEPState(newstate); }
     u32 getCarSize() const { return self().getCarSize(); }
-    SUBTC * getClosedTCPtrIfAny() const { return self().getClosedTCPtrIfAny(); }
+    SUBTC * popClosedTCPtrIfAny() const { return self().popClosedTCPtrIfAny(); }
     SUBTC * getCarPtrIfAny(u8 carindex) const { return self().getCarPtrIfAny(carindex); }
     TCOpsData & getOpsData(u8 carindex) { return self().getOpsData(carindex); }
     bool recvTC(SUBTC & car, u8 carindex) { return self().recvTC(car, carindex); }
@@ -41,7 +41,11 @@ namespace MFM {
     const char * getName() const { return self().getName(); }
     //virtual XPrinter & getLogToPrinter() const { return DEVNULL; }
 
+    char * report(u32 size, char * buf) const { return self().report(size,buf); }
+
     //// SERVICES
+    char * reportEP(u32 size, char * buf) const ;
+
     SUBTC * getCarPtr(u8 carindex) const {
       SUBTC *ret = getCarPtrIfAny(carindex);
       MFM_API_ASSERT_NONNULL(ret);
@@ -106,8 +110,6 @@ namespace MFM {
 
     u8 getHereCount() const { return mHereCount; }
     u8 getGoneCount() const { return mGoneCount; }
-
-    char * report(u32 size, char * buf) const ;
 
     void activate() {
       HBPTAG(ATCIV/src,getNameFromBlockCode(mSrcEPA.mBlockCode));

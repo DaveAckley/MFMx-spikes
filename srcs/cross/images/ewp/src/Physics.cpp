@@ -85,7 +85,7 @@ namespace MFM {
 
     case PHY_FB4: {
       ca.mStg[1]++;             // cheat and access underlying u32
-      HBPTAG(FB4,ca.mStg[1]);
+      EACH(1'000'000,HBPTAG(FB4,ca.mStg[1]));
       for (u32 ngbsn = 1u; ngbsn <= 40u; ++ngbsn) { //MAX FB!
         P4Atom & na = ew.mAtoms[ngbsn];
         na = ca; // kaboom

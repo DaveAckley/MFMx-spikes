@@ -18,18 +18,23 @@ namespace MFM {
     HBPTAG(T6GridSize,gsize);
     HBPTAG(T6GridSites,gsize.x*gsize.y);
 
-    // INIT AUTOSEEDING
-    mAutoseedWaitCount = U32_MAX;
-
     // INIT SUPERCELL POSITIONING
     HostBlock & hb = theHostBlock;
-    U8C ct6 = U8C::makeCT6CoordFromTLBI(hb.mTLBI);
+    u32 tlbi = hb.mTLBI;
+    U8C ct6 = U8C::makeCT6CoordFromTLBI(tlbi);
     U8C tt(2,2);
     
     U8C hubInGridCoord = ct6 / tt;
     U8C supercellc = hubInGridCoord % tt;
     mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
     
+    // INIT SELECT AUTOSEEDING
+    if (ct6.x >= 5 && ct6.y >= 5 &&
+        ct6.x <= 6 && ct6.y <= 6)
+      mAutoseedWaitCount = U32_MAX;
+    else
+      mAutoseedWaitCount = 0; // no soup for you
+
   }
 
   void DLGridList::init() {
@@ -65,9 +70,9 @@ namespace MFM {
         case 4:  type = 4; break;
         default: type = 2; break;
         }
-        mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
-        //        grid.setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
-        //        grid.setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
+        //mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
+        mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
+        //mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
         HBPTAG("AUTOSEEDOMATIC",type);
         LOGPTAG("LOGOAUTOSEEDOMATIC",type);
       } else {

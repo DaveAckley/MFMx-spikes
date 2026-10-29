@@ -304,25 +304,26 @@ namespace MFM {
   const char * formatPhaserBolt(const PhaserBolt & pb) {
     static constexpr u32 BOLT_BUFSIZ = 32;
     static char buf[BOLT_BUFSIZ];
+    u8 pseq = pb.getSeqNo();
     PhaserBolt::Cmd cmd = pb.getCmd();
     const char * cmdname = PhaserBolt::phaserCmdName(cmd);
     u32 args = PhaserBolt::phaserArgCount(cmd);
     switch (args) {
     case 0:
-      snprintf(buf,BOLT_BUFSIZ,"%s!",cmdname);
+      snprintf(buf,BOLT_BUFSIZ,"%u.%s!",pseq,cmdname);
       break;
     case 1:
-      snprintf(buf,BOLT_BUFSIZ,"%s %d!",cmdname
+      snprintf(buf,BOLT_BUFSIZ,"%u.%s %d!",pseq,cmdname
                ,pb.getBoltDataWordOrDie(0));
       break;
     case 2:
-      snprintf(buf,BOLT_BUFSIZ,"%s %d,%d!",cmdname
+      snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d!",pseq,cmdname
                ,pb.getBoltDataWordOrDie(0)
                ,pb.getBoltDataWordOrDie(1)
                );
       break;
     default:
-      snprintf(buf,BOLT_BUFSIZ,"%s#%u? you lie",cmdname,args
+      snprintf(buf,BOLT_BUFSIZ,"%u.%s#%u? you lie",pseq,cmdname,args
                );
       break;
     }

@@ -87,8 +87,10 @@ namespace MFM {
 
     LogBlockPayload & pay = mCurrentLogBlock->payload();
     if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK) {
-      HBPTAG(CLOGspace,pay.mDataUsed);
-      HBPTAG(y2?,this);
+      EACH(1'000, {
+          HBPTAG(CLOGspace,pay.mDataUsed);
+          HBPTAG(y2?,this);
+        });
       return true;              // close for lack of space
     }
 
@@ -123,7 +125,7 @@ namespace MFM {
     TheL1Data::CarIdxRB & crbi = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
     TheL1Data::CarIdxRB & crbo = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
 
-    EACH(1'000,HBPTAG(L1CSt,mCurrentLogBlock));
+    EACH(1'000'000,HBPTAG(L1CSt,mCurrentLogBlock));
     //    LOGNOTE("USE UP CURRENT LOG BLOCK! FASTER PUSSYCAT FASTER!");
     //    LOGPTAG(LB1CStep10,mCurrentLogBlock);
 
@@ -152,7 +154,7 @@ namespace MFM {
         LogBlock & olb = *mCurrentLogBlock;
         LogBlockPayload & opay = olb.payload();
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
-        HBPTAG(LB->HN,mCurrentCarIndex);
+        EACH(1'000,HBPTAG(LB->HN,mCurrentCarIndex));
         got = crbo.add(mCurrentCarIndex); // hand control back to comm
         HBASSERT_EQ(got,true);
       }
@@ -234,7 +236,7 @@ namespace MFM {
       {
         static u32 spin = 0;
         if ((++spin & 0xf'ffff) == 0)
-          HBXTAG(logLive,spin);
+          EACH(1'000'000,HBXTAG(logLive,spin));
       }
 
       //// LIFE

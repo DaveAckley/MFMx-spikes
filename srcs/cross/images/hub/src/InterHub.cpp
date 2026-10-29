@@ -131,6 +131,8 @@ namespace MFM {
               InterHubBlock & ihb = ihstg.getTC(c);
               ihb.init();
               HBPTAG(8IHEP-car,c);
+              HBPX(weAreIn);
+              HBPTAG(IHST,getCarStateName(ihb.getTCState()));
             }
 
             ihep.configureDest(ournoc0, firstDestHubNoC0C, { blockCode, firstDestBlockIndex });
@@ -145,7 +147,7 @@ namespace MFM {
       HBNOTE(GOFIH);
       for (u8 d8 = D8_NT; d8 <= D8_NE; ++d8) {
         HBPTAG(d8OPEN,dir8ToByteString((Dir8) d8));
-        HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d8)));
+        //HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d8)));
         if (theInterHubL1Data.getPublicEPState(d8) != EPState::CONFIGURED) continue;
         myInterHubEP[d8].activate(); // release the hounds
         HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d8)));
@@ -159,6 +161,7 @@ namespace MFM {
       for (u32 d = D8_NT; d <= D8_NE; ++d) {
         Dir8 d8 = (Dir8) d;
         InterHubEP & myIHEPNC = myInterHubEP[d8];
+        if (false)
         EACH(10'000'000,{
             //LOGPTAG(IHUBAROHAROHARO:MAX_ATOMS,InterHubPayload::MAX_ATOMS);
             LOGPTAG(d8,dir8ToByteString(d8));
@@ -172,7 +175,10 @@ namespace MFM {
             //LOGPTAG(cache/IHPax,(T6Grid::getCacheRange(d8).area()+InterHubPayload::MAX_ATOMS-1)/InterHubPayload::MAX_ATOMS);
           });
         //        HBPTAG(IHUO*,&myIHEPNC);
-        if (!myIHEPNC.isInitted()) continue;
+        if (!myIHEPNC.isInitted()) {
+          SNAP(100,EACH(1'000'000,LOGPTAG(!myIHEPNC,dir8ToByteString(d8))));
+          continue;
+        }
 
         //        HBPTAG(IHUO,n);
         myIHEPNC.updateOps();

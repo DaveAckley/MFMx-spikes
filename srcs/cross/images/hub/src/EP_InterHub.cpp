@@ -2,7 +2,7 @@
 #include "EwpBlock.h" // for theEwpL1Data
 #include "FastT2.h" // for oneIn
 #include "HubLiveB.h" // for fB
-#include "T6BoltResponder.h" // for theT6BoltResponder
+#include "T6BoltResponder.h" // for thePS
 #include "CacheLoader.h" // for CacheLoader eg
 
 namespace MFM {
@@ -81,33 +81,16 @@ namespace MFM {
 
     // "processInterHubCars"
     for (u32 i = 0u; i < 8u; ++i) {
-      updateCarsB(i,hb,(i&1)==0);
+      updateIHCarsB(i,hb,(i&1)==0);
     }
   }
-
-#if 0 // MOVE TO IHPC
-
-    GridManager & gm = fB.mGridManager;
-    SCStatus stat = gm.leadFollowOrGetOutOfTheWay();
-    LOGPTAG(BOLTR_LOAD_CACHE,getSCStatusName(stat));
-    if (stat == SCStatus::WE_LEAD || stat == SCStatus::NO_LEADER)
-      return true;              // followers deal with loading cache
-
-    bool allDone = true;
-    for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
-      CacheLoader & cl = theL1CacheLoaders.get(i);
-      if (!cl.tryLoad(gm)) allDone = false;
-    }
-    LOGPTAG(SHID,allDone);
-    return allDone;             // response complete when shipping done
-#endif
-
 
   void InterHubPrivateControl::_ucLeaderLOAD_CACHE_B(u32 ngbidx,
                                                      GridManager & gm,
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
+    EACH(1'000,LOGPTAG(_ducLLCB,__EACHNUM__));
     MFM_API_ASSERT(!crbi.isEmpty() && !crbo.isFull(),ILLEGAL_ARGUMENT);
 
     //// BOLT STATE    US STATE  ACTION
@@ -120,7 +103,7 @@ namespace MFM {
     crbi.remove(carindex);
     CacheLoaders & cls = theL1CacheLoaders;
     CacheLoader * clp = cls.getIfAny((Dir8) ngbidx);
-    LOGPTAG(_ucLLCB,clp);    
+    LOGPTAG(_ducLLCB,clp);    
   }
 
   void InterHubPrivateControl::_ucFollowerLOAD_CACHE_B(u32 ngbidx,
@@ -128,6 +111,8 @@ namespace MFM {
                                                        TheL1Data::CarIdxRB & crbi,
                                                        TheL1Data::CarIdxRB & crbo)
   {
+    EACH(1'000,LOGPTAG(_ducFLCB,__EACHNUM__));
+
     MFM_API_ASSERT(!crbi.isEmpty() && !crbo.isFull(),ILLEGAL_ARGUMENT);
 
     //// BOLT STATE    US STATE  ACTION
@@ -135,25 +120,25 @@ namespace MFM {
     //// LOAD_CACHE    follower  expect empty cars,
     ////                         load&ship from sites
 
-    LOGPTAG(_ucFLCBngb,ngbidx);
+    LOGPTAG(_ducFLCBngb,ngbidx);
     u8 carindex;
     crbi.remove(carindex);
-    LOGPTAG(_ucFLCBcix,carindex);
+    LOGPTAG(_ducFLCBcix,carindex);
 
     CacheLoaders & cls = theL1CacheLoaders;
     CacheLoader * clp = cls.getIfAny((Dir8) ngbidx);
     MFM_API_ASSERT_NONNULL(clp);
     
-    LOGPTAG(_ucFLCB,clp);
+    LOGPTAG(_ducFLCB,clp);
     
   }
 
-  void InterHubPrivateControl::_ucFollowerCARRY_ON_B(u32 ngbidx,
+  void InterHubPrivateControl::_ucFollowerRUN_EVENTS_B(u32 ngbidx,
                                                      GridManager & gm,
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
-    EACH(100'000,LOGPTAG(:,__FUNCTION__));
+    EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
   }
   
 
@@ -162,7 +147,7 @@ namespace MFM {
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
-    EACH(100'000,LOGPTAG(:,__FUNCTION__));
+    EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
   }
 
   void InterHubPrivateControl::_ucFollowerSAVE_CACHE_B(u32 ngbidx,
@@ -170,16 +155,22 @@ namespace MFM {
                                                        TheL1Data::CarIdxRB & crbi,
                                                        TheL1Data::CarIdxRB & crbo)
   {
-    EACH(100'000,LOGPTAG(:,__FUNCTION__));
+    EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
   }
   
-  void InterHubPrivateControl::updateCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
+  void InterHubPrivateControl::updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
 
+#if 0 // Just always check the cases..
+
     //// ANYTHING TO DO?
-    PhaserBolt::Cmd myCmd = theT6BoltResponder.getPrevailingCmdIfAny();
-    if (myCmd == PhaserBolt::NO_CMD) return; // definitely not
+    PhaserBolt::Cmd myCmd = thePS.getPrevailingCmdIfAny();
+    EACH(1'000'000,LOGPTAG(_ucBCmd,PhaserBolt::phaserCmdName(myCmd)));
+
+    if (myCmd == PBCmd::NOT_A_CMD) return; // definitely not
+
+#endif
 
     GridManager & gm = fB.mGridManager;
     SCStatus whatWeDo = gm.leadFollowOrGetOutOfTheWay();
@@ -187,29 +178,33 @@ namespace MFM {
     bool iLead = whatWeDo == SCStatus::WE_LEAD;
     bool iFollow = whatWeDo == SCStatus::WE_FOLLOW;
 
+    /////////
+    ///// STATES THAT DO NOT REQUIRE CRBI OR CRBO
+
     //// BOLT STATE    US STATE  ACTION
     //// ==========    ========  ======
-    //// CARRY_ON      leader    let crbi ride, do big ewps
-    if (iLead && myCmd == PhaserBolt::CMD_CARRY_ON) return;
+    //// RUN_EVENTS      leader    let crbi ride, do big ewps
+    //XXX    if (iLead && myCmd == PhaserBolt::Cmd::CARRY_ON) return;
 
     TheL1Data::CarIdxRB & crbi = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
     TheL1Data::CarIdxRB & crbo = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
 
     // All other cases want to move a car
     if (crbi.isEmpty() || crbo.isFull()) {
-      EACH(100'000,LOGPTAG(BLOKT,__EACHNUM__));
+      EACH(1'000'000,LOGPTAG(BLOKT,__EACHNUM__));
       return;
     }
 
-    EACH(100'000,{
-        LOGPTAG(_ucB,PhaserBolt::phaserCmdName(myCmd));
-        LOGPTAG(_ucDO,getSCStatusName(whatWeDo));
+    EACH(1'000'000,{
+        LOGPTAG(_ducB,PhaserBolt::phaserCmdName(myCmd));
+        LOGPTAG(_ducDO,getSCStatusName(whatWeDo));
+        LOGPTAG(_ducEA,__EACHNUM__);
       });
 
-    if (iLead && myCmd == PhaserBolt::CMD_LOAD_CACHE)
+    if (iLead && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
       return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
 
-    if (iFollow && myCmd == PhaserBolt::CMD_LOAD_CACHE)
+    if (iFollow && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
       return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
 
     //// BOLT STATE    US STATE  ACTION
@@ -217,25 +212,29 @@ namespace MFM {
     //// CARRY_ON      follower  flush crbi, ship empties
     ////                         so they accumulate at the leader,
     ////                         do small ewps
-    if (iFollow && myCmd == PhaserBolt::CMD_CARRY_ON)
-      return _ucFollowerCARRY_ON_B(ngbidx, gm, crbi, crbo);
+    if (iFollow && myCmd == PhaserBolt::Cmd::RUN_EVENTS)
+      return _ucFollowerRUN_EVENTS_B(ngbidx, gm, crbi, crbo);
 
     //// BOLT STATE    US STATE  ACTION
     //// ==========    ========  ======
     //// SAVE_CACHE    leader    expect empty cars,
     ////                         fill&ship from caches
-    if (iLead && myCmd == PhaserBolt::CMD_SAVE_CACHE)
+    if (iLead && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
       return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
 
     //// SAVE_CACHE    follower  expect full cars,
     ////                         stash atoms in sites
     ////                         ship empties
-    if (iFollow && myCmd == PhaserBolt::CMD_SAVE_CACHE)
+    if (iFollow && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
       return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
 
     if (whatWeDo != SCStatus::NO_LEADER) {
-      LOGPTAG(ucmySTATUS,getSCStatusName(whatWeDo));
-      LOGPTAG(ucmyCmd,PhaserBolt::phaserCmdName(myCmd));
+      static SCStatus lastWeDo;
+      if (whatWeDo != lastWeDo) {
+        LOGPTAG(_ducMySTATUS,getSCStatusName(whatWeDo));
+        LOGPTAG(_ducMyCmd,PhaserBolt::phaserCmdName(myCmd));
+        lastWeDo = whatWeDo;
+      }
     }
   }
 

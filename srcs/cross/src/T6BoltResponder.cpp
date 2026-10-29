@@ -9,62 +9,86 @@ namespace MFM {
   extern HostBlock theHostBlock;
   
   // L1 DATA
-  T6BoltResponder theT6BoltResponder;
+  T6BoltResponder thePS;
 
-  PhaserBolt::Cmd T6BoltResponder::getInProgressCmdIfAny() {
+  void PhaseStepper::_switchToEntering() {
+    PBCmd ecmd = _exitingIfAny();
+    MFM_API_ASSERT(ecmd != PBCmd::NOT_A_CMD,ILLEGAL_STATE);
+    mOutgoingCmd = PBCmd::NOT_A_CMD;
+    mCurrentCmd = mIncomingCmd;
+  }
+
+  void PhaseStepper::_switchToExiting(PBCmd nextCmd) {
+    MFM_API_ASSERT(nextCmd != PBCmd::NOT_A_CMD,ILLEGAL_ARGUMENT);
+    PBCmd ecmd = _occupyingIfAny();
+    MFM_API_ASSERT(ecmd != PBCmd::NOT_A_CMD,ILLEGAL_STATE);
+    MFM_API_ASSERT(ecmd != nextCmd,ILLEGAL_STATE);
+
+    mOutgoingCmd = mCurrentCmd;
+    mIncomingCmd = nextCmd;
+  }
+
+#if 0
+  PBCmd T6BoltResponder::getInProgressCmdIfAny() {
     AtomicScopeLock guard(mLock);
     if (mLastSeqnoArrived == mLastSeqnoReturned)
-      return PhaserBolt::Cmd::NO_CMD; // nothing in progress
+      return PhaserBolt::Cmd::NOT_A_CMD; // nothing in progress
     return mNewestCmdReceived; // or here it is
   }
 
-  PhaserBolt::Cmd T6BoltResponder::getPrevailingCmdIfAny() {
+  PBCmd T6BoltResponder::getPrevailingCmdIfAny() {
     AtomicScopeLock guard(mLock);
     if (mLastSeqnoArrived != mLastSeqnoReturned)
-      return PhaserBolt::Cmd::NO_CMD; // nothing prevailing
+      return PhaserBolt::Cmd::NOT_A_CMD; // nothing prevailing
     return mNewestCmdReturned; // or here it is
   }
+#endif
 
-  void T6BoltResponder::boltDetectorNC() {
-    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    EACH(10'000'000,LOGPTAG(BOLTR_DET,__EACHNUM__));
-
-    AtomicScopeLock guard(mLock);
-    PhaserBlock & pb = T6Phaser::getPhaserBlock();
-    PhaserBolt & pay = pb.payload();
-    if (!pay.isValid()) return;
-    
-    EACH(10'000'000,LOGPTAG(BOLTR_VAL,__EACHNUM__));
-    u8 pseq = pay.getSeqNo();
-    if (pseq == mLastSeqnoReturned) return; // already fully handled
-
-    EACH(100'000,LOGPTAG(BOLTR_SEQ,__EACHNUM__));
-    if (pseq != mLastSeqnoArrived) { // new arrival
-      LOGPTAG(BOLTR_NEW,pseq);
-      mLastSeqnoArrived = pseq;
-      mNewestCmdReceived = pay.getCmd();
-      return;
-    }
-
-    // still at station
-    EACH(100'000,LOGPTAG(BOLTR_WAIT,__EACHNUM__));
-    for (u32 h = HARTNUM_B; h < HART_COUNT; ++h) {
-      if (pseq != mLastSeqnoAcked[h]) {
-        EACH(1'000'000,LOGPTAG(BOLTR_STILL,__EACHNUM__));
-        return;
-      }
-    }
-
-    // ready to go
-    LOGPTAG(BOLTR_READY,formatPhaserBolt(pay));
-    PhaserBolt::Cmd pcmd = pay.getCmd();
-
-    _returnBoltToHostNC();      // the bird is away
-    mLastSeqnoReturned = pseq;  // admit we did it
-    mNewestCmdReturned = pcmd;  // admit what we did
-    _handleBlockingNC();        // but hang here (holding the lock!) if supposed to
+  bool T6BoltResponder::_alerted() {
+    if (fAll.mHartNum == HARTNUM_NC) 
+      return _alertedNC();
+    return mLastSeqnoReturned != mLastSeqnoArrived;
   }
 
+  // only NC inspects the bolt directly..
+  bool T6BoltResponder::_alertedNC() { 
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    PhaserBolt & pay = pb.payload();
+    if (!pay.isValid()) return true; // maybe?
+    
+    u8 pseq = pay.getSeqNo();
+    return pseq != mLastSeqnoReturned;
+  }
+
+  void T6BoltResponder::phaseStepperControlNC() {
+    /*
+     if (exiting in progress) check exiting
+     else if (entering in progress) check entering
+     else if (new bolt detection)
+          check command
+    */
+    AtomicScopeLock guard(mLock);
+    if (mPS.isExiting()) {
+      FAIL(INCOMPLETE_CODE); /// CHECK EXITING PROGRESS
+    } else if (mPS.isEntering()) {
+      FAIL(INCOMPLETE_CODE); /// CHECK ENTERING PROGRESS
+    } else
+      _boltDetectorNC();
+  }
+
+  void T6BoltResponder::continueWhenNotOccupying(PhaserBolt::CmdMask cmdset) {
+    while (true) {
+      AtomicScopeLock guard(mLock); // reacquire lock each iteration
+      if (alerted()) return; // Alert means not occupying anything
+      PBCmdMask occupyingMask = PhaserBolt::getCmdAsMask(mPS._occupyingIfAny());
+      if (!(occupyingMask & cmdset)) return;
+      sleepCycles(1'000'000);
+    }
+  }
+
+
+#if 0
   bool T6BoltResponder::isBoltAnyOfThese(PhaserBolt::CmdMask mask) {
     // RACY RACY NO LOCK
     if (mLastSeqnoReturned != mLastSeqnoArrived) return false;
@@ -87,8 +111,10 @@ namespace MFM {
     }
   }
 
+#endif
+  
   void T6BoltResponder::boltResponderAllHarts() {
-    EACH(1'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
+    EACH(100'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
 
     // RACY RACY NO LOCK
     if (mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived) return; // we have already acked this
@@ -118,7 +144,7 @@ namespace MFM {
     //XXX if (!crosslibReadyToAckBolt(pb)) return;
 
     if (hartAcknowledgeBolt())
-      LOGPTAG(BOLTR_AH,(u32) mLastSeqnoAcked[fAll.mHartNum]);
+      EACH(139,LOGPTAG(BOLTR_AHx,(u32) mLastSeqnoAcked[fAll.mHartNum]));
   }
 
   bool T6BoltResponder::weHaveAcknowledgedCurrentBolt() {
@@ -134,6 +160,45 @@ namespace MFM {
       return true;              // new ack
     }
     return false;               // already acked
+  }
+
+  void T6BoltResponder::_boltDetectorNC() {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    EACH(10'000'000,LOGPTAG(BOLTR_DET,__EACHNUM__));
+
+    PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    PhaserBolt & pay = pb.payload();
+    if (!pay.isValid()) return;
+    
+    EACH(10'000'000,LOGPTAG(BOLTR_VAL,__EACHNUM__));
+    u8 pseq = pay.getSeqNo();
+    if (pseq == mLastSeqnoReturned) return; // already fully handled
+
+    EACH(1'000'000,LOGPTAG(BOLTR_SEQ,__EACHNUM__));
+    if (pseq != mLastSeqnoArrived) { // new arrival
+      mLastSeqnoArrived = pseq;
+      mNewestCmdReceived = pay.getCmd();
+      LOGPTAG(BOLTR_NEW,formatPhaserBolt(pay));
+      return;
+    }
+
+    // still at station
+    EACH(100'000,LOGPTAG(BOLTR_WAIT,__EACHNUM__));
+    for (u32 h = HARTNUM_B; h < HART_COUNT; ++h) {
+      if (pseq != mLastSeqnoAcked[h]) {
+        EACH(1'000'000,LOGPTAG(BOLTR_STILL,__EACHNUM__));
+        return;
+      }
+    }
+
+    // ready to go
+    LOGPTAG(BOLTRDONE,formatPhaserBolt(pay));
+    PBCmd pcmd = pay.getCmd();
+
+    _returnBoltToHostNC();      // the bird is away
+    mLastSeqnoReturned = pseq;  // admit we did it
+    mNewestCmdReturned = pcmd;  // admit what we did
+    _handleBlockingNC();        // but hang here (holding the lock!) if supposed to
   }
 
   void T6BoltResponder::_returnBoltToHostNC() {
@@ -160,17 +225,19 @@ namespace MFM {
     //LOGXTAG(RPHASElast,&lastPHASER[0]);
     //LOGPTAG64(RPHASEhbAddr,hostbaseaddr);
     //LOGPTAG64(RPHASEmDBAdr,destBlockAddr);
-    LOGPTAG(RPHASEtlbi,ourtlbi);
 
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
+    LOGPTAG(BOLTBACK,pb.payload().getSeqNo());
     u32 pbwordcount = sizeof(pb)>>2;
     s32 status = NRI3::initiateWriteToHost(hb.mNoC0,(u32*) &pb, pbwordcount, destBlockAddr);
-    LOGXTAG(RPHASEstatus,status);
+    if (status != 1) LOGXTAG(RPHASEstatus,status);
   }
 
   void T6BoltResponder::_handleBlockingNC() { // mLock HELD
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    continueWhenBoltIsNoneOf(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
+    continueWhenNotOccupying(PhaserBolt::CmdMask::BLOCKS_ALL_HARTS);
   }
+
+
   
 }

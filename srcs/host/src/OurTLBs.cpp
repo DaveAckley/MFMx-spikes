@@ -42,7 +42,7 @@ namespace MFM {
     memset_s(&mPinnedHostBuf,0u,sizeof(mPinnedHostBuf));
     // Set up mShadowPHASER to use as init for T6Image PHASER block
     mShadowPHASER.init();
-    mShadowPHASER.payload().reinit(PhaserBolt::CMD_HOLD_AT_BIRTH);
+    mShadowPHASER.payload().reinit(PhaserBolt::HOLD_AT_BIRTH);
   }
 
   void OurTLBs::allocateHostRAM(size_t sizePerT6) {
@@ -851,13 +851,13 @@ namespace MFM {
             const char * cmdname = PhaserBolt::phaserCmdName(cmd);
             u32 args = PhaserBolt::phaserArgCount(cmd);
 
-            EACH(100,KTprintf(t6tag,"-onPhase- %p %3d %3d:%s(%s) tlbi%u %u\n",
-                            rphase,
-                            theirNonce,
-                            pb.getSeqNo(),
-                            cmdname,
-                            args > 0 ? std::to_string(pb.getBoltDataWordOrDie(0)).c_str() : "",
-                            tlbi,mOnPhase));
+            EACH(100'000,KTprintf(t6tag,"-onPhase- %3d %3d:%s(%s) t%u #%u %uM\n",
+                                  //rphase,
+                                  theirNonce,
+                                  pb.getSeqNo(),
+                                  cmdname,
+                                  args > 0 ? std::to_string(pb.getBoltDataWordOrDie(0)).c_str() : "",
+                                  tlbi,mOnPhase,__EACHNUM__/1'000'000));
           } else 
             EACH(10'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
                             rphase,

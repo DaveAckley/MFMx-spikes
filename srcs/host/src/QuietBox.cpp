@@ -285,14 +285,14 @@ namespace MFM {
 
       (0) NEW LEADER: X
       (1) LOAD CACHE
-      (2) CARRY_ON
+      (2) RUN EVENTS
       (3) SUSPEND EVENTS
       (4) SAVE CACHE
 
      */
 
-    static u32 scyCount = 0;
-    HTprintf("%u QuBo::SCY SUPERCYCLE #%u BEGINS WITH LEADER %u\n",gettid(),++scyCount,nextLeader);
+    s32 scyCount = (s32) ++mSuperCycleCount;
+    HTprintf("%u QuBo::SCY SUPERCYCLE #%u BEGINS WITH LEADER %u\n",gettid(),scyCount,nextLeader);
 
     static constexpr u32 MIN_MS_SMALL = 500;
     static constexpr u32 MAX_MS_SMALL = 2'000;
@@ -307,30 +307,30 @@ namespace MFM {
 
     //// ANNOUNCE NEW LEADER AND "LET THAT SINK IN"
     HTprintf("%u QuBo::SCY ANNOUNCING NEW LEADER cL%u\n", gettid(), nextLeader);    
-    shootPHASER(PhaserBolt::CMD_NEW_LEADER,{(s32) nextLeader});
+    shootPHASER(PhaserBolt::NEW_LEADER,{(s32) nextLeader, scyCount});
     sleepMsec(hostPRNG.Between(MIN_MS_SMALL,MAX_MS_SMALL)); 
 
     /// LOAD LEADER CACHES
     HTprintf("%u QuBo::SCY cL%u follower sites loading to leader caches\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::CMD_LOAD_CACHE,{});
+    shootPHASER(PhaserBolt::Cmd::LOAD_CACHE,{scyCount});
     sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
 
     /// RUN EVENTS
     HTprintf("%u QuBo::SCY cL%u RUNNING EVENTS\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{0});
-    shootPHASER(PhaserBolt::CMD_CARRY_ON,{});
+    //shootPHASER(PhaserBolt::SUSPEND_EWPS,{0,scyCount});
+    shootPHASER(PhaserBolt::Cmd::RUN_EVENTS,{scyCount});
     sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE)); 
 
     /// SUSPEND EVENTS
-    HTprintf("%u QuBo::SCY cL%u SUSPENDING EVENTS\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{1});
+    //XXX    HTprintf("%u QuBo::SCY cL%u SUSPENDING EVENTS\n", gettid(), nextLeader);
+    //XXX    shootPHASER(PhaserBolt::Cmd::SUSPEND_EWPS,{1,scyCount});
 
     /// FLUSH LEADER CACHES
     HTprintf("%u QuBo::SCY cL%u leader saving caches to follower sites\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::CMD_SAVE_CACHE,{});
+    shootPHASER(PhaserBolt::Cmd::SAVE_CACHE,{scyCount});
     sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
 
-    HTprintf("%u QuBo::SCY SUPERCYCLE #%u ENDS WITH LEADER cL%u\n", gettid(), scyCount, nextLeader);
+    HTprintf("%u QuBo::SCY SUPERCYCLE #%d ENDS WITH LEADER cL%u\n", gettid(), scyCount, nextLeader);
     return;
   }
 
@@ -404,7 +404,7 @@ namespace MFM {
       HTprintf("%u QuBo::IHH RETIRE CURRENT LEADER (cL%u)\n", gettid(), currentLeader);
 
       // suspend events
-      shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{1});
+      shootPHASER(PhaserBolt::Cmd::SUSPEND_EWPS,{1});
 
       // wait til global grid is fully updated
       sleepSec(EWP_DRAIN_SEC);  // haha we don't know how to atm
@@ -420,7 +420,7 @@ namespace MFM {
     
     //// ANNOUNCE NEW LEADER
     currentLeader = nextLeader;
-    shootPHASER(PhaserBolt::CMD_SUPERCELL_LEADER,{(s32) currentLeader});
+    shootPHASER(PhaserBolt::Cmd::SUPERCELL_LEADER,{(s32) currentLeader});
 
     HTprintf("%u QuBo::IHH NEW LEADER cL%u ANNOUNCED\n", gettid(), currentLeader);    
 
@@ -430,7 +430,7 @@ namespace MFM {
     HTprintf("%u QuBo::IHH cL%u follower sites written to leader caches\n", gettid(), currentLeader);
 
     /// Resume Events
-    shootPHASER(PhaserBolt::CMD_SUSPEND_EWPS,{0});
+    shootPHASER(PhaserBolt::Cmd::SUSPEND_EWPS,{0});
 
     HTprintf("%u QuBo::IHH cL%u EVENTS RESUMED\n", gettid(), currentLeader);
 

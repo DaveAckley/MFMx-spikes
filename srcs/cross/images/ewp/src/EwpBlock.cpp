@@ -6,7 +6,7 @@ namespace MFM {
   
   /// SUPPLY A STRONG T1 SO THE WEAK ONE CAN ESPLODE
   int stepT1(HostBlock & hb) {
-    EACH(10'000'000,HBPTAG(EWP,__EACHNUM__));
+    EACH(100'000'000,HBPTAG(EWP,__EACHNUM__));
     return 0;
   }
 

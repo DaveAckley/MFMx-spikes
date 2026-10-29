@@ -36,22 +36,22 @@ namespace MFM {
     constexpr u32 BS = 100;
     char buf[BS];
 
-    if (false && isIHUBXX) {
+    if (isIHUBXX) {
       // every damn time say will we see THIS?
       //EACH(100,HBPTAG(EPuoHUBXX,this->report(BS,buf)));
-      EACH(1'000,LOGPTAG(EPuoHUBXX,this->report(BS,buf)));
+      EACH(1'000'000,LOGPTAG(EPuoHUBXX,this->report(BS,buf)));
     }
 
-    EACH(1'000'000,HBPTAG(EPuo,this->report(BS,buf)));
+    EACH(1'000'000,LOGPTAG(EPuo,this->report(BS,buf)));
     //EACH(10'000,LOGPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     
     bool ret = false;
     /// TRY RECEIVING ARRIVALS
     while (mGoneCount > 0) {    // if we have gone cars
-      if (true) { static u32 lastgone;
+      if (isIHUBXX && true) { static u32 lastgone;
         if (lastgone != mGoneCount) {
-          EACH(10'000,{HBPTAG(#GC,this->getName());HBPX(__EACHNUM__);});
+          EACH(1,{LOGPTAG(#GC,this->getName());LOGPX(mGoneCount);});
           lastgone = mGoneCount;
         }
       }
@@ -79,7 +79,10 @@ namespace MFM {
         break;
       }
 
-      if (isIHUBXX) LOGPTAG(arrvIHUB,getCarStateName(cs));
+      if (isIHUBXX) {
+        SNAP(1'000,HBPTAG(arrvIHUB,getCarStateName(cs)));
+        EACH(1'000,LOGPTAG(arrvIHUB,getCarStateName(cs)));
+      }
 
       // Welcome! Let's get you set up here.
       TCOpsData & data = getOpsData(mOldestGone);
@@ -91,7 +94,7 @@ namespace MFM {
 
       if (recvTC(car, mOldestGone)) {
         ++mRecvTCCount;
-        if (isIHUBXX) LOGPTAG(postRecvTC,mRecvTCCount);
+        if (isIHUBXX) SNAP(100,LOGPTAG(postRecvTC,mRecvTCCount));
         // successful recvTC MEANS:
         //  - one less gone car
         //  - one more here car
@@ -122,16 +125,16 @@ namespace MFM {
 
     /// TRY SHIPPING DEPARTURES
     while (mHereCount > 0u) { // if we have cars here
-      if (isLogXX) { static u32 lasthere;
+      if (isIHUBXX) { static u32 lasthere;
         if (lasthere != mHereCount) {
-          //HBPTAG(NUherect,mHereCount);
+          LOGPTAG(NUherect,mHereCount);
           lasthere = mHereCount;
         }
       }
 
       MFM_API_ASSERT(mHereCount <= mCarCount,ARRAY_INDEX_OUT_OF_BOUNDS);
 
-      SUBTC * carp = getClosedTCPtrIfAny();
+      SUBTC * carp = popClosedTCPtrIfAny();
       if (!carp) break; // nothing ready to go
       SUBTC & car = *carp;
 
@@ -187,8 +190,9 @@ namespace MFM {
 
 #ifndef BUILD_HOST
   template<class SUBEP, class SUBTC>
-  char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
-    npf_snprintf(buf,size,"[%s:%s:%u] c%u h%uo%u g%uo%u S%lu R%lu fs%u",
+  char * EP<SUBEP,SUBTC>::reportEP(u32 size, char * buf) const {
+    npf_snprintf(buf,size,"%s[%s:%s:%u] c%u h%uo%u g%uo%u S%lu R%lu",
+                 getNameFromEPState(this->getFastEPState()),
                  this->getName(),
                  getAbbrFromBlockCode(this->mSrcEPA.mBlockCode),
                  this->mSrcEPA.mBlockCodeIndex,
@@ -196,14 +200,13 @@ namespace MFM {
                  this->mHereCount,this->mOldestHere,
                  this->mGoneCount,this->mOldestGone,
                  this->mShipTCCount,
-                 this->mRecvTCCount,
-                 this->getFastEPState()
+                 this->mRecvTCCount
                  );
     return buf;
   }
 #else  
   template<class SUBEP, class SUBTC>
-  char * EP<SUBEP,SUBTC>::report(u32 size, char * buf) const {
+  char * EP<SUBEP,SUBTC>::reportEP(u32 size, char * buf) const {
     snprintf(size,buf,"HONK");
     return buf;
   }

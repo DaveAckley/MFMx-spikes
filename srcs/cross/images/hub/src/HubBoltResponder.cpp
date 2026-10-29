@@ -7,7 +7,6 @@
 namespace MFM {
   /// HUB BOLT RESPONDERS
 
-
   static bool bRespondToCMD_NEW_LEADER(s32 arg) {
     LOGPTAG(BOLTR_NEWLEADER,arg);
     InterHubL1Control & ihlc = theInterHubL1Control;
@@ -33,12 +32,6 @@ namespace MFM {
 
     LOGPX(ourCT6C);
     LOGPX(ourREGC);
-    /*
-    LOGPX(ourCT6V_of_REGC);
-    LOGPX(ourREGC_in_UCT6);
-    LOGPX(ourSCLC_in_REGC);
-    LOGPX(ourREGV_of_SCLC);
-    */
 
     for (u32 i = D8_NT; i <= D8_NE; ++i) {
       Dir8 d8 = (Dir8) i;
@@ -59,10 +52,13 @@ namespace MFM {
 
       U8C d8nREGC = ud8nCT6C / uct6_per_ureg; //< their position in region space
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
       U8C d8nSCLC = d8nREGC / ureg_per_uscl; //< their position in supercell space
       U8C d8nSCLC_in_REGC = d8nSCLC * ureg_per_uscl; //< UL of their supercell in region space
       U8C d8nSCLC_in_CT6 = d8nSCLC_in_REGC * uct6_per_ureg; //< " in CT6 coords
       U8C d8nSCLC_in_NoC0C = U8C::makeNoC0CoordFromCT6Coord(d8nSCLC_in_CT6); //< " in NoC0 coords
+
       
       U8C d8nREGV_of_SCLC = d8nREGC % ureg_per_uscl;   //< d8n UREG offset in supercell theirSCLC
 
@@ -70,12 +66,9 @@ namespace MFM {
 
       LOGPTAG(d8LDR,dir8ToByteString(d8));
       LOGPX(d8nNoC0C);
-      if (false) {
-        LOGPX(d8nCT6C);
-        LOGPX(d8nREGC);
-        LOGPX(d8nREGV_of_SCLC);
-        LOGPX(d8nSCLC_in_NoC0C);
-      }
+
+      //LOGPX(d8nREGV_of_SCLC);
+      //LOGPX(ldrREGV_of_SCLC);
 
       CacheLoader & cl = theL1CacheLoaders.allocate();
       LOGPTAG(thisCLI,cl.mCacheLoaderIndex);
@@ -84,19 +77,21 @@ namespace MFM {
       S8C o2oREGV = d8nREGV; // origin to origin region vector
       S16C o2oROAV = S16C(o2oREGV) * S16C(uroa_per_ureg);
 
-      LOGPX(o2oROAV);
+      //LOGPX(o2oROAV);
 
       U8CRange mySitesForYourCache = NgbCacheMgr::SITE_RANGES[d8];      // my ST sites go
       U8CRange yourCacheForMySites = NgbCacheMgr::CACHE_RANGES[oppositeDir8(d8)]; // in your NT cache
 
       LOGPX(mySitesForYourCache);
       LOGPX(yourCacheForMySites);
+#pragma GCC diagnostic pop
 
       cl.mLeaderDir8 = d8;
       cl.mLocalItr = U8CRange::iterator(mySitesForYourCache);
       cl.mRemoteItr = U8CRange::iterator(yourCacheForMySites);
     }
     
+    if (false)
     for (u32 i = 0; i < theL1CacheLoaders.mCacheLoadersInUse; ++i) {
       CacheLoader & cl = theL1CacheLoaders.get(i);
       LOGPTAG(CLidx,i);
@@ -108,16 +103,16 @@ namespace MFM {
 
   bool imageDoneRespondingToBoltB(PhaserBolt & pb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
-    if (pb.getCmd() == PhaserBolt::CMD_NEW_LEADER) {
+    if (pb.getCmd() == PhaserBolt::Cmd::NEW_LEADER) {
       s32 arg;
       if (pb.getBoltDataWordIfAny(0,arg) && arg >= 0 && arg < 256)
         return bRespondToCMD_NEW_LEADER(arg);
       FAIL(OUT_OF_BOUNDS);
     }
 
-    if (pb.getCmd() == PhaserBolt::CMD_LOAD_CACHE) {
+    if (pb.getCmd() == PhaserBolt::Cmd::LOAD_CACHE) {
       //// DELEGATE HANDLING+ACK TO IHPC::updateCars
-      return theT6BoltResponder.weHaveAcknowledgedCurrentBolt();
+      return thePS.weHaveAcknowledgedCurrentBolt();
     }
 
     return true; // done either way.

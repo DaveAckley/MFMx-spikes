@@ -10,7 +10,7 @@
 #include "Physics.h"
 #include "HartTasks.h" // for HTFuncPtr
 #include "T6Phaser.h" // for HTFuncPtr
-#include "T6BoltResponder.h" // for theT6BoltResponder
+#include "T6BoltResponder.h" // for thePS
 
 namespace MFM {
 
@@ -62,7 +62,7 @@ namespace MFM {
   }
 
   void stepB(HostBlock & hb) {
-    if (theT6BoltResponder.isBoltAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
+    // DON'T GATE HERE? if (thePS.isBoltAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
       processEwpCars(hb,false);
   }
 

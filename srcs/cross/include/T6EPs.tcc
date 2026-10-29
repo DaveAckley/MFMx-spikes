@@ -66,7 +66,21 @@ namespace MFM {
   }
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
-  typename T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::SUBTC * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::getClosedTCPtrIfAny() const 
+  char * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::report(u32 size, char * buf) const
+  {
+    typename L1Data::CarIdxRB & crbi = this->getCarIdxs().mTheIdxs[L1Data::CarIdxs::COMM2COMP];
+    typename L1Data::CarIdxRB & crbo = this->getCarIdxs().mTheIdxs[L1Data::CarIdxs::COMP2COMM];
+    
+    u32 used =
+      npf_snprintf(buf,size,"%s%s",
+                   crbi.isFull() ? "+" : (crbi.isEmpty() ? "-" : "*"),
+                   crbo.isFull() ? "+" : (crbo.isEmpty() ? "-" : "*"));
+    this->reportEP(size-used,buf+used);
+    return buf;
+  }
+
+  template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
+  typename T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::SUBTC * T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::popClosedTCPtrIfAny() const 
   { 
     ASSERT_RIGHT_HART();
     using CarIdxs = typename L1Data::CarIdxs;
@@ -74,15 +88,18 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      EACH(100'000,HBMARK);
-      EACH(10'000,HBPTAG(HN<-EP,carindex));
+      EACH(100'000,{
+          LOGPTAG(pop,this->getName());
+          LOGPTAG(HN<-EP,carindex);
+        });
       //EACH(10'000,HBPTAG(GCDEP,carindex));
       SUBTC* carp = this->getCarPtrIfAny(carindex);
-      if (!carp) HBNOTE("NULLGO?");
+      if (!carp) LOGNOTE("NULLGO?");
       else HBASSERT_EQ(carp->getTCState(), TCState::CLOSED); 
       return carp;
     }
-    return 0;
+    EACH(1'000'000,LOGPTAG(emp,this->getName()));
+    return nullptr;
   }
 
   template <class SUBEP, class SUBTCBLOCKSTG, u8 BLOCK_COUNT, u8 FORHART>
@@ -117,8 +134,10 @@ namespace MFM {
       s32 status = NRI3::initiateWriteToHost(ournoc0,(u32*) &car, wordCount, destcaraddr);
       if (status == 0) HBPTAG(FAILSHIPHOST,wordCount);
       else {
-        HBPTAG(FROMT6,this->getName());
-        HBPTAG(TOHOST,wordCount);
+        EACH(1'000,{
+            HBPTAG(FROMT6,this->getName());
+            HBPTAG(TOHOST,wordCount);
+          });
       }
       return status > 0;
     }

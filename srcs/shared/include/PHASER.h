@@ -12,33 +12,42 @@ namespace MFM {
     static constexpr u32 MAX_PHASER_COMMANDS = 8*sizeof(u32); //< mask limits
 
 #define ALL_PHASER_COMMANDS() \
-    XX(CARRY_ON,0)            \
-    XX(HOLD_AT_BIRTH,0)       \
-    XX(ALL_HARTS_PAUSE,0)     \
-    XX(LOOP_BACK,0)           \
-    XX(SUSPEND_EWPS,1)        \
+    XX(HOLD_AT_BIRTH,1)       \
+    XX(ALL_HARTS_PAUSE,1)     \
     XX(NEW_LEADER,1)          \
-    XX(LOAD_CACHE,0)          \
-    XX(SAVE_CACHE,0)          \
-    XX(SPIKE_PING,4)          \
+    XX(LOAD_CACHE,1)          \
+    XX(RUN_EVENTS,1)          \
+    XX(SAVE_CACHE,1)          \
+
+#define ALL_PHASER_COMMANDS_OLD() \
+    XX(CARRY_ON,1)            \
+    XX(HOLD_AT_BIRTH,1)       \
+    XX(ALL_HARTS_PAUSE,1)     \
+    XX(LOOP_BACK,1)           \
+    XX(SUSPEND_EWPS,2)        \
+    XX(NEW_LEADER,2)          \
+    XX(LOAD_CACHE,1)          \
+    XX(SAVE_CACHE,1)          \
+    //    XX(SPIKE_PING,5)    
 
 #define ALL_PHASER_MASK_COMBOS()                                         \
     XX(NONE,0)                                                           \
-    XX(ALL_EWP_ACTIVE,CmdMask::CARRY_ON|CmdMask::NEW_LEADER)             \
     XX(BLOCKS_ALL_HARTS,CmdMask::ALL_HARTS_PAUSE|CmdMask::HOLD_AT_BIRTH) \
 
-    enum Cmd : u8 {
+    enum class Cmd : u8 {
 
-#define XX(name,argc) CMD_##name,      
+      NOT_A_CMD = 0,
+
+#define XX(name,argc) name,      
       ALL_PHASER_COMMANDS()
 #undef XX
 
       CMD_COUNT,
-      NO_CMD = U8_MAX
     };
+    static constexpr u8 CMD_COUNT = (u8) Cmd::CMD_COUNT;
     static_assert(CMD_COUNT <= MAX_PHASER_COMMANDS, "ALL_PHASER_COMMANDS too big");
 
-    static constexpr const char * allPhaserCommandNames[CMD_COUNT+1] = {
+    static constexpr const char * allPhaserCommandNames[CMD_COUNT] = {
 #define XX(name,argc) #name,
       ALL_PHASER_COMMANDS()
 #undef XX
@@ -46,11 +55,11 @@ namespace MFM {
     };
 
     static constexpr const char * phaserCmdName(Cmd cmd) {
-      if (cmd > CMD_COUNT) cmd = CMD_COUNT;
-      return allPhaserCommandNames[cmd];
+      if (cmd >= Cmd::CMD_COUNT) return "ILLEGAL CMD";
+      return allPhaserCommandNames[(u8) cmd];
     }
 
-    static constexpr const u32 allPhaserArgCounts[CMD_COUNT+1] = {
+    static constexpr const u32 allPhaserArgCounts[CMD_COUNT] = {
 #define XX(name,argc) argc,
       ALL_PHASER_COMMANDS()
 #undef XX
@@ -58,13 +67,13 @@ namespace MFM {
     };
 
     static constexpr u32 phaserArgCount(Cmd cmd) {
-      if (cmd > CMD_COUNT) cmd = CMD_COUNT;
-      return allPhaserArgCounts[cmd];
+      if (cmd > Cmd::CMD_COUNT) cmd = Cmd::CMD_COUNT;
+      return allPhaserArgCounts[(u8) cmd];
     }
 
     enum class CmdMask : u32 {
       // First do single flag per cmd
-#define XX(name,argc) name = 1u<<CMD_##name,      
+#define XX(name,argc) name = 1u<<(u8)Cmd::name,      
       ALL_PHASER_COMMANDS()
 #undef XX
 
@@ -73,6 +82,10 @@ namespace MFM {
       ALL_PHASER_MASK_COMBOS()
 #undef XX
     };
+
+    friend constexpr bool operator!(CmdMask a) {
+      return 0 == (u32) a;
+    }
 
     friend constexpr CmdMask operator|(CmdMask a, CmdMask b) {
       return (CmdMask) (((u32) a) | ((u32) b));
@@ -115,8 +128,6 @@ namespace MFM {
 
       Cmd getCmd() const { return mCmd; }
 
-      CmdMask getCmdAsMask() const { return (CmdMask) (1<<mCmd); };
-
       void setDone(Done d) { mDone = (Done) (mDone | d); }
 
       Done getDone() const { return mDone; }
@@ -129,7 +140,10 @@ namespace MFM {
     bool isValid() const { return mPhaserHeader.isValid(); }
     bool isHandled() const { return mPhaserHeader.isHandled(); }
     Cmd getCmd() const { return mPhaserHeader.getCmd(); }
-    CmdMask getCmdAsMask() const { return mPhaserHeader.getCmdAsMask(); }
+    CmdMask getCmdAsMask() const { return getCmdAsMask(getCmd()); }
+
+    static CmdMask getCmdAsMask(Cmd cmd) { return (CmdMask) (1u<<(u8) cmd); };
+
     void setDone(Done d) { mPhaserHeader.setDone(d); }
     Done getDone() const { return mPhaserHeader.getDone(); }
     u8 getSeqNo() const { return mPhaserHeader.getSeqNo(); }

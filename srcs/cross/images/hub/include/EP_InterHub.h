@@ -84,7 +84,7 @@ namespace MFM {
 
     void init(InterHubL1Control & acbl1) ;
     void stepB(HostBlock & hb) ;
-    void updateCarsB(u32 ngbidx,HostBlock & hb,bool inside) ;
+    void updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) ;
     //int updateAllBlocks(HostBlock & hb) ;
 
   private:
@@ -99,7 +99,7 @@ namespace MFM {
                                  TheL1Data::CarIdxRB & crbi,
                                  TheL1Data::CarIdxRB & crbo) ;
 
-    void _ucFollowerCARRY_ON_B(u32 ngbidx,
+    void _ucFollowerRUN_EVENTS_B(u32 ngbidx,
                                GridManager & gm,
                                TheL1Data::CarIdxRB & crbi,
                                TheL1Data::CarIdxRB & crbo) ;

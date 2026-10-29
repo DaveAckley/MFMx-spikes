@@ -24,7 +24,7 @@ namespace MFM {
     static constexpr u32 CAR_SIZE = sizeof(SUBTC);
 
     void setPublicEPState(EPState newstate) ;
-    SUBTC * getClosedTCPtrIfAny() const ;
+    SUBTC * popClosedTCPtrIfAny() const ;
 
     bool shipTC(SUBTC & car, u8 carindex) ;
     bool shipTCTo(SUBTC & car, U8C ournoc0, U8C destnoc0, u64 destcaraddr) ;
@@ -60,6 +60,8 @@ namespace MFM {
     EPState & getPublicEPState() const {
       return getL1Data().getPublicEPState(this->getSrcBlockCodeIndex());
     }
+
+    char * report(u32 size, char * buf) const ;
 
     U8C mDestNoC0;
     u64 mDestBlockAddr;         // blockindex already applied; needs only carindex
