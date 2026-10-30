@@ -39,6 +39,20 @@ namespace MFM {
    );
   }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
+
+  inline void * callerPC(u32 n) {
+    switch (n) {
+    case 0: return __builtin_return_address(0);
+    case 1: return __builtin_return_address(1);
+    case 2: return __builtin_return_address(2);
+    default: return nullptr;
+    }
+  }
+
+#pragma GCC diagnostic pop
+
   /* Get select registers */
 
   inline u32 getRegisterSP(void) {

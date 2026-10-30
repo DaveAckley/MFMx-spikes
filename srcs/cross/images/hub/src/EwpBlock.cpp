@@ -4,7 +4,7 @@
 #include "Debug.h"
 #include "FastLocal.h" // for fAll
 #include "T6EPs.h"
-#include "T6PhaseLockedLoop.h" // for thePS
+#include "T6PhaseLockedLoop.h" // for thePLL
 
 namespace MFM {
   T6EPL1Data<EwpBlockStg,8> theEwpL1Data;
@@ -63,7 +63,7 @@ namespace MFM {
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
             
       //// LIVING
-      if (thePS.ifOccupying(PBCmd::RUN_EVENTS)) {
+      if (thePLL.ifOccupying(PBCmd::RUN_EVENTS)) {
         for (u32 n = 0; n < 8; ++n) {
           EwpEP<8> & ewpnc = myEwpEPArray[n];
           if (!ewpnc.isActive()) continue;
@@ -72,7 +72,7 @@ namespace MFM {
         return ret;
       }
 
-      if (thePS.ifExiting(PBCmd::RUN_EVENTS)) {
+      if (thePLL.ifExiting(PBCmd::RUN_EVENTS)) {
         EACH(100'000,LOGPTAG(TPS_EXRUN,__EACHNUM__));
       }
       return ret;

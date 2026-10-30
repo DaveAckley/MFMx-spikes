@@ -397,8 +397,9 @@ namespace MFM {
 
     const u32 MAX_STACK_WORDS = 256;
 
-    const u32 mappedStackBottomAddr = FASTRAM_SLOWPATHS[hartnum] + FASTRAM_SIZES[hartnum] - 4;
-    const u32 fastramStackBottomAddr = MEM_LOCAL_BASE + FASTRAM_SIZES[hartnum] - 4;
+    const u32 BOTTOM_EXTENSION = 8;
+    const u32 mappedStackBottomAddr = FASTRAM_SLOWPATHS[hartnum] + FASTRAM_SIZES[hartnum] - BOTTOM_EXTENSION;
+    const u32 fastramStackBottomAddr = MEM_LOCAL_BASE + FASTRAM_SIZES[hartnum] - BOTTOM_EXTENSION;
 
     BHTag tag(T6TADR,mDevChipNum,fromNoC0.x,fromNoC0.y);
     Eprintf("<<%s>> #%u (%u,%u) %s STACKBOT:0x%08x MAPSTACK:0x%08x\n",

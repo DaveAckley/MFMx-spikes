@@ -71,27 +71,54 @@ namespace MFM {
 #ifndef BUILD_HOST
   public:
     
-    void lock()  {
+    void /*  __attribute__ ((noinline))*/ lock()  {
       // don't try for the lock if already have it doh
       u8 hartplusone = fAll.mHartNum + 1;  // +1 so 0's not a hart
-      HBASSERT_NE(mHartPlusOne,hartplusone); // LOCK_FAILURE
+      memoryFence();
+      if (mHartPlusOne == hartplusone) {
+        //LOGXTAG(CALR0,callerPC(0));
+        //LOGXTAG(CALRL,lockedAt());
+        HBXTAG(CALR0,callerPC(0));
+        HBXTAG(CALRL,lockedAt());
+        HBASSERT_NE(mHartPlusOne,hartplusone); // LOCK_FAILURE
+      }
       acquireLockASM(&mLock);
       mHartPlusOne = hartplusone;
+      mPC = callerPC(0);
     }
-    void unlock() {
+    void /*  __attribute__ ((noinline))*/ unlock() {
       // don't release a lock that isn't ours doh
       u8 hartplusone = fAll.mHartNum + 1; 
-      HBASSERT_EQ(mHartPlusOne,hartplusone); // WRONG_HART
+      memoryFence();
+      if (mHartPlusOne != hartplusone) {
+        //LOGXTAG(CALR0,callerPC(0));
+        //LOGXTAG(CALRL,lockedAt());
+        HBXTAG(CALR0,callerPC(0));
+        HBXTAG(CALRL,lockedAt());
+        HBASSERT_EQ(mHartPlusOne,hartplusone); // WRONG_HART
+      }
       mHartPlusOne = 0;
+      mPC = 0;
       releaseLockASM(&mLock);
     }
-    bool tryLock() { return tryLockASM(&mLock); }
-    bool smellyPeekLock() const { return mLock != 0u; }
+    bool tryLock() {
+      bool ret = tryLockASM(&mLock);
+      if (ret) mPC = callerPC(0);
+      return ret;
+    }
+    void * smellyPeekLock() const {
+      memoryFence();
+      return mPC;
+    }
+    void * lockedAt() const {
+      return mPC;
+    }
 
     //
     AtomicLock(const char * unusedName) : AtomicLock() { }
     AtomicLock()
       : mLock(0)
+      , mPC(callerPC(0))
       , mHartPlusOne(0)
     {
       MFM_API_ASSERT_L1_ADDRESS(this);
@@ -99,13 +126,14 @@ namespace MFM {
     
   private:
     u32 mLock;
+    void * mPC;
     u8 mHartPlusOne;
 #else
   public:
     void lock()  { mLock.lock(); }
     void unlock() { mLock.unlock(); }
     bool tryLock() { return mLock.tryLock(); }
-    bool smellyPeekLock() const { return mLock.mThreadLockerId != 0u; }
+    void * smellyPeekLock() const { return mLock.mThreadLockerId != 0u ? (void*) 1 : nullptr; }
 
     OurMutex & getMutex() { return mLock; }
     AtomicLock() : AtomicLock("HostAtomic") { }

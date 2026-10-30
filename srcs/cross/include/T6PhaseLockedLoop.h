@@ -11,6 +11,25 @@ namespace MFM {
   using PBCmd = PhaserBolt::Cmd;
   using PBCmdMask = PhaserBolt::CmdMask;
 
+  enum class Edge : u8 {
+    ENTERING,
+    EXITING
+  };
+
+  struct ConsensusChecker {
+    PBCmd mPhase;
+    Edge mEdge;
+    u8 mHartCharAcks[HART_COUNT+1];
+    static constexpr u8 ACK_CHAR = 'A';
+    static constexpr u8 UNK_CHAR = '.';
+
+    void setupVote(PBCmd cmd, Edge edge) ;
+    void recordAck(PBCmd cmd, Edge edge, u8 hart) ;
+    const char * voteStatus() { return (const char *) mHartCharAcks; };
+
+    bool consensusReached() ;
+  };
+
   struct PhaseStepper {
 
     bool isExiting() const { return exitingIfAny() != PBCmd::NOT_A_CMD; }
@@ -32,21 +51,22 @@ namespace MFM {
       return PBCmd::NOT_A_CMD;
     }
 
-    void _switchToEntering() ; // exiting -> entering
+    void _switchToEntering(ConsensusChecker & cc) ; // exiting -> entering
 
-    void _switchToExiting(PBCmd nextCmd) ; // occupying -> exiting
+    void _switchToExiting(ConsensusChecker & cc, PBCmd nextCmd) ; // occupying -> exiting
 
-    bool _hartAcked() { return mHartAckFlags & _thisHartFlag(); }
-    u8 _thisHartFlag() const { return (u8) (1u<<fAll.mHartNum); }
+    //bool _hartAcked() { return mHartAckFlags & _thisHartFlag(); }
+    //u8 _thisHartFlag() const { return (u8) (1u<<fAll.mHartNum); }
 
   private:
     PBCmd mOutgoingCmd;
     PBCmd mCurrentCmd;
     PBCmd mIncomingCmd;
-    u8 mHartAckFlags;
+    //    u8 mHartAckFlags;
   };
 
   struct T6PhaseLockedLoop {
+
     AtomicLock mLock;
     u8 mLastSeqnoArrived;
     u8 mLastSeqnoAcked[HART_COUNT];
@@ -55,6 +75,7 @@ namespace MFM {
     PBCmd mNewestCmdReturned;
 
     PhaseStepper mPS;
+    ConsensusChecker mVoteClerk;
 
     void init() {
       memset_s(this,'\0',sizeof(*this));
@@ -66,24 +87,16 @@ namespace MFM {
 
     void continueWhenNotOccupying(PhaserBolt::CmdMask flags) ;
 
+    void switchToEntering() ;
+
+    void switchToExiting(PBCmd nextCmd) ;
+
     bool ifEntering(PBCmd cmd) ;
 
     bool ifOccupying(PBCmd cmd) ;
 
     bool ifExiting(PBCmd cmd) ;
 
-#if 0
-    PhaserBolt::Cmd getInProgressCmdIfAny() ; //< mNewestCmdReceived if arr!=ret else no_cmd
-
-    PhaserBolt::Cmd getPrevailingCmdIfAny() ; //< mNewestCmdReturned if arr==ret else no_cmd
-
-    bool isBoltAnyOfThese(PhaserBolt::CmdMask flags) ;
-
-    void continueWhenBoltIsAnyOf(PhaserBolt::CmdMask flags) ;
-
-    void continueWhenBoltIsNoneOf(PhaserBolt::CmdMask flags) ;
-
-#endif
     void phaseStepperControlNC() ;
 
     bool alerted() {
@@ -92,6 +105,14 @@ namespace MFM {
     }
 
     void boltResponderAllHarts() ;
+
+    void doneEntering(PBCmd cmd) {
+      mVoteClerk.recordAck(cmd,Edge::ENTERING,fAll.mHartNum);
+    }
+
+    void doneExiting(PBCmd cmd) {
+      mVoteClerk.recordAck(cmd,Edge::EXITING,fAll.mHartNum);
+    }
 
     bool weHaveAcknowledgedCurrentBolt() ;
     
@@ -108,7 +129,7 @@ namespace MFM {
     void _handleBlockingNC() ; 
   };
 
-  extern T6PhaseLockedLoop thePS; // the PhaseStepper instance (and stuf)
+  extern T6PhaseLockedLoop thePLL; // the PhaseStepper instance (and stuf)
 
   /// 'IMAGE' routines to be defined in each image
   extern bool imageDoneRespondingToBoltB(PhaserBolt & pb) ;

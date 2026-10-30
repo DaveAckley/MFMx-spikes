@@ -114,7 +114,7 @@ namespace MFM {
     /*
     if (pb.getCmd() == PhaserBolt::Cmd::LOAD_CACHE) {
       //// DELEGATE HANDLING+ACK TO IHPC::updateCars
-      return thePS.weHaveAcknowledgedCurrentBolt();
+      return thePLL.weHaveAcknowledgedCurrentBolt();
     }
     */
 

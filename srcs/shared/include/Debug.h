@@ -104,16 +104,20 @@ namespace MFM {
 #define HBPX(EXPR) HBPTAG(EXPR,EXPR)
 #define HBXX(EXPR) HBXTAG(EXPR,EXPR)
 
-#define HBASSERT_COMP(A,B,OP) do {                                  \
-  if (!(A OP B)) {                                                  \
-    LOGPTAG(BHANG!,getNameFromImageCode((ImageCode) fAll.mImageCode)); \
-    LOGPTAG(BHANG!L,A);                                                \
-    LOGPTAG(BHANG!R,B);                                                \
-    HBPTAG(BHANG!,getNameFromImageCode((ImageCode) fAll.mImageCode)); \
-    HBPTAG(BHANG!L,A);                                                \
-    HBPTAG(BHANG!R,B);                                                \
-  }                                                                   \
-  MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);                           \
+#define HBASSERT_COMP(A,B,OP) do {                                      \
+    if (!(A OP B)) {                                                    \
+      LOGPTAG(BHANG!,getNameFromImageCode((ImageCode)fAll.mImageCode)); \
+      LOGPTAG(BHANG!L,A);                                               \
+      LOGPTAG(BHANG!R,B);                                               \
+      LOGXTAG(CALR0,callerPC(0));                                       \
+      LOGXTAG(CALR1,callerPC(1));                                       \
+      HBPTAG(BHANG!,getNameFromImageCode((ImageCode)fAll.mImageCode));  \
+      HBPTAG(BHANG!L,A);                                                \
+      HBPTAG(BHANG!R,B);                                                \
+      HBXTAG(CALR0,callerPC(0));                                        \
+      HBXTAG(CALR1,callerPC(1));                                        \
+    }                                                                   \
+    MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);                           \
   } while(0)
   
 #else //ifndef BUILD_HOST

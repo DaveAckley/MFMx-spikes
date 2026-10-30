@@ -88,14 +88,14 @@ namespace MFM {
   }
 
   void stepNC(HostBlock & hb) {
-    thePS.phaseStepperControlNC();
+    thePLL.phaseStepperControlNC();
     RCFlag res = fNC.runHTFuncsNC(HTOpCode::HTOC_LIVE);
     EACH(10'000'000,LOGPTAG64(NCBO,fNC.mBytesOut));
   }
 
   int initNC() {
     HBNOTE(BOLTI_INIT);
-    thePS.init();
+    thePLL.init();
     HBNOTE("initNC");
     fNC.init();
     return 0;

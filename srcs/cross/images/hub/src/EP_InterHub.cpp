@@ -2,7 +2,7 @@
 #include "EwpBlock.h" // for theEwpL1Data
 #include "FastT2.h" // for oneIn
 #include "HubLiveB.h" // for fB
-#include "T6PhaseLockedLoop.h" // for thePS
+#include "T6PhaseLockedLoop.h" // for thePLL
 #include "CacheLoader.h" // for CacheLoader eg
 
 namespace MFM {
@@ -182,13 +182,13 @@ namespace MFM {
         LOGPTAG(_ducEA,__EACHNUM__);
       });
 
-    if (thePS.ifEntering(PBCmd::RUN_EVENTS)) {
+    if (thePLL.ifEntering(PBCmd::RUN_EVENTS)) {
       if (iLead) return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
       if (iFollow) return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
       FAIL(ILLEGAL_STATE);
     }
 
-    if (thePS.ifEntering(PBCmd::NEW_LEADER)) {
+    if (thePLL.ifEntering(PBCmd::NEW_LEADER)) {
       if (iLead) return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
       if (iFollow) return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
     }

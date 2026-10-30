@@ -51,7 +51,8 @@ namespace MFM {
     static constexpr u8 CMD_COUNT = (u8) Cmd::CMD_COUNT;
     static_assert(CMD_COUNT <= MAX_PHASER_COMMANDS, "ALL_PHASER_COMMANDS too big");
 
-    static constexpr const char * allPhaserCommandNames[CMD_COUNT] = {
+    static constexpr const char * allPhaserCommandNames[CMD_COUNT+1] = {
+      "N/C",
 #define XX(name,argc) #name,
       ALL_PHASER_COMMANDS()
 #undef XX

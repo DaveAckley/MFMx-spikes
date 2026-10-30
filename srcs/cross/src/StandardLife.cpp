@@ -9,7 +9,7 @@ namespace MFM {
     // HEARTBEAT AND BOLT RESPONSE
     u32 oldspin = fAll.mHeartSpin++;
     if ((oldspin & 0x3f) == 0) {
-      thePS.boltResponderAllHarts();
+      thePLL.boltResponderAllHarts();
       if (oldspin == 0) {
         hb.hartbeat(fAll.mHartNum);
         return true;

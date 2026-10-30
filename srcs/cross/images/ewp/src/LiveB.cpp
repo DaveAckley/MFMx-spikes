@@ -10,7 +10,7 @@
 #include "Physics.h"
 #include "HartTasks.h" // for HTFuncPtr
 #include "T6Phaser.h" // for HTFuncPtr
-#include "T6PhaseLockedLoop.h" // for thePS
+#include "T6PhaseLockedLoop.h" // for thePLL
 
 namespace MFM {
 
@@ -62,7 +62,7 @@ namespace MFM {
   }
 
   void stepB(HostBlock & hb) {
-    // DON'T GATE HERE? if (thePS.isBoltAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
+    // DON'T GATE HERE? if (thePLL.isBoltAnyOfThese(PhaserBolt::CmdMask::ALL_EWP_ACTIVE))
       processEwpCars(hb,false);
   }
 

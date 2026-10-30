@@ -925,9 +925,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
     bool anystuck = false;
     for (u32 hart = 0u; hart < 5u; ++hart) {
       if (info.mLastWatchdog[hart] == hb.mPerHartWatchdog[hart]) {
-        if (info.mStuckDog[hart]) {
+        if (/*xxx*/ true || info.mStuckDog[hart]) {
           anystuck = true;
-          if (hb.mPerHartFailFileID[hart] != 0) {
+          if (/*XXX*/ true || hb.mPerHartFailFileID[hart] != 0) {
             const char * path = GET_PATH_FROM_FILE_ID(hb.mPerHartFailFileID[hart]);
             while (*path) if (*path++ == '/') break; // hack: eat / prefix
             std::string mark = makeMark(hb.mPerHartFailFileID[hart],
@@ -967,7 +967,7 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
                 if (frameFlag == ' ') continue; // drop args/locals?
                 std::string maybefidl = "";
                 std::string maybefunc;
-                if (pccheck && maybeaddr >= 300)  //HACK
+                if (pccheck && maybeaddr >= 500)  //HACK
                   maybefidl = getFIDLIfAny(t6i.getName().c_str(),maybeaddr-4,&maybefunc); // -4 => hope for caller addr, not ret addr
                 if (maybefidl != "") {
                   std::string mark = makeMark(maybefidl, mChipNum, hb.mNoC0, hartName(hart), maybefunc);
@@ -998,6 +998,11 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           } 
         } else info.mStuckDog[hart] = true;
       } else {
+        EACH(127,Eprintf("UNSTUK@%u %s %s wd%u\n",
+                               __EACHNUM__,
+                               BHTag::t6adc(mChipNum,hb.mNoC0.x,hb.mNoC0.y).c_str(),
+                               hartName(hart),
+                               hb.mPerHartWatchdog[hart]));
         info.mLastWatchdog[hart] = hb.mPerHartWatchdog[hart];
         info.mStuckDog[hart] = false;
       }
