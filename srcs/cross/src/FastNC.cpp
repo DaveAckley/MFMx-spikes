@@ -16,7 +16,7 @@
 #include "BlockCode.h"
 #include "T6ImageBlock.h"
 #include "T6Phaser.h"
-#include "T6BoltResponder.h"
+#include "T6PhaseLockedLoop.h"
 
 namespace MFM {
 

@@ -4,7 +4,7 @@
 #include "Debug.h"
 #include "FastLocal.h" // for fAll
 #include "T6EPs.h"
-#include "T6BoltResponder.h" // for thePS
+#include "T6PhaseLockedLoop.h" // for thePS
 
 namespace MFM {
   T6EPL1Data<EwpBlockStg,8> theEwpL1Data;
@@ -63,15 +63,23 @@ namespace MFM {
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
             
       //// LIVING
-      PhaserBolt::Cmd cmd = thePS.getPrevailingCmdIfAny();
-      if (cmd == PhaserBolt::Cmd::RUN_EVENTS) {
+      if (thePS.ifOccupying(PBCmd::RUN_EVENTS)) {
         for (u32 n = 0; n < 8; ++n) {
           EwpEP<8> & ewpnc = myEwpEPArray[n];
           if (!ewpnc.isActive()) continue;
           ewpnc.updateOps();
         }
-      } else EACH(1'000'000,LOGPTAG(NOEWPHASE,__EACHNUM__));
-    } else LOGPTAG(unknown htoc,htoc);
+        return ret;
+      }
+
+      if (thePS.ifExiting(PBCmd::RUN_EVENTS)) {
+        EACH(100'000,LOGPTAG(TPS_EXRUN,__EACHNUM__));
+      }
+      return ret;
+    }
+    else {
+      EACH(1'000'000,LOGPTAG(NOEWPHASE,__EACHNUM__));
+    }
     return ret;
   }
   

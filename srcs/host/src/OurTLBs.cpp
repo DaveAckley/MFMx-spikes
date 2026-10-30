@@ -42,7 +42,7 @@ namespace MFM {
     memset_s(&mPinnedHostBuf,0u,sizeof(mPinnedHostBuf));
     // Set up mShadowPHASER to use as init for T6Image PHASER block
     mShadowPHASER.init();
-    mShadowPHASER.payload().reinit(PhaserBolt::HOLD_AT_BIRTH);
+    mShadowPHASER.payload().reinit(PhaserBolt::Cmd::HOLD_AT_BIRTH);
   }
 
   void OurTLBs::allocateHostRAM(size_t sizePerT6) {

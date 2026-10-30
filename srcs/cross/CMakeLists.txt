@@ -45,7 +45,7 @@ target_sources(crosslib PUBLIC
   src/NRIUtils.cpp
   src/Printf.cpp
   src/StandardLife.cpp
-  src/T6BoltResponder.cpp
+  src/T6PhaseLockedLoop.cpp
   src/T6CellO.cpp
   src/T6EPL1Data.cpp
   src/T6EPs.cpp

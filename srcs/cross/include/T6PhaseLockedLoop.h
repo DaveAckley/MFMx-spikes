@@ -13,20 +13,20 @@ namespace MFM {
 
   struct PhaseStepper {
 
-    bool isExiting() const { return _exitingIfAny() != PBCmd::NOT_A_CMD; }
-    PBCmd _exitingIfAny() const {
+    bool isExiting() const { return exitingIfAny() != PBCmd::NOT_A_CMD; }
+    PBCmd exitingIfAny() const {
       if (mOutgoingCmd == mCurrentCmd && mCurrentCmd != mIncomingCmd) 
         return mCurrentCmd;
       return PBCmd::NOT_A_CMD;
     }
 
-    bool isEntering() const { return _enteringIfAny() != PBCmd::NOT_A_CMD; }
-    PBCmd _enteringIfAny() const {
+    bool isEntering() const { return enteringIfAny() != PBCmd::NOT_A_CMD; }
+    PBCmd enteringIfAny() const {
       if (mOutgoingCmd != mCurrentCmd && mCurrentCmd == mIncomingCmd)
         return mCurrentCmd;
       return PBCmd::NOT_A_CMD;
     }
-    PBCmd _occupyingIfAny() const {
+    PBCmd occupyingIfAny() const {
       if (mOutgoingCmd == PBCmd::NOT_A_CMD && mIncomingCmd == PBCmd::NOT_A_CMD)
         return mCurrentCmd;
       return PBCmd::NOT_A_CMD;
@@ -46,7 +46,7 @@ namespace MFM {
     u8 mHartAckFlags;
   };
 
-  struct T6BoltResponder {
+  struct T6PhaseLockedLoop {
     AtomicLock mLock;
     u8 mLastSeqnoArrived;
     u8 mLastSeqnoAcked[HART_COUNT];
@@ -65,6 +65,12 @@ namespace MFM {
     }
 
     void continueWhenNotOccupying(PhaserBolt::CmdMask flags) ;
+
+    bool ifEntering(PBCmd cmd) ;
+
+    bool ifOccupying(PBCmd cmd) ;
+
+    bool ifExiting(PBCmd cmd) ;
 
 #if 0
     PhaserBolt::Cmd getInProgressCmdIfAny() ; //< mNewestCmdReceived if arr!=ret else no_cmd
@@ -102,7 +108,7 @@ namespace MFM {
     void _handleBlockingNC() ; 
   };
 
-  extern T6BoltResponder thePS; // the PhaseStepper instance (and stuf)
+  extern T6PhaseLockedLoop thePS; // the PhaseStepper instance (and stuf)
 
   /// 'IMAGE' routines to be defined in each image
   extern bool imageDoneRespondingToBoltB(PhaserBolt & pb) ;

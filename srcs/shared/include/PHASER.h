@@ -13,13 +13,18 @@ namespace MFM {
 
 #define ALL_PHASER_COMMANDS() \
     XX(HOLD_AT_BIRTH,1)       \
+    XX(NEW_LEADER,1)          \
+    XX(RUN_EVENTS,1)          \
+
+#define ALL_PHASER_COMMANDS_OLD() \
+    XX(HOLD_AT_BIRTH,1)       \
     XX(ALL_HARTS_PAUSE,1)     \
     XX(NEW_LEADER,1)          \
     XX(LOAD_CACHE,1)          \
     XX(RUN_EVENTS,1)          \
     XX(SAVE_CACHE,1)          \
 
-#define ALL_PHASER_COMMANDS_OLD() \
+#define ALL_PHASER_COMMANDS_OLDER() \
     XX(CARRY_ON,1)            \
     XX(HOLD_AT_BIRTH,1)       \
     XX(ALL_HARTS_PAUSE,1)     \
@@ -32,7 +37,6 @@ namespace MFM {
 
 #define ALL_PHASER_MASK_COMBOS()                                         \
     XX(NONE,0)                                                           \
-    XX(BLOCKS_ALL_HARTS,CmdMask::ALL_HARTS_PAUSE|CmdMask::HOLD_AT_BIRTH) \
 
     enum class Cmd : u8 {
 

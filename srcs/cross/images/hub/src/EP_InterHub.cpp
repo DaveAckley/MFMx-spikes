@@ -2,7 +2,7 @@
 #include "EwpBlock.h" // for theEwpL1Data
 #include "FastT2.h" // for oneIn
 #include "HubLiveB.h" // for fB
-#include "T6BoltResponder.h" // for thePS
+#include "T6PhaseLockedLoop.h" // for thePS
 #include "CacheLoader.h" // for CacheLoader eg
 
 namespace MFM {
@@ -162,29 +162,11 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
 
-#if 0 // Just always check the cases..
-
-    //// ANYTHING TO DO?
-    PhaserBolt::Cmd myCmd = thePS.getPrevailingCmdIfAny();
-    EACH(1'000'000,LOGPTAG(_ucBCmd,PhaserBolt::phaserCmdName(myCmd)));
-
-    if (myCmd == PBCmd::NOT_A_CMD) return; // definitely not
-
-#endif
-
     GridManager & gm = fB.mGridManager;
     SCStatus whatWeDo = gm.leadFollowOrGetOutOfTheWay();
 
     bool iLead = whatWeDo == SCStatus::WE_LEAD;
     bool iFollow = whatWeDo == SCStatus::WE_FOLLOW;
-
-    /////////
-    ///// STATES THAT DO NOT REQUIRE CRBI OR CRBO
-
-    //// BOLT STATE    US STATE  ACTION
-    //// ==========    ========  ======
-    //// RUN_EVENTS      leader    let crbi ride, do big ewps
-    //XXX    if (iLead && myCmd == PhaserBolt::Cmd::CARRY_ON) return;
 
     TheL1Data::CarIdxRB & crbi = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
     TheL1Data::CarIdxRB & crbo = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
@@ -196,16 +178,22 @@ namespace MFM {
     }
 
     EACH(1'000'000,{
-        LOGPTAG(_ducB,PhaserBolt::phaserCmdName(myCmd));
         LOGPTAG(_ducDO,getSCStatusName(whatWeDo));
         LOGPTAG(_ducEA,__EACHNUM__);
       });
 
-    if (iLead && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
-      return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+    if (thePS.ifEntering(PBCmd::RUN_EVENTS)) {
+      if (iLead) return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+      if (iFollow) return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+      FAIL(ILLEGAL_STATE);
+    }
 
-    if (iFollow && myCmd == PhaserBolt::Cmd::LOAD_CACHE)
-      return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+    if (thePS.ifEntering(PBCmd::NEW_LEADER)) {
+      if (iLead) return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+      if (iFollow) return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+    }
+
+#if 0    
 
     //// BOLT STATE    US STATE  ACTION
     //// ==========    ========  ======
@@ -236,6 +224,7 @@ namespace MFM {
         lastWeDo = whatWeDo;
       }
     }
+#endif    
   }
 
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {

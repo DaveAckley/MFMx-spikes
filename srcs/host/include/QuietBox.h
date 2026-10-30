@@ -177,7 +177,7 @@ namespace MFM {
       // Expose Cmd for 1st arg to shootPHASER
       py::class_<PhaserBolt> ph(m,"PhaserBolt");
       py::native_enum<PhaserBolt::Cmd>(ph,"Cmd","enum.Enum")
-#define XX(name,argc) .value("" #name, PhaserBolt::Cmd::##name)
+#define XX(name,argc) .value("" #name, PhaserBolt::Cmd::name)
       ALL_PHASER_COMMANDS()
 #undef XX
         .export_values()
