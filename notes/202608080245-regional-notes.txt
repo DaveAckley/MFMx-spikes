@@ -1,4 +1,4 @@
-{999}  -*-  mode: text; fill-column: 32;  -*-
+{1009}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -18055,7 +18055,14 @@ intermediate ground, I guess.
 
 T6PhaseLockedLoop
 thePLL
+[999:
 
+Thu Oct 29 19:28:26 2026 OK,
+renamed.
+
+Let's have an ack structure.
+
+:999]
 :998]
 
 :997]
@@ -18135,3 +18142,117 @@ PHASE STEPPING DUTIES
             follower: all ewps are back
 
 :990]
+[1000:
+
+Thu Oct 29 22:37:36 2026 OK
+we've made doneExiting(cmd) and
+doneEntering(cmd) and where do
+we use them? There was a plan to
+dith imageDoneResponding..
+right? 
+[1001:
+
+Thu Oct 29 22:39:20 2026 Ah yes:
+
+    boltResponderAllHarts should
+    handle it directly in a
+    completely standardized way, by
+    checking for consensus across
+    the harts. So
+
+so let's do that.
+
+:1001]
+:1000]
+[1002:
+
+Thu Oct 29 23:53:03 2026 OK, so
+nobody is calling
+switchToEntering (for example).
+Where do we think that should
+happen? Is anyone calling
+boltdetectorNC? 
+[1003:
+
+Thu Oct 29 23:54:16 2026 Looks
+like phaseStepperControlNC does
+but nobody's calling that?
+
+[1004:
+
+Thu Oct 29 23:54:59 2026 Well,
+:), looks like stepNC calls
+that. 
+
+:1004]
+
+:1003]
+:1002]
+[1005:
+
+Fri Oct 30 01:48:18 2026 OK so I
+think somebody in charge, like
+in NC, needs to call alerted(),
+discover it's become true
+because a new bolt has been
+detected. That gives us a next
+Cmd, so we can switch to exiting
+the current command, and drive
+this shit forward a bit
+further.[1006:
+
+Fri Oct 30 01:51:29 2026 The way
+the code is currently written:
+
+      void T6PhaseLockedLoop::phaseStepperControlNC() {
+ ..     AtomicScopeLock guard(mLock);
+        if (mPS.isExiting()) {
+          FAIL(INCOMPLETE_CODE); /// CHECK EXITING PROGRESS
+        } else if (mPS.isEntering()) {
+          FAIL(INCOMPLETE_CODE); /// CHECK ENTERING PROGRESS
+        } else
+          _boltDetectorNC();
+      }
+
+we can only get to boltdetector
+when we're not exiting or
+entering, so it seems we could
+start exiting the current state
+as soon as we see the new bolt.
+[1007:
+
+Fri Oct 30 10:36:11 2026 OK so
+after taking too too long to
+debug a reentrant lock problem,
+now we're facing, I think, an
+initialization problem. Aaaand
+just saying that much - I think
+I'm going to make it
+'self-initializing' and remove
+the current FAIL. 
+[1008:
+
+Fri Oct 30 12:24:49 2026 OK well
+the code is a running mess, but
+it's time for a nap, and I'm
+going to take the oppty to
+update roses-bh and reboot it,
+since it's been a while:
+
+    root@roses-bh:~# uptime
+     12:25:03 up 50 days,  8:53,  9 users,  load average: 11.57, 27.35, 25.54
+    root@roses-bh:~# 
+
+So we're going to commit WIP and
+push and XPush for safety, then
+upgrade, then reboot, than nap,
+and hopefully roses-bh will be
+blooming again by the time I get
+back. 
+
+:1008]
+:1007]
+
+:1006]
+
+:1005]
