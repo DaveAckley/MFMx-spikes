@@ -1,4 +1,4 @@
-{985}  -*-  mode: text; fill-column: 32;  -*-
+{999}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -17794,7 +17794,289 @@ Thu Oct 29 10:26:44 2026
 Actually, starting a
 simplify-supercycle branch.
 That's what they're here for. 
+[985:
 
+Thu Oct 29 10:40:30 2026 Well,
+deleted that branch and
+committed back in
+moveAtoms-spike and then
+recreated simplify-supercycle.
+Now PHASER.h has
+
+    #define ALL_PHASER_COMMANDS() \
+        XX(HOLD_AT_BIRTH,1)       \
+        XX(NEW_LEADER,1)          \
+        XX(RUN_EVENTS,1)          \
+
+although I'm not sure if if
+ought to be NEW_LEADER,2..[986:
+
+Thu Oct 29 10:50:34 2026 OK
+we're digging into it. What do
+we think updateIHCarsB wants to
+look like now?
+[987:
+
+Thu Oct 29 13:14:53 2026 We
+think it wants to look like the
+bottom of :979: above, and now
+it does.
+
+Next step is look at the actual
+cache manipulation
+routines.[988:
+
+Thu Oct 29 13:26:26 2026 Current
+error is in:
+
+      bool imageDoneRespondingToBoltB(PhaserBolt & pb) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        if (pb.getCmd() == PhaserBolt::Cmd::NEW_LEADER) {
+          s32 arg;
+          if (pb.getBoltDataWordIfAny(0,arg) && arg >= 0 && arg < 256)
+            return bRespondToCMD_NEW_LEADER(arg);
+          FAIL(OUT_OF_BOUNDS);
+        }
+
+>>      if (pb.getCmd() == PhaserBolt::Cmd::LOAD_CACHE) {
+
+and do we have a clear view of
+how imageDoneRespondingToBoltB
+fits into the current picture?
+[989:
+
+Thu Oct 29 13:28:26 2026 It's
+called from
+
+  void T6BoltResponder::boltResponderAllHarts() 
+
+and returns true when HB is
+ready to acknowledge the current
+bolt. Are we still acknowledging
+bolts directly at all? 
+
+[991:
+
+Thu Oct 29 14:22:54 2026 OK we
+redrew :979: above as :990:
+below, and included explicit
+'when done with step' text.
+
+So that should inform an
+imageDoneRespondingToBoltB
+rewrite, yes?[992:
+
+Thu Oct 29 14:41:42 2026 Well
+here's a thing: The conditions
+for NEW_LEADER entering done
+would be most naturally detected
+in updateIHCarsB(u32
+ngbidx,HostBlock & hb,bool
+inside) -- or actually, in the
+caller of updateIHCarsB I guess
+-- rather than in a completely
+separate
+imageDoneRespondingToBoltB
+method. No?
+[993:
+
+Thu Oct 29 14:46:34 2026 the
+current code is slanted towards
+unifying over stages.
+
+    imageDoneRespondingToBoltB
+     is called by
+    T6BoltResponder::boltResponderAllHarts()
+     is called by
+    bool beatTheStandardHeartbeat(..) 
+
+and I'm thinking now that say
+boltResponderAllHarts should
+handle it directly in a
+completely standardized way, by
+checking for consensus across
+the harts. So
+imageDoneRespondingToBoltB and
+pals go away, and we
+deliberately leave the per-hart
+ack consensus to be handled
+whereever it makes most sense in
+the functioning of the code.
+[994:
+
+Thu Oct 29 15:05:12 2026 So that
+means we want randos to call
+T6BoltResponder::hartAcknowledgeBolt
+when they're good and ready..
+but that's not enough: We need
+to join consensus on an
+individual edge, not an entire
+bolt all at once.
+
+So I think we do need some infra
+to capture the degree of
+consensus on a given edge - in
+some fashion - and have the
+randos actually be calling
+
+ hartDoneEntering(PBCmd) or
+ hartDoneExiting(PBCmd)
+
+as appropriate. And we'll need
+some kind of defaults so that
+doesn't become too onerous for
+randos that just want to ignore
+the whole thing.
+
+So maybe we want ternary:
+(+) I'm explicitly done with edge
+(-) I'm explicitly NOT done with edge
+(0) I don't fucking care
+
+with 0 as the default perhaps.
+
+[995:
+
+Thu Oct 29 15:26:13 2026 How
+shall we make that go? And in
+particular, what is the interval
+over which we give randos a
+chance to weigh in with explicit
+responses?
+
+On that last, I guess, from the
+time the edge is asserted until
+the next time we get back to
+that point in the code?
+
+I guess if we really wanted a
+no-code default it would have to
+be time-based, given the
+multiple unsynchronized harts
+responding, and we don't want it
+to be time-based.
+
+So I guess we want it
+'override'-based, where the
+default response for
+
+  HART x PHASE x EDGE
+
+says 'I don't GAF', and somebody
+has to override that if it needs
+more control.
+
+And how much would a 3D array
+cost now that we've stripped
+back the phases?
+
+    5 HARTS
+  x 2 (relevant) PHASES 
+  x 2 EDGES
+ ----
+  20B say? chump change!
+
+don't even bother trying to
+reuse edge spaces (since two
+edges can't occur at the same
+time), just fucking multiply it
+out.
+
+and the ack method could just be
+like ack(), but we'd want more
+redundancy with like:
+
+ doneEntering(PBCmd cmd)
+ doneExiting(PBCmd cmd)
+
+doing like
+
+void doneEntering(PBCmd cmd) {
+  u8 hart = fAll.mHartNum;
+  u8 edge = EnteringEdge;
+  acknowledgeHCE(hart,cmd,edge,1);
+}
+
+void stillEntering(PBCmd cmd) {
+  u8 hart = fAll.mHartNum;
+  u8 edge = EnteringEdge;
+  acknowledgeHCE(hart,cmd,edge,-1);
+}
+
+s8 hceStatus[HART_COUNT][PHASE_COUNT][EDGE_COUNT];
+
+[996:
+
+Thu Oct 29 17:54:35 2026 Except
+multiplying it all out is
+stupid, yes? It should be like:
+
+struct {
+  u8 mCurrentPhase;
+  u8 mCurrentEdge;
+  s8 mCurrentHartAcks[HART_COUNT];
+};
+
+because only the current phase
+and edge can be acked.
+
+struct PhaseStep {
+  u8 mPhase;
+  u8 mEdge;
+  s8 mHartAcks[HART_COUNT];
+};
+
+PhaseStep mCurrentPS;
+
+[997:
+
+Thu Oct 29 17:59:42 2026 I'd
+also like to rename
+T6BoltResponder to...
+
+T6PhaseManager
+T6PLL
+ .. well that's pretty short
+
+..tempting
+could be all static methods at
+that point.
+
+T6PLL::foo() vs
+theT6PLL.foo()
+
+..i work a little differently.
+
+[998:
+
+Thu Oct 29 18:22:59 2026
+T6Phaser would be an
+intermediate ground, I guess.
+
+T6PhaseLockedLoop
+thePLL
+
+:998]
+
+:997]
+
+:996]
+
+:995]
+
+:994]
+:993]
+
+:992]
+
+:991]
+:989]
+:988]
+
+:987]
+:986]
+
+:985]
 :984]
 
 
@@ -17805,3 +18087,51 @@ That's what they're here for.
 
 :980]
 :979]
+[990:
+
+Thu Oct 29 13:35:48 2026 I guess
+maybe augment :979: above with
+explicit When Are We Done?
+
+Actually, let's redraw:
+
+PHASE STEPPING DUTIES
+
+     NEW LEADER: X
+       entering:
+         UpdateIH: (save caches)
+            leader: send cache info
+            follower: recv site info
+       entering done when:
+            leader: all caches sent
+            follower: all sites recvd
+       
+       occupying: --
+       exiting:
+         GridMgr:
+           capture X
+           determine new leader/follower
+       exiting done when:
+           new leader/follower is known
+
+     RUN EVENTS
+         entering:
+          UpdateIH: (load caches)
+            leader: recv cache info
+            follower: send site info
+         entering done when:
+            leader: all caches recvd
+            follower: all sites sent
+        occupying:
+          GridMgr:
+            leader: run big ewps
+            follower: run little ewps
+        exiting:
+          GridMgr:
+            leader: drain big ewps
+            follower: drain little ewps
+         exiting done when:
+            leader: all ewps are back
+            follower: all ewps are back
+
+:990]
