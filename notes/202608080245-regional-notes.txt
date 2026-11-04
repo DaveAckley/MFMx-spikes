@@ -1,4 +1,4 @@
-{1009}  -*-  mode: text; fill-column: 32;  -*-
+{1106}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -4784,66 +4784,66 @@ between 'processes'/harts/wevs.
 Fri Sep 11 15:48:48 2026
 RingBuffer types I can find:
 
-./host/include/ZHostDecompressor.h 33:    typedef RingBuffer<CarACB,3> PRB;
-./host/include/ZHostDecompressor.h 34:    PRB mACBI, mACBO;
+./host/include/ZHostDecompressor.h^@33:    typedef RingBuffer<CarACB,3> PRB;
+./host/include/ZHostDecompressor.h^@34:    PRB mACBI, mACBO;
 
-./host/src/OurTLBs.cpp 752:    ZHostDecompressor::PRB & prbi = zhd.mACBI;
-./host/src/OurTLBs.cpp 753:    ZHostDecompressor::PRB & prbo = zhd.mACBO;
+./host/src/OurTLBs.cpp^@752:    ZHostDecompressor::PRB & prbi = zhd.mACBI;
+./host/src/OurTLBs.cpp^@753:    ZHostDecompressor::PRB & prbo = zhd.mACBO;
 
-./cross/images/ewp/src/EwpTaskManager.cpp 9:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
+./cross/images/ewp/src/EwpTaskManager.cpp^@9:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
 
-./cross/images/ewp/src/LiveB.cpp 30:    EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
-./cross/images/ewp/src/LiveB.cpp 31:    EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
+./cross/images/ewp/src/LiveB.cpp^@30:    EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
+./cross/images/ewp/src/LiveB.cpp^@31:    EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
 
-./cross/images/hub/include/EP_ACBlock.h 48:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
-./cross/images/hub/include/EP_ACacheBlock.h 49:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
-./cross/images/hub/src/LiveB.cpp 47:    EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
-./cross/images/hub/src/LiveB.cpp 48:    EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
-./cross/images/hub/src/LiveB.cpp 87:    IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
-./cross/images/hub/src/LiveB.cpp 88:    IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
-./cross/images/hub/src/LiveB.cpp 93:    TaskManager::TaskXFerRB & n2brb = theTaskManager.getXFerRB(HARTNUM_NC,HARTNUM_B);
-./cross/images/hub/src/EP_ACacheBlock.cpp 72:  void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING FROM COMM2COMP
-./cross/images/hub/src/EP_ACacheBlock.cpp 106:    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
-./cross/images/hub/src/EP_ACacheBlock.cpp 107:    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
-./cross/images/hub/src/EP_ACacheBlock.cpp 158:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
-./cross/images/hub/src/EP_ACacheBlock.cpp 196:    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
-./cross/images/hub/src/EP_ACacheBlock.cpp 197:    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
-./cross/images/hub/src/EP_ACacheBlock.cpp 258:      } else HBNOTE(MT-CRBI);
-./cross/images/hub/src/EP_ACacheBlock.cpp 350:          LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
-./cross/images/hub/src/EP_ACacheBlock.cpp 354:          LOGPTAG(HERBO_NOSUSPACH,dl.getLength());
-./cross/images/hub/src/HubTaskManager.cpp 10:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
-./cross/images/hub/src/HubTaskManager.cpp 20:      LOGPTAG(HERBO,lastSeqNo);
-./cross/images/hub/src/HubTaskManager.cpp 28:        LOGPTAG(HERBO_SUSP,reqSuspendEwps);
-./cross/images/hub/src/HubTaskManager.cpp 32:          LOGPTAG(HERBO_WTF,lgmc.isEPSuspReq());
-./cross/images/hub/src/HubTaskManager.cpp 41:        LOGPTAG(HERBO_SUPERCELL,val);
-./cross/images/hub/src/HubTaskManager.cpp 43:        LOGPTAG(HERBO_UNHANDLED,PhaserBolt::phaserCmdName(cmd));
-./cross/images/hub/src/HubTaskManager.cpp 49:    TaskXFerRB mHN2HB;
-./cross/images/hub/src/HubTaskManager.cpp 50:    TaskXFerRB mHB2HN;
-./cross/images/hub/src/EP_InterHub.cpp 18:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+./cross/images/hub/include/EP_ACBlock.h^@48:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
+./cross/images/hub/include/EP_ACacheBlock.h^@49:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // COMP-SIDE CALLER HOLDS LOCK & crbi IS NON-EMPTY
+./cross/images/hub/src/LiveB.cpp^@47:    EwpData::CarIdxRB & crbi = idxs.mTheIdxs[EwpData::CarIdxs::COMM2COMP];
+./cross/images/hub/src/LiveB.cpp^@48:    EwpData::CarIdxRB & crbo = idxs.mTheIdxs[EwpData::CarIdxs::COMP2COMM];
+./cross/images/hub/src/LiveB.cpp^@87:    IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
+./cross/images/hub/src/LiveB.cpp^@88:    IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
+./cross/images/hub/src/LiveB.cpp^@93:    TaskManager::TaskXFerRB & n2brb = theTaskManager.getXFerRB(HARTNUM_NC,HARTNUM_B);
+./cross/images/hub/src/EP_ACacheBlock.cpp^@72:  void ACacheBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING FROM COMM2COMP
+./cross/images/hub/src/EP_ACacheBlock.cpp^@106:    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+./cross/images/hub/src/EP_ACacheBlock.cpp^@107:    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+./cross/images/hub/src/EP_ACacheBlock.cpp^@158:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+./cross/images/hub/src/EP_ACacheBlock.cpp^@196:    TheL1Data::CarIdxRB & crbi = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+./cross/images/hub/src/EP_ACacheBlock.cpp^@197:    TheL1Data::CarIdxRB & crbo = theACacheBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+./cross/images/hub/src/EP_ACacheBlock.cpp^@258:      } else HBNOTE(MT-CRBI);
+./cross/images/hub/src/EP_ACacheBlock.cpp^@350:          LOGPTAG(HERBO_SUSPACH,theL1GridManagerControl.mEventProcessingSuspendStatus);
+./cross/images/hub/src/EP_ACacheBlock.cpp^@354:          LOGPTAG(HERBO_NOSUSPACH,dl.getLength());
+./cross/images/hub/src/HubTaskManager.cpp^@10:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
+./cross/images/hub/src/HubTaskManager.cpp^@20:      LOGPTAG(HERBO,lastSeqNo);
+./cross/images/hub/src/HubTaskManager.cpp^@28:        LOGPTAG(HERBO_SUSP,reqSuspendEwps);
+./cross/images/hub/src/HubTaskManager.cpp^@32:          LOGPTAG(HERBO_WTF,lgmc.isEPSuspReq());
+./cross/images/hub/src/HubTaskManager.cpp^@41:        LOGPTAG(HERBO_SUPERCELL,val);
+./cross/images/hub/src/HubTaskManager.cpp^@43:        LOGPTAG(HERBO_UNHANDLED,PhaserBolt::phaserCmdName(cmd));
+./cross/images/hub/src/HubTaskManager.cpp^@49:    TaskXFerRB mHN2HB;
+./cross/images/hub/src/HubTaskManager.cpp^@50:    TaskXFerRB mHB2HN;
+./cross/images/hub/src/EP_InterHub.cpp^@18:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
 
-./cross/include/EP_Ewp.tcc 11:    typename Super::L1Data::CarIdxRB & crbi = this->getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+./cross/include/EP_Ewp.tcc^@11:    typename Super::L1Data::CarIdxRB & crbi = this->getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
 
-./cross/include/TaskManager.h 29:    typedef RingBuffer<u8,MAX_TASKS_PER_XFER> TaskXFerRB;
-./cross/include/TaskManager.h 41:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
-./cross/include/TaskManager.h 42:      return self().getXFerRBIfAny(hartNumFrom, hartNumTo);
-./cross/include/TaskManager.h 61:    TaskXFerRB & getXFerRBOrDie(u32 hartNumFrom, u32 hartNumTo) ;
-./cross/include/TaskManager.tcc 12:  typename TaskManager<IMGTM>::TaskXFerRB & TaskManager<IMGTM>::getXFerRBOrDie(u32 hartNumFrom, u32 hartNumTo) {
-./cross/include/TaskManager.tcc 13:    TaskXFerRB * ptr = getXFerRBIfAny(hartNumFrom, hartNumTo);
-./cross/include/TaskManager.tcc 45:            TaskManager::TaskXFerRB & n2brb = getXFerRBOrDie(HARTNUM_NC, HARTNUM_B);
-./cross/include/EP_LogBlock.h 43:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // CALLER HOLDS LOCK & crbi IS NON-EMPTY
-./cross/include/T6Phaser.h 5:extern "C" void * addrPHASERBlock(); // in _BUD.S
-./cross/include/T6Phaser.h 11:      PhaserBlock * pb = (PhaserBlock*) addrPHASERBlock();
-./cross/include/T6EPL1Data.h 16:    typedef RingBuffer<u8,MASK_BITS> CarIdxRB;
-./cross/include/T6EPL1Data.h 20:      CarIdxRB mTheIdxs[2];
-./cross/src/EP_LogBlock.cpp 18:    constexpr u32 HDRBYTES = 8u;
-./cross/src/EP_LogBlock.cpp 22:    MFM_API_ASSERT(msglen < 250-HDRBYTES, ILLEGAL_ARGUMENT);
-./cross/src/EP_LogBlock.cpp 23:    u8 p256len = HDRBYTES + msglen;
-./cross/src/EP_LogBlock.cpp 34:        if (br < 2*HDRBYTES)
-./cross/src/EP_LogBlock.cpp 37:        msglen = p256len-HDRBYTES;
-./cross/src/EP_LogBlock.cpp 99:  void LogBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING
-./cross/src/EP_LogBlock.cpp 123:    TheL1Data::CarIdxRB & crbi = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
-./cross/src/EP_LogBlock.cpp 124:    TheL1Data::CarIdxRB & crbo = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
-./cross/src/EP_LogBlock.cpp 176:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
+./cross/include/TaskManager.h^@29:    typedef RingBuffer<u8,MAX_TASKS_PER_XFER> TaskXFerRB;
+./cross/include/TaskManager.h^@41:    TaskXFerRB * getXFerRBIfAny(u32 hartNumFrom, u32 hartNumTo) {
+./cross/include/TaskManager.h^@42:      return self().getXFerRBIfAny(hartNumFrom, hartNumTo);
+./cross/include/TaskManager.h^@61:    TaskXFerRB & getXFerRBOrDie(u32 hartNumFrom, u32 hartNumTo) ;
+./cross/include/TaskManager.tcc^@12:  typename TaskManager<IMGTM>::TaskXFerRB & TaskManager<IMGTM>::getXFerRBOrDie(u32 hartNumFrom, u32 hartNumTo) {
+./cross/include/TaskManager.tcc^@13:    TaskXFerRB * ptr = getXFerRBIfAny(hartNumFrom, hartNumTo);
+./cross/include/TaskManager.tcc^@45:            TaskManager::TaskXFerRB & n2brb = getXFerRBOrDie(HARTNUM_NC, HARTNUM_B);
+./cross/include/EP_LogBlock.h^@43:    void setupNewCar(TheL1Data::CarIdxRB & crbi) ; // CALLER HOLDS LOCK & crbi IS NON-EMPTY
+./cross/include/T6Phaser.h^@5:extern "C" void * addrPHASERBlock(); // in _BUD.S
+./cross/include/T6Phaser.h^@11:      PhaserBlock * pb = (PhaserBlock*) addrPHASERBlock();
+./cross/include/T6EPL1Data.h^@16:    typedef RingBuffer<u8,MASK_BITS> CarIdxRB;
+./cross/include/T6EPL1Data.h^@20:      CarIdxRB mTheIdxs[2];
+./cross/src/EP_LogBlock.cpp^@18:    constexpr u32 HDRBYTES = 8u;
+./cross/src/EP_LogBlock.cpp^@22:    MFM_API_ASSERT(msglen < 250-HDRBYTES, ILLEGAL_ARGUMENT);
+./cross/src/EP_LogBlock.cpp^@23:    u8 p256len = HDRBYTES + msglen;
+./cross/src/EP_LogBlock.cpp^@34:        if (br < 2*HDRBYTES)
+./cross/src/EP_LogBlock.cpp^@37:        msglen = p256len-HDRBYTES;
+./cross/src/EP_LogBlock.cpp^@99:  void LogBlockL1Control::setupNewCar(TheL1Data::CarIdxRB & crbi) { // RECEIVING
+./cross/src/EP_LogBlock.cpp^@123:    TheL1Data::CarIdxRB & crbi = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+./cross/src/EP_LogBlock.cpp^@124:    TheL1Data::CarIdxRB & crbo = theLogBlockL1Data.getCarIdxs(0).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+./cross/src/EP_LogBlock.cpp^@176:    Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
 
 [320:
 
@@ -4905,8 +4905,8 @@ In turn:
     different code on different
     images:
 
-./images/ewp/src/EwpTaskManager.cpp 26:  void TaskWorker::updateHartTasks() {
-./images/hub/src/HubTaskManager.cpp 70:  void TaskWorker::updateHartTasks() {
+./images/ewp/src/EwpTaskManager.cpp^@26:  void TaskWorker::updateHartTasks() {
+./images/hub/src/HubTaskManager.cpp^@70:  void TaskWorker::updateHartTasks() {
 
 while
 
@@ -4915,11 +4915,11 @@ while
     functions - mostly defined
     on a per-image basis:
 
-    ./images/ewp/src/EwpBlock.cpp 98:  __attribute__((section(".rodata_fp_table_nc")))
-    ./images/hub/src/EP_ACacheBlock.cpp 567:  __attribute__((section(".rodata_fp_table_nc")))
-    ./images/hub/src/EwpBlock.cpp 77:  __attribute__((section(".rodata_fp_table_nc")))
-    ./images/hub/src/InterHub.cpp 124:  __attribute__((section(".rodata_fp_table_nc")))
-    ./images/zot/src/ZotBlock.cpp 80:  __attribute__((section(".rodata_fp_table_nc")))
+    ./images/ewp/src/EwpBlock.cpp^@98:  __attribute__((section(".rodata_fp_table_nc")))
+    ./images/hub/src/EP_ACacheBlock.cpp^@567:  __attribute__((section(".rodata_fp_table_nc")))
+    ./images/hub/src/EwpBlock.cpp^@77:  __attribute__((section(".rodata_fp_table_nc")))
+    ./images/hub/src/InterHub.cpp^@124:  __attribute__((section(".rodata_fp_table_nc")))
+    ./images/zot/src/ZotBlock.cpp^@80:  __attribute__((section(".rodata_fp_table_nc")))
 
     but one key one common to
     all images:
@@ -4932,7 +4932,7 @@ something like this:
 
       static RCFlag manageLogBlockNC(HTOpCode htoc)
  -> myLogBlockEPNC.updateOps();
- -> ./shared/include/EP.tcc 32:  bool EP<SUBEP,SUBTC>::updateOps() {
+ -> ./shared/include/EP.tcc^@32:  bool EP<SUBEP,SUBTC>::updateOps() {
  ->  RECEIVE CARS:
    .. if (!car.isComplete()) break;
    .. if (!isArriving(cs)) break;
@@ -4950,18 +4950,18 @@ but with an important
 difference: shipTC is ONLY
 subclassed by T6EP
 
-./cross/include/T6EPs.tcc 90:  bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTC(SUBTC & car, u8 carindex) {
+./cross/include/T6EPs.tcc^@90:  bool T6EP<SUBEP,SUBTCBLOCKSTG,BLOCK_COUNT,FORHART>::shipTC(SUBTC & car, u8 carindex) {
 
 while recvTC is subclassed
 separately by different block
 types and sometimes different
 images:
 
-./cross/images/hub/src/EP_ACacheBlock.cpp 157:  bool ACacheBlockEP::recvTC(ACacheBlock & car, u8 carindex) {
-./cross/images/hub/src/EP_InterHub.cpp 15:  bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
-./cross/images/zot/src/ZotBlock.cpp 88:  bool ZotEP::recvTC(ZotBlock & car, u8 carindex) {
-./cross/include/EP_Ewp.tcc 10:  bool EwpEP<BLOCK_COUNT>::recvTC(EwpBlock & car, u8 carindex) {
-./cross/src/EP_LogBlock.cpp 175:  bool LogBlockEP::recvTC(LogBlock & car, u8 carindex) {
+./cross/images/hub/src/EP_ACacheBlock.cpp^@157:  bool ACacheBlockEP::recvTC(ACacheBlock & car, u8 carindex) {
+./cross/images/hub/src/EP_InterHub.cpp^@15:  bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
+./cross/images/zot/src/ZotBlock.cpp^@88:  bool ZotEP::recvTC(ZotBlock & car, u8 carindex) {
+./cross/include/EP_Ewp.tcc^@10:  bool EwpEP<BLOCK_COUNT>::recvTC(EwpBlock & car, u8 carindex) {
+./cross/src/EP_LogBlock.cpp^@175:  bool LogBlockEP::recvTC(LogBlock & car, u8 carindex) {
 
 [321:
 
@@ -5021,15 +5021,15 @@ example? [325:
 
 Sat Sep 12 23:58:12 2026
 
-./shared/include/EP.h 137:    AtomicLock * mLockPtr;
+./shared/include/EP.h^@137:    AtomicLock * mLockPtr;
 
-./cross/images/hub/include/EP_ACBlock.h 30:    AtomicLock mLock;
+./cross/images/hub/include/EP_ACBlock.h^@30:    AtomicLock mLock;
 
-./cross/images/hub/include/Grid.h 176:    AtomicLock mLock;
-./cross/images/hub/include/EP_ACacheBlock.h 30:    AtomicLock mLock;
+./cross/images/hub/include/Grid.h^@176:    AtomicLock mLock;
+./cross/images/hub/include/EP_ACacheBlock.h^@30:    AtomicLock mLock;
 
-./cross/include/TaskManager.h 67:    AtomicLock mLock;
-./cross/include/EP_LogBlock.h 31:    AtomicLock mLock;
+./cross/include/TaskManager.h^@67:    AtomicLock mLock;
+./cross/include/EP_LogBlock.h^@31:    AtomicLock mLock;
 
 [326:
 
@@ -5039,7 +5039,7 @@ the whole shared/ tree, as far
 as I can tell, declares no
 AtomicLocks of its own.
 
-    ./shared/include/EP.h 137:    AtomicLock * mLockPtr;
+    ./shared/include/EP.h^@137:    AtomicLock * mLockPtr;
 
 EP has only a pointer; all the
 instances are in host/ or
@@ -5050,7 +5050,7 @@ Sun Sep 13 00:52:30 2026 And the
 most important source of locks,
 for our purposes I think, is
 
-    ./cross/include/T6EPL1Data.h 58:    AtomicLock mTheLocks[BLOCK_COUNT];
+    ./cross/include/T6EPL1Data.h^@58:    AtomicLock mTheLocks[BLOCK_COUNT];
 
 that, which is in the context
 of:
@@ -5072,33 +5072,33 @@ of:
 which is, in turn, used by
 InterHub stuff as
 
-    ./images/hub/include/InterHub.h 14:  extern T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
+    ./images/hub/include/InterHub.h^@14:  extern T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
 
-    ./images/hub/src/InterHub.cpp 9:  T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
+    ./images/hub/src/InterHub.cpp^@9:  T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
 
 
 which is then used widely in
 hub:
 
-    ./images/hub/include/ImageConfig.inc 19:  XIC_BLOCKADDR(BC_INTERHUB,4,theInterHubL1Data.mTheTCStorages,InterHubStorage)
-    ./images/hub/include/InterHub.h 14:  extern T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
-    ./images/hub/src/LiveB.cpp 74:    if (theInterHubL1Data.isUninitted(ngbidx))
-    ./images/hub/src/LiveB.cpp 77:    if (!theInterHubL1Data.isActive(ngbidx)) {
-    ./images/hub/src/LiveB.cpp 78:      EACH(1'000'000,HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx)));
-    ./images/hub/src/LiveB.cpp 79:      EACH(1'000'000,HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx))));
-    ./images/hub/src/LiveB.cpp 86:    IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[ngbidx];
-    ./images/hub/src/LiveB.cpp 113:    InterHubStorage & cars = theInterHubL1Data.mTheTCStorages[ngbidx];
-    ./images/hub/src/InterHub.cpp 9:  T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
-    ./images/hub/src/InterHub.cpp 19:      theInterHubL1Data.reset(); // zero all
-    ./images/hub/src/InterHub.cpp 61:              ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
-    ./images/hub/src/InterHub.cpp 62:              InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d];
-    ./images/hub/src/InterHub.cpp 81:        //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
-    ./images/hub/src/InterHub.cpp 82:        if (theInterHubL1Data.getPublicEPState(d) != EPState::CONFIGURED) continue;
-    ./images/hub/src/InterHub.cpp 84:        HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
+    ./images/hub/include/ImageConfig.inc^@19:  XIC_BLOCKADDR(BC_INTERHUB,4,theInterHubL1Data.mTheTCStorages,InterHubStorage)
+    ./images/hub/include/InterHub.h^@14:  extern T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
+    ./images/hub/src/LiveB.cpp^@74:    if (theInterHubL1Data.isUninitted(ngbidx))
+    ./images/hub/src/LiveB.cpp^@77:    if (!theInterHubL1Data.isActive(ngbidx)) {
+    ./images/hub/src/LiveB.cpp^@78:      EACH(1'000'000,HBPTAG(ihPROCAR,&theInterHubL1Data.getCarStg(ngbidx)));
+    ./images/hub/src/LiveB.cpp^@79:      EACH(1'000'000,HBPVAL(getNameFromEPState(theInterHubL1Data.getPublicEPState(ngbidx))));
+    ./images/hub/src/LiveB.cpp^@86:    IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[ngbidx];
+    ./images/hub/src/LiveB.cpp^@113:    InterHubStorage & cars = theInterHubL1Data.mTheTCStorages[ngbidx];
+    ./images/hub/src/InterHub.cpp^@9:  T6EPL1Data<InterHubStorage,4> theInterHubL1Data;
+    ./images/hub/src/InterHub.cpp^@19:      theInterHubL1Data.reset(); // zero all
+    ./images/hub/src/InterHub.cpp^@61:              ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
+    ./images/hub/src/InterHub.cpp^@62:              InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d];
+    ./images/hub/src/InterHub.cpp^@81:        //        HBPTAG(ihst,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
+    ./images/hub/src/InterHub.cpp^@82:        if (theInterHubL1Data.getPublicEPState(d) != EPState::CONFIGURED) continue;
+    ./images/hub/src/InterHub.cpp^@84:        HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d)));
 
 including at
 
-    ./images/hub/src/InterHub.cpp 61:              ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
+    ./images/hub/src/InterHub.cpp^@61:              ihep.initInterHubEP({ BC_INTERHUB, (u8) d }, weAreIn, theInterHubL1Data);
 
 which goes to
 
@@ -5133,7 +5133,7 @@ and then to
 
 and that is how
 
-    ./shared/include/EP.h 137:    AtomicLock * mLockPtr;
+    ./shared/include/EP.h^@137:    AtomicLock * mLockPtr;
 
 gets set up.
 
@@ -5977,13 +5977,13 @@ can see (now modified) log
 messages:
 
     find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name \*-hold\[0-9\]\[0-9\] -o -name \*-hold\[0-9\] -o -name \*-hold-20\* -o -name \*-hold -o -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \*.mfmk \) -exec grep --color -i -n --null -e spirke /dev/null \{\} +
-    ./at024.mfmk 261:{59:42 251813 0 2,4 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at024.mfmk 281:{59:42 256392 0 2,4 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at317.mfmk 266:{59:42 182325 3 1,7 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at317.mfmk 281:{59:42 187087 3 1,7 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at2b5.mfmk 268:{59:42 214650 2 11,5 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at2b5.mfmk 283:{59:42 219428 2 11,5 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at25a.mfmk 269:{59:42 214650 2 5,10 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at024.mfmk^@261:{59:42 251813 0 2,4 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at024.mfmk^@281:{59:42 256392 0 2,4 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at317.mfmk^@266:{59:42 182325 3 1,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at317.mfmk^@281:{59:42 187087 3 1,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at2b5.mfmk^@268:{59:42 214650 2 11,5 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at2b5.mfmk^@283:{59:42 219428 2 11,5 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at25a.mfmk^@269:{59:42 214650 2 5,10 hn SPIRKE PINGDEST!:(1,-1)}
 
 [354:
 
@@ -6011,10 +6011,10 @@ we're getting a single reaction
 per chip:
 
     find . -type d \( -path \*/SCCS -o -path \*/RCS -o -path \*/CVS -o -path \*/MCVS -o -path \*/.src -o -path \*/.svn -o -path \*/.git -o -path \*/.hg -o -path \*/.bzr -o -path \*/_MTN -o -path \*/_darcs -o -path \*/\{arch\} \) -prune -o \! -type d \( -name \*-hold\[0-9\]\[0-9\] -o -name \*-hold\[0-9\] -o -name \*-hold-20\* -o -name \*-hold -o -name .\#\* -o -name \*.o -o -name \*\~ -o -name \*.bin -o -name \*.lbin -o -name \*.so -o -name \*.a -o -name \*.ln -o -name \*.blg -o -name \*.bbl -o -name \*.elc -o -name \*.lof -o -name \*.glo -o -name \*.idx -o -name \*.lot -o -name \*.fmt -o -name \*.tfm -o -name \*.class -o -name \*.fas -o -name \*.lib -o -name \*.mem -o -name \*.x86f -o -name \*.sparcf -o -name \*.dfsl -o -name \*.pfsl -o -name \*.d64fsl -o -name \*.p64fsl -o -name \*.lx64fsl -o -name \*.lx32fsl -o -name \*.dx64fsl -o -name \*.dx32fsl -o -name \*.fx64fsl -o -name \*.fx32fsl -o -name \*.sx64fsl -o -name \*.sx32fsl -o -name \*.wx64fsl -o -name \*.wx32fsl -o -name \*.fasl -o -name \*.ufsl -o -name \*.fsl -o -name \*.dxl -o -name \*.lo -o -name \*.la -o -name \*.gmo -o -name \*.mo -o -name \*.toc -o -name \*.aux -o -name \*.cp -o -name \*.fn -o -name \*.ky -o -name \*.pg -o -name \*.tp -o -name \*.vr -o -name \*.cps -o -name \*.fns -o -name \*.kys -o -name \*.pgs -o -name \*.tps -o -name \*.vrs -o -name \*.pyc -o -name \*.pyo \) -prune -o  -type f \( -name \*.mfmk \) -exec grep --color -i -n --null -e spirke /dev/null \{\} +
-    ./at3c7.mfmk 126:{59:52 23747 3 12,7 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at2c7.mfmk 126:{59:52 54987 2 12,7 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at1c7.mfmk 127:{59:52 78175 1 12,7 hn SPIRKE PINGDEST!:(1,-1)}
-    ./at0c7.mfmk 125:{59:52 92659 0 12,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at3c7.mfmk^@126:{59:52 23747 3 12,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at2c7.mfmk^@126:{59:52 54987 2 12,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at1c7.mfmk^@127:{59:52 78175 1 12,7 hn SPIRKE PINGDEST!:(1,-1)}
+    ./at0c7.mfmk^@125:{59:52 92659 0 12,7 hn SPIRKE PINGDEST!:(1,-1)}
 [357:
 
 Wed Sep 16 14:33:00 2026 So can
@@ -6069,7 +6069,7 @@ really? [363:
 Thu Sep 17 04:10:47 2026 Well,
 we're saying
 
-    ./cross/images/hub/src/EP_InterHub.cpp 8:  FAST_LOCAL(InterHubPrivateControl,myPIHControlHB,b);
+    ./cross/images/hub/src/EP_InterHub.cpp^@8:  FAST_LOCAL(InterHubPrivateControl,myPIHControlHB,b);
 
 so, whether we're prepared or
 not, that's our ofishal plan. So
@@ -10151,10 +10151,10 @@ processHubCars is called from
 all, at present, because we're
 never in IHH_RUN -
 
-    ./all.mfmk 5947:{22:81 59 0 2,3 hb IHPC-stepB:IHH_PAUSE}
-    ./all.mfmk 6813:{22:81 0 0 4,3 hb IHPC-stepB:IHH_PAUSE}
- .. ./all.mfmk 135060:{22:81 62654 0 12,5 hb IHPC-stepB:IHH_PAUSE}
-    ./all.mfmk 135064:{22:81 62683 0 12,5 hb IHPC-stepB:IHH_PAUSE}
+    ./all.mfmk^@5947:{22:81 59 0 2,3 hb IHPC-stepB:IHH_PAUSE}
+    ./all.mfmk^@6813:{22:81 0 0 4,3 hb IHPC-stepB:IHH_PAUSE}
+ .. ./all.mfmk^@135060:{22:81 62654 0 12,5 hb IHPC-stepB:IHH_PAUSE}
+    ./all.mfmk^@135064:{22:81 62683 0 12,5 hb IHPC-stepB:IHH_PAUSE}
 
 )
 
@@ -11595,9 +11595,9 @@ there's this in hub/LiveB.cpp:
 
 plus like this:
 
-    ./MFMX-20260921-093228/all.mfmk 194326:{26:75 6126 0 2,3 hb ihPROCAR:0x1a1b0}
-    ./MFMX-20260921-093228/all.mfmk 223956:{26:75 11262 0 16,7 hb ihPROCAR:0x1a1b0}
-    ./MFMX-20260921-093228/all.mfmk 257098:{26:75 36289 0 10,3 hb ihPROCAR:0x1a1b0}
+    ./MFMX-20260921-093228/all.mfmk^@194326:{26:75 6126 0 2,3 hb ihPROCAR:0x1a1b0}
+    ./MFMX-20260921-093228/all.mfmk^@223956:{26:75 11262 0 16,7 hb ihPROCAR:0x1a1b0}
+    ./MFMX-20260921-093228/all.mfmk^@257098:{26:75 36289 0 10,3 hb ihPROCAR:0x1a1b0}
 
 and 'ihPROCAR' appears nowhere
 else in the (current) codebase,
@@ -11642,11 +11642,11 @@ yet again, that appears to be
 the only live call to applyEWT
 here:
 
-./cross/images/hub/include/Grid.h 299:    void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
-./cross/images/hub/src/Grid.cpp 185:  void GridManager::applyEWT(EwpPayload &ewt, u32 ngbidx) {
-./cross/images/hub/src/Grid.cpp 214:    EACH(100'000,HBPTAG(applyEWT-Seek,__EACHNUM__));
-./cross/images/hub/src/EP_ACacheBlock.cpp 295:            theL1GridManagerControl.isEPSuspReqSeen() && // and applyEWT has seen it
-./cross/images/hub/src/EP_InterHub.cpp 71:    fB.mGridManager.applyEWT(pay,ngbidx);
+./cross/images/hub/include/Grid.h^@299:    void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
+./cross/images/hub/src/Grid.cpp^@185:  void GridManager::applyEWT(EwpPayload &ewt, u32 ngbidx) {
+./cross/images/hub/src/Grid.cpp^@214:    EACH(100'000,HBPTAG(applyEWT-Seek,__EACHNUM__));
+./cross/images/hub/src/EP_ACacheBlock.cpp^@295:            theL1GridManagerControl.isEPSuspReqSeen() && // and applyEWT has seen it
+./cross/images/hub/src/EP_InterHub.cpp^@71:    fB.mGridManager.applyEWT(pay,ngbidx);
 
 so it's not like it's a 'minor
 copypaste issue'.[644:
@@ -11668,7 +11668,7 @@ blame fu is too weak.[646:
 Sun Oct  4 11:48:07 2026 But I
 CAN say this: As of:
 
-    ./ihub12/srcs/cross/images/hub/src/LiveB.cpp 63:    fB.mGridManager.applyEWT(pay,ngbidx);
+    ./ihub12/srcs/cross/images/hub/src/LiveB.cpp^@63:    fB.mGridManager.applyEWT(pay,ngbidx);
 
 around the end of August,
 
@@ -12264,11 +12264,11 @@ Sun Oct  4 23:12:03 2026 So I
 guess one point is that nobody
 is using L1Hub1 yet -
 
-    ./cross/images/hub/include/EP_InterHub.h 45:    struct L1Hub1 {
-    ./cross/images/hub/include/EP_InterHub.h 57:    L1Hub1 mL1HubControls[IHUB_BLOCKS];
-    ./cross/images/hub/include/EP_InterHub.h 59:    L1Hub1 & getL1Hub1(u8 idx) {
-    ./cross/images/hub/src/EP_InterHub.cpp 108:    InterHubL1Control::L1Hub1 & ihl1 = mIHL1Control->getL1Hub1(ngbidx);
-    ./cross/images/hub/src/HubBoltResponder.cpp 32:      InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
+    ./cross/images/hub/include/EP_InterHub.h^@45:    struct L1Hub1 {
+    ./cross/images/hub/include/EP_InterHub.h^@57:    L1Hub1 mL1HubControls[IHUB_BLOCKS];
+    ./cross/images/hub/include/EP_InterHub.h^@59:    L1Hub1 & getL1Hub1(u8 idx) {
+    ./cross/images/hub/src/EP_InterHub.cpp^@108:    InterHubL1Control::L1Hub1 & ihl1 = mIHL1Control->getL1Hub1(ngbidx);
+    ./cross/images/hub/src/HubBoltResponder.cpp^@32:      InterHubL1Control::L1Hub1 & ihl1 = ihpc.mIHL1Control->getL1Hub1(mLeaderDir8);
 
     Grep finished with 8 matches found at Sun Oct  4 23:11:51
 
@@ -13143,8 +13143,8 @@ Thu Oct  8 15:24:33 2026
 BUTTKNOW, it's not interhub,
 it's EWPs:
 
-    ./tiles/at01a.mfmk 11:{57:117 3977 0 1,10 hn INTERVENEHEREFORBOUNCESHOT:EwpO}
-    ./tiles/at0a3.mfmk 155:{57:117 3976 0 10,3 hn INTERVENEHEREFORBOUNCESHOT:EwpI}
+    ./tiles/at01a.mfmk^@11:{57:117 3977 0 1,10 hn INTERVENEHEREFORBOUNCESHOT:EwpO}
+    ./tiles/at0a3.mfmk^@155:{57:117 3976 0 10,3 hn INTERVENEHEREFORBOUNCESHOT:EwpI}
 
 which we're happy they're
 moving, and they do prove L1->L1
@@ -13154,8 +13154,8 @@ is possible.
 Thu Oct  8 15:26:02 2026
 BUTTWEIGHT! Look here:
 
-    ./tiles/at0e5.mfmk 61083:{57:117 10774 0 14,5 hn INTERVENEHEREFORBOUNCESHOT:IHEPo}
- .. ./tiles/at02b.mfmk 62016:{57:117 25262 0 2,11 hn INTERVENEHEREFORBOUNCESHOT:IHEPi}
+    ./tiles/at0e5.mfmk^@61083:{57:117 10774 0 14,5 hn INTERVENEHEREFORBOUNCESHOT:IHEPo}
+ .. ./tiles/at02b.mfmk^@62016:{57:117 25262 0 2,11 hn INTERVENEHEREFORBOUNCESHOT:IHEPi}
 
 a few InterHubEP transmissions
 ARE mentioned!
@@ -13190,7 +13190,7 @@ stuff happening at init time.
 Thu Oct  8 16:14:21 2026 With
 interhubz turned off, I see:
 
-    ./all.mfmk 104128:{155:37 14423 0 6,9 hn EPuo:[IHEPo:IHUB:0] c4 h4o0 g0o0 S0 R4 fs3}
+    ./all.mfmk^@104128:{155:37 14423 0 6,9 hn EPuo:[IHEPo:IHUB:0] c4 h4o0 g0o0 S0 R4 fs3}
 
 so: 0 Sends but 4 Receives - and
 we believe those receives are
@@ -14758,7 +14758,7 @@ Mon Oct 12 16:24:33 2026 And,
 woah! It looks like we've
 received a complete CHUB!
 
-    ./at0a3.mfmk 345:{26:237 58674 0 10,3 hn CHUBCOMP:10001}
+    ./at0a3.mfmk^@345:{26:237 58674 0 10,3 hn CHUBCOMP:10001}
 
 Let's claim some stuff.
 [816:
@@ -14865,10 +14865,10 @@ So we think it is getting [822:
 Tue Oct 13 15:41:31 2026 OK, so
 yes, IHUB is getting there:
 
-    ./tiles/at0a3.mfmk 8:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h0o255 g4o0 S0 R0 fs3}
-    ./tiles/at0a3.mfmk 10:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:5] c4 h4o0 g0o0 S0 R4 fs3}
-    ./tiles/at0a3.mfmk 11:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:6] c4 h0o255 g4o0 S0 R0 fs3}
-    ./tiles/at0a3.mfmk 13:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:2] c4 h4o0 g0o0 S0 R4 fs3}
+    ./tiles/at0a3.mfmk^@8:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:4] c4 h0o255 g4o0 S0 R0 fs3}
+    ./tiles/at0a3.mfmk^@10:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:5] c4 h4o0 g0o0 S0 R4 fs3}
+    ./tiles/at0a3.mfmk^@11:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPi:IHUB:6] c4 h0o255 g4o0 S0 R0 fs3}
+    ./tiles/at0a3.mfmk^@13:{155:42 8 0 10,3 hn EPuoHUBXX:[IHEPo:IHUB:2] c4 h4o0 g0o0 S0 R4 fs3}
 
 so there may be some sanity in
 the universe.
@@ -17523,7 +17523,7 @@ to updateIHCarsB just for a bit
 more emphasis.
 
 updateIHCarsB's purpose is to
-move IH cars. It's aboue loading
+move IH cars. It's about loading
 and saving caches and totally
 NOT about running events.
 
@@ -18256,3 +18256,1542 @@ back.
 :1006]
 
 :1005]
+[1009:
+
+Fri Oct 30 15:07:01 2026 OK,
+back up with roses-bh and the
+workstation rebooted.[1010:
+
+Fri Oct 30 15:14:11 2026 OK,
+code still builds and stuff, and
+the voter status stuff now
+doesn't buffer overrun ahem.
+
+:1010]
+
+:1009]
+[1011:
+
+Fri Oct 30 15:18:30 2026 SO I
+guess my question now is how
+come we're NOT blowing up
+
+    if (mPS.isExiting()) {
+      FAIL(INCOMPLETE_CODE); /// CHECK EXITING PROGRESS
+    } else if (mPS.isEntering()) {
+      FAIL(INCOMPLETE_CODE); /// CHECK ENTERING PROGRESS
+    } else
+      _boltDetectorNC();
+
+[1012:
+
+Fri Oct 30 15:39:24 2026 OK if
+I'm reading my expanded voter
+report properly, nobody seems to
+be voting for exiting
+NEW_LEADER? [1013:
+
+Fri Oct 30 15:41:39 2026 Doh
+that could be in part because
+when a new command comes in, we
+do:
+
+      mNewestCmdReceived = pay.getCmd();
+ ..   mPS._switchToExiting(mVoteClerk,mNewestCmdReceived);
+
+instead of 
+
+      mPS._switchToExiting(mVoteClerk,mNewestCmdReceived);
+ ..   mNewestCmdReceived = pay.getCmd();
+
+so we're instantly trying to
+leave a phase that we're not
+in.. [1014:
+
+Fri Oct 30 15:50:34 2026 It's
+also an initialization problem:
+mNewestCmdReceived isn't initted
+to anything sensible so using
+it when the first phase arrives
+is wrong.
+[1015:
+
+Fri Oct 30 15:57:11 2026 Is it
+too gross to say if we're trying
+to exit NOT_A_CMD, just
+'succeed' immediately and
+_switchToEntering(nextCmd)
+instead?
+[1016:
+
+Fri Oct 30 16:35:57 2026 Well
+it's pretty gross but now we're
+blowing up here:
+
+        if (mPS.isExiting()) {
+          FAIL(INCOMPLETE_CODE); /// CHECK EXITING PROGRESS
+        } else if (mPS.isEntering()) {
+ >>       FAIL(INCOMPLETE_CODE); /// CHECK ENTERING PROGRESS
+        } else
+          _boltDetectorNC();
+
+and I'm calling that progress.
+
+[1017:
+
+Fri Oct 30 16:38:03 2026 Now.
+We want everybody to see and
+agree to entering whatever this
+is. It ought to be NEW_LEADER?
+Is that obvious in the
+logs?[1018:
+
+Fri Oct 30 16:39:41 2026 Not
+really.. It's blowing up pretty
+early. [1019:
+
+Fri Oct 30 16:48:46 2026 Well
+now there is. And it's not
+NEW_LEADER. Of course it's
+HOLD_AT_BIRTH, and how shall the
+voting go for that?
+
+[1020:
+
+Fri Oct 30 16:53:22 2026 Well
+first off, let's review whether
+there are obvious places to be
+dealing with (just) that.
+
+And let's review WHERE in the
+temporal cycle we want to do
+the actual holding.
+[1021:
+
+Fri Oct 30 17:01:19 2026 Well
+we've got this from way back:
+
+      void T6PhaseLockedLoop::_handleBlockingNC() { // mLock HELD
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+        continueWhenNotOccupying(PhaserBolt::CmdMask::HOLD_AT_BIRTH); // only blocks all harts left
+      }
+
+[1022:
+
+Fri Oct 30 17:05:06 2026 Suppose
+as a test we just did like:
+
+   if (thePLL.ifEntering(PBCmd::HOLD_AT_BIRTH))
+     thePLL.doneEntering(PBCmd::HOLD_AT_BIRTH);
+
+in like the heartbeat or
+somewhere that everybody goes
+through. That 'should' get us to
+occupying hold at birth, at
+which point  _handleBlockingNC()
+should spin holding the lock,
+and everybody should pretty
+quickly pile up against that
+lock, until we're alerted.
+
+Need to see that NC responds to
+the HOLD_AT_BIRTH before it does
+that, though..
+[1023:
+
+Fri Oct 30 18:43:00 2026 Next
+step seems to be getting from
+'consensus achieved' to 'hart
+acknowledged' and then on to
+'all harts acknowledged' and
+'bolt replied'.
+
+Now it does seem like consensus
+achieved (on phase entering,
+specifically), should be enough
+to call all harts acknowledged
+and respond to the bolt. But we
+haven't traced that path in
+weeks and we will need to do so.
+[1024:
+
+Fri Oct 30 19:29:54 2026 OK, now
+that we see when all harts have
+acked, and we're at consensus
+about moving from enter to
+occupy, who is it that's 
+supposed to actually do that
+change? [1025:
+
+Fri Oct 30 19:40:14 2026 Well,
+maybe it is
+phaseStepperControlNC, right
+where we are?[1026:
+
+Fri Oct 30 20:13:29 2026 Well,
+I'm going to nap again, but
+we're hanging up on having both
+the consensus checker AND the
+preexisting seqno matcher. So
+questions to nap on:
+
+ - Do we really need both?
+
+ - Could we ack the bolt when we
+   have consensus on moving from
+   entering to occupying?
+
+ - What do they do that's
+   different?
+
+ - I'm thinking we should
+   probably reduce the seqno
+   matching to purely HN's
+   business, and have everybody
+   all just communication via
+   the ConsensusChecker.
+
+We'll see.
+
+[1027:
+
+Fri Oct 30 21:39:22 2026 OK fuck
+let's make seqno matching be
+HN's job only. TODO
+
+ - u8 mLastSeqnoAcked[HART_COUNT] 
+   to scalar.
+
+ - boltResponderAllHarts becomes
+   consensusCheckAllHarts()
+   maybe?
+
+ - and just deals with PBCmds,
+   edges, and occupation; no
+   seqno stuff.
+
+ - and boltDetectorNC maybe, or
+   phaseStepperControlNC I guess
+   more likely, detects
+   consensuses and advances
+   edges, and (triggers) bolt
+   response.
+
+ - Let's see what breaks.
+
+[1028:
+
+Fri Oct 30 21:51:26 2026
+
+ - ackStatus just goes away?
+   we'll see.
+
+:1028]
+ 
+
+
+
+:1027]
+:1026]
+
+:1025]
+
+:1024]
+
+:1023]
+:1022]
+:1021]
+
+:1020]
+
+:1019]
+
+:1018]
+
+:1017]
+
+:1016]
+:1015]
+:1014]
+
+:1013]
+
+:1012]
+:1011]
+[1029:
+
+Fri Oct 30 22:49:44 2026 OK,
+pushing forward through stuff,
+mostly hitting HN lock failures
+that are gradually getting
+easier to find as I get more
+confidence that they are just my
+code stupidities and not some
+weirdness in L1 cache-land or
+whatever.
+
+Latest one is
+
+      void T6PhaseLockedLoop::_handleBlockingNC() { // mLock HELD
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+        continueWhenNotOccupying(PhaserBolt::CmdMask::HOLD_AT_BIRTH); // only blocks all harts left
+      }
+
+which even fucking declares it's
+got the lock, and then instantly
+fucking calls
+
+      void T6PhaseLockedLoop::continueWhenNotOccupying(PhaserBolt::CmdMask cmdset) {
+        while (true) {
+>>        AtomicScopeLock guard(mLock); // reacquire lock each iteration
+          if (alerted()) return; // Alert means not occupying anything
+
+which tries to require the lock.
+
+:1029]
+[1030:
+
+Fri Oct 30 23:25:17 2026 So it
+seems that we are acknowledging
+HOLD_AT_BIRTH while we're still
+doing TEF inits. Maybe it would
+be better to what until TEF
+completes on each hart before
+joining the consensus?[1031:
+
+Sat Oct 31 01:35:36 2026 OK, did
+some punchups in host logging
+just to be surer what it was
+seeing, and the current status
+is the first bolt is
+HOLD_AT_BIRTH and indeed it gets
+140 responses for it ..
+
+.. and its second bolt is
+NEW_LEADER and it gets 0
+responses, and times out after
+two seconds.
+
+So now I think we're back T6
+side, to see NEW_LEADER
+responses shipping
+eventually.[1032:
+
+Sat Oct 31 02:09:56 2026 And the
+explanation for this one looks
+to be this:
+
+    {86:296 1 0 1,2 hn BOLTBACK:1}
+
+hn returns first bolt - HOLD_AT_BIRTH:1
+
+    {86:237 4195 0 1,2 hn BOLTR_NEW:2.NEW_LEADER 3!}
+
+hn receives second bolt - NEW_LEADER:2
+
+    {86:42 4210 0 1,2 hn CCBLOKT:H-.....}
+    {86:42 4224 0 1,2 hn CCBLOKT:H-.....}
+    {86:42 4239 0 1,2 hn CCBLOKT:H-.....}
+                                 ^^
+hn then spends eternity here ----//
+
+still in HOLD_AT_BIRTH (the
+'H'), waiting for everybody to
+hurry up and agree to exit (the
+'-').
+
+Instead of nobody ever agreeing
+to that, as currently happens.
+
+[1033:
+
+Sat Oct 31 02:34:48 2026 OK
+then, such progress. Now we
+spend eternity here:
+
+    {86:42 5055 0 1,2 hn CCBLOKT:N+.....}
+    {86:42 5070 0 1,2 hn CCBLOKT:N+.....}
+    {86:42 5086 0 1,2 hn CCBLOKT:N+.....}
+
+and it's nap time
+
+[1034:
+
+Sat Oct 31 08:43:26 2026 So okay
+come on here we go make or break
+GOGOGO.
+
+Our wonderful diageno
+'phase-stepping-10' shows us
+entering NEW_LEADER has these
+properties:
+
+ `updateIH` (save caches)
+  leader: send cache info
+  follower: recv site info
+
+  entering done when:
+  leader: all caches sent
+  follower: all sites rcvd
+
+so that's what we're aiming for
+now.
+
+ - Review if updateInterHub
+   (still) exists?
+
+ - Review how we remember how
+   far through a cache load or
+   save we are
+
+ - Review how we ship packets in
+   separate directions but have
+   to ack the edge only when ALL
+   directions are done.
+
+ - Make an implementation plan
+
+:1034]
+
+:1033]
+
+
+:1032]
+
+:1031]
+
+:1030]
+[1035:
+
+Sat Oct 31 09:14:31 2026 We have
+
+      void InterHubPrivateControl::stepB(HostBlock &hb) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        InterHubL1Control & ihl1 = getL1();
+        AtomicScopeLock guard(ihl1.mIHL1Lock);
+
+        // "processInterHubCars"
+        for (u32 i = 0u; i < 8u; ++i) {
+          updateIHCarsB(i,hb,(i&1)==0);
+        }
+      }
+and 
+      void InterHubPrivateControl::updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
+
+        GridManager & gm = fB.mGridManager;
+        SCStatus whatWeDo = gm.leadFollowOrGetOutOfTheWay();
+
+        bool iLead = whatWeDo == SCStatus::WE_LEAD;
+        bool iFollow = whatWeDo == SCStatus::WE_FOLLOW;
+
+        TheL1Data::CarIdxRB & crbi = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMM2COMP];
+        TheL1Data::CarIdxRB & crbo = theInterHubL1Data.getCarIdxs(ngbidx).mTheIdxs[TheL1Data::CarIdxs::COMP2COMM];
+
+ ..     if (crbi.isEmpty() || crbo.isFull()) {
+ ..       return;
+        }
+ ..     if (thePLL.ifEntering(PBCmd::RUN_EVENTS)) {
+          if (iLead) return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+          if (iFollow) return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
+          FAIL(ILLEGAL_STATE);
+        }
+
+        if (thePLL.ifEntering(PBCmd::NEW_LEADER)) {
+          if (iLead) return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+          if (iFollow) return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+
+        }
+ ..   }
+
+[1036:
+
+Sat Oct 31 09:18:12 2026 And are
+we hitting stepB/updateIHCarsB
+in the current code?
+[1037:
+
+Sat Oct 31 09:20:06 2026 Log
+says yes. Except no sign of
+leader/follower? -
+
+    {23:181 853865 0 10,3 hb _ducDO:NO_LEADER}
+
+[1038:
+
+Sat Oct 31 09:23:12 2026 Aand we
+have
+
+      struct L1GridManagerControl {
+        bool mEventProcessingSuspendRequest;     //< set by outside
+        bool mEventProcessingSuspendRequestSeen; //< set by GridManager
+        bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
+        u8 mSuperCellLeader;                     //< set by outside
+
+with def in Grid.h and refs in
+Grid.cpp, EP_InterHub,
+LiveB, EP_ACacheBlock, and
+HubBoltResponder.. so I think
+we're going to have to deal with
+it.. 
+
+Let's peek at the hits..
+
+[1039:
+
+Sat Oct 31 09:26:47 2026 I See
+This..
+
+      struct InterHubL1Control { // with state for IHUB_BLOCKS blocks
+
+but watch out, because this comment is no longer true ^^^^
+
+        using TheL1Data = InterHubEP::Super::L1Data;
+
+        AtomicLock mIHL1Lock;
+ ..
+        // Keep l1gridmanager ptr here to drive home the linkage.
+        L1GridManagerControl * mL1GridManagerControlPtr;
+        L1GridManagerControl & getL1GridManagerControl() ;
+
+[1040:
+
+Sat Oct 31 09:30:26 2026 In
+fact, if I strip out all the
+dead stuff, InterHubL1Control
+ATM has pretty much nothing:
+
+      struct InterHubL1Control {
+ ..     AtomicLock mIHL1Lock;
+ ..     L1GridManagerControl * mL1GridManagerControlPtr;
+        L1GridManagerControl & getL1GridManagerControl() ;
+ ..     void init() ;
+ ..     bool readyToClose() ;
+ ..   };
+
+[1041:
+
+Sat Oct 31 09:35:48 2026 And
+looking at the hits it seems
+clear that:
+
+ - InterHubL1Control is
+   currently doing NOTHING, but
+
+ - it looks like it was an
+   attempt to do the Grid-level,
+   cross-directions mgmt.
+
+[1042:
+
+Sat Oct 31 09:55:23 2026 But we
+already/also have
+L1GridManagerControl, which
+seems to be aimed at similar
+jobs and appears to have some
+plausible implementation.
+[1043:
+
+Sat Oct 31 09:56:53 2026 Well,
+again, it's live or die time
+here.. so I'm going to kill
+InterHubL1Control and see what
+blows up.[1044:
+
+Sat Oct 31 10:00:38 2026 Trying
+a build.. [1045:
+
+Sat Oct 31 10:03:56 2026 Well,
+built first time.. no
+immediately evident behavior
+changes. I guess
+InterHubL1Control really wasn't
+too deep in there.
+
+Stripping out remnants.
+
+[1046:
+
+Sat Oct 31 10:32:43 2026 OK now what?
+
+:1046]
+:1045]
+
+:1044]
+
+:1043]
+:1042]
+
+:1041]
+
+:1040]
+:1039]
+
+:1038]
+
+:1037]
+:1036]
+
+:1035]
+[1047:
+
+Sat Oct 31 12:45:16 2026 So I'm
+thinking new_leader/enter should
+just INITIALIZE the cache save
+mechanism (on leader AND
+follower), and then approve the
+edge.
+
+Then new_leader/occupy would
+ship and receive atoms until
+done. And 'something' would
+monitor all those processes and
+switch to new_leader/exit when
+all done.
+[1065:
+
+Sun Nov  1 01:51:45 2026 And I
+guess we could still do that, if
+we could defer acking the
+new_leader bolt until ship and
+receive is done.
+
+And it's not like all the T6s
+have to ack at the same time.
+Senders can ack as soon as the
+last thing is away, because
+receivers won't ack until
+everything they need has
+arrived.
+
+How hardcoded is
+ack-bolt-after-enter at this
+point? [1066:
+
+Sun Nov  1 01:57:12 2026 Well,
+_boltDetectorNC triggers the
+bolt ack, and it does it once
+
+    if (pseq != mLastSeqnoAcked) {
+
+becomes false, so it's a
+question of who changes
+mLastSeqnoAcked?[1067:
+
+Sun Nov  1 01:58:57 2026 That
+would be
+
+      bool T6PhaseLockedLoop::_hartAcknowledgeBoltNC() {
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+ ..     if (mLastSeqnoArrived != mLastSeqnoAcked) {
+          mLastSeqnoAcked = mLastSeqnoArrived;
+          HBPTAG(NEWACK,mLastSeqnoAcked);
+ ..
+
+called by
+
+      void T6PhaseLockedLoop::phaseStepperControlNC() {
+        MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+ ..     AtomicScopeLock guard(mLock);
+        if (mPS._isExiting()) {
+ ..     } else if (mPS._isEntering()) {
+          if (mPS._consensusReached()) {
+            HBPTAG(PSENT,PhaserBolt::phaserCmdName(mPS._enteringIfAny()));
+            mPS._switchToOccupying();
+ >>         if (_hartAcknowledgeBoltNC()) {
+
+and that really is pretty
+hardcoded to entering ->
+occupying. 
+
+:1067]
+
+:1066]
+
+:1065]
+[1048:
+
+Sat Oct 31 13:27:17 2026 And
+where, dammit, is all this
+detection and response going to
+go?
+
+[1049:
+
+Sat Oct 31 16:28:27 2026
+GridManager about EWPs only -
+good for running/draining EWP
+cars, but not for IH cars, so
+DONE :1049] - Review GridManager
+
+ - In particular look for where
+   it gets period updates.
+
+ - Review what's already
+   happening there.
+
+:1048]
+
+:1047]
+[1050:
+
+Sat Oct 31 16:29:31 2026 So,
+we've added two stanzas:
+
+        // ENTERING NEW_LEADER
+        if (ifEntering(PBCmd::NEW_LEADER)) {
+          if (!onHartNum(HARTNUM_B) || workOnEnteringNewLeaderB()) {
+            doneEntering(PBCmd::HOLD_AT_BIRTH);
+            HBPTAG(VOTE!,mVoteClerk.voteStatus());
+          }
+        }
+
+        // EXITING NEW_LEADER
+        if (ifExiting(PBCmd::NEW_LEADER)) {
+          if (!onHartNum(HARTNUM_B) || workOnExitingNewLeaderB()) {
+            doneEntering(PBCmd::HOLD_AT_BIRTH);
+            HBPTAG(VOTE!,mVoteClerk.voteStatus());
+          }
+        }
+
+to assessProgressAllHarts() (nee
+boltResponderAllHarts), and
+we're looking for where to
+implement
+workOnEnteringNewLeaderB. And
+we're thinking
+EP_ACacheBlock.cpp might be as
+good a place as any?
+
+[1051:
+
+Sat Oct 31 17:02:26 2026 Where
+are the damn atom iterators?
+That's where we should be.[1052:
+
+Sat Oct 31 17:03:15 2026
+
+      CacheLoaders theL1CacheLoaders;
+
+yeah now we're talking. With
+
+      struct CacheLoader {
+
+        U8CRange::iterator mLocalItr; //< in local coords
+        U8CRange::iterator mRemoteItr; //< in their local coords
+        Dir8 mLeaderDir8; //< where leader is from us (for routing?)
+        u8 mCacheLoaderIndex;
+
+[1053:
+
+Sat Oct 31 17:18:01 2026 The
+weird thing about that is
+there's a max of 4 in struct
+CacheLoaders -
+
+      struct CacheLoaders {
+        static constexpr u32 CACHELOADER_COUNT = 4;
+        CacheLoader mCacheLoaders[CACHELOADER_COUNT];
+
+..I think because it's only
+built for followers to track
+sending site atoms to leader
+caches, and a follower can't see
+more than four leaders.
+
+But a leader can see up to eight
+followers, in the checkerboard
+geometry than tenstorrent
+blessed us with. And I suspect a
+CacheLoader is not that big an
+object?
+
+..looks like 12-16B a pop?
+
+[1054:
+
+Sat Oct 31 19:04:42 2026 After
+dinner. What about going to 8
+CacheLoader in a CacheLoaders
+and seeing how that does for
+followers AND leaders?[1055:
+
+Sat Oct 31 19:11:16 2026 Trying
+for it.. [1056:
+
+Sat Oct 31 19:38:04 2026 OK,
+currently we have
+HubBoltResponder.cpp with no
+HubBoltResponder.h, and that's
+where static bool
+bRespondToCMD_NEW_LEADER(s32
+arg) is currently living, which
+we want to remake into 
+
+  extern bool workOnEnteringNewLeaderB();
+
+. Where should we put that?
+[1057:
+
+Sat Oct 31 20:10:36 2026 OK we
+made hub/PhaseSteppers.h|cpp to
+hold stuff like that inside
+MFM::PhaseSteppers::, which
+revealed that we have to
+reorganize or CRTPify
+
+  void T6PhaseLockedLoop::assessProgressAllHarts() {
+
+because that's called from
+crosslib, not just in hub.
+CRTPify it is, I guess? Or maybe
+just a weak symbol that
+esplodes? [1058:
+
+Sat Oct 31 21:03:46 2026 OK now
+blowing up in EWP because we
+have not made a non-weak
+
+  void assessProgressAllHarts()
+  
+for it. Make one, and make a
+void
+T6PhaseLockedLoop::rubberStamp()
+method that just approves
+everything, with the intention
+that your assessProgressAllHarts
+handles the things you care
+about, and then ends with
+thePLL.rubberStamp() to approve
+all the rest.
+
+But nap now.
+[1059:
+
+Sat Oct 31 22:31:30 2026 OK
+let's GOGOGOGOGO.
+
+:1059]
+:1058]
+
+:1057]
+:1056]
+
+:1055]
+
+:1054]
+
+:1053]
+
+:1052]
+
+:1051]
+:1050]
+[1060:
+
+Sat Oct 31 23:25:55 2026 Think
+we've got another race because
+ConsensusChecker::rubberStamp
+doesn't lock anything - and
+neither do the rest of its
+methods.
+
+Moving ConsensusChecker inside
+T6PhaseLockedLoop to get under
+its locking.[1061:
+
+Sun Nov  1 01:23:30 2026 Gah
+it's November.
+
+[1062:
+
+Sun Nov  1 01:28:27 2026 OK, so:
+
+ - Review current plans for
+   entering NEW_LEADER. The
+   diageno says do save caches
+   all during entering; do we
+   still think that?
+
+ - What about this:
+   Entering NEW_LEADER:
+   = everybody captures the arg
+     and computes their own
+     SCStatus from it
+   = everybody computes their IH
+     counterparties (in
+     CacheLoaders) 
+   = everybody inits their
+     mLocalItr and mRemoteItr as
+     makes sense for their
+     SCStatus (e.g., NEW_LEADER,
+     SCStatus follower ->
+     localitr over sites,
+     remoteitr over caches)
+   = then everybody approves the
+     edge.      
+
+[1063:
+
+Sun Nov  1 01:35:24 2026 But I
+guess the problem with that is
+if we ack the bolt after
+entering is complete - then how
+will host know when the cache
+loading is done?
+
+I guess the theory is the ONLY
+thing we do during occupation is
+open-ended stuff? Where we
+expect the center to interrupt
+us?
+
+[1064:
+
+Sun Nov  1 01:50:12 2026 So then
+let's reredo save caches while
+entering NEW_LEADER.
+[1068:
+
+Sun Nov  1 01:01:34 2026 So,
+we're asking to do both 'setup'
+and 'loop' on the same edge, so
+my 'setup' can be racing against
+your 'loop'.
+
+And we have to convince
+ourselves that that will be
+okay, because even if loop
+packets arrive from you while
+I'm still setting up, I won't
+try to read them, and thereby
+discover that they exist, until
+I reach my own loop?
+
+It's possible. At least it's not
+obviously ridiculous yet. Given
+that we do have hard sync points
+elsewhere in the supercycle.
+
+[1069:
+
+Sun Nov  1 01:12:32 2026 So
+okay.
+
+ - Capture newleader arg and
+   stash it somewhere 'for
+   later'
+
+ - Could we use a
+   first-time-through hack to
+   set up the CacheLoaders, and
+   then have them survive all
+   the way through the ensuing
+   RUN_EVENTS and be ready to go
+   when we're entering the next
+   NEW_LEADER.
+
+That would be helpful. And if we
+encapsulated the init logic it
+would be easier to do.
+[1070:
+
+Sun Nov  1 06:04:18 2026 OK,
+change PhaseSteppers to capture
+PBCmd + (currently) 1 arg, so
+that the arg will travel with
+the command and clients can find
+it without having to worry that
+the PHASER bolt may change out
+from underneath them.[1071:
+
+Sun Nov  1 07:26:57 2026 OK, now
+we're into the pre-existing
+
+      /// FIND LEADER DIR8(S) AND CONFIGURE CACHELOADERS
+
+code, which I think needs:
+
+ - To be reviewed and recalled
+
+ - To be revised for fixed Dir8
+   instances rather than
+   allocations. 
+
+ - To be moved to a 1PO init
+   routine. We're assuming
+   connectivity won't change for
+   this simulation.
+
+ - To be called from some 1PO
+   location TBD.
+
+ - 
+
+:1071]
+
+:1070]
+:1069]
+:1068]
+:1064]
+
+:1063]
+
+:1062]
+
+:1061]
+
+:1060]
+[1072:
+
+Sun Nov  1 10:57:45 2026
+CacheLoaders 1PO init:
+
+ for d8 in Dir8
+   cl[d8].init(d8)
+
+CacheLoaders new leader init:
+
+ supercellleader = 0..3
+
+      L1GridManagerControl & gml1 = theL1GridManagerControl;
+      gml1.setSuperCellLeader(supercellleader);
+
+but no: We can't do that until
+we're exiting new leader, or at
+least until after save_caches is
+done. We just capture it during
+enter new leader.[1073:
+
+Sun Nov  1 11:17:47 2026 Can we
+capture it into CacheLoaders?
+It's the same for all..
+
+Can we rename CacheLoaders to
+some more direction-agnostic?
+CacheMgrs? Is that already in
+use? [1074:
+
+Sun Nov  1 11:20:25 2026 Well
+yes, we already have
+shared/NgbCacheMgr, but I'm not
+sure
+
+(1) how much persmod state it's
+    got and
+(2) how widely it's used.    
+
+[1075:
+
+Sun Nov  1 11:27:52 2026
+AtomXfers? CacheMapper?
+SiteMappers
+AtomMappers
+InterHubMap
+[1076:
+
+Sun Nov  1 11:44:39 2026 Ah
+screw it leave it CacheLoader/s
+for now.
+
+:1076]
+
+:1075]
+
+:1074]
+
+:1073]
+
+
+:1072]
+[1077:
+
+Sun Nov  1 22:51:08 2026 Well, I
+fucking pushed the next T2sday
+back a week to Nov 10.
+
+:1077]
+[1078:
+
+Sun Nov  1 22:51:44 2026
+
+TODO
+
+ - Post like a YT short on this
+   coming Tue Nov 3 at noon MST.
+   Maybe 1min tops, cramming in
+   a summary of the project and
+   the problem; rough and just
+   ending abruptly.
+
+ - Move most of
+   workOnEnteringNewLeaderB to
+   workOnExitingNewLeaderB.
+
+   = Where is the new leader arg
+     by the time we start
+     exiting?[1079: Sun Nov  1
+     23:03:44 2026 I guess it's
+
+        mIncomingCDA.mCmd = nextCmd;
+        mIncomingCDA.mArgs = args;
+
+[1080:
+
+Sun Nov  1 23:51:17 2026 OK, now
+we're instrumenting stuff in
+workOnExitingNewLeaderB() to
+relearn how that works and what
+we might do to handle followers
+as well as leaders with it.
+ [1081:
+
+Mon Nov  2 01:37:02 2026 OK, had
+several (!) stupid paste-o bugs
+but now the PhaseSteppers
+framework is seeming
+plausibleish. Which brings us,
+once again, back to initializing
+CacheLoaders. But now we know
+where we plan to do it?[1082:
+
+Mon Nov  2 01:38:51 2026 We're
+going to do it in
+workOnExitingNewLeaderB but it
+will mostly dish to a helper,
+and we will also have an init
+hack (wherrre?) that will call
+the helper on the first
+also have an init hack there
+that will skip saving caches..
+
+wait.. how about this instead:
+
+ - on detection of the first
+   newleader, the PLL level
+   calls that helper to set up
+   the cacheloaders, and
+
+ - then acks that newleader bolt
+   without ever actually going
+   through its steps - no
+   consensuses, nothing. then
+
+ - the (first,next) run_events
+   following it will start with
+   cache loading and off we go.
+
+That works, right?
+[1083:
+
+Mon Nov  2 11:20:00 2026 Well
+OK, since the first phaser bolt
+is actually HOLD_AT_BIRTH, not
+NEW_LEADER, we won't try to
+slipstream on the existing PLL
+state for the 'first New Leader'
+predicate. [1084:
+
+Mon Nov  2 13:38:20 2026 Except
+CacheLoader is in hub, and
+thePLL is crosslib.[1085:
+
+Mon Nov  2 14:03:01 2026 I guess
+the 'official' response to that
+another weak method for the
+PhaseStepper..[1086:
+
+Mon Nov  2 14:08:23 2026 Which
+is pretty ugh to consider for
+one particular bolt.
+
+Let's consider other ways of
+getting the auto-init-effect of
+:1082: above.[1087:
+
+Mon Nov  2 14:10:11 2026 I guess
+it could be a weak
+onNewBoltDetection(PhaserBolt&)
+or something, but what does it
+return to alter PLL's ops?
+
+bool shortcutBoltResponse(PhaserBolt&)
+
+maybe? With true meaning 'ack
+this bolt right now, without
+ever actually going through its
+steps - no consensuses,
+nothing'? and false meaning
+business as usual? Pretty damn
+ugly. But maybe enough to get
+functional and 'Fix It Later'
+hahaha?[1088:
+
+Mon Nov  2 14:22:53 2026 And
+we'd remain in HOLD_AT_BIRTH?
+That sure seems wrong.
+
+We could 'just' have a one-time
+flag somewhere in hub saying
+SKIP SAVE CACHES, and leave
+thePLL untouched?[1089:
+
+Mon Nov  2 14:45:09 2026 Well
+its mongo-disgustimo but we did
+the flag.
+
+So now we are at entering
+RUN_EVENTS? We can't believe
+theL1CacheLoaders.configureCacheLoaders(..)
+is real, can we? I don't
+remember configuring any
+iterators, yet, for example. 
+ [1090:
+
+Mon Nov  2 14:49:09 2026 Well
+Actually -
+
+      cl.mDir8 = d8;
+      cl.mLocalItr = U8CRange::iterator(mySitesForYourCache);
+      cl.mRemoteItr = U8CRange::iterator(yourCacheForMySites);
+
+does exist. Utterly unobserved,
+though, I think.
+
+Let's get eyes on.[1091:
+
+Mon Nov  2 23:07:00 2026 Well, I
+don't know if this is because of
+racing, but I see that this
+ifX+doneX idiom:
+
+          /////// CASES: 
+          // ENTERING HOLD_AT_BIRTH
+          if (thePLL.ifEntering(PBCmd::HOLD_AT_BIRTH)) {
+            thePLL.doneEntering(PBCmd::HOLD_AT_BIRTH);
+            HBPTAG(VOTE!,thePLL.voteStatus());
+          }
+
+could fail if the vote status
+changed between the ifEntering
+and the doneEntering, because
+the latter works its way down to
+recordAck, which asserts that
+neither the cmd nor the edge has
+changed from what is expected.
+
+      void PhaseStepper::ConsensusChecker::recordAck(PBCmd cmd, Edge edge, u8 hart) {
+        MFM_API_ASSERT(edge != Edge::NONE, ILLEGAL_ARGUMENT);
+        MFM_API_ASSERT(hart < HART_COUNT, ILLEGAL_ARGUMENT);
+ >>     bool legal = mPhase == cmd && mEdge == edge;
+        if (!legal) {
+          LOGPTAG(RCKmp,(u32) mPhase);
+          LOGPTAG(RCKcm,(u32) cmd);
+          LOGPTAG(RCKme,(u32) mEdge);
+          LOGPTAG(RCKed,(u32) edge);
+ >>       MFM_API_ASSERT(legal, ILLEGAL_STATE);
+        }
+        mHartCharAcks[hart] = ACK_CHAR;
+        memoryFence();
+      }
+
+and I'm seeing a blowup that
+looks like it could be that.
+
+One thought: Make a fused op
+that holds the lock the whole
+time. Another thought: Do we
+ensure that we don't call
+doneEntering if we've already
+acked the vote? If we keep going
+in there after we've voted,
+we're just asking for somebody
+else to finish the vote between
+ifX and doneX.
+
+In fact it kind of seems like
+not running doneX if we've
+already voted would solve the
+problem all the way? Because the
+phase step "can't change" before
+we've voted?
+
+[1092:
+
+Mon Nov  2 23:17:01 2026 So if
+we wrote it to make it true only
+when I haven't already voted..
+
+:1092]
+
+:1091]
+
+:1090]
+:1089]
+
+:1088]
+
+
+:1087]
+
+:1086]
+
+:1085]
+
+:1084]
+
+:1083]
+:1082]
+
+:1081]
+:1080]
+  
+:1079]
+
+:1078]
+[1093:
+
+Tue Nov  3 00:46:52 2026 OK, so:
+
+(1) Have to break to do the
+    not-an-update short and post
+    it before 7am MT.
+
+(2) We are now in to
+    _ucFollowerLOAD_CACHE_B and
+    _ucLeaderLOAD_CACHE_B and
+    the next stop should be
+    trying to load fucking IH
+    cars and then trying to
+    observe them going INTERHUB.
+   
+[1094:
+
+Tue Nov  3 12:53:01 2026 OK, so
+spent like 5.5hr putting
+together a 62 second video.. but
+it's posted and here we are.
+
+Reestablishing Braim Context...
+[1095:
+
+Tue Nov  3 13:06:06 2026 OK, so
+we had already written
+'ifCouldAck' and once it once
+like:
+
+      if (thePLL.ifCouldAck(PBCmd::HOLD_AT_BIRTH,Edge::ENTERING)) {
+        thePLL.doneEntering(PBCmd::HOLD_AT_BIRTH);
+
+with the claim that isn't racy
+even though we do not hold
+thePLL's lock in between the two
+calls.[1096:
+
+Tue Nov  3 13:19:04 2026 OK
+we're now using ifCouldAck
+everywhere and nothing's blowing
+up atm, so we'll see going
+forward.
+
+Now one thing I want to
+understand a bit more - and
+mention on a diageno somehow -
+is where IHPC::updateIHCarsB
+gets called, and what we're
+supposed to expect from it.
+[1097:
+
+Tue Nov  3 13:32:14 2026 Erm, as
+we noted back in :1035: at
+least, it's called from stepB
+and we're supposed to expect
+'all'? IH car loading and
+unloading to happen there.
+
+Let's Finally
+finally finally finally
+FINALLY try doing that.
+[1098:
+
+Tue Nov  3 13:40:59 2026 OK, so
+far nobody is calling
+
+  bool CacheLoader::loadPacketFromCache(GridManager & gm, InterHubBlock & ihb) {
+
+and I think we want to
+restructure it a bit to be like: 
+
+  bool CacheLoader::loadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) 
+
+and
+
+  bool CacheLoader::unloadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) 
+
+and I expect
+CacheLoader::tryLoad ultimately
+goes away.
+[1100:
+
+Wed Nov  4 01:04:51 2026 But now
+I'm wondering: Why do we need
+CacheLoader::mRemoteItr ever?
+Loading and unloading packets
+will always be from/to the local
+itr, right?
+
+We'll see. Let's leave it for
+now, pass localNotRemote = true
+on both sides, and see how it
+goes.
+[1101:
+
+Wed Nov  4 01:16:08 2026 And we
+have to watch out: When we
+unload via iterator, we are NOT
+REMOVING THE ATOMS in the sense
+of causing the packet to become
+
+  isEmpty()==true
+
+[1102:
+
+Wed Nov  4 01:18:10 2026 And in
+fact this tiny thing is fucked
+
+    void unloadAtomFromPacketOrDie(P4Atom & a) {
+      MFM_API_ASSERT(!isEmpty(), OUT_OF_RESOURCES);
+      a = mAtoms[mDataUsed++];
+    }
+
+in two ways at least:
+
+ - isEmpty() is the wrong
+   predicate, and
+
+ - mDataUsed is the only way we
+   know how many atoms are
+   valid! We can't be
+   INCREMENTING that while we're
+   UNLOADING. (Unless we're
+   prepared to unload it
+   backwards, which I am not.)
+
+[1103:
+
+Wed Nov  4 01:20:43 2026 So I
+think the point is that we
+should:
+
+ (1) Change mDataUsed to say
+     mAtomCount, and
+
+ (2) Change the PT_InterHub API
+     to be explicitly
+     iterator-aware.
+
+And/or put a fucking iterator in
+the packet, say what.
+
+[1104:
+
+Wed Nov  4 02:29:09 2026 If we
+put an iterator in the packet -
+set to iterate over exactly
+whatever atoms are in that
+packet - we could handle packets
+out of order, could we not?
+
+So there's a 'master' iterator -
+perhaps that's the only one that
+needs to be in the CacheLoader -
+and we take the current itr
+position from that to init the
+'start' of the iterator in the
+packet, and then we pack, and
+when we run out of atoms or
+packet space, we take that
+master itr position to init the
+'top' of the iterator in the
+packet.
+
+And all we really need to send
+is a start and a stop, since
+we'll exhaust the packet
+iterator atomically on the
+receiving end.
+
+And then there the 'final'
+question of how to map between
+source coords and dest coords -
+which we imagine the source
+should probably do, and the dest
+should probably check?.
+
+Actually we can't piece together
+an iterator like that, because
+the 'start' and 'stop' have to
+define the full corners of the
+range, not just current
+positions in the iteration.
+
+And the range ought to be
+knowable by the ngbidx - which
+we also have not really pounded
+out and observed yet. But given
+that it should be, we could say
+that the packet only needs to
+contain like a start index and
+an end index. Two u8's would do
+it.. No - two U8Cs would do it,
+or two u16's if we wanted to be
+1D about it. Or one U8C to init
+the iterator's 'at', and one u16
+for a count.
+
+Doh except there's no way to fit
+anything close to 255 atoms in
+one packet, so it could be one
+U8C for 'at' plus one u8 for
+'atomsInPacket' for 3B total.
+
+[1105:
+
+Wed Nov  4 02:53:05 2026 I'm
+going to pop off a new
+'simplify-interhub' branch for
+this, and then tear up
+PT_Interhub. 
+
+:1105]
+:1104]
+
+:1103]
+
+:1102]
+
+
+:1101]
+:1100]
+:1098]
+:1097]
+:1096]
+
+:1095]
+:1094]
+:1093]
+[1099:
+
+Wed Nov  4 00:53:33 2026 So wow
+the 2026 USA midterms went
+pretty okay.
+
+And now we must be watching out
+for a return to the corporate
+Dems' oligarchy-as-usual. And we
+shall see if the youngsters can
+show us all how to make that
+shit not work this time.
+
+:1099]
