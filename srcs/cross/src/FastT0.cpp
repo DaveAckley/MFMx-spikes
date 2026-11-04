@@ -43,7 +43,7 @@ namespace MFM {
     }
 
     void stepHTFuncsT0() {
-      EACH(10'000,HBPTAG(stepT0,__EACHNUM__));
+      EACH(100'000,HBPTAG(stepT0,__EACHNUM__));
       for (u32 j = 0u; j < mHTFuncsInUseT0; ++j) {
         u32 i = j;
         HTFuncPtr epf = mHTFuncsT0[i];

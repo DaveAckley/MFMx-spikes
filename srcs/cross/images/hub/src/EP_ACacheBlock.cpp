@@ -106,7 +106,7 @@ namespace MFM {
      
   bool ACacheBlockEP::recvTC(ACacheBlock & car, u8 carindex) {
     Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
-    HBPTAG(ABRCV?,carindex);
+    //HBPTAG(ABRCV?,carindex);
 
     if (crbi.isFull()) return false; // bail if can't notify??
 
@@ -126,8 +126,8 @@ namespace MFM {
     return &this->getCarStg().getTC(carindex);
   }
 
-  //////// H0 MSTICK HART TASK
-  FAST_LOCAL(ACacheBlockPrivateControl,myPACBControlH0,0);
+  //////// T0 MSTICK HART TASK
+  FAST_LOCAL(ACacheBlockPrivateControl,myPACBControlT0,0);
 
   void ACacheBlockPrivateControl::init(ACacheBlockL1Control & acbl1, DLGridList & dll1) {
     ONE_PING_ONLY();
@@ -399,7 +399,7 @@ namespace MFM {
       HBPTAG(NCDONE!,spin);
 
       //// ONE-TIME INITS
-      myPACBControlH0.init(theACacheBlockL1Control,theDLGridList);
+      myPACBControlT0.init(theACacheBlockL1Control,theDLGridList);
       acbl1.setFlags(acbl1.ACBL1_T0_INITTED);
       LOGXTAG(T0INT,(u32)acbl1.getFlags());
 
@@ -410,7 +410,7 @@ namespace MFM {
       EACH(1'000,HBPTAG(ACBLIV,__EACHNUM__));
       //// LIVING
       HostBlock & hb = theHostBlock;
-      ACacheBlockPrivateControl & privcH0 = myPACBControlH0;
+      ACacheBlockPrivateControl & privcH0 = myPACBControlT0;
       privcH0.step(hb);
       EACH(1'000,HBPTAG(ACBLOV,__EACHNUM__));
 
@@ -425,7 +425,7 @@ namespace MFM {
   static RCFlag stepACBsT0(HTOpCode htoc) {
     if (htoc == HTOC_LIVE) {
       HostBlock & hb = theHostBlock;
-      myPACBControlH0.step(hb);
+      myPACBControlT0.step(hb);
     }
     return RC_ZERO;
   }

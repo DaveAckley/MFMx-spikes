@@ -213,6 +213,4 @@ namespace MFM {
 
   char * formatCountedByte(u32 count, u8 byte) ;
 
-  struct PhaserBolt; // FORWARD
-  const char * formatPhaserBolt(const PhaserBolt & pb) ;
 }

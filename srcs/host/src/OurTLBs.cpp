@@ -729,8 +729,6 @@ namespace MFM {
   }
 
   void OurTLBs::updateACacheBlocks(unsigned tlbi) {
-    if (tlbi == 15) EACH(1'000'000,HTprintf("EXQUEEZMEupACB15\n"));
-
     HostCommsMap & hcm = mHostCommsMap;
 
     TLBInfo & tin = getTLBInfo(tlbi);
@@ -832,7 +830,7 @@ namespace MFM {
 
     bool checkPhase = mOnPhase != 140;
     if (checkPhase) {
-      EACH(1'000'000,KTprintf(tag,"resetPhase %u\n", mOnPhase));
+      EACH(100'000,KTprintf(tag,"resetPhase %u tid%u\n", mOnPhase,gettid()));
       mOnPhase = 0;
     }
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
@@ -852,6 +850,11 @@ namespace MFM {
             const char * cmdname = PhaserBolt::phaserCmdName(cmd);
             u32 args = PhaserBolt::phaserArgCount(cmd);
 
+            if (false && mOnPhase%10 == 0)
+              HTprintf("onPh=%d tid=%u #%u t%u,u%u:%s\n",
+                       mOnPhase,gettid(),
+                       tlbi,theirNonce,ourNonce,pb.formatPhaserBolt());
+
             EACH(100'000,KTprintf(t6tag,"-onPhase- %3d %3d:%s(%s) t%u #%u %uM\n",
                                   //rphase,
                                   theirNonce,
@@ -860,15 +863,18 @@ namespace MFM {
                                   args > 0 ? std::to_string(pb.getBoltDataWordOrDie(0)).c_str() : "",
                                   tlbi,mOnPhase,__EACHNUM__/1'000'000));
           } else 
-            EACH(10'000,KTprintf(t6tag,"offPhase! %p 0x%02x 0x%02x:%02x tlbi%u\n",
-                            rphase,
-                            theirNonce,
-                            pb.getSeqNo(),
-                            pb.getCmd(),
-                            tlbi));
+            EACH(100'000,KTprintf(t6tag,"offPhase! %p 0x%02x %s t%u\n",
+                                 rphase,
+                                 theirNonce,
+                                 pb.formatPhaserBolt(),
+                                 tlbi));
         } else EACH(10'000'000,KTprintf(t6tag,"NOPONGO! %u\n",__EACHNUM__));
       }
     }
+    if (checkPhase) {
+      EACH(1'000'000,HTprintf("ONPHASE %u %s\n",mOnPhase,mOnPhase==140 ? "READY!" : ""));
+    }
+
     //XXX BURN BABY BURNNNNN:
     //sleepUsec(10);
     return true;
@@ -885,8 +891,8 @@ namespace MFM {
     u32 spin = 0;
     while (mOnPhase < 140) {
       if (++spin > 2'000) {
-        HTprintf("%s PHASE-IN AFTER %u WITH ONLY %u ONPHASE\n",
-                 tag.to_string().c_str(), spin, mOnPhase);
+        HTprintf("%s PHASE-IN AFTER %u WITH ONLY %u ONPHASE tid%u\n",
+                 tag.to_string().c_str(), spin, mOnPhase,gettid());
         break;
       }
       sleepUsec(10);
@@ -913,13 +919,13 @@ namespace MFM {
     mOnPhase = 0;
     spin = 0;
     while (mOnPhase < 140) {
-      if (++spin > 2'000) {
+      if (++spin > 1'000) {
         HTprintf("%s PHASE-OUT AFTER %u WITH ONLY %u ONPHASE\n",
                  tag.to_string().c_str(),
                  spin,mOnPhase);
         break;
       }
-      sleepUsec(10);
+      sleepMsec(10);
     }
     HTprintf("%s shotshottie %u=%s %u\n",
              tag.to_string().c_str(),

@@ -522,7 +522,7 @@ class EWD(App):
     self.drawgrid_timer = self.set_interval(1 / self.drawgrid_updates_per_second,
                                             self.update_drawgrid)
 
-    self.set_timer(3, self.release_the_puppies)
+    #self.set_timer(3, self.release_the_puppies)
       
     self.runEvents()
 

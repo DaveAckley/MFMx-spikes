@@ -8,6 +8,7 @@ target_sources(ewp PRIVATE
   images/ewp/src/EwpBlock.cpp
   images/ewp/src/EwpBoltResponder.cpp
   images/ewp/src/LiveB.cpp
+  images/ewp/src/PhaseSteppers.cpp
   images/ewp/src/Physics.cpp
   ${S_FILES_LIST}
   ${SHARED_SOURCES})

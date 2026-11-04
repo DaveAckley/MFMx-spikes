@@ -72,7 +72,7 @@ namespace MFM {
         return ret;
       }
 
-      if (thePLL.ifExiting(PBCmd::RUN_EVENTS)) {
+      if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::EXITING)) {
         EACH(100'000,LOGPTAG(TPS_EXRUN,__EACHNUM__));
       }
       return ret;

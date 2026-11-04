@@ -8,66 +8,14 @@
 namespace MFM {
   T6EPL1Data<InterHubStorage,8> theInterHubL1Data;
   T6EPL1Data<InterHubStorage,4> theCornerHubL1Data;
-  InterHubL1Control theInterHubL1Control;
 
   //////// LIVEB STEP TASK?
   //FAST_LOCAL(InterHubPrivateControl,myPIHControlHB,b); >> moved to LiveB/fB
 
-  void InterHubL1Control::init() {
-    ONE_PING_ONLY();
-    MFM_API_ASSERT_ON_HART(HARTNUM_B);
-    memset_s(this,'\0',sizeof(*this));
-    mL1GridManagerControlPtr = &theL1GridManagerControl;
-
-    /*
-    for (u8 i = 0; i < IHUB_BLOCKS; ++i)
-      mL1HubControls[i].init(i);
-    */
-  }
-
-  L1GridManagerControl & InterHubL1Control::getL1GridManagerControl() {
-    MFM_API_ASSERT_NONNULL(mL1GridManagerControlPtr);
-    return *mL1GridManagerControlPtr;
-  }
-
-#if 0
-  void InterHubL1Control::L1Hub1::setupNewCar(TheL1Data::CarIdxRB & crbi) {
-    MFM_API_ASSERT_ON_HART(HARTNUM_B);
-
-    MFM_API_ASSERT_NULL(mCurrentInterHub); // musn't already be working on a car
-    if (!crbi.remove(mCurrentCarIndex))
-      FAIL(ILLEGAL_ARGUMENT);
-
-    InterHubStorage & ihs = theInterHubL1Data.mTheTCStorages[mL1HubDir8];
-    HBASSERT_LT(mCurrentCarIndex, ihs.getCarCount());
-    InterHubBlock & ihb = ihs.getTC(mCurrentCarIndex);
-    mCurrentInterHub = &ihb;
-
-    InterHubPayload & pay = ihb.payload();
-    IHPType paytype = pay.mIHPHeader.mPayloadType;
-    if (paytype != IHPT_EMPTY)
-      LOGPTAG(WRONGIHPT,getNameFromIHPType(paytype));
-
-    pay.initIHP(IHPT_ATOMS,{0,0},{0,0}); // now it's atoms either way
-
-    LOGPTAG(L1HUB1SUNC,mCurrentInterHub);
-    LOGPX(mCurrentCarIndex);
-    LOGPX(mL1HubDir8);
-  }
-#endif
-
-  bool InterHubL1Control::readyToClose() {
-    AtomicScopeLock guard(mIHL1Lock);
-    EACH(1'000,HBPTAG(HIHL1Cr2c,__EACHNUM__));
-    EACH(1'000,LOGPTAG(IHL1Cr2c,__EACHNUM__));
-    return false;
-  }
-
-  void InterHubPrivateControl::init(InterHubL1Control & ihl1) {
+  void InterHubPrivateControl::init() {
     ONE_PING_ONLY();
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     memset_s(this,'\0',sizeof(*this)); // init all
-    mIHL1Control = &ihl1;
     //mPrivateState = IHH_PAUSE;
     //    HBPTAG(PIHinit,getIHHStateName(mPrivateState));
   }
@@ -76,8 +24,6 @@ namespace MFM {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
 
     L1GridManagerControl & lgmc = theL1GridManagerControl;
-    InterHubL1Control & ihl1 = getL1();
-    AtomicScopeLock guard(ihl1.mIHL1Lock);
 
     // "processInterHubCars"
     for (u32 i = 0u; i < 8u; ++i) {
@@ -102,8 +48,20 @@ namespace MFM {
     u8 carindex;
     crbi.remove(carindex);
     CacheLoaders & cls = theL1CacheLoaders;
-    CacheLoader * clp = cls.getIfAny((Dir8) ngbidx);
-    LOGPTAG(_ducLLCB,clp);    
+    CacheLoader & cl = cls.get((Dir8) ngbidx);
+    LOGPTAG(_ducLLCB,carindex);
+
+#if 0
+    EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[0];
+    HBASSERT_LT(carindex, cars.getCarCount());
+    EwpBlock & car = cars.getTC(carindex);
+    HBASSERT_EQ(car.getTCState(), TCState::OPEN); 
+    EACH(10'000,HBPTAG(ewp/INSIZ,car.currentTCSize()));
+
+    EwpPayload & pay = car.payload();
+    bool ret = fB.mThePhysics.doTransition(pay);
+#endif    
+    
   }
 
   void InterHubPrivateControl::_ucFollowerLOAD_CACHE_B(u32 ngbidx,
@@ -126,10 +84,9 @@ namespace MFM {
     LOGPTAG(_ducFLCBcix,carindex);
 
     CacheLoaders & cls = theL1CacheLoaders;
-    CacheLoader * clp = cls.getIfAny((Dir8) ngbidx);
-    MFM_API_ASSERT_NONNULL(clp);
+    CacheLoader & clp = cls.get((Dir8) ngbidx);
     
-    LOGPTAG(_ducFLCB,clp);
+    LOGPTAG(_ducFLCB,&clp);
     
   }
 
@@ -182,49 +139,16 @@ namespace MFM {
         LOGPTAG(_ducEA,__EACHNUM__);
       });
 
-    if (thePLL.ifEntering(PBCmd::RUN_EVENTS)) {
+    if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::ENTERING)) {
       if (iLead) return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
       if (iFollow) return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
       FAIL(ILLEGAL_STATE);
     }
 
-    if (thePLL.ifEntering(PBCmd::NEW_LEADER)) {
+    if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) { 
       if (iLead) return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
       if (iFollow) return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
     }
-
-#if 0    
-
-    //// BOLT STATE    US STATE  ACTION
-    //// ==========    ========  ======
-    //// CARRY_ON      follower  flush crbi, ship empties
-    ////                         so they accumulate at the leader,
-    ////                         do small ewps
-    if (iFollow && myCmd == PhaserBolt::Cmd::RUN_EVENTS)
-      return _ucFollowerRUN_EVENTS_B(ngbidx, gm, crbi, crbo);
-
-    //// BOLT STATE    US STATE  ACTION
-    //// ==========    ========  ======
-    //// SAVE_CACHE    leader    expect empty cars,
-    ////                         fill&ship from caches
-    if (iLead && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
-      return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
-
-    //// SAVE_CACHE    follower  expect full cars,
-    ////                         stash atoms in sites
-    ////                         ship empties
-    if (iFollow && myCmd == PhaserBolt::Cmd::SAVE_CACHE)
-      return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
-
-    if (whatWeDo != SCStatus::NO_LEADER) {
-      static SCStatus lastWeDo;
-      if (whatWeDo != lastWeDo) {
-        LOGPTAG(_ducMySTATUS,getSCStatusName(whatWeDo));
-        LOGPTAG(_ducMyCmd,PhaserBolt::phaserCmdName(myCmd));
-        lastWeDo = whatWeDo;
-      }
-    }
-#endif    
   }
 
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {

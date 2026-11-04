@@ -81,8 +81,7 @@ namespace MFM {
     theL1GridManagerControl.init();
     fB.mGridManager.init(theT6Grid[0],theACacheBlockL1Control,theDLGridList);
 
-    theInterHubL1Control.init();
-    fB.mPIHControl.init(theInterHubL1Control);
+    fB.mPIHControl.init();
 
     HBPTAG(INIT-,fAll.mNoC0);
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop

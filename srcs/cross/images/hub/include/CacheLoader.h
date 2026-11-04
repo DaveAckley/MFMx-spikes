@@ -9,41 +9,39 @@ namespace MFM {
 
     U8CRange::iterator mLocalItr; //< in local coords
     U8CRange::iterator mRemoteItr; //< in their local coords
-    Dir8 mLeaderDir8; //< where leader is from us (for routing?)
-    u8 mCacheLoaderIndex;
+    Dir8 mDir8; //< our index in cacheloaders (and where leader/follower is from us?)
+    s8 mDestType; //< >0 -> leader, <0 -> follower, =0 -> uninitted/not-in-use (e.g., off-edge)
 
-    void init() {
+    void init(Dir8 d8) {
       memset_s(this, '\0', sizeof(*this));
+      mDir8 = d8;
     }
 
-    bool loadPacketFromCache(GridManager & gm, InterHubBlock & ihb) ;
+    bool loadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) ;
+
+    bool unloadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) ;
 
     bool tryLoad(GridManager & gm) ;
     
   };
 
   struct CacheLoaders {
-    static constexpr u32 CACHELOADER_COUNT = 4;
+    static constexpr u32 CACHELOADER_COUNT = 8;
     CacheLoader mCacheLoaders[CACHELOADER_COUNT];
-    u8 mCacheLoadersInUse;
+    u8 mCurrentSCL;
+    u8 mNextSCL;
+
+    void configureCacheLoaders(u8 nextSCLeader) ;
+
     void init() {
       memset_s(this, '\0', sizeof(*this));
-    }
-    CacheLoader * getIfAny(Dir8 d8) {
-      for (u32 i = 0; i < mCacheLoadersInUse; ++i) {
-        CacheLoader & cl = get(i);
-        if (cl.mLeaderDir8 == d8) return &cl;
+      for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+        get(i).init((Dir8) i);
       }
-      return nullptr;
     }
 
-    CacheLoader & allocate() {
-      CacheLoader & ret = get(mCacheLoadersInUse);
-      ret.mCacheLoaderIndex = mCacheLoadersInUse++;
-      return ret;
-    }
     CacheLoader & get(u32 idx) {
-      MFM_API_ASSERT(idx < CacheLoaders::CACHELOADER_COUNT, ILLEGAL_ARGUMENT);
+      HBASSERT_LT(idx,CacheLoaders::CACHELOADER_COUNT); // ILLEGAL_ARGUMENT
       return mCacheLoaders[idx];
     }
   };

@@ -7,9 +7,9 @@ namespace MFM {
   
   bool beatTheStandardHeartbeat(HostBlock & hb) {
     // HEARTBEAT AND BOLT RESPONSE
-    u32 oldspin = fAll.mHeartSpin++;
+    u16 oldspin = fAll.mHeartSpin++; // u32 ?
     if ((oldspin & 0x3f) == 0) {
-      thePLL.boltResponderAllHarts();
+      assessProgressAllHarts();
       if (oldspin == 0) {
         hb.hartbeat(fAll.mHartNum);
         return true;

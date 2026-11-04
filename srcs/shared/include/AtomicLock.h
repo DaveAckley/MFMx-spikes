@@ -104,6 +104,7 @@ namespace MFM {
     bool tryLock() {
       bool ret = tryLockASM(&mLock);
       if (ret) mPC = callerPC(0);
+      memoryFence();
       return ret;
     }
     void * smellyPeekLock() const {

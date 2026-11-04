@@ -105,9 +105,14 @@ namespace MFM {
       return mDataUsed >= MAX_ATOMS;
     }
 
-    void storeAtomOrDie(const P4Atom a) {
+    void loadAtomIntoPacketOrDie(const P4Atom a) {
       MFM_API_ASSERT(!isFull(), OUT_OF_ROOM);
       mAtoms[mDataUsed++] = a;
+    }
+
+    void unloadAtomFromPacketOrDie(P4Atom & a) {
+      MFM_API_ASSERT(!isEmpty(), OUT_OF_RESOURCES);
+      a = mAtoms[mDataUsed++];
     }
 
     S16C mOrigin;               //< origin relative coord, updates on transits

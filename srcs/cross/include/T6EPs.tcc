@@ -89,7 +89,7 @@ namespace MFM {
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
       EACH(100'000,{
-          LOGPTAG(pop,this->getName());
+          LOGPTAG(popClo,this->getName());
           LOGPTAG(HN<-EP,carindex);
         });
       //EACH(10'000,HBPTAG(GCDEP,carindex));
@@ -154,7 +154,7 @@ namespace MFM {
     MFM_API_ASSERT_L1_ADDRESS(&l1data);
     mL1Data = &l1data;
     //    HBMARK;
-    HBPX(FORHART);
+    HBPX(hartName(FORHART));
     HBPTAG(srcBLOCK_COUNT,BLOCK_COUNT);
     mDestNoC0 = { U8_MAX, U8_MAX }; // init to illegal addr
     this->initEP(srcEPA, this->getAtomicLock(), isin, CAR_COUNT, false);

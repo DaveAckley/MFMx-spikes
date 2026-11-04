@@ -11,22 +11,42 @@ namespace MFM {
   // L1 DATA
   T6PhaseLockedLoop thePLL;
 
-  void ConsensusChecker::setupVote(PBCmd cmd, Edge edge) {
+  void PhaseStepper::ConsensusChecker::setupVote(PBCmd cmd, Edge edge) {
     memset_s(this,'\0',sizeof(*this)); // all acks 0
     mPhase = cmd;
+    mPhaseByte = PhaserBolt::phaserCmdName(cmd)[0];
     mEdge = edge;
+    mEdgeByte = "<=>"[(u32) mEdge];
     for (u32 h = 0; h < HART_COUNT; ++h)
       mHartCharAcks[h] = UNK_CHAR;
+    memoryFence();
+    LOGPTAG(CCSUV,voteStatus());
   }
 
-  void ConsensusChecker::recordAck(PBCmd cmd, Edge edge, u8 hart) {
+  void PhaseStepper::ConsensusChecker::rubberStamp() {
+    if (mEdge == Edge::NONE) return;
+    u8 hart = fAll.mHartNum;
+    if (mHartCharAcks[hart] == ACK_CHAR) return;
+    recordAck(mPhase,mEdge,hart);
+    LOGPTAG(OKAY,voteStatus());
+  }
+
+  void PhaseStepper::ConsensusChecker::recordAck(PBCmd cmd, Edge edge, u8 hart) {
+    MFM_API_ASSERT(edge != Edge::NONE, ILLEGAL_ARGUMENT);
     MFM_API_ASSERT(hart < HART_COUNT, ILLEGAL_ARGUMENT);
     bool legal = mPhase == cmd && mEdge == edge;
-    MFM_API_ASSERT(legal, ILLEGAL_STATE);
+    if (!legal) {
+      LOGPTAG(RCKmp,(u32) mPhase);
+      LOGPTAG(RCKcm,(u32) cmd);
+      LOGPTAG(RCKme,(u32) mEdge);
+      LOGPTAG(RCKed,(u32) edge);
+      MFM_API_ASSERT(legal, ILLEGAL_STATE);
+    }
     mHartCharAcks[hart] = ACK_CHAR;
+    memoryFence();
   }
 
-  bool ConsensusChecker::consensusReached() {
+  bool PhaseStepper::ConsensusChecker::consensusReached() {
     bool ret = true;
     for (u32 h = 0; h < HART_COUNT; ++h) {
       if (mHartCharAcks[h] == ACK_CHAR) continue;
@@ -34,45 +54,49 @@ namespace MFM {
       break;
     }
     if (!ret) {
-      EACH(10'000,LOGPTAG(CCBLOKT,voteStatus()));
+      EACH(100'000,LOGPTAG(CCBLOKT,voteStatus()));
     }
     return ret;
   }
 
-  void PhaseStepper::_switchToEntering(ConsensusChecker & cc) {
-    PBCmd ecmd = exitingIfAny();
-    MFM_API_ASSERT(ecmd != PBCmd::NOT_A_CMD,ILLEGAL_STATE);
-    mOutgoingCmd = PBCmd::NOT_A_CMD;
-    mCurrentCmd = mIncomingCmd;
-    cc.setupVote(mCurrentCmd,Edge::ENTERING);
+  void PhaseStepper::_switchToEntering() {
+    if (_exitingIfAny() == PBCmd::NOT_A_CMD) { // allowing switch to enter with no prev to get started..
+      MFM_API_ASSERT(mIncomingCDA.mCmd != PBCmd::NOT_A_CMD, ILLEGAL_STATE); // as long as we have a place to go
+    }
+    mOutgoingCDA = NOTACmdArg;
+    mCurrentCDA = mIncomingCDA;
+    mVoteClerk.setupVote(mCurrentCDA.mCmd,Edge::ENTERING);
+    HBPTAG(psSW2ENT,PhaserBolt::phaserCmdName(mCurrentCDA.mCmd));
   }
 
-  void PhaseStepper::_switchToExiting(ConsensusChecker & cc, PBCmd nextCmd) {
+  void PhaseStepper::_switchToOccupying() {
+    MFM_API_ASSERT(_enteringIfAny() != PBCmd::NOT_A_CMD, ILLEGAL_STATE); // entering before occupying
+    mOutgoingCDA = NOTACmdArg;
+    mCurrentCDA = mIncomingCDA;
+    mIncomingCDA = NOTACmdArg;
+    mVoteClerk.setupVote(mCurrentCDA.mCmd,Edge::NONE);
+    HBPTAG(psSW2OCC,PhaserBolt::phaserCmdName(mCurrentCDA.mCmd));
+  }
+
+  void PhaseStepper::_initIncomingCmd(PBCmd nextCmd,const BoltArgs args) {
+    MFM_API_ASSERT(mIncomingCDA.mCmd == PBCmd::NOT_A_CMD,ILLEGAL_STATE);    
+    MFM_API_ASSERT(nextCmd != PBCmd::NOT_A_CMD,ILLEGAL_ARGUMENT);    
+    mIncomingCDA.mCmd = nextCmd;
+    mIncomingCDA.mArgs = args;
+  }
+
+  void PhaseStepper::_switchToExiting(PBCmd nextCmd,const BoltArgs args) {
     MFM_API_ASSERT(nextCmd != PBCmd::NOT_A_CMD,ILLEGAL_ARGUMENT);
-    PBCmd ecmd = occupyingIfAny();
+    PBCmd ecmd = _occupyingIfAny();
     if (ecmd != PBCmd::NOT_A_CMD)                    // if we have real old cmd
       MFM_API_ASSERT(ecmd != nextCmd,ILLEGAL_STATE); // make sure we're changing
 
-    mOutgoingCmd = mCurrentCmd;
-    mIncomingCmd = nextCmd;
-    cc.setupVote(mCurrentCmd,Edge::EXITING);
+    mOutgoingCDA = mCurrentCDA;
+    mIncomingCDA.mCmd = nextCmd;
+    mIncomingCDA.mArgs = args;
+    mVoteClerk.setupVote(mCurrentCDA.mCmd,Edge::EXITING);
+    HBPTAG(psSW2EXI,PhaserBolt::phaserCmdName(mCurrentCDA.mCmd));
   }
-
-#if 0
-  PBCmd T6PhaseLockedLoop::getInProgressCmdIfAny() {
-    AtomicScopeLock guard(mLock);
-    if (mLastSeqnoArrived == mLastSeqnoReturned)
-      return PhaserBolt::Cmd::NOT_A_CMD; // nothing in progress
-    return mNewestCmdReceived; // or here it is
-  }
-
-  PBCmd T6PhaseLockedLoop::getPrevailingCmdIfAny() {
-    AtomicScopeLock guard(mLock);
-    if (mLastSeqnoArrived != mLastSeqnoReturned)
-      return PhaserBolt::Cmd::NOT_A_CMD; // nothing prevailing
-    return mNewestCmdReturned; // or here it is
-  }
-#endif
 
   bool T6PhaseLockedLoop::_alerted() {
     if (fAll.mHartNum == HARTNUM_NC) 
@@ -92,117 +116,105 @@ namespace MFM {
   }
 
   void T6PhaseLockedLoop::phaseStepperControlNC() {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     EACH(1'000'000,LOGPTAG(PHUZSTEPCON,__EACHNUM__));
-    /*
-     if (exiting in progress) check exiting
-     else if (entering in progress) check entering
-     else if (new bolt detection)
-          check command
-    */
-    void * mpc = mLock.smellyPeekLock();
-    if (mpc!=0) {
-      HBXTAG(PRELOKA,&mLock);
-      HBXTAG(PRLOCKPC,mpc);
-      HBXTAG(PRELOK0,callerPC(0));
-      //      FAIL(INCOMPLETE_CODE);
-    }
+
     AtomicScopeLock guard(mLock);
-    if (mPS.isExiting()) {
-      FAIL(INCOMPLETE_CODE); /// CHECK EXITING PROGRESS
-    } else if (mPS.isEntering()) {
-      FAIL(INCOMPLETE_CODE); /// CHECK ENTERING PROGRESS
+    if (mPS._isExiting()) {
+      if (mPS._consensusReached()) {
+        HBPTAG(PSEXI,PhaserBolt::phaserCmdName(mPS._exitingIfAny()));
+        mPS._switchToEntering();
+      }
+
+    } else if (mPS._isEntering()) {
+      if (mPS._consensusReached()) {
+        HBPTAG(PSENT,PhaserBolt::phaserCmdName(mPS._enteringIfAny()));
+        mPS._switchToOccupying();
+        if (_hartAcknowledgeBoltNC()) {
+          HBPTAG(GOGOGO,mPS._voteStatus());
+          HBPTAG(BOLTR_AHx,ackStatus());
+        }
+      }
+
     } else
       _boltDetectorNC();
   }
 
+/*
   bool T6PhaseLockedLoop::ifEntering(PBCmd cmd) {
     AtomicScopeLock guard(mLock);
-    return mPS.enteringIfAny() == cmd;
+    return mPS._enteringIfAny() == cmd;
   }
+*/
 
   bool T6PhaseLockedLoop::ifOccupying(PBCmd cmd) {
     AtomicScopeLock guard(mLock);
-    return mPS.occupyingIfAny() == cmd;
+    return mPS._occupyingIfAny() == cmd;
   }
 
+/*
   bool T6PhaseLockedLoop::ifExiting(PBCmd cmd) {
     AtomicScopeLock guard(mLock);
-    return mPS.exitingIfAny() == cmd;
+    return mPS._exitingIfAny() == cmd;
   }
+*/
 
   void T6PhaseLockedLoop::switchToEntering() {
     EACH(1,HBPTAG(S2ENT,__EACHNUM__));
     AtomicScopeLock guard(mLock);
-    mPS._switchToEntering(mVoteClerk);
+    mPS._switchToEntering();
   }
 
-  void T6PhaseLockedLoop::switchToExiting(PBCmd nextCmd) {
+  void T6PhaseLockedLoop::switchToOccupying() {
+    EACH(1,HBPTAG(S2ENT,__EACHNUM__));
+    AtomicScopeLock guard(mLock);
+    mPS._switchToOccupying();
+  }
+
+  void T6PhaseLockedLoop::switchToExiting(PBCmd nextCmd, const BoltArgs args) {
     EACH(1,HBPTAG(S2EWT,__EACHNUM__));
     AtomicScopeLock guard(mLock);
-    mPS._switchToExiting(mVoteClerk,nextCmd);
+    mPS._switchToExiting(nextCmd,args);
   }
 
   void T6PhaseLockedLoop::continueWhenNotOccupying(PhaserBolt::CmdMask cmdset) {
     while (true) {
       AtomicScopeLock guard(mLock); // reacquire lock each iteration
       if (alerted()) return; // Alert means not occupying anything
-      PBCmdMask occupyingMask = PhaserBolt::getCmdAsMask(mPS.occupyingIfAny());
+      PBCmdMask occupyingMask = PhaserBolt::getCmdAsMask(mPS._occupyingIfAny());
       if (!(occupyingMask & cmdset)) return;
       sleepCycles(1'000'000);
     }
   }
 
-
-  void T6PhaseLockedLoop::boltResponderAllHarts() {
-    EACH(100'000'000,LOGPTAG(BOLTR_AHS,__EACHNUM__));
-
-    // RACY RACY NO LOCK
-    if (mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived) return; // we have already acked this
-
-    PhaserBlock & block = T6Phaser::getPhaserBlock();
-    PhaserBolt & pb = block.payload();
-
-    if (mVoteClerk.consensusReached()) {
-      if (hartAcknowledgeBolt())
-        EACH(139,LOGPTAG(BOLTR_AHx,(u32) mLastSeqnoAcked[fAll.mHartNum]));
-    } else EACH(1'000,LOGPTAG(CCBLOK,mVoteClerk.voteStatus()));      
-
-#if 0
-    
-    switch (fAll.mHartNum) {
-    case HARTNUM_B:
-      if (!imageDoneRespondingToBoltB(pb)) return;
-      break;
-    case HARTNUM_T0:
-      if (!imageDoneRespondingToBoltT0(pb)) return;
-      break;
-    case HARTNUM_T1:
-      if (!imageDoneRespondingToBoltT1(pb)) return;
-      break;
-    case HARTNUM_T2:
-      if (!imageDoneRespondingToBoltT2(pb)) return;
-      break;
-    case HARTNUM_NC:
-      if (!imageDoneRespondingToBoltNC(pb)) return;
-      break;
-    default:
-      FAIL(UNREACHABLE_CODE);
-    }
-    //XXX if (!crosslibReadyToAckBolt(pb)) return;
-
-#endif
-  }
-
-  bool T6PhaseLockedLoop::weHaveAcknowledgedCurrentBolt() {
-    AtomicScopeLock guard(mLock);
-    return mLastSeqnoAcked[fAll.mHartNum] == mLastSeqnoArrived;
+  void __attribute__((weak)) assessProgressAllHarts() {
+    FAIL(UNSUPPORTED_OPERATION);
   }
   
-  bool T6PhaseLockedLoop::hartAcknowledgeBolt() {
-    AtomicScopeLock guard(mLock);
+  char * T6PhaseLockedLoop::ackStatus() const {
+    constexpr u32 BUF_SIZ = 16;
+    static char buf[BUF_SIZ];
+    snprintf(buf,BUF_SIZ,"V%u:A%u:R%u",
+             mLastSeqnoArrived,
+             mLastSeqnoAcked,
+             mLastSeqnoReturned);
+    return buf;
+  }
 
-    if (mLastSeqnoArrived != mLastSeqnoAcked[fAll.mHartNum]) {
-      mLastSeqnoAcked[fAll.mHartNum] = mLastSeqnoArrived;
+/*
+  bool T6PhaseLockedLoop::weHaveAcknowledgedCurrentBoltNC() {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+    AtomicScopeLock guard(mLock);
+    return mLastSeqnoAcked == mLastSeqnoArrived;
+  }
+*/
+  
+  bool T6PhaseLockedLoop::_hartAcknowledgeBoltNC() {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC);
+
+    if (mLastSeqnoArrived != mLastSeqnoAcked) {
+      mLastSeqnoAcked = mLastSeqnoArrived;
+      HBPTAG(NEWACK,mLastSeqnoAcked);
       return true;              // new ack
     }
     return false;               // already acked
@@ -210,7 +222,7 @@ namespace MFM {
 
   void T6PhaseLockedLoop::_boltDetectorNC() {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    EACH(1'000'000,LOGPTAG(BOLTR_DET,__EACHNUM__));
+    //EACH(1'000'000,LOGPTAG(BOLTR_DET,__EACHNUM__));
 
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
     PhaserBolt & pay = pb.payload();
@@ -222,31 +234,36 @@ namespace MFM {
 
     EACH(1'000'000,LOGPTAG(BOLTR_SEQ,__EACHNUM__));
     if (pseq != mLastSeqnoArrived) { // new arrival
-      mLastSeqnoArrived = pseq;
-      mNewestCmdReceived = pay.getCmd();
-      LOGPTAG(BOLTR_NEW,formatPhaserBolt(pay));
+      LOGPTAG(CONN;SONAR:NEW DETECTION,pay.formatPhaserBolt());
 
-      MFM_API_ASSERT(!mPS.isExiting() && !mPS.isEntering(), ILLEGAL_STATE);
-      void * mpc = mLock.smellyPeekLock();
-      if (mpc != 0) {
-        LOGPTAG(CALRPC,mpc);
-        LOGPTAG(CALRX,callerPC(0));
+      MFM_API_ASSERT(!mPS._isExiting() && !mPS._isEntering(), ILLEGAL_STATE);
+      PBCmd incoming = pay.getCmd();
+      u32 argc = PhaserBolt::phaserArgCount(incoming);
+      BoltArgs args;
+      for (u32 i = 0; i < argc; ++i)
+        args.mArg[i] = pay.getBoltDataWordOrDie(i);
+
+      MFM_API_ASSERT(incoming != PBCmd::NOT_A_CMD,ILLEGAL_STATE);
+      if (mNewestCmdReceived == PBCmd::NOT_A_CMD) { // if no OLD newest
+        mPS._initIncomingCmd(incoming,args); // make this the incoming
+        mPS._switchToEntering(); // and start entering it
+      } else {
+        mPS._switchToExiting(incoming,args); // starting to leave OLD, remember incoming
       }
-      mPS._switchToExiting(mVoteClerk,mNewestCmdReceived);
+      mNewestCmdReceived = incoming;
+      mLastSeqnoArrived = pseq;
       return;
     }
 
     // still at station
-    EACH(100'000,LOGPTAG(BOLTR_WAIT,__EACHNUM__));
-    for (u32 h = HARTNUM_B; h < HART_COUNT; ++h) {
-      if (pseq != mLastSeqnoAcked[h]) {
-        EACH(1'000'000,LOGPTAG(BOLTR_STILL,__EACHNUM__));
-        return;
-      }
+    EACH(1'000,HBPTAG(BOLTR_WAIT,__EACHNUM__));
+    if (pseq != mLastSeqnoAcked) {
+      EACH(1'000'000,LOGPTAG(BOLTR_STILL,__EACHNUM__));
+      return;
     }
 
     // ready to go
-    LOGPTAG(BOLTRDONE,formatPhaserBolt(pay));
+    HBPTAG(BOLTR_2ACK,pay.formatPhaserBolt());
     PBCmd pcmd = pay.getCmd();
 
     _returnBoltToHostNC();      // the bird is away
@@ -281,7 +298,7 @@ namespace MFM {
     //LOGPTAG64(RPHASEmDBAdr,destBlockAddr);
 
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
-    LOGPTAG(BOLTBACK,pb.payload().getSeqNo());
+    LOGPTAG(BOLTBACK,pb.payload().formatPhaserBolt());
     u32 pbwordcount = sizeof(pb)>>2;
     s32 status = NRI3::initiateWriteToHost(hb.mNoC0,(u32*) &pb, pbwordcount, destBlockAddr);
     if (status != 1) LOGXTAG(RPHASEstatus,status);
@@ -289,7 +306,12 @@ namespace MFM {
 
   void T6PhaseLockedLoop::_handleBlockingNC() { // mLock HELD
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    continueWhenNotOccupying(PhaserBolt::CmdMask::HOLD_AT_BIRTH); // only blocks all harts left
+
+    while (mPS._occupyingIfAny() == PBCmd::HOLD_AT_BIRTH) {
+      if (_alertedNC()) return; // Alert means not occupying anything
+      sleepCycles(1'000'000);
+    }
+
   }
 
 

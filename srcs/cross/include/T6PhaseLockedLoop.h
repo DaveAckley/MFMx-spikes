@@ -13,69 +13,117 @@ namespace MFM {
 
   enum class Edge : u8 {
     ENTERING,
+    NONE,
     EXITING
   };
 
-  struct ConsensusChecker {
-    PBCmd mPhase;
-    Edge mEdge;
-    u8 mHartCharAcks[HART_COUNT+1];
-    static constexpr u8 ACK_CHAR = 'A';
-    static constexpr u8 UNK_CHAR = '.';
+  extern "C" void assessProgressAllHarts() ;
 
-    void setupVote(PBCmd cmd, Edge edge) ;
-    void recordAck(PBCmd cmd, Edge edge, u8 hart) ;
-    const char * voteStatus() { return (const char *) mHartCharAcks; };
-
-    bool consensusReached() ;
+  struct BoltArgs {
+    static constexpr u32 MAX_ARGS = 2;
+    s32 mArg[MAX_ARGS];
   };
+  struct CmdArg {
+    PBCmd mCmd;
+    BoltArgs mArgs;
+  };
+  static constexpr BoltArgs NOArgs = { 0, 0 };
+  static constexpr CmdArg NOTACmdArg = { PBCmd::NOT_A_CMD, NOArgs };
 
   struct PhaseStepper {
 
-    bool isExiting() const { return exitingIfAny() != PBCmd::NOT_A_CMD; }
-    PBCmd exitingIfAny() const {
-      if (mOutgoingCmd == mCurrentCmd && mCurrentCmd != mIncomingCmd) 
-        return mCurrentCmd;
+    bool _isExiting() const { return _exitingIfAny() != PBCmd::NOT_A_CMD; }
+    PBCmd _exitingIfAny() const {
+      if (mOutgoingCDA.mCmd == mCurrentCDA.mCmd && mCurrentCDA.mCmd != mIncomingCDA.mCmd) 
+        return mCurrentCDA.mCmd;
       return PBCmd::NOT_A_CMD;
     }
 
-    bool isEntering() const { return enteringIfAny() != PBCmd::NOT_A_CMD; }
-    PBCmd enteringIfAny() const {
-      if (mOutgoingCmd != mCurrentCmd && mCurrentCmd == mIncomingCmd)
-        return mCurrentCmd;
+    bool _isEntering() const { return _enteringIfAny() != PBCmd::NOT_A_CMD; }
+    PBCmd _enteringIfAny() const {
+      if (mOutgoingCDA.mCmd != mCurrentCDA.mCmd && mCurrentCDA.mCmd == mIncomingCDA.mCmd)
+        return mCurrentCDA.mCmd;
       return PBCmd::NOT_A_CMD;
     }
-    PBCmd occupyingIfAny() const {
-      if (mOutgoingCmd == PBCmd::NOT_A_CMD && mIncomingCmd == PBCmd::NOT_A_CMD)
-        return mCurrentCmd;
+    PBCmd _occupyingIfAny() const {
+      if (mOutgoingCDA.mCmd == PBCmd::NOT_A_CMD && mIncomingCDA.mCmd == PBCmd::NOT_A_CMD)
+        return mCurrentCDA.mCmd;
       return PBCmd::NOT_A_CMD;
     }
 
-    void _switchToEntering(ConsensusChecker & cc) ; // exiting -> entering
+    void _initIncomingCmd(PBCmd nextCmd,const BoltArgs args) ;
 
-    void _switchToExiting(ConsensusChecker & cc, PBCmd nextCmd) ; // occupying -> exiting
+    void _switchToEntering() ; // exiting -> entering
 
-    //bool _hartAcked() { return mHartAckFlags & _thisHartFlag(); }
-    //u8 _thisHartFlag() const { return (u8) (1u<<fAll.mHartNum); }
+    void _switchToOccupying() ; // entering -> occupying
+
+    void _switchToExiting(PBCmd nextCmd,const BoltArgs args) ; // occupying -> exiting
+
+    void _rubberStamp() { mVoteClerk.rubberStamp(); }
+
+    void _recordAck(PBCmd cmd, Edge edge, u8 hart) { mVoteClerk.recordAck(cmd,edge,hart); }
+
+    bool _ifHartCouldAck(PBCmd cmd, Edge edge, u8 hart) {
+      return mVoteClerk.ifHartCouldAck(cmd,edge,hart);
+    }
+
+    const char * _voteStatus() { return mVoteClerk.voteStatus(); }
+
+    bool _consensusReached() { return mVoteClerk.consensusReached(); }
+
+    CmdArg _getOutgoingCDA() const { return mOutgoingCDA; }
+    CmdArg _getCurrentCDA() const { return mCurrentCDA; }
+    CmdArg _getIncomingCDA() const { return mIncomingCDA; }
 
   private:
-    PBCmd mOutgoingCmd;
-    PBCmd mCurrentCmd;
-    PBCmd mIncomingCmd;
-    //    u8 mHartAckFlags;
+
+    struct ConsensusChecker {
+      PBCmd mPhase;
+      Edge mEdge;
+      u8 mPhaseByte;                  //<CONTIGUOUS
+      u8 mEdgeByte;                   //<CONTIGUOUS
+      u8 mHartCharAcks[HART_COUNT+1]; //<CONTIGUOUS
+      static constexpr u8 ACK_CHAR = 'A';
+      static constexpr u8 UNK_CHAR = '.';
+
+      void rubberStamp() ;
+      void setupVote(PBCmd cmd, Edge edge) ;
+      void recordAck(PBCmd cmd, Edge edge, u8 hart) ;
+      const char * voteStatus() { return (const char *) &mPhaseByte; };
+
+      bool hartAcked(u8 hart) const { // phase and step UNSPECIFIED!
+        return
+          hart < HART_COUNT &&
+          mHartCharAcks[hart] == ACK_CHAR;
+      }
+
+      bool ifHartCouldAck(PBCmd cmd, Edge edge, u8 hart) const {
+        return
+          cmd == mPhase &&
+          edge == mEdge &&
+          !hartAcked(hart);
+      }
+
+      bool consensusReached() ;
+    };
+
+    ConsensusChecker mVoteClerk;
+
+    CmdArg mOutgoingCDA;
+    CmdArg mCurrentCDA;
+    CmdArg mIncomingCDA;
   };
 
   struct T6PhaseLockedLoop {
 
     AtomicLock mLock;
     u8 mLastSeqnoArrived;
-    u8 mLastSeqnoAcked[HART_COUNT];
+    u8 mLastSeqnoAcked;
     u8 mLastSeqnoReturned;
     PBCmd mNewestCmdReceived;
     PBCmd mNewestCmdReturned;
 
     PhaseStepper mPS;
-    ConsensusChecker mVoteClerk;
 
     void init() {
       memset_s(this,'\0',sizeof(*this));
@@ -85,17 +133,44 @@ namespace MFM {
       */
     }
 
+    CmdArg getOutgoingCDA() {
+      AtomicScopeLock guard(mLock);
+      return mPS._getOutgoingCDA();
+    }
+    CmdArg getCurrentCDA() {
+      AtomicScopeLock guard(mLock);
+      return mPS._getCurrentCDA();
+    }
+    CmdArg getIncomingCDA() {
+      AtomicScopeLock guard(mLock);
+      return mPS._getIncomingCDA();
+    }
+
+    bool ifCouldAck(PBCmd cmd, Edge edge) {
+      AtomicScopeLock guard(mLock);
+      return mPS._ifHartCouldAck(cmd,edge,fAll.mHartNum);
+    }
+
     void continueWhenNotOccupying(PhaserBolt::CmdMask flags) ;
+
+    char * ackStatus() const ; // TOTALLY RACY
+
+    const char * voteStatus() {
+      AtomicScopeLock guard(mLock);
+      return mPS._voteStatus();
+    }
 
     void switchToEntering() ;
 
-    void switchToExiting(PBCmd nextCmd) ;
+    void switchToOccupying() ;
 
-    bool ifEntering(PBCmd cmd) ;
+    void switchToExiting(PBCmd nextCmd, const BoltArgs args) ;
+
+    //bool ifEntering(PBCmd cmd) ;
 
     bool ifOccupying(PBCmd cmd) ;
 
-    bool ifExiting(PBCmd cmd) ;
+    //bool ifExiting(PBCmd cmd) ;
 
     void phaseStepperControlNC() ;
 
@@ -104,20 +179,23 @@ namespace MFM {
       return _alerted();
     }
 
-    void boltResponderAllHarts() ;
+    void rubberStamp() { //< approve WevTF is going on
+      AtomicScopeLock guard(mLock);
+      mPS._rubberStamp();
+    }
 
     void doneEntering(PBCmd cmd) {
-      mVoteClerk.recordAck(cmd,Edge::ENTERING,fAll.mHartNum);
+      AtomicScopeLock guard(mLock);
+      mPS._recordAck(cmd,Edge::ENTERING,fAll.mHartNum);
     }
 
     void doneExiting(PBCmd cmd) {
-      mVoteClerk.recordAck(cmd,Edge::EXITING,fAll.mHartNum);
+      AtomicScopeLock guard(mLock);
+      mPS._recordAck(cmd,Edge::EXITING,fAll.mHartNum);
     }
 
-    bool weHaveAcknowledgedCurrentBolt() ;
-    
     // SERVICE ROUTINES
-    bool hartAcknowledgeBolt() ;
+    bool _hartAcknowledgeBoltNC() ;
 
   private:
     /// _methods ARE CALLED WITH mLock HELD!
@@ -128,6 +206,8 @@ namespace MFM {
     void _returnBoltToHostNC() ; 
     void _handleBlockingNC() ; 
   };
+
+  extern "C" void assessProgressAllHarts() ; //< weak in T6PhaseLockedLoop.cpp
 
   extern T6PhaseLockedLoop thePLL; // the PhaseStepper instance (and stuf)
 

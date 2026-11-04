@@ -4,6 +4,12 @@
 #include "Fail.h"
 #include "TC.h"
 
+#ifdef BUILD_HOST
+#include <stdio.h>
+#else
+#include "Printf.h"
+#endif
+
 namespace MFM {
 
   struct PhaserBolt {
@@ -52,7 +58,7 @@ namespace MFM {
     static_assert(CMD_COUNT <= MAX_PHASER_COMMANDS, "ALL_PHASER_COMMANDS too big");
 
     static constexpr const char * allPhaserCommandNames[CMD_COUNT+1] = {
-      "N/C",
+      "!NC",
 #define XX(name,argc) #name,
       ALL_PHASER_COMMANDS()
 #undef XX
@@ -60,7 +66,7 @@ namespace MFM {
     };
 
     static constexpr const char * phaserCmdName(Cmd cmd) {
-      if (cmd >= Cmd::CMD_COUNT) return "ILLEGAL CMD";
+      if (cmd >= Cmd::CMD_COUNT) return "?ILLEGAL CMD";
       return allPhaserCommandNames[(u8) cmd];
     }
 
@@ -174,6 +180,39 @@ namespace MFM {
       return true;
     }
     s32 mBoltWords[BOLT_DATA_WORDS];
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat"
+    const char * formatPhaserBolt() {
+      static constexpr u32 BOLT_BUFSIZ = 32;
+      static char buf[BOLT_BUFSIZ];
+      u8 pseq = getSeqNo();
+      Cmd cmd = getCmd();
+      const char * cmdname = phaserCmdName(cmd);
+      u32 args = phaserArgCount(cmd);
+      switch (args) {
+      case 0:
+        snprintf(buf,BOLT_BUFSIZ,"%u.%s!",pseq,cmdname);
+        break;
+      case 1:
+        snprintf(buf,BOLT_BUFSIZ,"%u.%s %d!",pseq,cmdname
+                 ,getBoltDataWordOrDie(0));
+        break;
+      case 2:
+        snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d!",pseq,cmdname
+                 ,getBoltDataWordOrDie(0)
+                 ,getBoltDataWordOrDie(1)
+                 );
+        break;
+      default:
+        snprintf(buf,BOLT_BUFSIZ,"%u.%s#%u? you lie",pseq,cmdname,args
+                 );
+        break;
+      }
+      return buf;
+    }
+#pragma GCC diagnostic pop
+    
   };
 
   class PhaserBlock : public TC<PhaserBlock,sizeof(PhaserBolt)> {

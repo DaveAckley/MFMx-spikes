@@ -146,9 +146,9 @@ namespace MFM {
 
       HBNOTE(GOFIH);
       for (u8 d8 = D8_NT; d8 <= D8_NE; ++d8) {
-        HBPTAG(d8OPEN,dir8ToByteString((Dir8) d8));
         //HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d8)));
         if (theInterHubL1Data.getPublicEPState(d8) != EPState::CONFIGURED) continue;
+        HBPTAG(d8OPEN,dir8ToByteString((Dir8) d8));
         myInterHubEP[d8].activate(); // release the hounds
         HBPTAG(ihsta,getNameFromEPState(theInterHubL1Data.getPublicEPState(d8)));
       }
@@ -258,14 +258,14 @@ namespace MFM {
 
       for (u32 i = 0; i < CHUB_BLOCK_COUNT; ++i) {
         Dir4 axisd4 = (Dir4) i;
-        HBPTAG(CHUBUS4,dir4ToByteString(axisd4));
         Dir4 ngbd4 = nextCWDir4(axisd4);
-        HBPTAG(CHUBNG4,dir4ToByteString(ngbd4));
         S8C offct6 = S8C::makeS8CFromDir4(ngbd4)*2;
-        HBPTAG(CHUBCT6,offct6);
         CornerHubStateNC & chs = fastCornerHubStateNC[i];
         bool found = chs.open(offct6);
         if (found) {
+          HBPTAG(CHUBUS4,dir4ToByteString(axisd4));
+          HBPTAG(CHUBNG4,dir4ToByteString(ngbd4));
+          HBPTAG(CHUBCT6,offct6);
           HBXTAG(CHUBADDR,chs.mCWDir4IHUBBaseAddress);
         } else {
           HBPTAG(NOCHUB,dir4ToByteString(ngbd4));

@@ -63,7 +63,7 @@ namespace MFM {
     : mTLBI(U32_MAX)
   {
     ++mMade;
-    HTprintf("ZHD %p #%u\n",this,mMade);
+    //    HTprintf("ZHD %p #%u\n",this,mMade);
   }
 
   bool ZHostDecompressor::sinkByte(const u8 byte) {
@@ -164,7 +164,7 @@ namespace MFM {
   }
 
   s32 ZHostDecompressor::sourceByte(bool canread) {
-    SNAP(3,KTprintf(mBHTag,"%p ZHDHARO IN %u\n",this,canread));
+    //    SNAP(3,KTprintf(mBHTag,"%p ZHDHARO IN %u\n",this,canread));
     bool htp = false; // mTLBI >= 15 && mTLBI <= 20;
 
     if (mQuitDecompressorThread.load()) { // should we quit?
@@ -271,7 +271,7 @@ namespace MFM {
 
     mDecompressorThreadPtr = std::make_unique<std::thread>([this,tlbi]() {
       try {
-        HTprintf("ZHDecompThread %p HERE HALLO\n",this);
+        //HTprintf("ZHDecompThread %p HERE HALLO\n",this);
         mLZ.decode();
       }
       catch (const char * str) {

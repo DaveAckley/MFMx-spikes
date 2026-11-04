@@ -40,4 +40,5 @@ namespace MFM {
   inline void breathe() { sleepCycles(BREATH_DURATION); } //< ~<1ms?
 
   extern FastAll fAll;
+  static bool onHartNum(u8 num) { return fAll.mHartNum == num; }
 }
