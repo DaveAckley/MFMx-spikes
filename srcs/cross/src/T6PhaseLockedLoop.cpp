@@ -11,6 +11,15 @@ namespace MFM {
   // L1 DATA
   T6PhaseLockedLoop thePLL;
 
+  const char * CmdArg::formatCmdArg() const {
+    constexpr u32 BUF_SIZ = 34;
+    static char buf[BUF_SIZ];
+    snprintf(buf,BUF_SIZ,"%s:%u",
+             PhaserBolt::phaserCmdName(mCmd),
+             mArgs.mArg[0]);
+    return buf;
+  }
+
   void PhaseStepper::ConsensusChecker::setupVote(PBCmd cmd, Edge edge) {
     memset_s(this,'\0',sizeof(*this)); // all acks 0
     mPhase = cmd;
@@ -36,11 +45,9 @@ namespace MFM {
     MFM_API_ASSERT(hart < HART_COUNT, ILLEGAL_ARGUMENT);
     bool legal = mPhase == cmd && mEdge == edge;
     if (!legal) {
-      LOGPTAG(RCKmp,(u32) mPhase);
-      LOGPTAG(RCKcm,(u32) cmd);
-      LOGPTAG(RCKme,(u32) mEdge);
-      LOGPTAG(RCKed,(u32) edge);
-      MFM_API_ASSERT(legal, ILLEGAL_STATE);
+      LOGPTAG(RCKmp,(u32) cmd*100 + (u32) mPhase);
+      LOGPTAG(RCKme,(u32) edge*100 + (u32) mEdge);
+      MFM_API_ASSERT(legal, ILLEGAL_STATE); // return; //
     }
     mHartCharAcks[hart] = ACK_CHAR;
     memoryFence();
@@ -234,7 +241,7 @@ namespace MFM {
 
     EACH(1'000'000,LOGPTAG(BOLTR_SEQ,__EACHNUM__));
     if (pseq != mLastSeqnoArrived) { // new arrival
-      LOGPTAG(CONN;SONAR:NEW DETECTION,pay.formatPhaserBolt());
+      LOGPTAG(CONN;SONAR,pay.formatPhaserBolt());
 
       MFM_API_ASSERT(!mPS._isExiting() && !mPS._isEntering(), ILLEGAL_STATE);
       PBCmd incoming = pay.getCmd();

@@ -303,6 +303,10 @@ namespace MFM {
 
     void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
 
+    u8 getOurSuperCellPosition() const {
+      return mSuperCellLeaderCode;
+    }
+
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;

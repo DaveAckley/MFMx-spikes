@@ -294,11 +294,11 @@ namespace MFM {
     s32 scyCount = (s32) ++mSuperCycleCount;
     HTprintf("%u QuBo::SCY SUPERCYCLE #%u BEGINS WITH LEADER %u\n",gettid(),scyCount,nextLeader);
 
-    static constexpr u32 MIN_MS_SMALL = 500;
-    static constexpr u32 MAX_MS_SMALL = 2'000;
+    static constexpr u32 MIN_MS_SMALL = 1'500;
+    static constexpr u32 MAX_MS_SMALL = 2'500;
 
-    static constexpr u32 MIN_MS_MEDIUM = 2'000;
-    static constexpr u32 MAX_MS_MEDIUM = 3'000;
+    static constexpr u32 MIN_MS_MEDIUM = 3'000;
+    static constexpr u32 MAX_MS_MEDIUM = 4'000;
 
     static constexpr u32 MIN_MS_PHASE = 7'000;
     static constexpr u32 MAX_MS_PHASE = 8'000;
@@ -308,14 +308,8 @@ namespace MFM {
     //// ANNOUNCE NEW LEADER AND "LET THAT SINK IN"
     HTprintf("%u QuBo::SCY ANNOUNCING NEW LEADER cL%u\n", gettid(), nextLeader);    
     shootPHASER(PhaserBolt::Cmd::NEW_LEADER,{(s32) nextLeader, scyCount});
-    sleepMsec(hostPRNG.Between(MIN_MS_SMALL,MAX_MS_SMALL)); 
-
-#if 0
-    /// LOAD LEADER CACHES
-    HTprintf("%u QuBo::SCY cL%u follower sites loading to leader caches\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::Cmd::LOAD_CACHE,{scyCount});
+    //    sleepMsec(hostPRNG.Between(MIN_MS_SMALL,MAX_MS_SMALL)); 
     sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
-#endif
 
     /// RUN EVENTS
     HTprintf("%u QuBo::SCY cL%u RUNNING EVENTS\n", gettid(), nextLeader);
@@ -323,17 +317,6 @@ namespace MFM {
     shootPHASER(PhaserBolt::Cmd::RUN_EVENTS,{scyCount});
     sleepMsec(hostPRNG.Between(MIN_MS_PHASE,MAX_MS_PHASE)); 
 
-#if 0
-    /// SUSPEND EVENTS
-    //XXX    HTprintf("%u QuBo::SCY cL%u SUSPENDING EVENTS\n", gettid(), nextLeader);
-    //XXX    shootPHASER(PhaserBolt::Cmd::SUSPEND_EWPS,{1,scyCount});
-
-    /// FLUSH LEADER CACHES
-    HTprintf("%u QuBo::SCY cL%u leader saving caches to follower sites\n", gettid(), nextLeader);
-    shootPHASER(PhaserBolt::Cmd::SAVE_CACHE,{scyCount});
-    sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
-
-#endif
     HTprintf("%u QuBo::SCY SUPERCYCLE #%d ENDS WITH LEADER cL%u\n", gettid(), scyCount, nextLeader);
     return;
   }

@@ -1,9 +1,13 @@
 #include "S8C.h"
 #include "UxC.h" // for U8C
 #include "Fail.h"
+#include "Point.h" // for SPoint
 
 namespace MFM {
-  S8C::S8C(U8C u) : x(u.x), y(u.y) {
+
+  S8C::S8C(const SPoint sp) : x(sp.GetX()), y(sp.GetY()) { }
+
+  S8C::S8C(const U8C u) : x(u.x), y(u.y) {
     MFM_API_ASSERT(u.x <= S8_MAX && u.y <= S8_MAX, ILLEGAL_ARGUMENT);
   }
 

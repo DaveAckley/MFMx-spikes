@@ -21,8 +21,16 @@ namespace MFM {
     u8 mBlockCodeIndex;
   };
 
+  inline u8& epInstantiationVar() { static u8 n = 0; return n; }
+  inline u8 epInstantiationCount() { return ++epInstantiationVar(); }
+
   template<class SUBEP, class SUBTC>
   struct EP {
+    static u8 getEPNumber() {
+      static u8 epn = 0;
+      if (epn == 0) epn = epInstantiationCount();
+      return epn;
+    }
 
     // self(): access this by subtype
     SUBEP& self() { return static_cast<SUBEP&>(*this); }
@@ -73,7 +81,22 @@ namespace MFM {
       return *mLockPtr;
     }
 
-    void reset() { memset_s(this,'\0',sizeof(*this)); }
+    void reset() {
+      memset_s(this,'\0',sizeof(*this));
+    }
+
+    /*
+    void reset() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+      volatile u8 epn = 0;
+      epn = mEPNumber;
+      memset_s(this,'\0',sizeof(*this));
+      mEPNumber = epn;
+#pragma GCC diagnostic pop
+    }
+    */
 
     bool isValidIndex(u8 idx) const { return idx < mCarCount; }
     u8 incrementIndex(u8 idx) const {

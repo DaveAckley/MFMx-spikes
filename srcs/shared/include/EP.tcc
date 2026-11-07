@@ -49,10 +49,14 @@ namespace MFM {
     bool ret = false;
     /// TRY RECEIVING ARRIVALS
     while (mGoneCount > 0) {    // if we have gone cars
-      if (isIHUBXX && true) { static u32 lastgone;
-        if (lastgone != mGoneCount) {
-          EACH(1,{LOGPTAG(#GC,this->getName());LOGPX(mGoneCount);});
-          lastgone = mGoneCount;
+      constexpr u32 GONECOUNT=32;
+      if (isIHUBXX && true) { static u8 lastgone[GONECOUNT];
+        u8 epn = getEPNumber();
+        if (false && epn<GONECOUNT && lastgone[epn] != mGoneCount) {
+          SNAP(100,{
+              LOGPTAG(NUgon@,this->getName());
+              LOGPTAG(NUgon,1000*(u32)epn+mGoneCount);});
+          lastgone[epn] = mGoneCount;
         }
       }
 
@@ -62,7 +66,7 @@ namespace MFM {
       SUBTC & car = *carp;
       if (!car.isComplete()) {
         if (isLogXX) SNAP(5,HBPTAG(gonBLK,carp));
-        if (isIHUBXX) EACH(5'000,LOGPTAG(incompIHUB,carp));
+        if (isIHUBXX) SNAP(500,LOGXTAG(incompIHUB,ptrTag4(carp)));
         break;
       }
 
@@ -125,10 +129,15 @@ namespace MFM {
 
     /// TRY SHIPPING DEPARTURES
     while (mHereCount > 0u) { // if we have cars here
-      if (isIHUBXX) { static u32 lasthere;
-        if (lasthere != mHereCount) {
-          LOGPTAG(NUherect,mHereCount);
-          lasthere = mHereCount;
+      constexpr u32 HERECOUNT=32;
+      if (isIHUBXX) { static u32 lasthere[HERECOUNT];
+        u8 epn = getEPNumber();
+        if (false && epn<HERECOUNT && lasthere[epn] != mHereCount) {
+          SNAP(100,{
+              LOGPTAG(NUhee@,this->getName());
+              LOGPTAG(NUhee,1000*epn+mHereCount);
+            });
+          lasthere[epn] = mHereCount;
         }
       }
 

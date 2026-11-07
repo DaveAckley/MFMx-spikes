@@ -14,6 +14,33 @@ namespace MFM {
 #define HOOKIT() \
   do { if (theGlobalDebugHook) (*theGlobalDebugHook)(GET_FILE_ID(__FILE__),__LINE__); } while (0)
   
+/////// ALL 'DTRIG' DEBUG TRACE VARIABLES ARE DECLARED HERE
+#define DEBUG_TRACE_VARIABLE_PREFIX _dtvar_
+#define ALL_DEBUG_TRACE_VARIABLES() \
+  XX(IHT)                           \
+  XX(EWP)                           \
+
+#define DTV_NAME(prefix) CONC(DEBUG_TRACE_VARIABLE_PREFIX,prefix)
+#define DTV_DECL(prefix) extern "C" int DTV_NAME(prefix)
+#define DTV_DEF(prefix) int DTV_NAME(prefix)
+
+#define XX(p) DTV_DECL(p);
+ALL_DEBUG_TRACE_VARIABLES()
+#undef XX
+
+#define DTINC(p) do { DTV_NAME(p)++; memoryFence(); } while (0)
+#define DTSET(p,val) do { DTV_NAME(p) = val; memoryFence(); } while (0)
+
+#define DTRIG(p,CODE) do {                      \
+  static int __OLDVAL__ = 0;                    \
+  int __NEWVAL__ = DTV_NAME(p);                 \
+  if (__OLDVAL__ != __NEWVAL__) {               \
+    LOGPTAG(DTV_NAME(p),__NEWVAL__);            \
+    CODE;                                       \
+    __OLDVAL__ = __NEWVAL__;                    \
+    memoryFence();                              \
+  }                                             \
+} while(0) 
 
 #define EACH(COUNT,CODE)                          \
   do {                                            \

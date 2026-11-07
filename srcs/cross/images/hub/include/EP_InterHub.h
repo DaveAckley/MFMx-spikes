@@ -37,39 +37,42 @@ namespace MFM {
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_B;
 
     void init() ;
+#if 0
     void stepB(HostBlock & hb) ;
     void updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) ;
     //int updateAllBlocks(HostBlock & hb) ;
+#endif
 
   private:
-    /// PHASE PROCESSING
-    void _ucLeaderLOAD_CACHE_B(u32 ngbidx,
+#if 0
+    /// PHASE PROCESSING: returns true iff done, false if should go again 
+    bool _ucLeaderLOAD_CACHE_B(u32 ngbidx,
                                GridManager & gm,
                                TheL1Data::CarIdxRB & crbi,
                                TheL1Data::CarIdxRB & crbo) ;
 
-    void _ucFollowerLOAD_CACHE_B(u32 ngbidx,
+    bool _ucFollowerLOAD_CACHE_B(u32 ngbidx,
                                  GridManager & gm,
                                  TheL1Data::CarIdxRB & crbi,
                                  TheL1Data::CarIdxRB & crbo) ;
 
-    void _ucFollowerRUN_EVENTS_B(u32 ngbidx,
+    bool _ucFollowerRUN_EVENTS_B(u32 ngbidx,
                                GridManager & gm,
                                TheL1Data::CarIdxRB & crbi,
                                TheL1Data::CarIdxRB & crbo) ;
 
-    void _ucLeaderSAVE_CACHE_B(u32 ngbidx,
+    bool _ucLeaderSAVE_CACHE_B(u32 ngbidx,
                                GridManager & gm,
                                TheL1Data::CarIdxRB & crbi,
                                TheL1Data::CarIdxRB & crbo) ;
 
-    void _ucFollowerSAVE_CACHE_B(u32 ngbidx,
+    bool _ucFollowerSAVE_CACHE_B(u32 ngbidx,
                                  GridManager & gm,
                                  TheL1Data::CarIdxRB & crbi,
                                  TheL1Data::CarIdxRB & crbo) ;
     
     /// State machine helper methods
-    
+#endif    
   };  
 
 }

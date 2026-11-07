@@ -76,50 +76,47 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
 
-    bool update(bool inside) { 
-      if (!isValid()) {
-        HBPTAG(ihpxx,this);
-        return false;
-      }
-      if (inside) {
-        ++mOrigin.x;
-      } else {
-        ++mOrigin.y;
-      }
-      return true;
-    }
-
     bool isValid() const {
-      return mRange.area() < MAX_ATOMS;
+      FAIL(INCOMPLETE_CODE);
+      //return mRange.area() < MAX_ATOMS;
     }
 
     u32 getCurrentPayloadSize() {
-      return 0u + (u32) (((u8*) &mAtoms[mDataUsed]) - (u8*) this);
+      return 0u + (u32) (((u8*) &mAtoms[mAtomCount]) - (u8*) this);
     }
 
     bool isEmpty() const {
-      return mDataUsed == 0;
+      return mAtomCount == 0;
     }
 
     bool isFull() const {
-      return mDataUsed >= MAX_ATOMS;
+      return mAtomCount == MAX_ATOM_INDEX; 
     }
 
-    void loadAtomIntoPacketOrDie(const P4Atom a) {
+    void setToZeroAtoms() {
+      mAtomCount = 0;
+    }
+
+    void pushAtomAtEndOfPacketOrDie(const P4Atom a) {
       MFM_API_ASSERT(!isFull(), OUT_OF_ROOM);
-      mAtoms[mDataUsed++] = a;
+      mAtoms[mAtomCount++] = a;
     }
 
-    void unloadAtomFromPacketOrDie(P4Atom & a) {
-      MFM_API_ASSERT(!isEmpty(), OUT_OF_RESOURCES);
-      a = mAtoms[mDataUsed++];
+    u32 getAtomsInPacket() const {
+      return mAtomCount;
     }
 
-    S16C mOrigin;               //< origin relative coord, updates on transits
-    U16CRange mRange;
-    u16 mDataUsed;
-    static constexpr u32 MAX_ATOMS = (((1u<<12) - sizeof(mOrigin) - sizeof(mRange)) / sizeof(P4Atom)) - 1;
-    P4Atom mAtoms[MAX_ATOMS];
+    P4Atom getAtomFromPacketOrDie(u8 idx) {
+      //HBASSERT_LE(idx,MAX_ATOM_INDEX); // tautology
+      return mAtoms[idx];
+    }
+
+    u8 mSrcCode;             //< source sites (dir8: 0..7) or caches (dir8+8: 8..15) of these atoms
+    u8 mAtomCount;           //< #atoms in this mAtoms
+    U8C mStartsAt;           //< mAtoms[0] is from this U8C
+
+    static constexpr u32 MAX_ATOM_INDEX = U8_MAX;
+    P4Atom mAtoms[MAX_ATOM_INDEX+1];
   };
 
   struct InterHubPayload {
@@ -128,6 +125,16 @@ namespace MFM {
       memset_s(this,'\0',sizeof(*this));
     }
     
+    void initType(IHPType type) {
+      init();                   // clear all
+      initIHP(type,{0,0},{0,0}); // ct6 dest and src UNUSED
+    }
+
+    IHPType getType() const {
+      MFM_API_ASSERT(isValid(),ILLEGAL_STATE);
+      return mIHPHeader.mPayloadType;
+    }
+
     u32 getCurrentPayloadSize() {
       MFM_API_ASSERT(isValid(),ILLEGAL_STATE);
       switch (mIHPHeader.mPayloadType) {
@@ -145,66 +152,9 @@ namespace MFM {
       }
     }
 
-#if 0 // all unused?
-    bool tryRoute(Dir4 d4, bool inside) {
-      LOGPTAG(IHPtR,mIHPHeader.mHops2Dest);
-      LOGPTAG(IHPd4,dir4ToByteString(d4));
-      // XXX WRITE ME
-      return false;
-    }
-
-    bool update(bool inside) { 
-      MFM_API_ASSERT(isValid(),ILLEGAL_STATE);
-      EACH(1'000'000,LOGPTAG(upIHC10,this));
-      if (!isValid()) {
-        HBPTAG(ihpxx,this);
-        return false;
-      }
-      EACH(1'000'000,LOGPTAG(upIHC11,getNameFromIHPType(mIHPHeader.mPayloadType)));
-      ///// FIRST DO ROUTING IF NEEDED, FOR ALL PAYLOAD TYPES
-
-      IHPHeader & h = mIHPHeader;
-      if (h.mHops2Dest.length() > 0) {
-        // which way do we go george?
-
-        // maybe for starters don't be random? so
-        // we can have hope that packet sequences
-        // will arrive in order?
-
-        U8C steps = h.mHops2Dest.abs();
-        if (steps.x >= steps.y) { // go EW
-          if (h.mHops2Dest.x > 0) return tryRoute(D4_E,inside);
-          if (h.mHops2Dest.x < 0) return tryRoute(D4_W,inside);
-          FAIL(UNREACHABLE_CODE); // hey, dest.length() > 0...
-        } else /* steps.y > steps.x */ {     // go NS
-          if (h.mHops2Dest.y > 0) return tryRoute(D4_S,inside);
-          if (h.mHops2Dest.y < 0) return tryRoute(D4_N,inside);
-          FAIL(UNREACHABLE_CODE); // hey, dest.length() > 0...
-        }
-      }
-
-      EACH(1'000'000,LOGPTAG(upIHC@dest,h.mPayloadType));
-
-      ///// WE'RE STILL HERE AFTER ROUTING
-      switch (h.mPayloadType) {
-      case IHPT_EMPTY: return false;
-
-      case IHPT_PING:
-        EACH(1,LOGPTAG(upIHC12,&mIHPData[0]));
-        return ((IHPPing*) &mIHPData[0])->update(inside);
-
-      case IHPT_ATOMS:
-        EACH(1,LOGPTAG(upIHC12,&mIHPData[0]));
-        return ((IHPAtoms*) &mIHPData[0])->update(inside);
-
-      default:
-        FAIL(ILLEGAL_STATE);
-      }
-    }
-#endif
-
     IHPAtoms & asAtomsOrDie() {
-      MFM_API_ASSERT(isValid() && mIHPHeader.mPayloadType == IHPT_ATOMS, ILLEGAL_STATE);
+      MFM_API_ASSERT(isValid(), ILLEGAL_STATE);
+      HBASSERT_EQ(mIHPHeader.mPayloadType,IHPT_ATOMS);
       return *(IHPAtoms*) &mIHPData[0];
     }
 
@@ -256,9 +206,15 @@ namespace MFM {
     }
     InterHubPayload & payload() { return *(InterHubPayload*) getDataStart(); }
     void init() {
+      initType(IHPT_EMPTY);
+    }
+    IHPType getType() {
+      return payload().getType();
+    }
+    void initType(IHPType type) {
       TC::reset(); // sets state 0==UNUSED
       openTC();    // set state open
-      payload().init(); // sets IHPT_EMPTY
+      payload().initType(type);       // whatever type
       closeTC(sizeof(payload())); // and then close it, with a full load
       setDepartingTC(TCState::OUTBOUND_DEPARTED); // init state is 'departed in'/'arrived out'
     }

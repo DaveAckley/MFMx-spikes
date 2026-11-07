@@ -6,7 +6,6 @@
 #include "itype.h"
 #include <string>
 #include "MDist.h"
-#include "S8C.h"
 
 namespace MFM {
 
@@ -218,6 +217,11 @@ namespace MFM {
       }
 
       iterator & operator=(const iterator & other) = default;
+
+      iterator & restart() {
+        at = range.start;
+        return *this;
+      }
 
       UC operator*() const { return at; }
       iterator operator++(int) {

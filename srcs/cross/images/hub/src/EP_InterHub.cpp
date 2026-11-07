@@ -20,6 +20,7 @@ namespace MFM {
     //    HBPTAG(PIHinit,getIHHStateName(mPrivateState));
   }
 
+#if 0
   void InterHubPrivateControl::stepB(HostBlock &hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
 
@@ -31,13 +32,18 @@ namespace MFM {
     }
   }
 
-  void InterHubPrivateControl::_ucLeaderLOAD_CACHE_B(u32 ngbidx,
+  /* returns true iff done, false if should go again */
+  bool InterHubPrivateControl::_ucLeaderLOAD_CACHE_B(u32 ngbidx, 
                                                      GridManager & gm,
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
-    EACH(1'000,LOGPTAG(_ducLLCB,__EACHNUM__));
-    MFM_API_ASSERT(!crbi.isEmpty() && !crbo.isFull(),ILLEGAL_ARGUMENT);
+    EACH(1'000,LOGPTAG(_ducLLCBE,__EACHNUM__));
+    CacheLoaders & cls = theL1CacheLoaders;
+    CacheLoader & cl = cls.get((Dir8) ngbidx);
+
+    if (!cl.needsAnotherPacket()) return true;
+    if (crbi.isEmpty() || crbo.isFull()) return false;
 
     //// BOLT STATE    US STATE  ACTION
     //// ==========    ========  ======
@@ -47,9 +53,6 @@ namespace MFM {
 
     u8 carindex;
     crbi.remove(carindex);
-    CacheLoaders & cls = theL1CacheLoaders;
-    CacheLoader & cl = cls.get((Dir8) ngbidx);
-    LOGPTAG(_ducLLCB,carindex);
 
 #if 0
     EwpBlockStg & cars = theEwpL1Data.mTheTCStorages[0];
@@ -64,57 +67,70 @@ namespace MFM {
     
   }
 
-  void InterHubPrivateControl::_ucFollowerLOAD_CACHE_B(u32 ngbidx,
+  /* returns true iff done, false if should go again */
+  bool InterHubPrivateControl::_ucFollowerLOAD_CACHE_B(u32 ngbidx,
                                                        GridManager & gm,
                                                        TheL1Data::CarIdxRB & crbi,
                                                        TheL1Data::CarIdxRB & crbo)
   {
     EACH(1'000,LOGPTAG(_ducFLCB,__EACHNUM__));
 
-    MFM_API_ASSERT(!crbi.isEmpty() && !crbo.isFull(),ILLEGAL_ARGUMENT);
+    CacheLoaders & cls = theL1CacheLoaders;
+    CacheLoader & cl = cls.get((Dir8) ngbidx);
+
+    if (!cl.needsAnotherPacket()) return true;
+    if (crbi.isEmpty() || crbo.isFull()) return false;
 
     //// BOLT STATE    US STATE  ACTION
     //// ==========    ========  ======
     //// LOAD_CACHE    follower  expect empty cars,
     ////                         load&ship from sites
 
-    LOGPTAG(_ducFLCBngb,ngbidx);
+    LOGPTAG(_ducFLCBngb,dir8ToByteString((Dir8) ngbidx));
+    InterHubStorage & ihs = theInterHubL1Data.mTheTCStorages[ngbidx];
+
     u8 carindex;
     crbi.remove(carindex);
     LOGPTAG(_ducFLCBcix,carindex);
 
-    CacheLoaders & cls = theL1CacheLoaders;
-    CacheLoader & clp = cls.get((Dir8) ngbidx);
+    InterHubBlock & ihb = ihs.getTC(carindex);
     
-    LOGPTAG(_ducFLCB,&clp);
-    
+    cl.loadPacket(gm, ihb);
+    LOGPTAG(_ducPKTdone,carindex);               // ship damofo gogogo
+    crbo.add(carindex);
+    return false;               // and let me take another look
   }
 
-  void InterHubPrivateControl::_ucFollowerRUN_EVENTS_B(u32 ngbidx,
+  /* returns true iff done, false if should go again */
+  bool InterHubPrivateControl::_ucFollowerRUN_EVENTS_B(u32 ngbidx,
                                                      GridManager & gm,
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
     EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
+    FAIL(INCOMPLETE_CODE);
   }
   
-
-  void InterHubPrivateControl::_ucLeaderSAVE_CACHE_B(u32 ngbidx,
+  /* returns true iff done, false if should go again */
+  bool InterHubPrivateControl::_ucLeaderSAVE_CACHE_B(u32 ngbidx,
                                                      GridManager & gm,
                                                      TheL1Data::CarIdxRB & crbi,
                                                      TheL1Data::CarIdxRB & crbo)
   {
     EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
+    FAIL(INCOMPLETE_CODE);
   }
 
-  void InterHubPrivateControl::_ucFollowerSAVE_CACHE_B(u32 ngbidx,
+  /* returns true iff done, false if should go again */
+  bool InterHubPrivateControl::_ucFollowerSAVE_CACHE_B(u32 ngbidx,
                                                        GridManager & gm,
                                                        TheL1Data::CarIdxRB & crbi,
                                                        TheL1Data::CarIdxRB & crbo)
   {
     EACH(1'000'000,LOGPTAG(:,__FUNCTION__));
+    FAIL(INCOMPLETE_CODE);
   }
-  
+
   void InterHubPrivateControl::updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
     MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
@@ -130,7 +146,13 @@ namespace MFM {
 
     // All other cases want to move a car
     if (crbi.isEmpty() || crbo.isFull()) {
-      EACH(1'000'000,LOGPTAG(BLOKT,__EACHNUM__));
+      const u32 EACHCOUNT = 1'000'000;
+      EACH(EACHCOUNT,{
+          LOGPTAG(BLOKT, // 0xNN0ee0ff
+                  ((__EACHNUM__/EACHCOUNT)<<24)+
+                  ((((u32)crbi.isEmpty())*0xee)<<12)+
+                  ((((u32)crbi.isFull())*0xff)<<0));
+        });
       return;
     }
 
@@ -140,25 +162,31 @@ namespace MFM {
       });
 
     if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::ENTERING)) {
-      if (iLead) return _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
-      if (iFollow) return _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo);
-      FAIL(ILLEGAL_STATE);
+      if ((iLead && _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo)) ||
+          (iFollow && _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo))) {
+        thePLL.ackEntering(PBCmd::RUN_EVENTS);
+        HBPTAG(VOTE!,thePLL.voteStatus());
+      }
     }
 
     if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) { 
-      if (iLead) return _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
-      if (iFollow) return _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo);
+      if ((iLead && _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo)) ||
+          (iFollow && _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo))) {
+        thePLL.ackEntering(PBCmd::NEW_LEADER);
+        HBPTAG(VOTE!,thePLL.voteStatus());
+      }
     }
   }
-
+#endif
+  
   void InterHubEP::initInterHubEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
 
     //    HBPTAG(IHPT,getNameFromIHPType(IHPT_PING));
     //    HBPX(sizeof(IHPPing));
     //    HBPX(sizeof(IHPPing::HopReport));
-    HBPX(sizeof(IHPAtoms));
-    HBPX(sizeof(InterHubPayload));
+    //HBPX(sizeof(IHPAtoms));
+    //HBPX(sizeof(InterHubPayload));
     //    HBPX(sizeof(InterHubBlock));
     HBPX(sizeof(InterHubStorage));
     this->initT6EP(srcEPA, isin, l1data);

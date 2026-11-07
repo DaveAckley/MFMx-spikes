@@ -11,6 +11,7 @@
 #include "P4Atom.h"
 #include "FastT0.h"             // for ticksElapsed()
 #include "PHASER.h" // for PhaserBolt
+#include "PT_InterHub.h" // for InterHubBlock
 
 namespace MFM {
   DebugHookFncPtr theGlobalDebugHook;
@@ -330,4 +331,21 @@ namespace MFM {
     return buf;
   }
 
+  const char * formatIHBlock(InterHubBlock & ihb, u32 caridx) {
+    InterHubPayload & pay = ihb.payload();
+    u32 caratag = ptrTag4(&ihb);
+    static constexpr u32 IHB_BUFSIZ = 32;
+    static char buf[IHB_BUFSIZ];
+    if (!pay.isValid()) 
+      snprintf(buf,IHB_BUFSIZ,"%04x.IHB#%u invalid",caratag,caridx);
+    else
+      snprintf(buf,IHB_BUFSIZ,
+               "%04x.IHB#%u[%s] %s+%u",
+               caratag,
+               caridx,
+               getCarStateName(ihb.getTCState()),
+               getNameFromIHPType(pay.getType()),
+               pay.getCurrentPayloadSize());
+    return buf;
+  }
 }

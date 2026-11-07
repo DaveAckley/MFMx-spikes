@@ -213,4 +213,9 @@ namespace MFM {
 
   char * formatCountedByte(u32 count, u8 byte) ;
 
+  inline u32 ptrTag4(void * p) { return 0xffff&(((u32)p)>>4); }
+
+  class InterHubBlock; // FORWARD
+  const char * formatIHBlock(InterHubBlock & ihb, u32 caridx) ;
+
 }

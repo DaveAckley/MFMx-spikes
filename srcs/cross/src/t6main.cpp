@@ -7,6 +7,11 @@
 #include "DefinedConstants.h" // for T6_IMAGE_BLOCK_ADDR
 #include "ExtraConstants.h" // for NOC_NODE_ID0
 
+// DEFINE ALL TRIGGER VARIABLES (SEE Debug.h)
+#define XX(p) DTV_DEF(p);
+ALL_DEBUG_TRACE_VARIABLES()
+#undef XX
+
 // Baby RV Service APIs 
 #include "FastLocal.h"
 #include "HartTasksLib.h"  // for RCFlag

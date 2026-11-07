@@ -26,6 +26,7 @@ namespace MFM {
   struct CmdArg {
     PBCmd mCmd;
     BoltArgs mArgs;
+    const char * formatCmdArg() const ;
   };
   static constexpr BoltArgs NOArgs = { 0, 0 };
   static constexpr CmdArg NOTACmdArg = { PBCmd::NOT_A_CMD, NOArgs };
@@ -184,12 +185,12 @@ namespace MFM {
       mPS._rubberStamp();
     }
 
-    void doneEntering(PBCmd cmd) {
+    void ackEntering(PBCmd cmd) {
       AtomicScopeLock guard(mLock);
       mPS._recordAck(cmd,Edge::ENTERING,fAll.mHartNum);
     }
 
-    void doneExiting(PBCmd cmd) {
+    void ackExiting(PBCmd cmd) {
       AtomicScopeLock guard(mLock);
       mPS._recordAck(cmd,Edge::EXITING,fAll.mHartNum);
     }

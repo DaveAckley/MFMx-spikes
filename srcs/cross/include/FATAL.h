@@ -5,6 +5,7 @@
 #include "dev_mem_map.h" // for MEM_L1_SIZE
 #include "FileIDs.h" // for GET_FILE_ID
 #include "ExtraConstants.h" // for spOffHB etc
+//#include "FastLocal.h" // for MFM_API_ASSERT_ON_HART
 
 #define HOST_FATAL(...) do { } while (0)
 

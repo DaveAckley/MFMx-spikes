@@ -90,12 +90,19 @@ namespace MFM {
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
       EACH(100'000,{
           LOGPTAG(popClo,this->getName());
-          LOGPTAG(HN<-EP,carindex);
+          LOGPTAG(HN<-EP,__EACHNUM__);
         });
       //EACH(10'000,HBPTAG(GCDEP,carindex));
       SUBTC* carp = this->getCarPtrIfAny(carindex);
       if (!carp) LOGNOTE("NULLGO?");
-      else HBASSERT_EQ(carp->getTCState(), TCState::CLOSED); 
+      else {
+        if (carp->getTCState() != TCState::CLOSED) {
+          HBPTAG(popCloBadSt,getCarStateName(carp->getTCState()));
+          LOGPTAG(popCloBadSt,getCarStateName(carp->getTCState()));
+          return nullptr; // XXX HACK
+        }
+        HBASSERT_EQ(carp->getTCState(), TCState::CLOSED);
+      }
       return carp;
     }
     EACH(1'000'000,LOGPTAG(emp,this->getName()));
