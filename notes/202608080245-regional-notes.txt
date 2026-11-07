@@ -1,4 +1,4 @@
-{1106}  -*-  mode: text; fill-column: 32;  -*-
+{1145}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -19755,7 +19755,39 @@ anything close to 255 atoms in
 one packet, so it could be one
 U8C for 'at' plus one u8 for
 'atomsInPacket' for 3B total.
+[1107:
 
+Wed Nov  4 03:08:58 2026 Opps:
+We've been targeting a 4KB max
+IH car.. but we can fit like 340
+atoms in there, at 12B per,
+which is more than a u8.
+
+Let's just set MAX_ATOMS to 256,
+which is ~3.1KB, and stick with
+a u8 count. Corners are only
+~100 atoms so one packet, right?
+
+Edges are either
+ (* 9 107)==963 => 4 packets, or
+ (* 138 9)==1242 => 5 packets.
+[1108:
+
+Wed Nov  4 03:19:50 2026 OK tore
+into PT_InterHub and now have
+plenty of build breakage..
+
+So now it's time to gork off and
+dream of a resurgence in
+democracy and the rule of law..
+and of course the humbling of
+the oligarchs.. which achieving
+such a vastly improved natural
+computational architecture on
+Earth will require..
+
+:1108]
+:1107]
 [1105:
 
 Wed Nov  4 02:53:05 2026 I'm
@@ -19763,7 +19795,22 @@ going to pop off a new
 'simplify-interhub' branch for
 this, and then tear up
 PT_Interhub. 
+[1106:
 
+Wed Nov  4 02:55:22 2026 OK, I
+committed WIP in
+'simplify-supercycle' and now
+we're at:
+
+    $ git switch -c simplify-interhub
+    Switched to a new branch 'simplify-interhub'
+
+with a clean repo (until I
+continued these notes).
+
+OK: PT_InterHub.
+
+:1106]
 :1105]
 :1104]
 
@@ -19795,3 +19842,868 @@ show us all how to make that
 shit not work this time.
 
 :1099]
+[1109:
+
+Wed Nov  4 12:24:05 2026 So
+okay, we're smoothing our newer
+PT_InterHub. How do we want
+
+    void loadAtomIntoPacketOrDie(const P4Atom a) 
+
+
+    void unloadAtomFromPacketOrDie(P4Atom & a) 
+
+to work if we want them at all? 
+
+[1110:
+
+Wed Nov  4 12:28:27 2026 Seems
+at a minimum we need an
+asymmetry like:
+
+    void pushAtomAtEndOfPacketOrDie(const P4Atom a) 
+vs
+    P4Atom getAtomFromPacketOrDie(u8 idx) const
+
+to drive home that only one of
+them changes the mAtomCount.
+
+[1112:
+
+Wed Nov  4 13:12:16 2026 So how
+do we come up with the idx? The
+'master iterator' is going over
+the whole packet, so we need a
+local var to iterate over the
+single packet, which we are
+committed to handling
+atomically.. OK.
+
+:1112]
+Is that how we want to do
+  it?[1111:
+
+Wed Nov  4 13:05:10 2026 Let's
+try it and find out.
+
+:1111]
+
+:1110]
+
+:1109]
+[1113:
+
+Wed Nov  4 13:27:25 2026 OK
+we're running (doing GKW) with
+the PT_InterHub redo. Let's
+trace it through and see what
+needs to happen next.[1114:
+
+Wed Nov  4 13:39:14 2026 Well,
+one loose end is
+
+      void InterHubPrivateControl::_ucFollowerLOAD_CACHE_B(u32 ngbidx,
+                                                           GridManager & gm,
+                                                           TheL1Data::CarIdxRB & crbi,
+                                                           TheL1Data::CarIdxRB & crbo)
+ ..     CacheLoaders & cls = theL1CacheLoaders;
+        CacheLoader & clp = cls.get((Dir8) ngbidx);
+
+        LOGPTAG(_ducFLCB,&clp);
+ >>   }
+
+and for that we will reach for
+our new CacheLoader::loadPacket
+[1115:
+
+Wed Nov  4 14:00:11 2026 And for
+that we need to dig out the
+packet to-be-filled..[1116:
+
+Wed Nov  4 14:00:47 2026 And
+that's going to depend on u32
+ngbidx, right? ..yesss, and
+that's why we did 
+
+        CacheLoader & clp = cls.get((Dir8) ngbidx);
+
+right?
+
+:1116]
+
+:1115]
+:1114]
+
+:1113]
+[1117:
+
+Wed Nov  4 21:52:02 2026 OK time
+for another push. Tracing
+
+through configureCacheLoaders I
+see more stuff that's going to
+be different follower-vs-leader.
+In particular I see that
+mLocalItr is always set up as
+'mySitesForYourCache' and
+mRemoteItr is always
+'yourCacheForMySites'.
+
+It seems clear that should
+depend somehow on mDestType > 0
+(leader) vs < 0 (follower), and
+that bears on the thought from
+before that we probably only
+need to save one iterator per
+cacheloader configuration, since
+we know leader-vs-follower for
+each direction at that
+time.[1118:
+
+Wed Nov  4 22:43:50 2026 Ooh,
+that might mean we want
+loadPacket to take like
+
+  bool sitesNotCache
+
+which is easy to understand, vs
+the existing
+
+  bool localNotRemote
+
+which we still don't.
+
+follower + load =>
+  sitesNotCache == true
+
+leader + load =>
+  sitesNotCache == false
+
+follower + unload => 
+  sitesNotCache == true
+
+leader + unload =>
+  sitesNotCache == false
+
+buuut that simplifies to 
+  loadNotUnload == sitesNotCache 
+? Is that really right?
+
+Because the only real decision
+is leader-vs-follower and then
+this 'choice' is forced, right?
+
+Whether loading or unloading: 
+  leader => caches
+  follower => sites 
+
+and since we know leader vs
+follower at CL config time, that
+tells us how to init the (one
+and only needed) iterator
+without knowing load or save?
+
+But we will have to restart the
+iterator in between, though.
+Follower runs the itr to load
+sites bound for leader cache,
+then runs the same itr again to
+store sites from leader cache.
+
+AKA: Duh.
+[1119:
+
+Wed Nov  4 23:33:13 2026 Butt
+weight again: The CacheLoader
+(once configured) already knows
+whether the far end (currently)
+is a leader, follower, or
+non-existent. So we don't even
+need to pass like
+
+    bool leaderNotFollower
+
+in the packet movers.
+
+[1120:
+
+Thu Nov  5 02:58:49 2026 OK
+we've made some progress and
+we're watching IHCars getting
+loaded with atoms and a fair
+amount of it seems plausible.
+
+And we have arrived at the
+question: What are we supposed
+to do when a
+
+    bool ret = clp.loadPacket(gm, ihb);
+
+returns 0 meaning the clp local
+iterator is atEnd() in this
+particular direction? We have
+several other IH xfers that are
+still underway.. how do we
+record this being finished and
+finally ack whatever we're
+supposed to ack?
+
+:1120]
+
+:1119]
+:1118]
+
+:1117]
+[1121:
+
+Thu Nov  5 08:22:08 2026 OK, so
+I'm in _ucFollowerLOAD_CACHE_B
+and it seems like we need to
+pass crbi and crbo on to
+CacheLoader::loadPacket so it
+can make the 'is iterator done?'
+check before removing from crbi.
+Either that or we want some bool
+CacheLoader::isDone() so we can
+check before going into crbi.
+
+CL::isDone() or something feels
+less invasive?[1122:
+
+Thu Nov  5 08:44:07 2026
+Converting to bool for IHPC and
+void for CL.[1123:
+
+Thu Nov  5 09:40:39 2026 OK I'm
+getting out ahead of myself
+again I think.. Like, inside:
+
+      void InterHubPrivateControl::updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
+
+I've got stuff like:
+
+        if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::ENTERING)) {
+          if ((iLead && _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo)) ||
+              (iFollow && _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo))) {
+ >>         thePLL.doneEntering(PBCmd::RUN_EVENTS);
+            HBPTAG(VOTE!,thePLL.voteStatus());
+          }
+        }
+
+but how can I be saying I'm done
+with an edge when this method is
+'merely' per ngbidx?
+[1124:
+
+Thu Nov  5 09:52:24 2026 Didn't
+we think about this already?
+Didn't we think CacheLoaders is
+the natural place to reach
+consensus over per-ngb ops?
+[1125:
+
+Thu Nov  5 10:22:15 2026 Could
+we get away with saying like
+
+ bool isDone() { return mLocalItr.atEnd(); }
+
+and count on someone restarting
+the iterator the next time,
+before we call isDone() again?
+Seems nicer than considering
+additional state..[1126:
+
+Thu Nov  5 10:24:18 2026 But
+actually we can just get false
+from needsAnotherPacket() and
+that's strictly better than an
+isDone() since it handles
+non-existent destinations.
+
+So to ack in IH land, we want
+somebody above the ngbidx level
+to check for nobody saying
+needsAnotherPacket, and then
+acking whatever is the current
+situation?
+
+[1127:
+
+Thu Nov  5 13:50:21 2026 All
+right gorrammit let's have it
+out between
+
+    InterHubPrivateControl::updateIHCarsB(..)
+and 
+    extern "C" void assessProgressAllHarts() 
+
+because they overlap and it's
+bugging the ship out of me.
+
+updateIHCarsB has like:
+ ..
+        MFM_API_ASSERT_ON_HART(HARTNUM_B);
+        MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
+
+        GridManager & gm = fB.mGridManager;
+        SCStatus whatWeDo = gm.leadFollowOrGetOutOfTheWay();
+
+        bool iLead = whatWeDo == SCStatus::WE_LEAD;
+        bool iFollow = whatWeDo == SCStatus::WE_FOLLOW;
+
+ ..     if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::ENTERING)) {
+          if ((iLead && _ucLeaderLOAD_CACHE_B(ngbidx, gm, crbi, crbo)) ||
+              (iFollow && _ucFollowerLOAD_CACHE_B(ngbidx, gm, crbi, crbo))) {
+            thePLL.doneEntering(PBCmd::RUN_EVENTS);
+            HBPTAG(VOTE!,thePLL.voteStatus());
+          }
+        }
+
+        if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) { 
+          if ((iLead && _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo)) ||
+              (iFollow && _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo))) {
+            thePLL.doneEntering(PBCmd::NEW_LEADER);
+            HBPTAG(VOTE!,thePLL.voteStatus());
+          }
+        }
+      }
+
+assessProgressAllHarts has like:
+ ..       // ENTERING HOLD_AT_BIRTH
+ ..       if (thePLL.ifCouldAck(PBCmd::HOLD_AT_BIRTH,Edge::ENTERING)) {
+            thePLL.doneEntering(PBCmd::HOLD_AT_BIRTH);
+            HBPTAG(VOTE!,thePLL.voteStatus());
+          }
+
+          // EXITING HOLD_AT_BIRTH
+ ..
+          // ENTERING NEW_LEADER
+          if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) {
+            if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnEnteringNewLeaderB()) {
+              thePLL.doneEntering(PBCmd::NEW_LEADER);
+              HBPTAG(VOTE!,thePLL.voteStatus());
+            }
+          }
+
+ ..       // EXITING NEW_LEADER
+ .. 
+          // ENTERING RUN_EVENTS
+ ..       // EXITING RUN_EVENTS
+          if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::EXITING)) {
+            if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnExitingRunEventsB()) {
+              thePLL.doneEntering(PBCmd::RUN_EVENTS);
+              HBPTAG(VOTE!,thePLL.voteStatus());
+            }
+ ..
+
+[1128:
+
+Thu Nov  5 14:05:25 2026 OK,
+fuck it: PhaseSteppers is newers
+so we're going to try diking out
+updateIHCarsB entirely and dig
+towards sunlight from there.
+[1129:
+
+Thu Nov  5 22:15:05 2026 Holy
+moly we're making a lot of
+progress here; we're now blowing
+up at
+
+      void CacheLoaders::saveCaches() {
+        FAIL(INCOMPLETE_CODE);
+      }
+[1130:
+
+Thu Nov  5 22:42:30 2026 So I'm
+not even completely clear on how
+saveCaches is different than
+load caches. Almost just: Same
+shit opposite direction. [1131:
+
+Thu Nov  5 22:47:44 2026 And
+aumm, we wrote
+CacheLoader::unloadPacketIfNeeded
+but it seems to never get
+called?
+
+Clearly it's time to start
+taking a much closer trace of
+the recv side of ihcars..
+[1132:
+
+Fri Nov  6 03:26:19 2026 OK
+running out of gas here. Been
+going pretty steadily with a lot
+of stupid errors and
+insufficient notes here to
+ground things.[1133:
+
+Fri Nov  6 03:28:27 2026 Right
+now I'm seeing giant log files
+full of this:
+
+    {32:29 241612 0 12,11 hb SAVE_CACHES:1}
+    {32:16 241613 0 12,11 hb BOLTR_iNEWLEADER:1}
+    {32:29 241613 0 12,11 hb SAVE_CACHES:1}
+    {32:16 241613 0 12,11 hb BOLTR_iNEWLEADER:1}
+
+from like these tiles:
+
+  -rw-rw-r-- 1 ackley ackley 73882648 Nov  6 03:25 at0gb.mfmk
+  -rw-rw-r-- 1 ackley ackley 73738601 Nov  6 03:25 at0cb.mfmk
+  -rw-rw-r-- 1 ackley ackley 73253985 Nov  6 03:25 at0eb.mfmk
+  -rw-rw-r-- 1 ackley ackley 73174356 Nov  6 03:25 at0ab.mfmk
+  -rw-rw-r-- 1 ackley ackley 71691227 Nov  6 03:25 at06b.mfmk
+  -rw-rw-r-- 1 ackley ackley 71639456 Nov  6 03:25 at02b.mfmk
+  -rw-rw-r-- 1 ackley ackley 71565670 Nov  6 03:25 at04b.mfmk
+  -rw-rw-r-- 1 ackley ackley 71420601 Nov  6 03:25 at0e7.mfmk
+  -rw-rw-r-- 1 ackley ackley 71381671 Nov  6 03:25 at0c9.mfmk
+  -rw-rw-r-- 1 ackley ackley 71374139 Nov  6 03:25 at0e5.mfmk
+  -rw-rw-r-- 1 ackley ackley 71365716 Nov  6 03:25 at0g3.mfmk
+  -rw-rw-r-- 1 ackley ackley 71357959 Nov  6 03:25 at0g9.mfmk
+  -rw-rw-r-- 1 ackley ackley 71324538 Nov  6 03:25 at0e3.mfmk
+  -rw-rw-r-- 1 ackley ackley 71249843 Nov  6 03:25 at0a3.mfmk
+  -rw-rw-r-- 1 ackley ackley 71193626 Nov  6 03:25 at0g7.mfmk
+  -rw-rw-r-- 1 ackley ackley 71187240 Nov  6 03:25 at0c3.mfmk
+  -rw-rw-r-- 1 ackley ackley 71182587 Nov  6 03:25 at0c7.mfmk
+  -rw-rw-r-- 1 ackley ackley 71153558 Nov  6 03:25 at0a5.mfmk
+  -rw-rw-r-- 1 ackley ackley 71078719 Nov  6 03:25 at0e9.mfmk
+  -rw-rw-r-- 1 ackley ackley 71074114 Nov  6 03:25 at0g5.mfmk
+  -rw-rw-r-- 1 ackley ackley 70958479 Nov  6 03:25 at0a7.mfmk
+  -rw-rw-r-- 1 ackley ackley 70840421 Nov  6 03:25 at0c5.mfmk
+  -rw-rw-r-- 1 ackley ackley 70698460 Nov  6 03:25 at0a9.mfmk
+  -rw-rw-r-- 1 ackley ackley 69503513 Nov  6 03:25 at029.mfmk
+  -rw-rw-r-- 1 ackley ackley 69474196 Nov  6 03:25 at043.mfmk
+  -rw-rw-r-- 1 ackley ackley 69328254 Nov  6 03:25 at027.mfmk
+  -rw-rw-r-- 1 ackley ackley 69230754 Nov  6 03:25 at069.mfmk
+  -rw-rw-r-- 1 ackley ackley 69212949 Nov  6 03:25 at045.mfmk
+  -rw-rw-r-- 1 ackley ackley 69186425 Nov  6 03:25 at025.mfmk
+  -rw-rw-r-- 1 ackley ackley 69123132 Nov  6 03:25 at023.mfmk
+  -rw-rw-r-- 1 ackley ackley 69099183 Nov  6 03:25 at067.mfmk
+  -rw-rw-r-- 1 ackley ackley 68886447 Nov  6 03:25 at065.mfmk
+  -rw-rw-r-- 1 ackley ackley 68833229 Nov  6 03:25 at047.mfmk
+  -rw-rw-r-- 1 ackley ackley 68826948 Nov  6 03:25 at063.mfmk
+  -rw-rw-r-- 1 ackley ackley 68824207 Nov  6 03:25 at049.mfmk
+
+but not from these:
+
+  -rw-rw-r-- 1 ackley ackley    47292 Nov  6 03:25 at0b8.mfmk
+  -rw-rw-r-- 1 ackley ackley    47238 Nov  6 03:25 at0aa.mfmk
+  -rw-rw-r-- 1 ackley ackley    47138 Nov  6 03:25 at0ca.mfmk
+  -rw-rw-r-- 1 ackley ackley    47137 Nov  6 03:25 at0fb.mfmk
+  -rw-rw-r-- 1 ackley ackley    47134 Nov  6 03:25 at0ea.mfmk
+  -rw-rw-r-- 1 ackley ackley    47133 Nov  6 03:25 at0ga.mfmk
+  -rw-rw-r-- 1 ackley ackley    47132 Nov  6 03:25 at0bb.mfmk
+  -rw-rw-r-- 1 ackley ackley    47048 Nov  6 03:25 at0b4.mfmk
+  -rw-rw-r-- 1 ackley ackley    47035 Nov  6 03:25 at07a.mfmk
+  -rw-rw-r-- 1 ackley ackley    47025 Nov  6 03:25 at0db.mfmk
+  -rw-rw-r-- 1 ackley ackley    46904 Nov  6 03:25 at0ba.mfmk
+  -rw-rw-r-- 1 ackley ackley    46901 Nov  6 03:25 at0da.mfmk
+  -rw-rw-r-- 1 ackley ackley    46703 Nov  6 03:25 at0fa.mfmk
+  -rw-rw-r-- 1 ackley ackley    46336 Nov  6 03:25 at0e8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46302 Nov  6 03:25 at0g4.mfmk
+  -rw-rw-r-- 1 ackley ackley    46301 Nov  6 03:25 at01b.mfmk
+  -rw-rw-r-- 1 ackley ackley    46266 Nov  6 03:25 at0e4.mfmk
+  -rw-rw-r-- 1 ackley ackley    46265 Nov  6 03:25 at04a.mfmk
+  -rw-rw-r-- 1 ackley ackley    46265 Nov  6 03:25 at0c6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46265 Nov  6 03:25 at0d5.mfmk
+  -rw-rw-r-- 1 ackley ackley    46265 Nov  6 03:25 at0d9.mfmk
+  -rw-rw-r-- 1 ackley ackley    46264 Nov  6 03:25 at0a4.mfmk
+  -rw-rw-r-- 1 ackley ackley    46262 Nov  6 03:25 at0c8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46262 Nov  6 03:25 at0f7.mfmk
+  -rw-rw-r-- 1 ackley ackley    46262 Nov  6 03:25 at0g8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46256 Nov  6 03:25 at0c4.mfmk
+  -rw-rw-r-- 1 ackley ackley    46236 Nov  6 03:25 at07b.mfmk
+  -rw-rw-r-- 1 ackley ackley    46235 Nov  6 03:25 at0d3.mfmk
+  -rw-rw-r-- 1 ackley ackley    46234 Nov  6 03:25 at0a2.mfmk
+  -rw-rw-r-- 1 ackley ackley    46234 Nov  6 03:25 at0a6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46234 Nov  6 03:25 at0b7.mfmk
+  -rw-rw-r-- 1 ackley ackley    46233 Nov  6 03:25 at0b9.mfmk
+  -rw-rw-r-- 1 ackley ackley    46233 Nov  6 03:25 at0f5.mfmk
+  -rw-rw-r-- 1 ackley ackley    46232 Nov  6 03:25 at02a.mfmk
+  -rw-rw-r-- 1 ackley ackley    46232 Nov  6 03:25 at05b.mfmk
+  -rw-rw-r-- 1 ackley ackley    46232 Nov  6 03:25 at0e6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46232 Nov  6 03:25 at0g6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46231 Nov  6 03:25 at056.mfmk
+  -rw-rw-r-- 1 ackley ackley    46229 Nov  6 03:25 at0b3.mfmk
+  -rw-rw-r-- 1 ackley ackley    46204 Nov  6 03:25 at0e2.mfmk
+  -rw-rw-r-- 1 ackley ackley    46203 Nov  6 03:25 at0b5.mfmk
+  -rw-rw-r-- 1 ackley ackley    46197 Nov  6 03:25 at0d7.mfmk
+  -rw-rw-r-- 1 ackley ackley    46195 Nov  6 03:25 at0c2.mfmk
+  -rw-rw-r-- 1 ackley ackley    46189 Nov  6 03:25 at06a.mfmk
+  -rw-rw-r-- 1 ackley ackley    46177 Nov  6 03:25 at0g2.mfmk
+  -rw-rw-r-- 1 ackley ackley    46146 Nov  6 03:25 at014.mfmk
+  -rw-rw-r-- 1 ackley ackley    46129 Nov  6 03:25 at0a8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46128 Nov  6 03:25 at03b.mfmk
+  -rw-rw-r-- 1 ackley ackley    46098 Nov  6 03:25 at038.mfmk
+  -rw-rw-r-- 1 ackley ackley    46095 Nov  6 03:25 at0b6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46080 Nov  6 03:25 at0d6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46051 Nov  6 03:25 at05a.mfmk
+  -rw-rw-r-- 1 ackley ackley    46041 Nov  6 03:25 at0f4.mfmk
+  -rw-rw-r-- 1 ackley ackley    46026 Nov  6 03:25 at0f2.mfmk
+  -rw-rw-r-- 1 ackley ackley    46025 Nov  6 03:25 at0f8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46024 Nov  6 03:25 at0f6.mfmk
+  -rw-rw-r-- 1 ackley ackley    46023 Nov  6 03:25 at03a.mfmk
+  -rw-rw-r-- 1 ackley ackley    46022 Nov  6 03:25 at0d8.mfmk
+  -rw-rw-r-- 1 ackley ackley    46017 Nov  6 03:25 at0d2.mfmk
+  -rw-rw-r-- 1 ackley ackley    45993 Nov  6 03:25 at0b2.mfmk
+  -rw-rw-r-- 1 ackley ackley    45953 Nov  6 03:25 at01a.mfmk
+  -rw-rw-r-- 1 ackley ackley    45929 Nov  6 03:25 at0d4.mfmk
+  -rw-rw-r-- 1 ackley ackley    45900 Nov  6 03:25 at0f9.mfmk
+  -rw-rw-r-- 1 ackley ackley    45879 Nov  6 03:25 at0f3.mfmk
+  -rw-rw-r-- 1 ackley ackley    45429 Nov  6 03:25 at068.mfmk
+  -rw-rw-r-- 1 ackley ackley    45404 Nov  6 03:25 at037.mfmk
+  -rw-rw-r-- 1 ackley ackley    45403 Nov  6 03:25 at042.mfmk
+  -rw-rw-r-- 1 ackley ackley    45363 Nov  6 03:25 at046.mfmk
+  -rw-rw-r-- 1 ackley ackley    45362 Nov  6 03:25 at028.mfmk
+  -rw-rw-r-- 1 ackley ackley    45362 Nov  6 03:25 at077.mfmk
+  -rw-rw-r-- 1 ackley ackley    45360 Nov  6 03:25 at064.mfmk
+  -rw-rw-r-- 1 ackley ackley    45334 Nov  6 03:25 at026.mfmk
+  -rw-rw-r-- 1 ackley ackley    45333 Nov  6 03:25 at057.mfmk
+  -rw-rw-r-- 1 ackley ackley    45332 Nov  6 03:25 at022.mfmk
+  -rw-rw-r-- 1 ackley ackley    45332 Nov  6 03:25 at035.mfmk
+  -rw-rw-r-- 1 ackley ackley    45331 Nov  6 03:25 at024.mfmk
+  -rw-rw-r-- 1 ackley ackley    45331 Nov  6 03:25 at075.mfmk
+  -rw-rw-r-- 1 ackley ackley    45330 Nov  6 03:25 at013.mfmk
+  -rw-rw-r-- 1 ackley ackley    45330 Nov  6 03:25 at015.mfmk
+  -rw-rw-r-- 1 ackley ackley    45330 Nov  6 03:25 at055.mfmk
+  -rw-rw-r-- 1 ackley ackley    45330 Nov  6 03:25 at066.mfmk
+  -rw-rw-r-- 1 ackley ackley    45329 Nov  6 03:25 at033.mfmk
+  -rw-rw-r-- 1 ackley ackley    45328 Nov  6 03:25 at039.mfmk
+  -rw-rw-r-- 1 ackley ackley    45328 Nov  6 03:25 at079.mfmk
+  -rw-rw-r-- 1 ackley ackley    45304 Nov  6 03:25 at017.mfmk
+  -rw-rw-r-- 1 ackley ackley    45296 Nov  6 03:25 at019.mfmk
+  -rw-rw-r-- 1 ackley ackley    45296 Nov  6 03:25 at053.mfmk
+  -rw-rw-r-- 1 ackley ackley    45275 Nov  6 03:25 at059.mfmk
+  -rw-rw-r-- 1 ackley ackley    45257 Nov  6 03:25 at012.mfmk
+  -rw-rw-r-- 1 ackley ackley    45224 Nov  6 03:25 at073.mfmk
+  -rw-rw-r-- 1 ackley ackley    45219 Nov  6 03:25 at036.mfmk
+  -rw-rw-r-- 1 ackley ackley    45193 Nov  6 03:25 at062.mfmk
+  -rw-rw-r-- 1 ackley ackley    45169 Nov  6 03:25 at044.mfmk
+  -rw-rw-r-- 1 ackley ackley    45165 Nov  6 03:25 at052.mfmk
+  -rw-rw-r-- 1 ackley ackley    45155 Nov  6 03:25 at074.mfmk
+  -rw-rw-r-- 1 ackley ackley    45147 Nov  6 03:25 at016.mfmk
+  -rw-rw-r-- 1 ackley ackley    45145 Nov  6 03:25 at078.mfmk
+  -rw-rw-r-- 1 ackley ackley    45144 Nov  6 03:25 at058.mfmk
+  -rw-rw-r-- 1 ackley ackley    45142 Nov  6 03:25 at034.mfmk
+  -rw-rw-r-- 1 ackley ackley    45142 Nov  6 03:25 at054.mfmk
+  -rw-rw-r-- 1 ackley ackley    45135 Nov  6 03:25 at032.mfmk
+  -rw-rw-r-- 1 ackley ackley    45118 Nov  6 03:25 at018.mfmk
+  -rw-rw-r-- 1 ackley ackley    45074 Nov  6 03:25 at076.mfmk
+  -rw-rw-r-- 1 ackley ackley    45034 Nov  6 03:25 at048.mfmk
+  -rw-rw-r-- 1 ackley ackley    44957 Nov  6 03:25 at072.mfmk
+
+which I'm hoping splits between
+hubs that see a BH car edge (big
+logs) and those that don't
+(small logs). Totally easy to
+believe dealing with
+non-existent neighbors is fucked
+up. 
+
+We'll see.
+
+Sleep.
+[1134:
+
+Fri Nov  6 03:35:00 2026
+(Actually, duh, the split is
+between HUB images (big logs)
+and EWP images (small logs),
+which is even much totally
+totallier easy to believe.)
+[1135:
+
+Fri Nov  6 10:43:09 2026 OK,
+reviewing logs looking for more
+clues about where we are and
+where issues may be, and with an
+eye towards thinning the logs
+again for tracking packets
+between hubs.. THOUGHTS:
+
+[1136:
+
+Fri Nov  6 10:44:42 2026
+
+ - Let's increase our supercycle
+   dwell times a lot and see if
+   the onphase numbers rise. I'm
+   hohohoping all the logging
+   may be a factor in the lack
+   of hub consensus seen by the
+   host.
+
+[1137: Fri Nov  6 10:50:38 2026  
+
+ - What if we extended our
+   logging system to have a
+   macro that:
+
+   1. declares a named-by-hand
+      static variable in L1, and
+      one that
+
+   2. increments the named
+      variable, and one that
+
+   3. checks a per-invocation
+      static variable against
+      the named variable, and if
+      they don't match, does
+      logging and sets the
+      per-invocation variable to
+      match.
+
+with the effect that we could
+have one (or more) points in a
+loop that would 'trigger' a
+trace by doing 2, and then
+everybody sharing the same
+variable will speak up once, the
+next time they run, and then go
+silent.
+
+Doesn't even have to be an
+increment; could be an arbitrary
+set of the variable, and the
+value itself could be included
+in the triggered messages.
+
+[1138:
+
+Fri Nov  6 11:02:46 2026 So, I
+can't see where anybody detects
+that (say) save caches is
+complete.. We just go from
+unloadPacketIfNeeded to -- oh,
+allReadyToAck does the check:
+
+    bool allReadyToAck() const {
+      for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+        if (get(i).needsAnotherPacket()) return false;
+      }
+      return true;
+    }
+
+so if nobody says they need
+another packet - which means
+either that cl is not in use, or
+its iterator is atEnd - then
+workOnEnteringNewLeaderB, say,
+exits true:
+
+      return theL1CacheLoaders.allReadyToAck();
+
+So we don't have much confidence
+that's all working but we are
+trying to do it..
+
+[1139:
+
+Fri Nov  6 11:08:48 2026 OK
+let's rebuild on the longer host
+times while diddling with some
+more debug macros..
+[1140:
+
+Fri Nov  6 16:18:50 2026 Well
+that's in and tested but not in
+serious use. 
+
+:1140]
+:1139]
+
+:1138]
+
+:1137]
+:1136]
+
+
+
+:1135]
+:1134]
+:1133]
+
+:1132]
+:1131]
+
+:1130]
+
+:1129]
+:1128]
+
+:1127]
+
+:1126]
+
+:1125]
+:1124]
+:1123]
+
+:1122]
+
+:1121]
+[1141:
+
+Fri Nov  6 19:01:17 2026 Trying
+to stare at logs. So, does this
+make sense:
+
+    {88:244 7347 0 10,5 hn CONN;SONAR:3.RUN_EVENTS!}
+    {88:32 7347 0 10,5 hn CCSUV:N>.....}
+
+..run events detected; switch to
+exiting new leader..
+
+    {23:19 7347 0 10,5 hb BOLTR_oNEWLEADER:0}
+
+configure cache loaders notes
+new leader 0..
+
+    {23:101 7347 0 10,5 hb REPH_FWR!:NT8}
+    {23:102 7347 0 10,5 hb REPHmyS4UC:[10,10<148,20]}
+
+..and notes that we (or it?) are
+a follower of NT (or it follows
+us?)..
+
+    {23:96 7347 0 10,5 hb REPH_LDR!:NW8}
+    {23:97 7347 0 10,5 hb REPHUC4MyS:[0,0<10,10]}
+
+..while simultaneously noting
+that we (or it?) are a leader of
+NW (or it leads us?)..
+
+Question: How can that make
+sense? We can't simultaneously
+be a leader to some ngbs and a
+follower to others. That's not
+our design.
+
+So that really is a problem
+identified, I do think. We
+should be seeing REPH_FWR or
+REPH_LDR in a given config, not
+both.
+
+And we absolutely need to have
+the log file tell us whether
+this hub is a leader or a
+follower pretty much right after
+the NEW_LEADER is detected.
+
+Let's get that in first, no
+matter what layer violations it
+needs. [1142:
+
+Fri Nov  6 19:14:45 2026 OK
+building a first attempt at
+that. [1143:
+
+Fri Nov  6 19:18:39 2026 OK,
+it's looking like when we're a
+leader, everybody we touch is a
+follower:
+
+    {23:21 7634 0 14,5 hb BOLTR_oNEWLEADER:3}
+>>  {23:24 7634 0 14,5 hb WE..ARE..:LEADER}
+..our new message :)..
+
+14,5 is T53, which is indeed a
+[HUB] in (1,1) (aka position 3)
+of supercell (2,0)
+
+    {23:106 7634 0 14,5 hb REPH_FWR!:NT8}
+    {23:107 7634 0 14,5 hb REPHmyS4UC:[10,10<148,20]}
+
+but if we are a leader, and
+you're a follower, I'd think it
+should be 'my cache for your
+sites', which you'd think would
+be 'REPHmyC4US', but that string
+currently appears nowhere in the
+codebase.
+
+So that seems like a notation
+problem at least.
+
+    {23:106 7634 0 14,5 hb REPH_FWR!:NW8}
+    {23:107 7634 0 14,5 hb REPHmyS4UC:[10,10<20,20]}
+    {23:106 7634 0 14,5 hb REPH_FWR!:WT8}
+    {23:107 7634 0 14,5 hb REPHmyS4UC:[10,10<20,118]}
+    {23:106 7634 0 14,5 hb REPH_FWR!:SW8}
+    {23:107 7634 0 14,5 hb REPHmyS4UC:[10,108<20,118]}
+    {23:106 7634 0 14,5 hb REPH_FWR!:ST8}
+    {23:107 7634 0 14,5 hb REPHmyS4UC:[10,108<148,118]}
+
+and that seems sensible. But
+we're a follower:
+
+    {23:21 7634 0 6,7 hb BOLTR_oNEWLEADER:3}
+    {23:24 7634 0 6,7 hb WE..ARE..:FOLLOWER}
+??  {23:106 7634 0 6,7 hb REPH_FWR!:NT8}
+    {23:107 7634 0 6,7 hb REPHmyS4UC:[10,10<148,20]}
+>>  {23:101 7634 0 6,7 hb REPH_LDR!:NW8}
+    {23:102 7634 0 6,7 hb REPHUC4MyS:[0,0<10,10]}
+??  {23:106 7634 0 6,7 hb REPH_FWR!:WT8}
+    {23:107 7634 0 6,7 hb REPHmyS4UC:[10,10<20,118]}
+>>  {23:101 7634 0 6,7 hb REPH_LDR!:SW8}
+    {23:102 7634 0 6,7 hb REPHUC4MyS:[0,118<10,128]}
+??  {23:106 7634 0 6,7 hb REPH_FWR!:ST8}
+    {23:107 7634 0 6,7 hb REPHmyS4UC:[10,108<148,118]}
+>>  {23:101 7634 0 6,7 hb REPH_LDR!:SE8}
+    {23:102 7634 0 6,7 hb REPHUC4MyS:[148,118<158,128]}
+??  {23:106 7634 0 6,7 hb REPH_FWR!:ET8}
+    {23:107 7634 0 6,7 hb REPHmyS4UC:[138,10<148,118]}
+
+the leaders on the corners look
+believable but the followers on
+the edges are fucked, right? We
+don't want to be generating or
+expecting any traffic with
+them.. 
+
+[1144:
+
+Fri Nov  6 19:23:55 2026 Here's
+another example from the same
+supercycle:
+
+    {23:21 7634 0 10,7 hb BOLTR_oNEWLEADER:3}
+    {23:24 7634 0 10,7 hb WE..ARE..:FOLLOWER}
+    {23:101 7634 0 10,7 hb REPH_LDR!:NT8}
+    {23:102 7634 0 10,7 hb REPHUC4MyS:[10,0<148,10]}
+    {23:106 7634 0 10,7 hb REPH_FWR!:NW8}
+    {23:107 7634 0 10,7 hb REPHmyS4UC:[10,10<20,20]}
+    {23:106 7634 0 10,7 hb REPH_FWR!:WT8}
+    {23:107 7634 0 10,7 hb REPHmyS4UC:[10,10<20,118]}
+    {23:106 7634 0 10,7 hb REPH_FWR!:SW8}
+    {23:107 7634 0 10,7 hb REPHmyS4UC:[10,108<20,118]}
+    {23:101 7634 0 10,7 hb REPH_LDR!:ST8}
+    {23:102 7634 0 10,7 hb REPHUC4MyS:[10,118<148,128]}
+
+
+:1144]
+
+:1143]
+
+:1142]
+
+Fri Nov  6 21:54:39 2026 So is
+the idea that leaders want to
+talk to 'all' their ngbs, but
+followers only want to talk to
+their leader ngbs?
+
+And the asymmetry exists because
+we designed the whole supercell
+concept so that a leader never
+have any other leader in its
+neighborhood.
+
+Let's do a checkpoint WIP and
+then tear into that config.
+
+:1141]
