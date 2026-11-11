@@ -474,9 +474,14 @@ namespace MFM {
           Eprintf("QB::IHHThread (%u) START SUPERCYCLE vvvvv\n",bhl.getThrId());
 
           static u32 lastLeader = U32_MAX;
+          static bool running = false;
           u32 nextLeader;
           do { nextLeader = hostPRNG.Between(0,3); }
           while (nextLeader == lastLeader);
+          if (!running) {       // DEBUG: Make
+            nextLeader = 2;     // first supercycle leader
+            running = true;     // always be TWO
+          }
           lastLeader = nextLeader;
           this->doASuperCycle(lastLeader);
           Eprintf("QB::IHHThread (%u) SUPERCYCLE DONE  ^^^^^\n",bhl.getThrId());

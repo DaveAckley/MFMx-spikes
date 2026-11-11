@@ -16,7 +16,7 @@ namespace MFM {
 #define BLOCKCODE_LIST()                                \
   XX(CELLBLOCK,CLBK,sizeof(CellBlock),CellBlock,1u)     \
   XX(PHASER,PHSR,sizeof(PhaserBlock),PhaserBlock,1u)    \
-  XX(LOGBLOCK,LGBK,4096,LogBlockStg,1u)                 \
+  XX(LOGBLOCK,LGBK,9792,LogBlockStg,1u)                 \
   XX(ZOTBLOCK,ZTBK,256,ZotBlockStg,2u)                  \
   XX(EWHUB,EWHB,2048,EwpBlockStg,8u)                    \
   XX(EWPCARS,EWCR,2048,EwpBlockStg,1u)                  \

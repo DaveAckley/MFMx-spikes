@@ -19,10 +19,11 @@ namespace MFM {
     mConfiguredSCL = arg;
 
     HostBlock & hb = theHostBlock;
-    LOGPTAG(BOLTR_oNEWLEADER,100*hb.mTLBI + mConfiguredSCL);
+    LOGPTAG(TBSL#,100*hb.mTLBI + mConfiguredSCL);
 
     GridManager & gm = fB.mGridManager;
-    LOGPTAG(WE..ARE..,(mConfiguredSCL==gm.getOurSuperCellPosition()) ? "LEADER" : "FOLLOWER");
+    bool iAmLeader = (mConfiguredSCL==gm.getOurSuperCellPosition());
+    LOGPTAG(IAM..,iAmLeader ? "LEADER" : "FOLLOWER");
 
     U8C uct6_per_ureg(2,2);        // UCT6 conversion to UREG
     U8C ureg_per_uscl(2,2);        // UREG conversion to USCL
@@ -68,17 +69,17 @@ namespace MFM {
       U8C d8nSCLC_in_CT6 = d8nSCLC_in_REGC * uct6_per_ureg; //< " in CT6 coords
       U8C d8nSCLC_in_NoC0C = U8C::makeNoC0CoordFromCT6Coord(d8nSCLC_in_CT6); //< " in NoC0 coords
 
-      
       U8C d8nREGV_of_SCLC = d8nREGC % ureg_per_uscl;   //< d8n UREG offset in supercell theirSCLC
 
       //LOGPTAG(REPHd8nREGV_of_SCLC,d8nREGV_of_SCLC);
-      bool leadNotFollow = (d8nREGV_of_SCLC == ldrREGV_of_SCLC);
+      bool d8IsLeader = (d8nREGV_of_SCLC == ldrREGV_of_SCLC);
       
       if (true) {
         //LOGPTAG(REPHd8nNoC0C,d8nNoC0C);
 
         //LOGPX(d8nREGV_of_SCLC);
         //LOGPX(ldrREGV_of_SCLC);
+        //LOGPX(d8IsLeader);
 
         Dir8 d8FromUs = d8; // XXX RIGHT?
       
@@ -98,17 +99,23 @@ namespace MFM {
 #pragma GCC diagnostic pop
 
         u32 theirTLBI = U16C::makeTLBIFromNoCCoord(U16C(d8nNoC0C.x,d8nNoC0C.y)); 
-        if (leadNotFollow) {
-          LOGPTAG(REPH_LDR!,dir8ToByteString(d8));
-          LOGPTAG(REPH_TLBI,theirTLBI);
-          LOGPTAG(REPHUC4MyS,myCacheForYou);
-          cl.mLocalItr = U8CRange::iterator(myCacheForYou);
-          cl.mDestType = 1;
-        } else {
-          LOGPTAG(REPH_FWR!,dir8ToByteString(d8));
-          LOGPTAG(REPH_TLBI,theirTLBI);
-          LOGPTAG(REPHmyS4UC,mySitesForYou);
+        if (d8IsLeader) {
+          MFM_API_ASSERT(!iAmLeader,ILLEGAL_STATE);
+          LOGPTAG(ULDR,dir8ToByteString(d8));
+          //LOGPTAG(REPH_TLBI,theirTLBI);
+          //LOGPTAG(REPHmyS4UC,mySitesForYou);
           cl.mLocalItr = U8CRange::iterator(mySitesForYou);
+          cl.mDestType = 1;
+        } else if (iAmLeader) {
+          LOGPTAG(UFLW,dir8ToByteString(d8));
+          //LOGPTAG(REPH_TLBI,theirTLBI);
+          //LOGPTAG(REPHUC4MyS,myCacheForYou);
+          cl.mLocalItr = U8CRange::iterator(myCacheForYou);
+          cl.mDestType = -1;
+        } else { // we both followers here
+          //LOGPTAG(FOFO,dir8ToByteString(d8));
+          cl.mLocalItr = U8CRange::iterator(); //< empty iterator
+          //LOGPTAG(REPH04U,U8CRange());
           cl.mDestType = -1;
         }
         cl.mDir8 = d8;
@@ -123,7 +130,10 @@ namespace MFM {
 
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
       CacheLoader & cl = get(i);
-      cl.loadPacketIfNeeded(gm);
+      if (cl.isThatAFollower())
+        cl.unloadPacketIfNeeded(gm);
+      else if (cl.isThatALeader())
+        cl.loadPacketIfNeeded(gm);
     }
   }
 
@@ -134,7 +144,7 @@ namespace MFM {
 
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
       CacheLoader & cl = get(i);
-      SNAP(100,LOGPTAG(CLS$U,i));
+      SNAP(20,LOGPTAG(CLS$U,i));
       cl.unloadPacketIfNeeded(gm);
     }
   }
@@ -154,10 +164,13 @@ namespace MFM {
     bool ret = crbi.remove(carindex);
     MFM_API_ASSERT(ret, ILLEGAL_STATE);
     InterHubBlock & ihb = ihs.getTC(carindex);
-    LOGPTAG(IHCARLB,formatIHBlock(ihb,carindex));
+    Buf32 b32;
+    LOGPTAG(bLP,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     loadPacket(gm,ihb);
-    LOGPTAG(IHCARLA,formatIHBlock(ihb,carindex));
+    LOGPTAG(aLP,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
+    LOGPTAG(cstat,ihb.packetStatus(strTag4(&ihb)));
     crbo.add(carindex);
+    sleepCycles(100'000'000); // DEBUG give hn a chacne
   }
 
   void CacheLoader::unloadPacketIfNeeded(GridManager & gm) {
@@ -169,31 +182,37 @@ namespace MFM {
     IHubData::CarIdxRB & crbi = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
     IHubData::CarIdxRB & crbo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
     
-    if (crbi.isEmpty() || crbo.isFull()) return; // just wishin' and hopin'
+    if (crbi.isEmpty() || crbo.isFull()) return; 
 
     u8 carindex;
     bool ret = crbi.remove(carindex);
     MFM_API_ASSERT(ret,ILLEGAL_STATE);
     InterHubBlock & ihb = ihs.getTC(carindex);
-    LOGPTAG(IHCARUB,formatIHBlock(ihb,carindex));
+    Buf32 b32;
+    bool wasEmpty = ihb.payload().getType() == IHPT_EMPTY;
+    if (!wasEmpty)
+      LOGPTAG(UNLB,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     unloadPacket(gm,ihb);
-    LOGPTAG(IHCARUA,formatIHBlock(ihb,carindex));
+    if (!wasEmpty)
+      LOGPTAG(UNLA,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     crbo.add(carindex);
+    sleepCycles(100'000'000);
   }
 
   /** pack local atoms into ihb */
   void CacheLoader::loadPacket(GridManager & gm, InterHubBlock & ihb) {
     MFM_API_ASSERT(needsAnotherPacket(),ILLEGAL_STATE);
+    Buf32 b32;
 
-    LOGPTAG(_ducFL@,dir8ToByteString(mDir8)); 
+    //LOGPTAG(LP,dir8ToByteString(mDir8)); 
 
     U8CRange::iterator & itr = mLocalItr;
 
-    LOGPTAG(lodPKTRange,itr.range); 
-    LOGPTAG(lodPKT@,itr.at); 
+//    LOGPTAG(lodPR,itr.range); 
+//    LOGPTAG(lodP@,itr.at); 
 
     if (ihb.getType() != IHPT_ATOMS) {
-      LOGPTAG(lodTYP@,ihb.getType()); 
+      LOGPTAG(lodPT,ihb.getType()); 
       ihb.initType(IHPT_ATOMS);
     }
     // Now it's an atoms carrier
@@ -203,10 +222,14 @@ namespace MFM {
     IHPAtoms & patoms = pay.asAtomsOrDie();
 
     if (patoms.getAtomsInPacket() != 0) {
-      LOGPTAG(lodPKT_NOTEMPTY,formatIHBlock(ihb,99));
+      LOGPTAG(lp!EMP?,patoms.getAtomsInPacket());
       patoms.setToZeroAtoms();
     }
     // Now it's carrying no atoms
+
+    patoms.setStartsAt(*itr);
+    LOGPTAG(STitr,patoms.getStartsAt());
+    // Now we've marked where we're starting
 
     while (!itr.atEnd()) {
       if (patoms.isFull()) break; // Room For No More
@@ -216,30 +239,48 @@ namespace MFM {
     }
     MFM_API_ASSERT(patoms.isFull() || itr.atEnd(),ILLEGAL_STATE);    // can't stop unless car full or itr done..
 
-    LOGPTAG(SHI@,itr.at);
+    if (itr.atEnd()) LOGPTAG(lodDONE,dir8ToByteString(mDir8));
+    else LOGPTAG(lod@,itr.at);
+
     LOGPTAG(SHI#,patoms.getAtomsInPacket());
     u32 pktsize = patoms.getCurrentPayloadSize();
+    //LOGPTAG(SHIZ,pktsize);
     ihb.closeTC(pktsize);              // packet loaded
   }
 
   /** unpack ihb into local atoms */
   void CacheLoader::unloadPacket(GridManager & gm, InterHubBlock & ihb) {
+    MFM_API_ASSERT(!isThatUnused(),ILLEGAL_STATE); // whaaat?
     MFM_API_ASSERT(needsAnotherPacket(),ILLEGAL_STATE); // don't you be calling me either
 
+    /* itr is over CACHES if we're leader; SITES if we're a follower */
     U8CRange::iterator & itr = mLocalItr;
-
-    LOGPTAG(unlPKTRange,itr.range); 
-    LOGPTAG(unlPKT@,itr.at); 
 
     T6Grid & t6grid = gm.getT6GridOrDie();
     InterHubPayload & pay = ihb.payload();
     if (pay.getType() == IHPT_EMPTY) {
-      EACH(1,LOGPTAG(ECOMCON,__EACHNUM__));
+      //EACH(1,LOGPTAG(Em,__EACHNUM__));
       pay.initIHP(IHPT_ATOMS,{0,0},{0,0});
     }
     IHPAtoms & patoms = pay.asAtomsOrDie(); // really die if not atoms at this point?
     u32 nextIdx = 0;
     u32 atomsInPacket = patoms.getAtomsInPacket();
+
+    if (atomsInPacket > 0) {
+      LOGPTAG(uPKTRge,itr.range); 
+      U8C theyAreAt = patoms.getStartsAt();
+      U8C weShouldBeAt = NgbCacheMgr::mapDestCToUs(mDir8, isThatAFollower(), theyAreAt);
+      //LOGPTAG(THEY@,theyAreAt);
+      //LOGPTAG(WE@,itr.at); 
+      //LOGPTAG(STATU,weShouldBeAt);
+      if (itr.at != weShouldBeAt) {
+        Buf32 b32;
+        LOGPTAG(BADC,formatIHBlockBuf32(b32,ihb,(Dir8) 99,99));
+        sleepCycles(1'000'000);
+      }
+      HBASSERT_EQ(itr.at,weShouldBeAt); // ILLEGAL_STATE
+    }
+
     while (!itr.atEnd()) {
       if (nextIdx >= atomsInPacket) break; // Ain't Got No More
       U8C ac = *itr++;
@@ -248,10 +289,11 @@ namespace MFM {
     }
     MFM_API_ASSERT(itr.atEnd() || nextIdx >= atomsInPacket,ILLEGAL_STATE);    // can't stop unless car empty or itr done..
 
-    LOGPTAG(unlPKT@,itr.at);
+    if (itr.atEnd()) LOGPTAG(uDONE,dir8ToByteString(mDir8));
+    else if (atomsInPacket > 0) LOGPTAG(uGOON,itr.at);
     patoms.setToZeroAtoms();
     u32 pktsize = patoms.getCurrentPayloadSize();
-    LOGPTAG(unlPKTSZ,pktsize);
+    //LOGPTAG(unPSZ,pktsize);
     ihb.closeTC(pktsize);                // packet unloaded
   }
 

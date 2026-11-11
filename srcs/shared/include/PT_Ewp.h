@@ -51,6 +51,10 @@ namespace MFM {
   class EwpBlock : public TC<EwpBlock,sizeof(EwpPayload)> {
   public:
     const char * getName() const { return "EwpBlock"; }
+    const char * formatTC(EPBase& epb) {
+      // XXXXX MAKE ME BETTER!
+      return getName();
+    }
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);

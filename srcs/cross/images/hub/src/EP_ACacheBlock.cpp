@@ -280,7 +280,7 @@ namespace MFM {
             HBPTAG(2PACK,mFramesSent);
           }
           mNextFrameBogoMS += BOGOMS_PER_FRAME;
-          if ((mFramesSent%100) == 0) LOGPTAG(WAITSENT,mFramesSent);
+          if ((mFramesSent%1000) == 1) LOGPTAG(WAITSENT,mFramesSent);
           mARsToSend = dl.getLength();
           mState = State::PACK;
         }
@@ -304,7 +304,7 @@ namespace MFM {
 
         if (mNextFrameBogoMS <= millisElapsed()) {
           //          LOGPTAG(2NEXT,mNextFrameBogoMS);
-          HBPTAG(2NEXT,mNextFrameBogoMS);
+          EACH(100,HBPTAG(2NEXT,mNextFrameBogoMS));
 
           // ACCESS PAY
           ACacheBlock &acb = getCurrentACBOrDie();

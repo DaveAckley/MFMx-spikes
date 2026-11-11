@@ -22,7 +22,8 @@ namespace MFM {
     u32 rvsize = image.getBinFileSize();
     u8 * bytes = extractRISCVCodeFromTLBI(0, rvsize, fromTLBI);
     BHLog & bhl = BHLog::getTheBHLog();
-    std::string path = "/tmp/dumpity.dump";
+    BHTag tag(TagType::T6TADR, mChipNum, fromTLBI);
+    std::string path = getDumpPathForKey(tag);
     std::ofstream file(path,std::ios::binary);
     if (file) {
       file.write((const char*) bytes, rvsize);

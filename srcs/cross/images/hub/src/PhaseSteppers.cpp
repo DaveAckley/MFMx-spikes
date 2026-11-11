@@ -15,8 +15,8 @@ namespace MFM {
       DTSET(IHT,arg);
 
       DTRIG(IHT,{
-          HBPTAG(BOLTR_iNEWLEADER,arg);
-          LOGPTAG(BOLTR_iNEWLEADER,arg);
+          HBPTAG(BOLTR_iNL,arg);
+          LOGPTAG(BOLTR_iNL,arg);
         });
 
       //// >>>> HACK TO SKIP FIRST SAVE CACHES <<<<
@@ -24,7 +24,7 @@ namespace MFM {
         static bool once;
         if (!once) {
           once = true;
-          LOGPTAG(wOENLB,arg);
+          //LOGPTAG(wOENLB,arg);
           return true; // lead: "all sent"; follow: "all rcvd"
         }
       }
@@ -51,8 +51,11 @@ namespace MFM {
     bool workOnEnteringRunEventsB() {
       //// LOAD CACHES OF CURRENT LEADER
       u32 arg = theL1CacheLoaders.getConfiguredSCL();
-      LOGPTAG(LOAD_CACHES,arg);
-      HBPTAG(BOLTR_LOD$,arg);
+      if (false)
+        EACH(100'000,{
+          LOGPTAG(LODC$,arg);
+          HBPTAG(BOLTR_LOD$,arg);
+        });
 
       theL1CacheLoaders.loadCaches();
       return theL1CacheLoaders.allReadyToAck();
@@ -60,6 +63,8 @@ namespace MFM {
 
     bool workOnExitingRunEventsB() {
       u32 arg = theL1CacheLoaders.getConfiguredSCL();
+      LOGPTAG(woEXREB,arg);
+
       HBASSERT_LT((u32)arg, 4);
 
       if (true /* DONE DRAINING EWPS? */ ) {
@@ -87,13 +92,14 @@ namespace MFM {
       if (thePLL.ifCouldAck(PBCmd::HOLD_AT_BIRTH,Edge::EXITING)) {
         thePLL.ackExiting(PBCmd::HOLD_AT_BIRTH);
         HBPTAG(VOTE!,thePLL.voteStatus());
+        //LOGPTAG(XHAB!,thePLL.voteStatus());
       }
 
       // ENTERING NEW_LEADER
       if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) {
         if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnEnteringNewLeaderB()) {
           thePLL.ackEntering(PBCmd::NEW_LEADER);
-          HBPTAG(VOTE!,thePLL.voteStatus());
+          //          LOGPTAG(NNL!,thePLL.voteStatus());
         }
       }
 
@@ -101,7 +107,7 @@ namespace MFM {
       if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::EXITING)) {
         if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnExitingNewLeaderB()) {
           thePLL.ackExiting(PBCmd::NEW_LEADER);
-          HBPTAG(VOTE!,thePLL.voteStatus());
+          //LOGPTAG(XNL!,thePLL.voteStatus());
         }
       }
 
@@ -109,7 +115,7 @@ namespace MFM {
       if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::ENTERING)) {
         if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnEnteringRunEventsB()) {
           thePLL.ackEntering(PBCmd::RUN_EVENTS);
-          HBPTAG(VOTE!,thePLL.voteStatus());
+          //          LOGPTAG(NRE!,thePLL.voteStatus());
         }
       }
 
@@ -117,7 +123,7 @@ namespace MFM {
       if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::EXITING)) {
         if (!onHartNum(HARTNUM_B) || PhaseSteppers::workOnExitingRunEventsB()) {
           thePLL.ackExiting(PBCmd::RUN_EVENTS);
-          HBPTAG(VOTE!,thePLL.voteStatus());
+          LOGPTAG(XRE!,thePLL.voteStatus());
         }
       }
 

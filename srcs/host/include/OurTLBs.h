@@ -160,6 +160,7 @@ namespace MFM {
       u32 mLastWatchdog[5];
       bool mStuckDog[5];
       bool mHasBeenDumped;
+      u32 mLastPhaseSeqnoSeen;
 
       u32 mACBPacketsReceived;
 
@@ -199,6 +200,16 @@ namespace MFM {
       return mHostCommsMap.configureT6ImageForHostComms(t6i);
     }
     
+    u32 resetOnPhase(u8 seqnoToMatch) ;
+
+    u32 updateOnPhase() ;
+
+    u32 updateOnPhaseCount() ;
+
+    u32 getOnPhase() ;
+
+    std::string getNonPhaseTLBIs() ;
+
   private:
     static const u32 AHAX_TLB2M_COUNT = (AHAX_LAST_TLBI_IN_USE + 1);
     static const u32 AHAX_MMAP_SIZE = (AHAX_CONSTANT2M * AHAX_TLB2M_COUNT);
@@ -221,7 +232,10 @@ namespace MFM {
     size_t mT6HostBufferSize;   //< size of ~140*8K pinned host RAM for T6s to (R/)W 
     bool mDMABufferPretendDeleted;
     u64 mEWsShipped, mEWsReturned, mEWsCommitted;
-    u32 mOnPhase;               // #TLBs matching mShadowPHASER.mCmdSpinner
+    u32 mOnPhase;               // #TLBs matching mPhaseSeqnoToMatch
+    u32 mUpdateOnPhaseCount;    // #calls since resetOnPhase
+    AtomicLock mPhaseLock; // hold to read/modify mOnPhase or mOffTLBIs
+    u32 mPhaseSeqnoToMatch;
     PhaserBlock mShadowPHASER;
   };
 } // namespace MFM

@@ -194,6 +194,7 @@ namespace MFM {
 
   bool InterHubEP::shipTC(SUBTC & car, u8 carindex) {
     ASSERT_RIGHT_HART();
+    Buf32 b32;
 
     /* New plan: Intervene at configureDest so that mDestNoC0 and
        mDestBlockAddr are already modified for the diagonal shots, and
@@ -203,6 +204,7 @@ namespace MFM {
        our NE or SW corner. Then dispatch to shipTCTo in any case.
     */
 
+    //LOGPTAG(STC,car.formatTC(*this));
     if (false) {
       const EndPointAddress sEPA = getSrcEPA();
       u8 d8 = sEPA.mBlockCodeIndex;
@@ -210,27 +212,25 @@ namespace MFM {
       const char * n = dir8ToByteString((Dir8) d8);
       EACH(1,{ if (d8&1) LOGPTAG(IHEPsTCDIVERT,n); else LOGPTAG(IHEPsTC,n); });
     }
-
     u64 destcaraddr = mDestBlockAddr + CAR_SIZE*carindex;
-
     U8C ournoc0 = fAll.mNoC0;
     U8C destnoc0 = mDestNoC0;
+    LOGPTAG(S___, formatT6SendBuf32(b32,&car,car.currentTCSize(),
+                                    destnoc0,(void*) (u32) destcaraddr));
     return shipTCTo(car,ournoc0,destnoc0,destcaraddr);
   }
 
   bool InterHubEP::recvTC(InterHubBlock & car, u8 carindex) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-
-    EACH(1,LOGPTAG(IHrecvTC,__EACHNUM__));
+    Buf32 b32;
 
     Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
     if (crbi.isFull()) return false; // bail if can't notify??
-
+    LOGPTAG(R___,formatT6RecvBuf32(b32,&car,car.currentTCSize(),
+                                   (Dir8) getSrcEPA().mBlockCodeIndex));
     // Open it up
     car.openTC();
     crbi.add(carindex); //notify hB
-
-    EACH(1,LOGPTAG(IHrecvTCD,carindex));
 
     return true;
   }
@@ -238,7 +238,6 @@ namespace MFM {
   InterHubBlock * InterHubEP::getCarPtrIfAny(u8 carindex) const {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
     if (carindex >= CAR_COUNT) return 0;
-    EACH(1'000'000,LOGPTAG(IHGotp,&this->getCarStg()));
     return &this->getCarStg().getTC(carindex);
   }
 

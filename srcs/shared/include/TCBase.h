@@ -3,6 +3,8 @@
 
 namespace MFM {
 
+  class EPBase; // FORWARD
+  
   template <class SUBTC>
   struct TCBase {
 
@@ -11,7 +13,10 @@ namespace MFM {
     SUBTC const & self() const { return static_cast<SUBTC const&>(*this); }
 
     // "API": SUBTC must implement all of these!
+
     const char * getName() const { return self().getName(); }
+    const char * formatTC(EPBase& epb) { return self().formatTC(epb); }
+
     u32 getMaxPayloadSize() const { return self().getMaxPayloadSize(); }
     u32 getMaxPacketSize() const { return self().getMaxPacketSize(); }
     TCMarker getMarkerAt(u32 word) const { return self().getMarkerAt(word); }
@@ -118,6 +123,41 @@ namespace MFM {
         
       MFM_API_ASSERT(fi > 0u && fi < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS);
       return getMarkerAt(fi);
+    }
+
+    const char * packetStatus(const char * pre4) const {
+      constexpr u8 PRE = 5;
+      constexpr u8 BUF_SIZ = 8+PRE;
+      static char buf[BUF_SIZ];
+      memset_s(buf,'.',BUF_SIZ);
+      buf[BUF_SIZ-1] = 0;
+
+      if (pre4 != 0) {
+        for (u32 i = 0; i < PRE; ++i) {
+          if (pre4[i] == 0) break;
+          buf[i] = pre4[i];
+        }
+        buf[4] = '/';
+      }
+      TCMarker h = getHeader();
+      if (!h.isValid()) return buf;
+      buf[PRE+0] = 'h';
+
+      TCMarker f = getFooter();
+      if (!f.isValid()) return buf;
+      buf[PRE+1] = 'f';
+      if (h != f) return buf;
+      buf[PRE+2] = '=';
+      if (TCMarker::hasAnkle(h.mTCMSize)) {
+        buf[PRE+3] = 'a';
+        TCMarker a = getAnkle();
+        if (!a.isValid()) return buf;
+        buf[PRE+4] = 'A';
+        if (h != a) return buf;
+        buf[PRE+5] = '=';
+      }
+      buf[PRE+6] = 'C';
+      return buf;
     }
 
     bool isComplete() const {

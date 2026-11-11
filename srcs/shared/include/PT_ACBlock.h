@@ -74,6 +74,9 @@ namespace MFM {
   class ACBlock : public TC<ACBlock,sizeof(ACBlockPayload)> {
   public:
     const char * getName() const { return "ACBlock"; }
+    const char * formatTC(EPBase& epb) {
+      return getName(); // MAKE ME BETTER
+    }
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);

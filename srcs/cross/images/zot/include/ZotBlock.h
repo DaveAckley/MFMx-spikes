@@ -36,6 +36,9 @@ namespace MFM {
   struct ZotBlock : public TC<ZotBlock,sizeof(ZotPayload)> {
     //// TC API
     const char * getName() const { return "ZotBlock"; }
+    const char * formatTC(EPBase & epb) {
+      return getName(); // MAKE ME BETTER
+    }
 
     bool readyToClose(TCOpsData & tms, u32 msnow) const { FAIL(INCOMPLETE_CODE); }
     

@@ -331,21 +331,94 @@ namespace MFM {
     return buf;
   }
 
-  const char * formatIHBlock(InterHubBlock & ihb, u32 caridx) {
+  const char * strTag3(const void * p) {
+    static char buf[4];
+    u32 tag = ptrTag3(p);
+    snprintf(buf,4,"%03x",tag);
+    return buf;
+  }
+
+  const char * strTag4(const void * p) {
+    static char buf[5];
+    u32 tag = ptrTag4(p);
+    snprintf(buf,5,"%04x",tag);
+    return buf;
+  }
+
+  const char * strTag4Buf32(Buf32 & b32, const void * p) {
+    u32 tag = ptrTag4(p);
+    snprintf(b32.buf,sizeof(b32),"%04x",tag);
+    return b32.buf;
+  }
+
+  const char * hexDump(const void * p) {
+    static Buf32 b32;
+    return hexDumpBuf32(b32,p);
+  }
+
+  const char * hexDumpBuf32(Buf32 & b32, const void * p) {
+    memoryFence();
+    constexpr u32 WORDS = 2;
+    constexpr u32 BUF_SIZ = sizeof(Buf32);
+    memset_s(&b32,0,BUF_SIZ);
+    u8 * cp = (u8*) p;
+    u8 byte = 0;
+    bool next = false;
+    snprintf(b32.buf,7,"%05x/",0xfffff&(u32)p); // include low-order nyb!
+    
+    for (u32 i = 6; i < BUF_SIZ-3; ++i) {
+      if ((next = !next)) byte = *cp++; 
+      else byte = byte<<4;
+      u8 nyb = (byte>>4) & 0xf;
+      b32.buf[i] = nyb <= 9 ? '0'+nyb : 'a'+nyb-10;
+      if ((i % 9) == 4) b32.buf[++i] = ' ';
+    }
+    return b32.buf;
+  }
+
+  const char * formatIHBlock(InterHubBlock & ihb,Dir8 d8, u32 caridx) {
+    static Buf32 b32;
+    return formatIHBlockBuf32(b32, ihb, d8, caridx);
+  }
+
+  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, U8C noc0, void * theiraddr) {
+    snprintf(b32.buf,b32.SIZE,
+             "%04x+%u%s%04x(%u,%u)",
+             ptrTag4(ouraddr),
+             pktsiz,
+             "->",
+             ptrTag4(theiraddr),
+             noc0.x,noc0.y);
+    return b32.buf;
+  }
+
+  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, Dir8 fromd8) {
+    snprintf(b32.buf,b32.SIZE,
+             "%04x+%u%s%s",
+             ptrTag4(ouraddr),
+             pktsiz,
+             "<-",
+             dir8ToByteString(fromd8));
+    return b32.buf;
+  }
+
+  const char * formatIHBlockBuf32(Buf32 & b32, InterHubBlock & ihb,Dir8 d8, u32 caridx) {
     InterHubPayload & pay = ihb.payload();
     u32 caratag = ptrTag4(&ihb);
-    static constexpr u32 IHB_BUFSIZ = 32;
-    static char buf[IHB_BUFSIZ];
+    const char * d8s = dir8ToByteString(d8); 
     if (!pay.isValid()) 
-      snprintf(buf,IHB_BUFSIZ,"%04x.IHB#%u invalid",caratag,caridx);
+      snprintf(b32.buf,b32.SIZE,"%04x/%sIB%u invalid",
+               caratag,d8s,caridx);
     else
-      snprintf(buf,IHB_BUFSIZ,
-               "%04x.IHB#%u[%s] %s+%u",
+      snprintf(b32.buf,b32.SIZE,
+               "%04x/%sIB%u%s~%x%s+%u",
                caratag,
+               d8s,
                caridx,
                getCarStateName(ihb.getTCState()),
+               ihb.getHeader().getPacketNonce() & 0xf,
                getNameFromIHPType(pay.getType()),
-               pay.getCurrentPayloadSize());
-    return buf;
+               ihb.currentTCSize());
+    return b32.buf;
   }
 }

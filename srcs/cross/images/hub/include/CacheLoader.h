@@ -11,6 +11,10 @@ namespace MFM {
     Dir8 mDir8; //< our index in cacheloaders (and where leader/follower is from us?)
     s8 mDestType; //< >0 -> leader, <0 -> follower, =0 -> uninitted or not-in-use (e.g., off-edge)
 
+    bool isThatAFollower() const { return mDestType < 0; }
+    bool isThatALeader() const { return mDestType > 0; }
+    bool isThatUnused() const { return mDestType == 0; }
+
     void init(Dir8 d8) {
       memset_s(this, '\0', sizeof(*this));
       mDir8 = d8;

@@ -36,13 +36,13 @@ namespace MFM {
     constexpr u32 BS = 100;
     char buf[BS];
 
-    if (isIHUBXX) {
+    if (false && isIHUBXX) {
       // every damn time say will we see THIS?
       //EACH(100,HBPTAG(EPuoHUBXX,this->report(BS,buf)));
       EACH(1'000'000,LOGPTAG(EPuoHUBXX,this->report(BS,buf)));
     }
 
-    EACH(1'000'000,LOGPTAG(EPuo,this->report(BS,buf)));
+    //    EACH(1'000'000,LOGPTAG(EPuo,this->report(BS,buf)));
     //EACH(10'000,LOGPTAG(EPuo,this->report(BS,buf)));
     AtomicScopeLock guard(getPlatformLock());
     
@@ -62,18 +62,29 @@ namespace MFM {
 
       SUBTC * carp = getCarPtr(mOldestGone); // oldest departed next to return
       MFM_API_ASSERT_NONNULL(carp);
+      SPEWIT(carp);
 
       SUBTC & car = *carp;
-      if (!car.isComplete()) {
-        if (isLogXX) SNAP(5,HBPTAG(gonBLK,carp));
-        if (isIHUBXX) SNAP(500,LOGXTAG(incompIHUB,ptrTag4(carp)));
+      bool gotone = false;
+      for (u32 i = 0; i < 3; ++i) {
+        if (car.isComplete()) { gotone = true; break; }
+#ifndef BUILD_HOST
+        sleepCycles(1'000); // tiny sleep
+#endif
+      }
+      if (!gotone) {
+        LOGPTAG(!comp,strTag4(carp));
+        //LOGPTAG(pspew,hexDump(carp));
+        LOGPTAG(cstat,car.packetStatus(strTag4(carp)));
         break;
       }
 
-      if (isIHUBXX) EACH(1'000'000,LOGPTAG(compIHUB,this->report(BS,buf)));
+      if (false && isIHUBXX) EACH(1'000'000,LOGPTAG(compIHUB,this->report(BS,buf)));
       
       //HBPTAG(EPgonect,mGoneCount);
       //      HBPTAG(EPoldidx,mOldestGone);
+
+      SPEWIT(carp);
 
       TCState cs = car.getTCState();
       if (!isArriving(cs)) {
@@ -82,6 +93,8 @@ namespace MFM {
         //HBPTAG(wein,mIsIn);
         break;
       }
+
+      SPEWIT(carp);
 
       if (isIHUBXX) {
         SNAP(1'000,HBPTAG(arrvIHUB,getCarStateName(cs)));
@@ -96,9 +109,18 @@ namespace MFM {
       //HBPTAG(EPRL,(u32) mSrcEPA.mBlockCodeIndex);
       //HBPTAG(EPARRC,(u32) car);
 
+      SPEWIT(carp);
+
       if (recvTC(car, mOldestGone)) {
         ++mRecvTCCount;
-        if (isIHUBXX) SNAP(100,LOGPTAG(postRecvTC,mRecvTCCount));
+
+        SPEWIT(carp);
+
+        if (false && isIHUBXX) SNAP(100,{
+            LOGPTAG(rcvTC,mRecvTCCount);
+            LOGPTAG(RC,car.formatTC(*this));
+          });
+          
         // successful recvTC MEANS:
         //  - one less gone car
         //  - one more here car
@@ -119,6 +141,7 @@ namespace MFM {
         */
         ret = true;
         //        HBPTAG(EPRCVD,this->getName());
+        SPEWIT(carp);
       }
       else {
         break;               // need to block the line b/c we're somehow unready to receive you
@@ -145,6 +168,9 @@ namespace MFM {
 
       SUBTC * carp = popClosedTCPtrIfAny();
       if (!carp) break; // nothing ready to go
+
+      SPEWIT(carp);
+
       SUBTC & car = *carp;
 
       MFM_API_ASSERT(car.isComplete(),ILLEGAL_STATE);
@@ -156,11 +182,15 @@ namespace MFM {
         //        LOGPTAG(2DEP,this->report(BS,buf));
         cs = departingState();
         car.setDepartingTC(cs);
+        SPEWIT(carp);
         if (isLogXX) HBPTAG(advdep,car.getTCState());
+        //        SNAP(10,LOGPTAG(SH,car.formatTC(*this)));
       }
 
       if (isLogXX) HBPVAL(cs);
       if (!isDeparting(cs)) break; // (still) not ready to go
+
+      SPEWIT(carp);
 
       // Bye now, come back soon!
       TCOpsData & data = getOpsData(mOldestHere);
@@ -168,11 +198,18 @@ namespace MFM {
 
       if (isLogXX) HBPTAG(dptim,data.mDepartureTime);
 
+      SPEWIT(carp);
+
       if (shipTC(car,mOldestHere)) {        // SHIPT!
         ++mShipTCCount;
         // DEBUG: DELIBERATELY BREAK SHIPT CARS
         // DEBUG: TO READ AS INCOMPLETE UNTIL THEY RETURN
-        car.getHeader().mTCMMagic = 0;
+
+        SPEWIT(carp);
+
+        //car.getHeader().mTCMMagic = 0;
+
+        SPEWIT(carp);
 
         if (mGoneCount == 0u) mOldestGone = mOldestHere;
         mGoneCount++;

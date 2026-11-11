@@ -37,6 +37,8 @@ namespace MFM {
     , mEWsShipped(0)
     , mEWsReturned(0)
     , mEWsCommitted(0)
+    , mOnPhase(0)
+    , mPhaseSeqnoToMatch(U32_MAX)
   {
     memset_s(mTLBInfos,0u,sizeof(mTLBInfos));
     memset_s(&mPinnedHostBuf,0u,sizeof(mPinnedHostBuf));
@@ -828,55 +830,11 @@ namespace MFM {
     static bool first = true;
     BHTag tag(TagType::HOSTCT,mDevChipNum);
 
-    bool checkPhase = mOnPhase != 140;
-    if (checkPhase) {
-      EACH(100'000,KTprintf(tag,"resetPhase %u tid%u\n", mOnPhase,gettid()));
-      mOnPhase = 0;
-    }
     for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
       updateLogBlocks(tlbi);
       updateACacheBlocks(tlbi);
-
-      if (checkPhase) {
-        BHTag t6tag(TagType::T6TADR,mDevChipNum,tlbi);
-        PhaserBlock * rphase = (PhaserBlock*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
-        if (rphase->isComplete()) {
-          PhaserBolt & pb = rphase->payload();
-          u8 theirNonce = rphase->getHeader().getPacketNonce();
-          u8 ourNonce = mShadowPHASER.getHeader().getPacketNonce();
-          if (theirNonce == ourNonce) {
-            ++mOnPhase;
-            PhaserBolt::Cmd cmd = pb.getCmd();
-            const char * cmdname = PhaserBolt::phaserCmdName(cmd);
-            u32 args = PhaserBolt::phaserArgCount(cmd);
-
-            if (false && mOnPhase%10 == 0)
-              HTprintf("onPh=%d tid=%u #%u t%u,u%u:%s\n",
-                       mOnPhase,gettid(),
-                       tlbi,theirNonce,ourNonce,pb.formatPhaserBolt());
-
-            EACH(100'000,KTprintf(t6tag,"-onPhase- %3d %3d:%s(%s) t%u #%u %uM\n",
-                                  //rphase,
-                                  theirNonce,
-                                  pb.getSeqNo(),
-                                  cmdname,
-                                  args > 0 ? std::to_string(pb.getBoltDataWordOrDie(0)).c_str() : "",
-                                  tlbi,mOnPhase,__EACHNUM__/1'000'000));
-          } else 
-            EACH(100'000,KTprintf(t6tag,"offPhase! %p 0x%02x %s t%u\n",
-                                 rphase,
-                                 theirNonce,
-                                 pb.formatPhaserBolt(),
-                                 tlbi));
-        } else EACH(10'000'000,KTprintf(t6tag,"NOPONGO! %u\n",__EACHNUM__));
-      }
-    }
-    if (checkPhase) {
-      EACH(1'000'000,HTprintf("ONPHASE %u %s\n",mOnPhase,mOnPhase==140 ? "READY!" : ""));
     }
 
-    //XXX BURN BABY BURNNNNN:
-    //sleepUsec(10);
     return true;
   }
 
@@ -884,19 +842,29 @@ namespace MFM {
 
   void OurTLBs::shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) {
     BHTag tag(TagType::HOSTCT,mDevChipNum);
-    HTprintf("%s OurTLBs::shootPHASER %u=%s %u\n",
+    HTprintf("%s OurTLBs::shootPHASER %u=%s+%u #%u\n",
              tag.to_string().c_str(),
              c,PhaserBolt::phaserCmdName(c),
-             args.size());
+             args.size(),
+             mShadowPHASER.getHeader().getPacketNonce());
     u32 spin = 0;
-    while (mOnPhase < 140) {
-      if (++spin > 2'000) {
-        HTprintf("%s PHASE-IN AFTER %u WITH ONLY %u ONPHASE tid%u\n",
-                 tag.to_string().c_str(), spin, mOnPhase,gettid());
-        break;
+#if 0
+    if (false) {
+      // wait for previous shot consensus
+      while (mOnPhase < 140) {
+        if (++spin > 1'000) {
+          HTprintf("%s PHASE-IN AFTER %u WITH ONLY %u ONPHASE #%u tid%u\n",
+                   tag.to_string().c_str(),
+                   spin,
+                   mOnPhase,
+                   mShadowPHASER.getHeader().getPacketNonce(),
+                   gettid());
+          break;
+        }
+        sleepMsec(10);
       }
-      sleepUsec(10);
     }
+#endif    
     PhaserBolt & pb = mShadowPHASER.payload();
     for (u32 i = 0; i < args.size(); ++i) {
       if (!pb.setBoltDataWordIfAny(i,args[i])) break; // too many args?
@@ -916,21 +884,43 @@ namespace MFM {
              );
     pb.reinit(c);
     writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, sizeof(mShadowPHASER)/4);
-    mOnPhase = 0;
+    resetOnPhase(mShadowPHASER.getHeader().getPacketNonce());
     spin = 0;
-    while (mOnPhase < 140) {
-      if (++spin > 1'000) {
-        HTprintf("%s PHASE-OUT AFTER %u WITH ONLY %u ONPHASE\n",
+    u32 nowOnPhase;
+
+    while ((nowOnPhase = getOnPhase()) < 140) {
+      if (++spin > 2'000) {
+        HTprintf("%s PHASE-OUT AFTER %u WITH ONLY %u ONPHASE #%u\n",
                  tag.to_string().c_str(),
-                 spin,mOnPhase);
+                 spin,
+                 nowOnPhase,
+                 mShadowPHASER.getHeader().getPacketNonce());
         break;
       }
-      sleepMsec(10);
+      sleepMsec(20);
     }
-    HTprintf("%s shotshottie %u=%s %u\n",
+    bool consensus = nowOnPhase == 140;
+    HTprintf("%s shotshottie %s %u (%u) %u=%s+%u\n",
              tag.to_string().c_str(),
-             c,PhaserBolt::phaserCmdName(c),
+             consensus ? "  <<CONSENSUS!>>  " : "onPhase",
+             nowOnPhase,
+             updateOnPhaseCount(),
+             c,
+             PhaserBolt::phaserCmdName(c),
              args.size());
+    if (!consensus) {
+      HTprintf("%s LAMERS:%s\n",
+               tag.to_string().c_str(),
+               getNonPhaseTLBIs().c_str());
+    }
+    /*
+    if (mOnPhase != 140) {
+      HTprintf("%s %u BAD TLBIs:%s\n",
+               tag.to_string().c_str(),
+               mOnPhase,
+               mOurTLBIs.c_str());
+    }
+    */
   }
 
   void OurTLBs::resetTheFleet() {
@@ -965,6 +955,59 @@ namespace MFM {
       }
     }
 #endif    
+  }
+
+  u32 OurTLBs::resetOnPhase(u8 seqnoToMatch) {
+    AtomicScopeLock guard(mPhaseLock);
+    mPhaseSeqnoToMatch = seqnoToMatch;
+    
+    for (unsigned i = 0; i < AHAX_TLB2M_COUNT; ++i) {
+      TLBInfo & tinfo = getTLBInfo(i);
+      tinfo.mLastPhaseSeqnoSeen = U32_MAX;
+    }
+    mOnPhase = 0;
+    mUpdateOnPhaseCount = 0;
+    return mOnPhase;
+  }
+
+  u32 OurTLBs::getOnPhase() {
+    AtomicScopeLock guard(mPhaseLock);
+    return mOnPhase;
+  }
+
+  u32 OurTLBs::updateOnPhaseCount() {
+    AtomicScopeLock guard(mPhaseLock);
+    return mUpdateOnPhaseCount;
+  }
+
+  std::string OurTLBs::getNonPhaseTLBIs() {
+    AtomicScopeLock guard(mPhaseLock);
+    std::string ret = "";
+    for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
+      TLBInfo & tinfo = getTLBInfo(tlbi);
+      if (tinfo.mLastPhaseSeqnoSeen == mPhaseSeqnoToMatch) continue;
+      BHTag t6tag(TagType::T6TADR,mDevChipNum,tlbi);
+      ret.append(" ");
+      ret.append(t6tag.to_string());
+    }
+    return ret;
+  }
+
+  u32 OurTLBs::updateOnPhase() {
+    AtomicScopeLock guard(mPhaseLock);
+    ++mUpdateOnPhaseCount;
+    for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
+      TLBInfo & tinfo = getTLBInfo(tlbi);
+      if (tinfo.mLastPhaseSeqnoSeen == mPhaseSeqnoToMatch) continue;
+
+      BHTag t6tag(TagType::T6TADR,mDevChipNum,tlbi);
+      PhaserBlock * rphase = (PhaserBlock*) mHostCommsMap.getHostBlockAddress(tlbi, BlockCode::BC_PHASER);
+      if (!rphase->isComplete()) continue;
+      PhaserBolt & pb = rphase->payload();
+      tinfo.mLastPhaseSeqnoSeen = rphase->getHeader().getPacketNonce();
+      if (tinfo.mLastPhaseSeqnoSeen == mPhaseSeqnoToMatch) ++mOnPhase;
+    }
+    return mOnPhase;
   }
 
 }

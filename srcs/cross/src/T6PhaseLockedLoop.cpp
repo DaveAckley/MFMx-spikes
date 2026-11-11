@@ -37,7 +37,7 @@ namespace MFM {
     u8 hart = fAll.mHartNum;
     if (mHartCharAcks[hart] == ACK_CHAR) return;
     recordAck(mPhase,mEdge,hart);
-    LOGPTAG(OKAY,voteStatus());
+    if (consensusReached()) LOGPTAG(OKAY,voteStatus());
   }
 
   void PhaseStepper::ConsensusChecker::recordAck(PBCmd cmd, Edge edge, u8 hart) {
@@ -61,7 +61,7 @@ namespace MFM {
       break;
     }
     if (!ret) {
-      EACH(100'000,LOGPTAG(CCBLOKT,voteStatus()));
+      EACH(10'000'000,LOGPTAG(CCBLOKT,voteStatus()));
     }
     return ret;
   }
@@ -124,7 +124,7 @@ namespace MFM {
 
   void T6PhaseLockedLoop::phaseStepperControlNC() {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC);
-    EACH(1'000'000,LOGPTAG(PHUZSTEPCON,__EACHNUM__));
+    EACH(10'000'000,LOGPTAG(PHAZSC,__EACHNUM__));
 
     AtomicScopeLock guard(mLock);
     if (mPS._isExiting()) {
@@ -305,7 +305,7 @@ namespace MFM {
     //LOGPTAG64(RPHASEmDBAdr,destBlockAddr);
 
     PhaserBlock & pb = T6Phaser::getPhaserBlock();
-    LOGPTAG(BOLTBACK,pb.payload().formatPhaserBolt());
+    LOGPTAG(BACK,pb.payload().formatPhaserBolt());
     u32 pbwordcount = sizeof(pb)>>2;
     s32 status = NRI3::initiateWriteToHost(hb.mNoC0,(u32*) &pb, pbwordcount, destBlockAddr);
     if (status != 1) LOGXTAG(RPHASEstatus,status);

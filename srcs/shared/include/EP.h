@@ -24,8 +24,22 @@ namespace MFM {
   inline u8& epInstantiationVar() { static u8 n = 0; return n; }
   inline u8 epInstantiationCount() { return ++epInstantiationVar(); }
 
+  struct EPBase {
+    //    const char * getName() const ;
+    EndPointAddress mSrcEPA; //< Local end
+    EndPointAddress mDestEPA;   //< Remote end
+
+    EndPointAddress getSrcEPA() const { return mSrcEPA; }
+    BlockCode getSrcBlockCode() const { return getSrcEPA().mBlockCode; }
+    u8 getSrcBlockCodeIndex() const { return getSrcEPA().mBlockCodeIndex; }
+
+    EndPointAddress getDestEPA() const { return mDestEPA; }
+    BlockCode getDestBlockCode() const { return getDestEPA().mBlockCode; }
+    u8 getDestBlockCodeIndex() const { return getDestEPA().mBlockCodeIndex; }
+  };
+
   template<class SUBEP, class SUBTC>
-  struct EP {
+  struct EP : public EPBase {
     static u8 getEPNumber() {
       static u8 epn = 0;
       if (epn == 0) epn = epInstantiationCount();
@@ -47,6 +61,7 @@ namespace MFM {
     //unclear we want to go this way: bool isRemoteHost() const { return self().isRemoteHost(); }
 
     const char * getName() const { return self().getName(); }
+
     //virtual XPrinter & getLogToPrinter() const { return DEVNULL; }
 
     char * report(u32 size, char * buf) const { return self().report(size,buf); }
@@ -123,14 +138,6 @@ namespace MFM {
 
     bool updateOps() ;
 
-    EndPointAddress getSrcEPA() const { return mSrcEPA; }
-    BlockCode getSrcBlockCode() const { return getSrcEPA().mBlockCode; }
-    u8 getSrcBlockCodeIndex() const { return getSrcEPA().mBlockCodeIndex; }
-
-    EndPointAddress getDestEPA() const { return mDestEPA; }
-    BlockCode getDestBlockCode() const { return getDestEPA().mBlockCode; }
-    u8 getDestBlockCodeIndex() const { return getDestEPA().mBlockCodeIndex; }
-
     u8 getHereCount() const { return mHereCount; }
     u8 getGoneCount() const { return mGoneCount; }
 
@@ -149,8 +156,6 @@ namespace MFM {
     ~EP() = default;
     
   private:
-    EndPointAddress mSrcEPA; //< Local end
-    EndPointAddress mDestEPA;   //< Remote end
     EPState getFastEPState() const { return mFastEPState; }
     void setFastEPState(EPState newstate) {
       HBASSERT_NE(getFastEPState(),newstate);

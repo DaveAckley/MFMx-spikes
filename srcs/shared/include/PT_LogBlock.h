@@ -8,11 +8,19 @@
 namespace MFM {
 
   struct LogBlockPayload {
+#if 1
+    static constexpr u32 LBP_DATA_SIZE = 3200;//1000;
+    static constexpr u32 LBP_HIGH_BYTES_MARK = LBP_DATA_SIZE - 250; //XXX 64;
+    static constexpr u32 LBP_HIGH_TICKS_MARK = 30'000;
+    static constexpr u32 LBP_HEADER_SIZE = 2+2+4;
+    static constexpr u32 LBP_TOTAL_SIZE = LBP_DATA_SIZE + LBP_HEADER_SIZE;
+#else
     static constexpr u32 LBP_DATA_SIZE = 984;//1000;
     static constexpr u32 LBP_HIGH_BYTES_MARK = LBP_DATA_SIZE - 80; //XXX 64;
     static constexpr u32 LBP_HIGH_TICKS_MARK = 10'000;
     static constexpr u32 LBP_HEADER_SIZE = 2+2+4;
     static constexpr u32 LBP_TOTAL_SIZE = LBP_DATA_SIZE + LBP_HEADER_SIZE;
+#endif
     static constexpr u32 LBP_MAGIC = 0x11a2;
     u16 mMAGIC;
     u16 mDataUsed;
@@ -67,6 +75,9 @@ namespace MFM {
   class LogBlock : public TC<LogBlock,sizeof(LogBlockPayload)> {
   public:
     const char * getName() const { return "LogBlock"; }
+    const char * formatTC(EPBase & epb) {
+      return getName(); // MAKE ME BETTER
+    }
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);
@@ -88,7 +99,7 @@ namespace MFM {
     }
   };
 
-  constexpr u32 NUMBER_OF_LOGBLOCK_CARS = 4u;
+  constexpr u32 NUMBER_OF_LOGBLOCK_CARS = 3u;
   typedef TCStorage<LogBlock,NUMBER_OF_LOGBLOCK_CARS> LogBlockStg;
 
 }

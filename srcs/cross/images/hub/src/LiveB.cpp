@@ -33,7 +33,7 @@ namespace MFM {
       static u32 spin = 0u;
       if ((++spin & 0x7f'ffff) == 0) {
         HBXTAG(hubPrcHC,spin);
-        LOGXTAG(hubPrcHCL,spin);
+        //LOGXTAG(hubPrcHCL,spin);
       }
     }
 

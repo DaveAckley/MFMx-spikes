@@ -218,6 +218,10 @@ namespace MFM {
   class PhaserBlock : public TC<PhaserBlock,sizeof(PhaserBolt)> {
   public:
     const char * getName() const { return "PhaserBlock"; }
+    const char * formatTC(EPBase & epb) {
+      return getName(); // MAKE ME BETTER
+    }
+
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);
     }

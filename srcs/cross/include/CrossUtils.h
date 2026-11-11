@@ -213,9 +213,25 @@ namespace MFM {
 
   char * formatCountedByte(u32 count, u8 byte) ;
 
-  inline u32 ptrTag4(void * p) { return 0xffff&(((u32)p)>>4); }
-
   class InterHubBlock; // FORWARD
-  const char * formatIHBlock(InterHubBlock & ihb, u32 caridx) ;
+  struct Buf32 {
+    static constexpr u8 SIZE = 32;
+    char buf[SIZE];
+  };
+
+  const char * hexDump(const void * p) ;
+  const char * hexDumpBuf32(Buf32 & b32, const void * p) ;
+  const char * strTag3(const void * p) ;
+  const char * strTag4(const void * p) ;
+  const char * strTag4Buf32(Buf32 & b32, const void * p) ;
+
+  inline u32 ptrTag3(const void * p) { return 0xfff&(((u32)p)>>4); }
+  inline u32 ptrTag4(const void * p) { return 0xffff&(((u32)p)>>4); }
+
+  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, U8C noc0, void * theiraddr) ;
+  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, Dir8 fromd8) ;
+
+  const char * formatIHBlock(InterHubBlock & ihb, Dir8 d8, u32 caridx) ;
+  const char * formatIHBlockBuf32(Buf32 & b32, InterHubBlock & ihb, Dir8 d8, u32 caridx) ;
 
 }

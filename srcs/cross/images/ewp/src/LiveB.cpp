@@ -75,7 +75,7 @@ namespace MFM {
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
       static u32 spin = 0;
       //// LIFE
-      static constexpr u32 BITS = 13;
+      static constexpr u32 BITS = 15;
       if ((spin++ & ((1u<<BITS)-1)) == 0) {
         HBPTAG(ewpdemo,spin>>BITS);
         LOGPTAG(ewpdemo,spin>>BITS);

@@ -18,10 +18,10 @@ namespace MFM {
 
   constexpr const char * getNameFromIHPType(IHPType ih) {
     switch (ih) {
-    case IHPT_EMPTY: return "EMPTY(0)";
-    case IHPT_PING: return "PING(1)";
-    case IHPT_ATOMS: return "ATOMS(2)";
-    case IHPT_DATA: return "DATA(3)";
+    case IHPT_EMPTY: return "EM0";
+    case IHPT_PING: return "PI1";
+    case IHPT_ATOMS: return "AT2";
+    case IHPT_DATA: return "DA3";
     default: return "IHPT_WHAAAT(?)";
     }
   }
@@ -74,6 +74,17 @@ namespace MFM {
   struct IHPAtoms : public IHPBase {
     void init() {
       memset_s(this,'\0',sizeof(*this));
+      mSrcCode = 0xa7;
+      mStartsAt.x = 0xf0;
+      mStartsAt.y = 0xba;
+    }
+
+    void setStartsAt(U8C startsat) {
+      mStartsAt = startsat;
+    }
+
+    U8C getStartsAt() const {
+      return mStartsAt;
     }
 
     bool isValid() const {
@@ -111,9 +122,9 @@ namespace MFM {
       return mAtoms[idx];
     }
 
-    u8 mSrcCode;             //< source sites (dir8: 0..7) or caches (dir8+8: 8..15) of these atoms
+    u8 mSrcCode;             //< XXX UNUSED! source sites (dir8: 0..7) or caches (dir8+8: 8..15) of these atoms
     u8 mAtomCount;           //< #atoms in this mAtoms
-    U8C mStartsAt;           //< mAtoms[0] is from this U8C
+    U8C mStartsAt;           //< XXX UNUSED! mAtoms[0] is from this U8C
 
     static constexpr u32 MAX_ATOM_INDEX = U8_MAX;
     P4Atom mAtoms[MAX_ATOM_INDEX+1];
@@ -127,7 +138,14 @@ namespace MFM {
     
     void initType(IHPType type) {
       init();                   // clear all
-      initIHP(type,{0,0},{0,0}); // ct6 dest and src UNUSED
+      switch (type) {
+      case IHPT_ATOMS:
+        initIHP(type,{0,0},{0,0}); // ct6 dest and src UNUSED
+        mIHPHeader.initIHPRaw(type,0xa7,0xb8);
+        break;
+      default:
+        initIHP(type,{0,0},{0,0}); // ct6 dest and src UNUSED
+      }
     }
 
     IHPType getType() const {
@@ -174,6 +192,14 @@ namespace MFM {
 
       S8C mHops2Dest, mHops2Source;
 
+      u8 initIHPRaw(IHPType type,u8 spin1, u8 dist) {
+        mPayloadType = type;
+        mCmdSpinner1 = spin1;
+        mHopsDistance = dist;
+        mCmdSpinner2 = mCmdSpinner1;
+        return mCmdSpinner1;
+      }
+
       u8 initIHP(IHPType type,S8C hops2dest, S8C hops2source) {
         mPayloadType = type;
         mHops2Dest = hops2dest;
@@ -186,8 +212,8 @@ namespace MFM {
       bool isValid() const {
         return
           mPayloadType < MAX_IHPT &&
-          mCmdSpinner1 == mCmdSpinner2 &&
-          mHops2Dest.length() + mHops2Source.length() == mHopsDistance;
+          mCmdSpinner1 == mCmdSpinner2/* UNUSED && 
+          mHops2Dest.length() + mHops2Source.length() == mHopsDistance*/;
       }
     };
     
@@ -200,6 +226,10 @@ namespace MFM {
   class InterHubBlock : public TC<InterHubBlock,sizeof(InterHubPayload)> {
   public:
     const char * getName() const { return "InterHubBlock"; }
+    const char * formatTC(EPBase & epb) {
+      Buf32 b32;
+      return formatIHBlockBuf32(b32, *this, (Dir8) epb.getSrcBlockCodeIndex(), 99);
+    }
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);

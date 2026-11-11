@@ -13,6 +13,9 @@ namespace MFM {
 }
 #define HOOKIT() \
   do { if (theGlobalDebugHook) (*theGlobalDebugHook)(GET_FILE_ID(__FILE__),__LINE__); } while (0)
+#define SPEWIT(tcp) do {                                                \
+    /*    LOGPTAG(xspew,tcp->isComplete() ? strTag4(tcp) : hexDump(tcp)); */ \
+  } while (0)
   
 /////// ALL 'DTRIG' DEBUG TRACE VARIABLES ARE DECLARED HERE
 #define DEBUG_TRACE_VARIABLE_PREFIX _dtvar_
@@ -137,12 +140,10 @@ ALL_DEBUG_TRACE_VARIABLES()
       LOGPTAG(BHANG!L,A);                                               \
       LOGPTAG(BHANG!R,B);                                               \
       LOGXTAG(CALR0,callerPC(0));                                       \
-      LOGXTAG(CALR1,callerPC(1));                                       \
       HBPTAG(BHANG!,getNameFromImageCode((ImageCode)fAll.mImageCode));  \
       HBPTAG(BHANG!L,A);                                                \
       HBPTAG(BHANG!R,B);                                                \
       HBXTAG(CALR0,callerPC(0));                                        \
-      HBXTAG(CALR1,callerPC(1));                                        \
     }                                                                   \
     MFM_API_ASSERT(A OP B,DESCRIBED_FAILURE);                           \
   } while(0)

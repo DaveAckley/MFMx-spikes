@@ -86,6 +86,10 @@ namespace MFM {
     return hostlogdir;
   }
 
+  std::string getDumpPathForKey(const BHTag & key) {
+    return getSimDir() + "dumps/" + key.to_string() + ".core";
+  }
+
   void initHostLogging() {
     std::string dt = dateTimeStamp();
 #ifndef PROJECT_SOURCE_DIR
@@ -100,9 +104,10 @@ namespace MFM {
     }
     
     hostlogdir = "/tmp/" + std::string(spike) + "MFMX-" + dt + "/";
-    // create dir to hold all the rest.
+    // create dirs to hold all the rest.
     std::filesystem::create_directories(hostlogdir+"tiles/"); // for T6TADR BHTags
     std::filesystem::create_directories(hostlogdir+"host/");  // for hc000 BHTags
+    std::filesystem::create_directories(hostlogdir+"dumps/"); // for T6 core dumps
     std::filesystem::create_directories(hostlogdir+"misc/");  // for all other BHTags
     std::string logpath = hostlogdir + "all.mfmk";            // MFMxLogJumpr extension
     hostlogfile = fopen(logpath.c_str(),"w+"); // just stomp on existing come on

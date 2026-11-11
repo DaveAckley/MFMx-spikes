@@ -89,7 +89,9 @@ namespace MFM {
   
   class ACacheBlock : public TC<ACacheBlock,sizeof(ACacheBlockPayload)> {
   public:
+    // TCBase API
     const char * getName() const { return "ACacheBlock"; }
+    const char * formatTC(EPBase & epb) { return getName(); } //< PLACEHOLDER
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 
       FAIL(INCOMPLETE_CODE);

@@ -88,7 +88,8 @@ namespace MFM {
     //SNAP(2,HBPVAL(&idxs));
     u8 carindex;
     if (idxs.mTheIdxs[CarIdxs::COMP2COMM].remove(carindex)) {
-      EACH(100'000,{
+      if (false)
+        EACH(100'000,{
           LOGPTAG(popClo,this->getName());
           LOGPTAG(HN<-EP,__EACHNUM__);
         });
@@ -103,9 +104,10 @@ namespace MFM {
         }
         HBASSERT_EQ(carp->getTCState(), TCState::CLOSED);
       }
+      //      LOGPTAG(pspew,hexDump(carp));
       return carp;
     }
-    EACH(1'000'000,LOGPTAG(emp,this->getName()));
+    //    EACH(1'000'000,LOGPTAG(emp,this->getName()));
     return nullptr;
   }
 
@@ -128,6 +130,11 @@ namespace MFM {
 
     if (U8C::isNoC0CoordAT6(destnoc0)) {
       s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &car, wordCount, destnoc0, (u32) destcaraddr);
+      /*
+      Buf32 b32;
+      LOGPTAG(>>>,destnoc0);
+      LOGPTAG(@,strTag4Buf32(b32,&car));
+      */
       return status > 0;
     }
 

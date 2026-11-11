@@ -202,7 +202,7 @@ namespace MFM {
     UC stop;                     // EXCLUSIVE
 
     struct iterator {
-      iterator()
+      iterator()                //< an empty, immediately atEnd(), iterator
         : range(UxCRange())
         , at(0,0)
       { }

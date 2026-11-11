@@ -41,16 +41,40 @@ namespace MFM {
       { { TW-OW, 0 },     {TW, OH} },    // NE
     };
 
-    static constexpr const Dir8Ranges SITE_RANGES = {
-      U8CRange(CACHE_RANGES[D8_NT],{ 0, OH }), 
-      U8CRange(CACHE_RANGES[D8_NW],{ OW, OH }),
-      U8CRange(CACHE_RANGES[D8_WT],{ OW, 0 }), 
-      U8CRange(CACHE_RANGES[D8_SW],{ OW,(u8)-OH }), 
-      U8CRange(CACHE_RANGES[D8_ST],{ 0,(u8)-OH }), 
-      U8CRange(CACHE_RANGES[D8_SE],{(u8)-OW,(u8)-OH }), 
-      U8CRange(CACHE_RANGES[D8_ET],{(u8)-OW, 0 }), 
-      U8CRange(CACHE_RANGES[D8_NE],{(u8)-OW, OH }), 
+    using Dir8Offsets = U8C[D8_NE+1];
+
+    static constexpr const Dir8Offsets CACHE_TO_SITE_OFFSETS = {
+      { 0, OH },           // NT
+      { OW, OH },          // NW
+      { OW, 0 },           // WT
+      { OW,(u8)-OH },      // SW
+      { 0,(u8)-OH },       // ST
+      {(u8)-OW,(u8)-OH },  // SE
+      {(u8)-OW, 0 },       // ET
+      {(u8)-OW, OH },      // NE
     };
+
+    static constexpr const Dir8Ranges SITE_RANGES = {
+      U8CRange(CACHE_RANGES[D8_NT],CACHE_TO_SITE_OFFSETS[D8_NT]),
+      U8CRange(CACHE_RANGES[D8_NW],CACHE_TO_SITE_OFFSETS[D8_NW]),
+      U8CRange(CACHE_RANGES[D8_WT],CACHE_TO_SITE_OFFSETS[D8_WT]),
+      U8CRange(CACHE_RANGES[D8_SW],CACHE_TO_SITE_OFFSETS[D8_SW]),
+      U8CRange(CACHE_RANGES[D8_ST],CACHE_TO_SITE_OFFSETS[D8_ST]),
+      U8CRange(CACHE_RANGES[D8_SE],CACHE_TO_SITE_OFFSETS[D8_SE]),
+      U8CRange(CACHE_RANGES[D8_ET],CACHE_TO_SITE_OFFSETS[D8_ET]),
+      U8CRange(CACHE_RANGES[D8_NE],CACHE_TO_SITE_OFFSETS[D8_NE]),
+    };
+
+    static constexpr U8C mapDestCToUs(Dir8 ourD8, bool weLead, U8C c) {
+      Dir8 oppD8 = oppositeDir8(ourD8);
+      if (weLead) {             // their sites to our cache
+        U8C zc = c - SITE_RANGES[oppD8].start;
+        return CACHE_RANGES[ourD8].start + zc;
+      } else {                  // their cache to our sites
+        U8C zc = c - CACHE_RANGES[oppD8].start;
+        return SITE_RANGES[ourD8].start + zc;        
+      }
+    }
 
     static constexpr const U8CRange HIDDEN_RANGE = { { 2*OW,2*OH }, { TW-2*OW, TH-2*OH } };
 
@@ -146,4 +170,3 @@ namespace MFM {
     }
   };
 }
-

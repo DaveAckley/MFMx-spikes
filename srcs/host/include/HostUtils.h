@@ -71,6 +71,8 @@ namespace MFM {
   std::ofstream getOStreamLogForKey(const BHTag & key) ; // CALLER CLOSES RETURNED FILE *
   std::string getSimDir() ;
 
+  std::string getDumpPathForKey(const BHTag & key) ;
+
   template <typename... Args>
   auto stringFormat(std::string_view format, Args&&... args) -> std::string {
     const auto size_s = std::snprintf(nullptr, 0, format.data(), std::forward<Args>(args)...);

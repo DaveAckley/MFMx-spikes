@@ -266,7 +266,7 @@ namespace MFM {
     mBHTag = BHTag(TagType::T6TADR, (u8) mChipNum, (u32) mTLBI);
 
     mLZ.init(ZHByteSource, this, ZHByteSink, this);
-    HTprintf("ZHD %s HERE HALLO %u HARIO MADE %u\n",mBHTag.to_string().c_str(),tlbi,mMade);
+    //    HTprintf("ZHD %s HERE HALLO %u HARIO MADE %u\n",mBHTag.to_string().c_str(),tlbi,mMade);
     KTprintf(mBHTag,"ZHD %p HERE HALLO %u HARIO MADE %u\n",this,tlbi,mMade);
 
     mDecompressorThreadPtr = std::make_unique<std::thread>([this,tlbi]() {

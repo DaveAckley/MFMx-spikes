@@ -97,6 +97,7 @@ namespace MFM
   };
 
   static const char * dir8ToByteString(const Dir8 d8) {
+    if (d8 >= 8) return "XX8";
     return "NT8\0NW8\0WT8\0SW8\0ST8\0SE8\0ET8\0NE8" + d8*4u;
   }
 

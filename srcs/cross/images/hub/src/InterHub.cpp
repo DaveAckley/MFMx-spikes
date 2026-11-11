@@ -244,6 +244,7 @@ namespace MFM {
 
   static RCFlag manageCornerHubNC(HTOpCode htoc) {
     RCFlag ret = RCFlag::RC_ZERO;
+    Buf32 b32;
 
     if (unlikely(htoc == HTOpCode::HTOC_INIT)) {
 
@@ -274,7 +275,7 @@ namespace MFM {
 
 
     } else if (likely(htoc == HTOpCode::HTOC_LIVE)) {
-
+      
       //// LIVING
       for (u32 i = 0; i < CHUB_BLOCK_COUNT; ++i) {
         Dir4 ourDir4 = (Dir4) i;
@@ -285,17 +286,17 @@ namespace MFM {
         
         InterHubStorage & chstg = theCornerHubL1Data.mTheTCStorages[ourDir4];
         for (u32 c = 0; c < InterHubStorage::CAR_COUNT; ++c) {
-          EACH(10'000'000,LOGPTAG(CHUBLIVE,__EACHNUM__));
+          //EACH(10'000'000,LOGPTAG(CHUBLIVE,__EACHNUM__)); 
           InterHubBlock & chbcar = chstg.getTC(c);
           if (!chbcar.isComplete()) continue;
           /// WE HAVE A COMPLETE PACKET
-          EACH(1'000,LOGNOTE(CHUBCOMPLETE));
-
           u8 carnonce = chbcar.getHeader().getPacketNonce();
           if (!chs.updateSavedNonce(c,carnonce)) continue;
           /// WITH A NONCE DIFFERENT FROM BEFORE
-          EACH(1'000,LOGPTAG(CHUBNEWNONCE,carnonce));
-          
+          LOGPTAG(CR___,
+                  formatT6RecvBuf32(b32,
+                                    &chbcar,chbcar.currentTCSize(),
+                                    dir4ToDir8(ourDir4)));
           // Forward to dest
           /* Q1: What Midway Axis do we represent?
 
@@ -354,11 +355,12 @@ namespace MFM {
           u32 destIHUBBlockBaseAddr = allIHUBBlocksBaseAddr + destIHUBIdx * STORAGE_SIZE_BC_INTERHUB;
 
           EACH(1,{
-              LOGPTAG(CHUBSEQN,ourDir4);
-              LOGPX(destHubD4);
-              LOGPX(theirnoc0);
-              LOGPX(destIHUBIdx);
-              LOGXX(destIHUBBlockBaseAddr);
+              //LOGPTAG(CHUBSEQN,ourDir4);
+              //LOGPX(destHubD4);
+              //LOGPX(theirnoc0); // final dest noc?
+              //LOGPX(destIHUBIdx);
+              //LOGXX(allIHUBBlocksBaseAddr);
+              //LOGXX(destIHUBBlockBaseAddr);
             });
           
           // okay, dest addr is car# * CARSIZE + baseaddr?
@@ -367,19 +369,23 @@ namespace MFM {
           u32 destaddr = destIHUBBlockBaseAddr + caroff;
 
           u32 wordCount = chbcar.getHeader().getPacketWords();
+          if (true) {
+            LOGPX(ournoc0);
+            LOGPX(theirnoc0);
+            //LOGXX(&chbcar);
+            //LOGXX(destaddr);
+          }
+          //LOGPTAG(CS___,formatIHBlockBuf32(b32,chbcar,dir4ToDir8(ourDir4),c));
+          LOGPTAG(CS___,formatT6SendBuf32(b32,&chbcar,chbcar.currentTCSize(),
+                                          theirnoc0,(void*) destaddr));
           s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &chbcar, wordCount, theirnoc0, destaddr);
           MFM_API_ASSERT(status > 0,ILLEGAL_STATE);
-          LOGXTAG(CHUBSTILLALIVE,c);
-          LOGPX(ournoc0);
-          LOGPX(theirnoc0);
-          LOGPTAG(car#,c);
-          LOGXX(destaddr);
           // Spoil the packet to speed up future rejections. This is
           // technically a race - we officially yielded control of
           // this memory when we shipped it - but the path it's racing
           // against is sooooooooooo much longer I can't even
           // imagine..
-          chbcar.getHeader().spoilCompletePacket();
+          if (false /*BAAAAAD IDEA: RACY RACY*/) chbcar.getHeader().spoilCompletePacket();
         }
       }
     } else LOGPTAG(unknown htoc,htoc);

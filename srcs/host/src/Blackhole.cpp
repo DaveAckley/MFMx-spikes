@@ -342,6 +342,8 @@ namespace MFM {
                         &this->mOurTLBs);
         }
         this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
+        if ((i & 0xff)==0)
+          this->mOurTLBs.updateOnPhase();
       }
       Eprintf("TransportThread (%u) OUT %s\n",bhl.getThrId(),myGILState());
     });
