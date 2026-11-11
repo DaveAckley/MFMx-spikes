@@ -1,4 +1,4 @@
-{1145}  -*-  mode: text; fill-column: 32;  -*-
+{1208}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 [7:
 
@@ -17793,7 +17793,7 @@ using so far.[984:
 Thu Oct 29 10:26:44 2026
 Actually, starting a
 simplify-supercycle branch.
-That's what they're here for. 
+That's what they're here for.
 [985:
 
 Thu Oct 29 10:40:30 2026 Well,
@@ -17848,12 +17848,12 @@ fits into the current picture?
 Thu Oct 29 13:28:26 2026 It's
 called from
 
-  void T6BoltResponder::boltResponderAllHarts() 
+  void T6BoltResponder::boltResponderAllHarts()
 
 and returns true when HB is
 ready to acknowledge the current
 bolt. Are we still acknowledging
-bolts directly at all? 
+bolts directly at all?
 
 [991:
 
@@ -17888,7 +17888,7 @@ unifying over stages.
      is called by
     T6BoltResponder::boltResponderAllHarts()
      is called by
-    bool beatTheStandardHeartbeat(..) 
+    bool beatTheStandardHeartbeat(..)
 
 and I'm thinking now that say
 boltResponderAllHarts should
@@ -17971,7 +17971,7 @@ cost now that we've stripped
 back the phases?
 
     5 HARTS
-  x 2 (relevant) PHASES 
+  x 2 (relevant) PHASES
   x 2 EDGES
  ----
   20B say? chump change!
@@ -18112,7 +18112,7 @@ PHASE STEPPING DUTIES
        entering done when:
             leader: all caches sent
             follower: all sites recvd
-       
+
        occupying: --
        exiting:
          GridMgr:
@@ -18149,7 +18149,7 @@ we've made doneExiting(cmd) and
 doneEntering(cmd) and where do
 we use them? There was a plan to
 dith imageDoneResponding..
-right? 
+right?
 [1001:
 
 Thu Oct 29 22:39:20 2026 Ah yes:
@@ -18171,7 +18171,7 @@ nobody is calling
 switchToEntering (for example).
 Where do we think that should
 happen? Is anyone calling
-boltdetectorNC? 
+boltdetectorNC?
 [1003:
 
 Thu Oct 29 23:54:16 2026 Looks
@@ -18182,7 +18182,7 @@ but nobody's calling that?
 
 Thu Oct 29 23:54:59 2026 Well,
 :), looks like stepNC calls
-that. 
+that.
 
 :1004]
 
@@ -18229,7 +18229,7 @@ initialization problem. Aaaand
 just saying that much - I think
 I'm going to make it
 'self-initializing' and remove
-the current FAIL. 
+the current FAIL.
 [1008:
 
 Fri Oct 30 12:24:49 2026 OK well
@@ -18241,14 +18241,14 @@ since it's been a while:
 
     root@roses-bh:~# uptime
      12:25:03 up 50 days,  8:53,  9 users,  load average: 11.57, 27.35, 25.54
-    root@roses-bh:~# 
+    root@roses-bh:~#
 
 So we're going to commit WIP and
 push and XPush for safety, then
 upgrade, then reboot, than nap,
 and hopefully roses-bh will be
 blooming again by the time I get
-back. 
+back.
 
 :1008]
 :1007]
@@ -18299,7 +18299,7 @@ do:
       mNewestCmdReceived = pay.getCmd();
  ..   mPS._switchToExiting(mVoteClerk,mNewestCmdReceived);
 
-instead of 
+instead of
 
       mPS._switchToExiting(mVoteClerk,mNewestCmdReceived);
  ..   mNewestCmdReceived = pay.getCmd();
@@ -18419,7 +18419,7 @@ Fri Oct 30 19:29:54 2026 OK, now
 that we see when all harts have
 acked, and we're at consensus
 about moving from enter to
-occupy, who is it that's 
+occupy, who is it that's
 supposed to actually do that
 change? [1025:
 
@@ -18459,7 +18459,7 @@ Fri Oct 30 21:39:22 2026 OK fuck
 let's make seqno matching be
 HN's job only. TODO
 
- - u8 mLastSeqnoAcked[HART_COUNT] 
+ - u8 mLastSeqnoAcked[HART_COUNT]
    to scalar.
 
  - boltResponderAllHarts becomes
@@ -18487,7 +18487,7 @@ Fri Oct 30 21:51:26 2026
    we'll see.
 
 :1028]
- 
+
 
 
 
@@ -18675,7 +18675,7 @@ Sat Oct 31 09:14:31 2026 We have
           updateIHCarsB(i,hb,(i&1)==0);
         }
       }
-and 
+and
       void InterHubPrivateControl::updateIHCarsB(u32 ngbidx,HostBlock & hb,bool inside) {
         MFM_API_ASSERT_ON_HART(HARTNUM_B);
         MFM_API_ASSERT(ngbidx<IHUB_BLOCKS,ILLEGAL_ARGUMENT);
@@ -18734,7 +18734,7 @@ Grid.cpp, EP_InterHub,
 LiveB, EP_ACacheBlock, and
 HubBoltResponder.. so I think
 we're going to have to deal with
-it.. 
+it..
 
 Let's peek at the hits..
 
@@ -18903,7 +18903,7 @@ called by
 
 and that really is pretty
 hardcoded to entering ->
-occupying. 
+occupying.
 
 :1067]
 
@@ -19027,7 +19027,7 @@ HubBoltResponder.h, and that's
 where static bool
 bRespondToCMD_NEW_LEADER(s32
 arg) is currently living, which
-we want to remake into 
+we want to remake into
 
   extern bool workOnEnteringNewLeaderB();
 
@@ -19054,7 +19054,7 @@ blowing up in EWP because we
 have not made a non-weak
 
   void assessProgressAllHarts()
-  
+
 for it. Make one, and make a
 void
 T6PhaseLockedLoop::rubberStamp()
@@ -19121,7 +19121,7 @@ Sun Nov  1 01:28:27 2026 OK, so:
      SCStatus from it
    = everybody computes their IH
      counterparties (in
-     CacheLoaders) 
+     CacheLoaders)
    = everybody inits their
      mLocalItr and mRemoteItr as
      makes sense for their
@@ -19130,7 +19130,7 @@ Sun Nov  1 01:28:27 2026 OK, so:
      localitr over sites,
      remoteitr over caches)
    = then everybody approves the
-     edge.      
+     edge.
 
 [1063:
 
@@ -19217,7 +19217,7 @@ code, which I think needs:
 
  - To be revised for fixed Dir8
    instances rather than
-   allocations. 
+   allocations.
 
  - To be moved to a 1PO init
    routine. We're assuming
@@ -19227,7 +19227,7 @@ code, which I think needs:
  - To be called from some 1PO
    location TBD.
 
- - 
+ -
 
 :1071]
 
@@ -19280,7 +19280,7 @@ sure
 
 (1) how much persmod state it's
     got and
-(2) how widely it's used.    
+(2) how widely it's used.
 
 [1075:
 
@@ -19446,7 +19446,7 @@ RUN_EVENTS? We can't believe
 theL1CacheLoaders.configureCacheLoaders(..)
 is real, can we? I don't
 remember configuring any
-iterators, yet, for example. 
+iterators, yet, for example.
  [1090:
 
 Mon Nov  2 14:49:09 2026 Well
@@ -19466,7 +19466,7 @@ don't know if this is because of
 racing, but I see that this
 ifX+doneX idiom:
 
-          /////// CASES: 
+          /////// CASES:
           // ENTERING HOLD_AT_BIRTH
           if (thePLL.ifEntering(PBCmd::HOLD_AT_BIRTH)) {
             thePLL.doneEntering(PBCmd::HOLD_AT_BIRTH);
@@ -19546,7 +19546,7 @@ when I haven't already voted..
 
 :1081]
 :1080]
-  
+
 :1079]
 
 :1078]
@@ -19565,7 +19565,7 @@ Tue Nov  3 00:46:52 2026 OK, so:
     trying to load fucking IH
     cars and then trying to
     observe them going INTERHUB.
-   
+
 [1094:
 
 Tue Nov  3 12:53:01 2026 OK, so
@@ -19621,13 +19621,13 @@ far nobody is calling
   bool CacheLoader::loadPacketFromCache(GridManager & gm, InterHubBlock & ihb) {
 
 and I think we want to
-restructure it a bit to be like: 
+restructure it a bit to be like:
 
-  bool CacheLoader::loadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) 
+  bool CacheLoader::loadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb)
 
 and
 
-  bool CacheLoader::unloadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb) 
+  bool CacheLoader::unloadPacket(bool localNotRemote, GridManager & gm, InterHubBlock & ihb)
 
 and I expect
 CacheLoader::tryLoad ultimately
@@ -19794,7 +19794,7 @@ Wed Nov  4 02:53:05 2026 I'm
 going to pop off a new
 'simplify-interhub' branch for
 this, and then tear up
-PT_Interhub. 
+PT_Interhub.
 [1106:
 
 Wed Nov  4 02:55:22 2026 OK, I
@@ -19848,12 +19848,12 @@ Wed Nov  4 12:24:05 2026 So
 okay, we're smoothing our newer
 PT_InterHub. How do we want
 
-    void loadAtomIntoPacketOrDie(const P4Atom a) 
+    void loadAtomIntoPacketOrDie(const P4Atom a)
 
 
-    void unloadAtomFromPacketOrDie(P4Atom & a) 
+    void unloadAtomFromPacketOrDie(P4Atom & a)
 
-to work if we want them at all? 
+to work if we want them at all?
 
 [1110:
 
@@ -19861,7 +19861,7 @@ Wed Nov  4 12:28:27 2026 Seems
 at a minimum we need an
 asymmetry like:
 
-    void pushAtomAtEndOfPacketOrDie(const P4Atom a) 
+    void pushAtomAtEndOfPacketOrDie(const P4Atom a)
 vs
     P4Atom getAtomFromPacketOrDie(u8 idx) const
 
@@ -19923,7 +19923,7 @@ packet to-be-filled..[1116:
 Wed Nov  4 14:00:47 2026 And
 that's going to depend on u32
 ngbidx, right? ..yesss, and
-that's why we did 
+that's why we did
 
         CacheLoader & clp = cls.get((Dir8) ngbidx);
 
@@ -19979,23 +19979,23 @@ follower + load =>
 leader + load =>
   sitesNotCache == false
 
-follower + unload => 
+follower + unload =>
   sitesNotCache == true
 
 leader + unload =>
   sitesNotCache == false
 
-buuut that simplifies to 
-  loadNotUnload == sitesNotCache 
+buuut that simplifies to
+  loadNotUnload == sitesNotCache
 ? Is that really right?
 
 Because the only real decision
 is leader-vs-follower and then
 this 'choice' is forced, right?
 
-Whether loading or unloading: 
+Whether loading or unloading:
   leader => caches
-  follower => sites 
+  follower => sites
 
 and since we know leader vs
 follower at CL config time, that
@@ -20134,8 +20134,8 @@ right gorrammit let's have it
 out between
 
     InterHubPrivateControl::updateIHCarsB(..)
-and 
-    extern "C" void assessProgressAllHarts() 
+and
+    extern "C" void assessProgressAllHarts()
 
 because they overlap and it's
 bugging the ship out of me.
@@ -20159,7 +20159,7 @@ updateIHCarsB has like:
           }
         }
 
-        if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) { 
+        if (thePLL.ifCouldAck(PBCmd::NEW_LEADER,Edge::ENTERING)) {
           if ((iLead && _ucLeaderSAVE_CACHE_B(ngbidx, gm, crbi, crbo)) ||
               (iFollow && _ucFollowerSAVE_CACHE_B(ngbidx, gm, crbi, crbo))) {
             thePLL.doneEntering(PBCmd::NEW_LEADER);
@@ -20186,7 +20186,7 @@ assessProgressAllHarts has like:
           }
 
  ..       // EXITING NEW_LEADER
- .. 
+ ..
           // ENTERING RUN_EVENTS
  ..       // EXITING RUN_EVENTS
           if (thePLL.ifCouldAck(PBCmd::RUN_EVENTS,Edge::EXITING)) {
@@ -20400,7 +20400,7 @@ logs) and those that don't
 (small logs). Totally easy to
 believe dealing with
 non-existent neighbors is fucked
-up. 
+up.
 
 We'll see.
 
@@ -20435,7 +20435,7 @@ Fri Nov  6 10:44:42 2026
    of hub consensus seen by the
    host.
 
-[1137: Fri Nov  6 10:50:38 2026  
+[1137: Fri Nov  6 10:50:38 2026
 
  - What if we extended our
    logging system to have a
@@ -20510,7 +20510,7 @@ more debug macros..
 
 Fri Nov  6 16:18:50 2026 Well
 that's in and tested but not in
-serious use. 
+serious use.
 
 :1140]
 :1139]
@@ -20663,7 +20663,7 @@ believable but the followers on
 the edges are fucked, right? We
 don't want to be generating or
 expecting any traffic with
-them.. 
+them..
 
 [1144:
 
@@ -20704,6 +20704,1166 @@ have any other leader in its
 neighborhood.
 
 Let's do a checkpoint WIP and
-then tear into that config.
+then tear into that
+config.[1145:
+
+Fri Nov  6 22:03:34 2026 Did
+that.
+
+So OK: If we're a follower, how
+do we know which ngbs are also
+followers, and therefore we
+don't have to exchange atoms
+with them during this
+supercycle?
+
+For example, while looking at
+SC+Reg+CT6C+NoC0C_BH_0_Coords.png,
+consider:
+
+ supercell leader 3,
+ supercell (0,0)
+
+ then: T45 at NoC0(4,5) is a hub
+ and a supercell leader, while
+ its ngb hubs -
+    T17 T15 T43 T71
+    T73 T75 T47 T19
+ - are all followers:
+
+             sc(0,0). .sc(1,0)
+       +-F-+   +-F-+. .+-F-+   +-F-+
+       |T15|   |T17|. .|T19|   |T21|
+       +---+   +---+. .+---+   +---+
+                    . .
+                    . .
+       +-F-+   *-L-*. .+-F-+   +-L-+
+       |T43|   |T45|. .|T47|   |T49|
+       +---+   *---*. .+---+   +---+
+    . . . . . . . . / \ . . . . . . . .
+    . . . . . . . . \ / . . . . . . . .
+sc(0,1)+-F-+   +-F-+. .+-F-+   +-F-+ sc(1,1)
+       |T71|   |T73|. .|T75|   |T77|
+       +---+   +---+. .+---+   +---+
+                    . .
+                    . .
+               +-L-+. .+-F-+   +-L-+
+               |101|. .|103|   |105|
+               +---+. .+---+   +---+
+
+
+Now compare T47 with, say T75.
+They are both followers, but T47
+has two leader ngbs - T45 and
+T49 - while T75 has four leader
+ngbs - T45, T49, T101, and T103.
+
+and so T47 has six follower ngbs
+that it doesn't need to talk to,
+while T75 only has four.
+
+That's pretty much the point of
+the whole supercell concept, and
+I'm pretty damn sure
+configureCacheLoaders is not
+doing it right.
+
+[1146:
+
+Fri Nov  6 22:43:27 2026 So
+that's bound to be useful, as
+Tiny Tutak says. Albeit it took
+over a half an hour to produce..
+
+So now, with our new map in
+hand, let's review configureCL
+and see if we can see where it
+goes wrong.
+[1147:
+
+Fri Nov  6 23:00:34 2026 Here
+are (unfortunately incomplete)
+views we got from T45, T47, and
+T75:
+
+    T45 / NoC0(4,5)                                    T47 / NoC0(6,5)                                    T75 / NoC0(6,7)
+
+    {23:22 7756 0 4,5 hb BOLTR_oNEWLEADER:0x1197}      {23:22 7756 0 6,5 hb BOLTR_oNEWLEADER:0x125f}      {23:22 7756 0 6,7 hb BOLTR_oNEWLEADER:0x1d4f}
+    {23:25 7756 0 4,5 hb WE..ARE..:LEADER}             {23:25 7756 0 6,5 hb WE..ARE..:FOLLOWER}           {23:25 7756 0 6,7 hb WE..ARE..:FOLLOWER}
+    {23:108 7756 0 4,5 hb REPH_FWR!:NT8} <yes          {23:108 7756 0 6,5 hb REPH_FWR!:NT8} <yes          {23:108 7756 0 6,7 hb REPH_FWR!:NT8} <yes
+    {23:109 7756 0 4,5 hb REPH_TLBI:17}                {23:109 7756 0 6,5 hb REPH_TLBI:19}                {23:109 7756 0 6,7 hb REPH_TLBI:47}
+    {23:110 7756 0 4,5 hb REPHmyS4UC:[10,10<148,20]}   {23:110 7756 0 6,5 hb REPHmyS4UC:[10,10<148,20]}   {23:110 7756 0 6,7 hb REPHmyS4UC:[10,10<148,20]}
+    {23:108 7756 0 4,5 hb REPH_FWR!:NW8} <yes          {23:108 7756 0 6,5 hb REPH_FWR!:NW8} <yes          {23:102 7756 0 6,7 hb REPH_LDR!:NW8} <yes
+    {23:109 7756 0 4,5 hb REPH_TLBI:15}                {23:109 7756 0 6,5 hb REPH_TLBI:17}                {23:103 7756 0 6,7 hb REPH_TLBI:45}
+    {23:110 7756 0 4,5 hb REPHmyS4UC:[10,10<20,20]}    {23:110 7756 0 6,5 hb REPHmyS4UC:[10,10<20,20]}    {23:104 7756 0 6,7 hb REPHUC4MyS:[0,0<10,10]}
+    {23:108 7756 0 4,5 hb REPH_FWR!:WT8} <yes          {23:102 7756 0 6,5 hb REPH_LDR!:WT8} <yes          {23:108 7756 0 6,7 hb REPH_FWR!:WT8} <yes
+    {23:109 7756 0 4,5 hb REPH_TLBI:43}                {23:103 7756 0 6,5 hb REPH_TLBI:45}                {23:109 7756 0 6,7 hb REPH_TLBI:73}
+    {23:110 7756 0 4,5 hb REPHmyS4UC:[10,10<20,118]}   {23:104 7756 0 6,5 hb REPHUC4MyS:[0,10<10,118]}    {23:110 7756 0 6,7 hb REPHmyS4UC:[10,10<20,118]}
+    {23:108 7756 0 4,5 hb REPH_FWR!:SW8} <yes          {23:108 7756 0 6,5 hb REPH_FWR!:SW8} <yes          {23:102 7756 0 6,7 hb REPH_LDR!:SW8} <yes
+    {23:109 7756 0 4,5 hb REPH_TLBI:71}                {23:109 7756 0 6,5 hb REPH_TLBI:73}                {23:103 7756 0 6,7 hb REPH_TLBI:101}
+    {23:110 7756 0 4,5 hb REPHmyS4UC:[10,108<20,118]}  {23:110 7756 0 6,5 hb REPHmyS4UC:[10,108<20,118]}  {23:104 7756 0 6,7 hb REPHUC4MyS:[0,118<10,128]}
+    {23:108 7756 0 4,5 hb REPH_FWR!:ST8} <yes          {23:108 7756 0 6,5 hb REPH_FWR!:ST8} <yes          {23:108 7756 0 6,7 hb REPH_FWR!:ST8} <yes
+    {23:109 7756 0 4,5 hb REPH_TLBI:73}                {23:109 7756 0 6,5 hb REPH_TLBI:75}                {23:109 7756 0 6,7 hb REPH_TLBI:103}
+    {23:110 7756 0 4,5 hb REPHmyS4UC:[10,108<148,118]} {23:110 7756 0 6,5 hb REPHmyS4UC:[10,108<148,118]} {23:110 7756 0 6,7 hb REPHmyS4UC:[10,108<148,118]}
+    {23:108 7756 0 4,5 hb REPH_FWR}                    {138:675 1 5 112,56 ht ->} LOGBLK212               {138:675 1 5 112,56 ht ->} LOGBLK41
+    {138:675 1 5 112,56 ht ->} LOGBLK209               ---18.286---                                       ---18.2363---
+    ---18.2856---
+
+[1148:
+
+Fri Nov  6 23:16:15 2026 Well,
+that's not so bad, is it? As far
+as it goes. It starts to smell
+like if we just detect the
+both-followers case between us
+and them, and say nobody fishes
+in the middle there, then things
+will be somewhat better.
+
+(Also, it suggests that we might
+- not now but after things have
+been working for a while - know
+enough to define bigger
+'follower event regions' of
+those two flavors. BUT NOT NOW.)
+
+[1149:
+
+Fri Nov  6 23:26:33 2026 So the
+question now is how does a
+follower [1150:
+
+Sat Nov  7 00:09:26 2026 OK well
+that's seeming cleared up, in
+large part by renaming
+
+   bool leadNotFollow
+
+to
+
+    bool d8IsLeader = (d8nREGV_of_SCLC == ldrREGV_of_SCLC);
+
+to more clearly distinguish it
+from the now-named-for-clarity
+
+    bool iAmLeader = (mConfiguredSCL==gm.getOurSuperCellPosition());
+
+[1151:
+
+Sat Nov  7 00:12:23 2026 So
+let's find another T45 leader
+sitch and see how things look
+now.
+
+T45                                                  T47                                                  T75
+{23:22 7252 0 4,5 hb BOLTR_oNEWLEADER:4503}          {23:22 7252 0 6,5 hb BOLTR_oNEWLEADER:4703}          {23:22 7252 0 6,7 hb BOLTR_oNEWLEADER:7503}
+{23:26 7252 0 4,5 hb WE..ARE..:LEADER}               {23:26 7252 0 6,5 hb WE..ARE..:FOLLOWER}             {23:26 7252 0 6,7 hb WE..ARE..:FOLLOWER}
+{23:110 7252 0 4,5 hb REPH_UFLW!:NT8} Y              {23:116 7252 0 6,5 hb REPH_FOFO!:NT8} <Yes           {23:116 7252 0 6,7 hb REPH_FOFO!:NT8}     Y
+{23:111 7252 0 4,5 hb REPH_TLBI:17}                  {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:118 7252 0 6,7 hb REPH04U:[0,0<0,0]}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[10,0<148,10]}      {23:116 7252 0 6,5 hb REPH_FOFO!:NW8} <Yes           {23:104 7252 0 6,7 hb REPH_ULDR!:NW8}     <Yes
+{23:110 7252 0 4,5 hb REPH_UFLW!:NW8} Y              {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:105 7252 0 6,7 hb REPH_TLBI:45}
+{23:111 7252 0 4,5 hb REPH_TLBI:15}                  {23:104 7252 0 6,5 hb REPH_ULDR!:WT8}    Y           {23:106 7252 0 6,7 hb REPHmyS4UC:[10,10<20,20]}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[0,0<10,10]}        {23:105 7252 0 6,5 hb REPH_TLBI:45}                  {23:116 7252 0 6,7 hb REPH_FOFO!:WT8}     <Yes
+{23:110 7252 0 4,5 hb REPH_UFLW!:WT8} Y              {23:106 7252 0 6,5 hb REPHmyS4UC:[10,10<20,118]}     {23:118 7252 0 6,7 hb REPH04U:[0,0<0,0]}
+{23:111 7252 0 4,5 hb REPH_TLBI:43}                  {23:116 7252 0 6,5 hb REPH_FOFO!:SW8}    Y           {23:104 7252 0 6,7 hb REPH_ULDR!:SW8}     Y
+{23:112 7252 0 4,5 hb REPHUC4MyS:[0,10<10,118]}      {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:105 7252 0 6,7 hb REPH_TLBI:101}
+{23:110 7252 0 4,5 hb REPH_UFLW!:SW8} Y              {23:116 7252 0 6,5 hb REPH_FOFO!:ST8}    Y           {23:106 7252 0 6,7 hb REPHmyS4UC:[10,108<20,118]}
+{23:111 7252 0 4,5 hb REPH_TLBI:71}                  {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:116 7252 0 6,7 hb REPH_FOFO!:ST8}     Y
+{23:112 7252 0 4,5 hb REPHUC4MyS:[0,118<10,128]}     {23:116 7252 0 6,5 hb REPH_FOFO!:SE8}    Y           {23:118 7252 0 6,7 hb REPH04U:[0,0<0,0]}
+{23:110 7252 0 4,5 hb REPH_UFLW!:ST8} Y              {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:104 7252 0 6,7 hb REPH_ULDR!:SE8}     Y
+{23:111 7252 0 4,5 hb REPH_TLBI:73}                  {23:104 7252 0 6,5 hb REPH_ULDR!:ET8}    <Yes        {23:105 7252 0 6,7 hb REPH_TLBI:105}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[10,118<148,128]}   {23:105 7252 0 6,5 hb REPH_TLBI:49}                  {23:106 7252 0 6,7 hb REPHmyS4UC:[138,108<148,118]}
+{23:110 7252 0 4,5 hb REPH_UFLW!:SE8} Y              {23:106 7252 0 6,5 hb REPHmyS4UC:[138,10<148,118]}   {23:116 7252 0 6,7 hb REPH_FOFO!:ET8}     Y
+{23:111 7252 0 4,5 hb REPH_TLBI:75}                  {23:116 7252 0 6,5 hb REPH_FOFO!:NE8}    Y           {23:118 7252 0 6,7 hb REPH04U:[0,0<0,0]}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[148,118<158,128]}  {23:118 7252 0 6,5 hb REPH04U:[0,0<0,0]}             {23:104 7252 0 6,7 hb REPH_ULDR!:NE8}     Y
+{23:110 7252 0 4,5 hb REPH_UFLW!:ET8} Y              {29:292 7252 0 6,5 hn CHUBCOMPLETE:IC_HUB}           {23:105 7252 0 6,7 hb REPH_TLBI:49}
+{23:111 7252 0 4,5 hb REPH_TLBI:47}                  {29:297 7252 0 6,5 hn CHUBNEWNONCE:4}                {23:106 7252 0 6,7 hb REPHmyS4UC:[138,10<148,20]}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[148,10<158,118]}   {29:357 7252 0 6,5 hn CHUBSEQN:2}                    {88:32 7252 0 6,7 hn CCSUV:R<.....}
+{23:110 7252 0 4,5 hb REPH_UFLW!:NE8} Y              {29:358 7252 0 6,5 hn destHubD4:1}                   {32:54 7252 0 6,7 hb LOAD_CACHES:3}
+{23:111 7252 0 4,5 hb REPH_TLBI:19}                  {29:359 7252 0 6,5 hn theirnoc0:(4,5)}               {23:164 7252 0 6,7 hb IHCB:c05.IHB#0[Op] EMPTY(0)+8}
+{23:112 7252 0 4,5 hb REPHUC4MyS:[148,0<158,10]}     {29:360 7252 0 6,5 hn destIHUBIdx:7}                 {23:195 7252 0 6,7 hb _ducFL@:NW8}
+{88:32 7252 0 4,5 hn CCSUV:R<.....}                  {29:361 7252 0 6,5 hn destIHUBBlockBaseAddr:0x54650} {23:199 7252 0 6,7 hb lodPKTRange:[10,10<20,20]}
+{32:54 7252 0 4,5 hb LOAD_CACHES:3}                  {29:372 7252 0 6,5 hn CHUBSTILLALIVE:0x0}            {23:200 7252 0 6,7 hb lodPKT@:(10,10)}
+{23:164 7252 0 4,5 hb IHCB:7f5.IHB#0[Op] EMPTY(0)+8} {29:373 7252 0 6,5 hn ournoc0:(6,5)}                 {23:203 7252 0 6,7 hb lodTYP@:0}
+{23:195 7252 0 4,5 hb _ducFL@:NT8}                   {29:374 7252 0 6,5 hn theirnoc0:(4,5)}               {23:226 7252 0 6,7 hb SHI@:(10,20)}
+{23:199 7252 0 4,5 hb lodPKTRange:[10,0<148,10]}     {29:375 7252 0 6,5 hn car#:0}                        {23:227 7252 0 6,7 hb SHI#:100}
+{138:675 1 5 105,156 ht ->} LOGBLK68                 {29:376 7252 0 6,5 hn destaddr:0x54650}              {23:166 7252 0 6,7 hb IHCA:c05.IHB#0[Cl] ATO}
+---17.8645---                                        {88:32 7252 0 6,5 hn CCSUV:R<.....}                  {138:675 1 5 105,156 ht ->} LOGBLK203
+                                                     {138:675 1 5 105,156 ht ->} LOGBLK71                 ---25.8754---
+                                                     ---17.8649---
+
+[1152:
+
+Sat Nov  7 00:22:17 2026 And
+those guys all look right as far
+as they go.
+
+  YAK POP KAY?
+
+[1153:
+
+Sat Nov  7 00:30:56 2026 So, I
+guess let's continue looking
+through the logs and think about
+
+(1) What looks good or weird
+(2) What would make the logs
+    more helpful right now
+
+[1154:
+
+Sat Nov  7 00:35:47 2026 I
+wonder if we killed some time in
+hb, after configCL, it might
+help hn flush more logging and
+allow us to see more complete hb
+stuff.
+
+Well, do we know what we're
+seeing is really incomplete?
+[1155:
+
+Sat Nov  7 01:08:30 2026 OK, so
+this looks.. weird:
+
+    {23:164 7765 0 4,5 hb BEF:ffcWT8.IHB#0[Op] EMPTY(0)+8}
+------------------------------^^^
+tag ffc on a IHB to fill
+
+    {23:195 7765 0 4,5 hb @:WT8}
+    {23:199 7765 0 4,5 hb lodPR:[10,10<20,118]}
+    {23:200 7765 0 4,5 hb lodP@:(10,10)}
+    {23:203 7765 0 4,5 hb lodPT:0}
+    {23:226 7765 0 4,5 hb SHI@:(15,35)}
+    {23:227 7765 0 4,5 hb SHI#:255}
+    {29:292 7765 0 4,5 hn CHUBC:fb0ST8.IHB#99[ID] ATOMS(2)+1212}
+    {29:297 7765 0 4,5 hn CHUBN:4}
+    {29:373 7765 0 4,5 hn CHUBSTILLALIVE:0x0}
+    {23:166 7765 0 4,5 hb AFT:ffcWT8.IHB#0[Cl] ATOMS(2)+3072}
+------------------------------^^^
+same tag after filling. ffc
+should be ready to go?
+
+    {60:92 7765 0 4,5 hn popClo:IHEPo}
+    {60:93 7765 0 4,5 hn HN<-EP:1}
+    {159:69 7765 0 4,5 hn incompIHUB:0xffc}
+    {159:69 7765 0 4,5 hn incompIHUB:0xffc}
+---------------------------------------^^^
+but hn repeatedly says tag ffc
+is incomplete.
+
+Weird.
+
+[1156:
+
+Sat Nov  7 01:16:17 2026 OK, now
+we see this:
+
+    {23:166 7245 0 4,5 hb AFT:7efNT8.IHB#0[Cl] ATOMS(2)+3072}
+------------------------------^^^
+    {23:167 7245 0 4,5 hb CMP:1}
+hb thinks it's complete ------^
+    {60:92 7245 0 4,5 hn popClo:IHEPo}
+    {60:93 7245 0 4,5 hn HN<-EP:1}
+    {159:69 7245 0 4,5 hn incompIHUB:0x7ef}
+    {159:69 7245 0 4,5 hn incompIHUB:0x7ef}
+but hn doesn't?------------------------^^^
+
+What changed?
+
+Weird.
+
+[1157:
+
+Sat Nov  7 01:44:07 2026 OK,
+nooow, we see:
+
+    {23:166 7980 0 4,5 hb AFT:07cWT8.IHB#0[Cl] ATOMS(2)+3072}
+------------------------------^^^
+    {23:167 7980 0 4,5 hb cstat:hf=aA=C}
+is complete in head, foot, ankle^^--^-^
+
+    {60:92 7980 0 4,5 hn popClo:IHEPo}
+    {60:93 7980 0 4,5 hn HN<-EP:1}
+    {29:292 7980 0 4,5 hn CHUBC:030ST8.IHB#99[ID] ATOMS(2)+1212}
+    {29:297 7980 0 4,5 hn CHUBN:4}
+    {29:359 7980 0 4,5 hn theirnoc0:(2,5)}
+    {29:372 7980 0 4,5 hn CHUGOGO:0x0}
+    {159:70 7980 0 4,5 hn incompIHUB:0x7c}
+same tag-------------------------------^^(need %03x here)
+    {159:71 7980 0 4,5 hn cstat:.......}
+not even the header is valid ---^
+
+[1158:
+
+Sat Nov  7 02:29:32 2026 Still
+trying to make sense of that.
+Really wishing PT had a
+call-down to format a car for
+debug output..
+
+[1159:
+
+Sat Nov  7 03:02:31 2026 OK,
+this seems kind of.. weird.
+
+    {23:26 8037 0 4,5 hb WE..ARE..:FOLLOWER}
+okay follow..
+    {23:116 8037 0 4,5 hb REPH_FOFO!:NT8}
+    {23:116 8037 0 4,5 hb REPH_FOFO!:NW8}
+    {23:104 8037 0 4,5 hb REPH_ULDR!:WT8}
+WT leader
+    {23:116 8037 0 4,5 hb REPH_FOFO!:SW8}
+    {23:116 8037 0 4,5 hb REPH_FOFO!:ST8}
+    {23:116 8037 0 4,5 hb REPH_FOFO!:SE8}
+    {23:104 8037 0 4,5 hb REPH_ULDR!:ET8}
+ET leader and that's it
+    {23:116 8037 0 4,5 hb REPH_FOFO!:NE8}
+    {88:32 8037 0 4,5 hn CCSUV:R<.....}
+    {32:54 8037 0 4,5 hb LOAD_CACHES:2}
+    {29:292 8037 0 4,5 hn CHUBC:051ST8.IHB#99~4[ID] ATOMS(2)+12}
+meanwhile over in hn, CORNER
+PROCRESSING has found a complete
+packet:
+
+          /// WE HAVE A COMPLETE PACKET
+          EACH(1'000,LOGPTAG(CHUBC,formatIHBlock(chbcar,dir4ToDir8(ourDir4),99)));
+
+    {29:297 8037 0 4,5 hn CHUBN:4}
+    {29:359 8037 0 4,5 hn theirnoc0:(2,5)}
+
+which is allegedly related to
+(2,5), which is the T43, the HUB
+due west of us. And who knows
+that could be plausible.
+
+    {23:164 8037 0 4,5 hb BEF:051ST8.IHB#0~2[Op] EMPTY(0)+8}
+
+but the very next thing is hb
+has just pulled that same tag
+out of its crbi?? We don't
+think..?
+
+[1160:
+
+Sat Nov  7 03:12:49 2026 Going
+back to four byte ptr tags out
+of paranoia
+
+:1160]
+
+    {23:196 8037 0 4,5 hb @:WT8}
+    {29:372 8037 0 4,5 hn CHUGOGO:051ST8.IHB#0~4[ID] ATOMS(2)+121}
+
+[1161:
+
+Sat Nov  7 03:16:01 2026 And
+then CHUGOGO is right after we
+(thought we) shipped the packet
+on around the corner
+
+          s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &chbcar, wordCount, theirnoc0, destaddr);
+          MFM_API_ASSERT(status > 0,ILLEGAL_STATE);
+          LOGPTAG(CHUGOGO,formatIHBlock(chbcar,dir4ToDir8(ourDir4),c));
+
+and right BEFORE we
+
+          // Spoil the packet to speed up future rejections. This is
+ ..       chbcar.getHeader().spoilCompletePacket();
+
+which could totally explain our
+obviously complete packet
+suddenly being not..
+
+[1162:
+
+Sat Nov  7 03:18:07 2026 So, how
+do we nail this down. We'll
+rerun with ptr4 while we think
+about this..
+[1163:
+
+Sat Nov  7 03:19:21 2026 From
+hub.map, we see
+
+                0x0000000000028310                MFM::theCornerHubL1Data
+                0x00000000000387d0                MFM::theInterHubL1Data
+ .bss           0x0000000000059140     0x4130 CMakeFiles/hub.dir/images/hub/src/EwpBl
+
+so 0x28310 to start the special
+'corner' stuff, and 0x387d0 to
+start the 'official' IH stuff
+that should be all that HB ever
+deals with.
+[1164:
+
+Sat Nov  7 03:23:19 2026 Well in
+the rerun chub/ih interaction
+didn't happen this time so no
+news there.
+
+[1165:
+
+Sat Nov  7 03:32:27 2026 Sooo
+let's start logging addresses
+and figure out wtf is going on.
+[1166:
+
+Sat Nov  7 03:46:53 2026 OK this
+is looking gun-smoking-ish:
+
+    {29:293 7521 0 10,3 hn CHUBC:3469ET8.IHB#99~4[ID] ATOMS(2)+1}
+    {29:294 7521 0 10,3 hn CHUBA:0x34690}
+
+an alleged 'corner hub car', at
+address 0x34690, given
+these..no, actually that's fine,
+poop -
+
+                0x0000000000028390                MFM::theCornerHubL1Data
+                0x0000000000038850                MFM::theInterHubL1Data
+ .bss           0x00000000000591c0     0x4130 CMakeFiles/hub.dir/images/hub/src/EwpBlock.cpp.obj
+
+[1167:
+
+Sat Nov  7 03:50:39 2026 Well I
+eyeballed all the
+
+    ./at0ab.mfmk 411:{23:165 28897 0 10,11 hb BEA:0x42ad0}
+    ./at0ab.mfmk 423:{23:165 28898 0 10,11 hb BEA:0x43b10}
+    ./at0g3.mfmk 25:{23:165 7521 0 16,3 hb BEA:0x44b50}
+    ./at0e9.mfmk 30:{23:165 7521 0 14,9 hb BEA:0x38850}
+    ./at0e9.mfmk 55:{23:165 7522 0 14,9 hb BEA:0x50e50}
+    ./at0e9.mfmk 69:{23:165 7522 0 14,9 hb BEA:0x54f50}
+
+and they seem to be in
+theInterHubL1Data range, and all
+the
+
+    ./at0c9.mfmk 327:{29:294 14733 0 12,9 hn CHUBA:0x37750}
+    ./at0eb.mfmk 37:{29:294 7521 0 14,11 hn CHUBA:0x2c490}
+    ./at0eb.mfmk 254:{29:294 14732 0 14,11 hn CHUBA:0x2d4d0}
+    ./at0eb.mfmk 259:{29:294 14732 0 14,11 hn CHUBA:0x32610}
+    ./at0eb.mfmk 265:{29:294 14732 0 14,11 hn CHUBA:0x2e510}
+    ./at0eb.mfmk 273:{29:294 14732 0 14,11 hn CHUBA:0x2f550}
+
+stuff seems to be in the right
+range as well.
+
+Fudge.
+[1168:
+
+Sat Nov  7 04:05:27 2026 But the
+'possible spoiling' is still
+happening:
+
+>>  {23:164 7618 0 2,11 hb BEF:3885NT8.IHB#0~2[Op] EMPTY(0)+8}
+    {23:165 7618 0 2,11 hb BEA:0x38850}
+..  {29:293 7618 0 2,11 hn CHUBC:2c49WT8.IHB#99~4[ID] ATOMS(2)+1}
+    {29:294 7618 0 2,11 hn CHUBA:0x2c490}
+..  {23:167 7618 0 2,11 hb AFT:3885NT8.IHB#0~3[Cl] ATOMS(2)+30}
+    {23:168 7618 0 2,11 hb cstat:hf=aA=C}
+    {29:374 7618 0 2,11 hn CHUGOGO:2c49WT8.IHB#0~4[ID] ATOMS(2)+12}
+    {60:92 7618 0 2,11 hn popClo:IHEPo}
+ .. {25:206 7618 0 2,11 hn SHPDEP:1}
+    {159:70 7618 0 2,11 hn incompIHUB:3885}
+    {159:71 7618 0 2,11 hn cstat:.......}
+
+[1169:
+
+Sat Nov  7 04:07:38 2026 Could
+it be possible we're shipping
+the CHUB to ourselves by
+mistake? Or I guess it could be
+any CHUB writing into our space
+and fucking things up. But it
+does seem to happen with a CHUB
+in the middle, between BEF and
+AFT.
+
+[1170:
+
+Sat Nov  7 06:19:56 2026 OK, now
+it looks like this:
+
+    {23:231 8685 0 10,3 hb SHI#:255}
+    {23:167 8685 0 10,3 hb AFT:40baWT8.IHB#0~3[Cl] ATOMS(2)+30}
+4 digit packet tag-------------^^^^
+    {23:168 8685 0 10,3 hb pspew:2c033202 01020001 }
+first two words of the packet ---^^^^^^^^-^^^^^^^^
+    {23:170 8685 0 10,3 hb cstat:hf=aA=C}
+which is totally complete--------------^
+    {60:92 8685 0 10,3 hn popClo:IHEPo}
+    {60:93 8685 0 10,3 hn HN<-EP:1}
+    {159:164 8685 0 10,3 hn SHDEP:1}
+    {25:206 8685 0 10,3 hn SHPDEP:1}
+    {159:70 8685 0 10,3 hn incompIHUB:40ba}
+same packet tag-----------------------^^^^
+    {159:71 8685 0 10,3 hn pspew:00043203 01020001 }
+but the first word has changed---^^^^^^^^-^^^^^^^^
+    {159:72 8685 0 10,3 hn cstat:.......}
+which isn't squat----------------^^^^^^^
+    {159:70 8685 0 10,3 hn incompIHUB:40ba}
+
+[1171:
+
+Sat Nov  7 12:03:31 2026 OK,
+well, here's a potential thing:
+
+we've got
+
+    {23:167 7395 0 6,11 hb AFT:38a8NT8.IHB#0~3[Cl] ATOMS(2)+30}
+    {23:168 7395 0 6,11 hb pspew:2c033202 01020001 }
+    {23:170 7395 0 6,11 hb cstat:38a8/hf=aA=C}
+38a8 is nice and complete..
+    {60:92 7395 0 6,11 hn popClo:IHEPo}
+    {60:93 7395 0 6,11 hn HN<-EP:1}
+    {159:164 7395 0 6,11 hn SHDEP:1}
+    {25:206 7395 0 6,11 hn SHPDEP:1}
+    {159:70 7395 0 6,11 hn incompIHUB:38a8}
+    {159:71 7395 0 6,11 hn pspew:00043203 01020001 }
+    {159:72 7395 0 6,11 hn cstat:38a8/.......}
+now it's not.. this is just what
+we've been seeing..
+
+but now i'm focusing on this:
+
+    {29:375 14655 0 6,11 hn &chbcar:0x31800}
+note this is a different tag----------^^^^
+    {29:376 14655 0 6,11 hn destaddr:0x561c0}
+CHUB dest IS in theInterHubL1Data----^^^^^^^
+    {29:380 14655 0 6,11 hn CHUGOGO:3180ST8.IHB#1~6[ID] ATOMS(2)+84}
+
+considering this:
+
+                0x00000000000285c0                MFM::theCornerHubL1Data
+                0x0000000000038a80                MFM::theInterHubL1Data
+ .bss           0x00000000000593f0     0x4130 CMakeFiles/hub.dir/images/hub/src/EwpBlock.cpp.obj
+
+[1172:
+
+Sat Nov  7 12:11:56 2026 So my
+point here is just that doing
+CHUB shots does indeed land
+stuff in theInterHubL1Data - as
+it is supposed to - and
+therefore if we misaddress
+something or whatever it could
+account for 'random corruption'.
+[1173:
+
+Sat Nov  7 12:49:55 2026 So,
+everybody seems to be getting
+the base address right:
+
+    ./at0e9.mfmk 41:{29:363 8074 0 14,9 hn allIHUBBlocksBaseAddr:0x38ae0}
+    ./at0e9.mfmk 80:{29:363 8075 0 14,9 hn allIHUBBlocksBaseAddr:0x38ae0}
+
+with
+
+                0x0000000000028620                MFM::theCornerHubL1Data
+                0x0000000000038ae0                MFM::theInterHubL1Data
+ .bss           0x0000000000059450     0x4130 CMakeFiles/hub.dir/images/hub/src/EwpBl
+
+[1174:
+
+Sat Nov  7 12:53:44 2026 Still
+buried in addrs. Need still
+clearer logs somehow.
+
+Going to try not 'spoiling' the
+packets to see if that changes
+anything obvious.
+[1175:
+
+Sat Nov  7 12:55:43 2026 Just
+wanted to check back in here to
+note that all those '2c's in
+like: 
+
+    {23:168 8075 0 4,5 hb pspew:2c033202 01020001 }
+
+make perfect sense given:
+
+        static constexpr u8 TCM_MAGIC = 0x2C;
+and
+        u8 mTCMMagic;
+        u8 mTCMNonce;
+        u8 mTCMSize;
+        u8 mTCMState;
+
+
+:1175]
+:1174]
+
+:1173]
+
+:1172]
+
+
+:1171]
+:1170]
+  :1169]
+
+:1168]
+:1167]
+:1166]
+
+:1165]
+
+:1164]
+:1163]
+:1162]
+
+:1161]
+
+
+:1159]
+
+:1158]
+:1157]
+
+:1156]
+
+:1155]
+:1154]
+:1153]
+
+:1152]
+
+:1151]
+:1150]
+
+:1149]
+:1148]
+:1147]
+:1146]
+:1145]
 
 :1141]
+[1176:
+
+Sun Nov  8 00:05:52 2026 Urgh
+had a power outage Sat afternoon
+and everything rebooted.
+
+Have just redone the OurTLBs
+onPhase calculations to try to
+be more believable, with
+
+ - A lock controlling access
+ - An explicit resetOnPhase
+   method 
+ - A TLBInfo data member
+   tracking last seen seqnos
+ - An updateOnPhase() method
+   that is non-decreasing across
+   calls, until resetOnPhase.
+
+We shall see.
+
+[1177:
+
+Sun Nov  8 01:00:09 2026 OK..
+when in doubt, increase
+visibility.. So now we know that
+our current failures to reach
+consensus - we usually get only
+~100 out of 140 - are entirely
+due to.. drum roll.. all HUB
+images failing to respond:
+
+    {138:893 1 5 42,230 ht ->} hc000 PHASE-OUT AFTER 2001 WITH ONLY 108 ONPHASE #5
+    {138:903 1 5 42,230 ht ->} hc000 shotshottie onPhase 108 (2754) 2=NEW_LEADER+2
+    {138:912 1 5 42,230 ht ->} hc000 LAMERS: 15 17 19 21 23 25 43 45 47 49 51 53 55 71 73 75 77 79 81 99 101 103 105 107 109 111 127 129 131 133 135 137
+
+TLBI lamers: all HUB images.
+
+    {138:893 1 5 42,230 ht ->} hc000 PHASE-OUT AFTER 2001 WITH ONLY 108 ONPHASE #6
+    {138:903 1 5 42,230 ht ->} hc000 shotshottie onPhase 108 (2295) 3=RUN_EVENTS+1
+    {138:912 1 5 42,230 ht ->} hc000 LAMERS: 15 17 19 21 23 25 43 45 47 49 51 53 55 71 73 75 77 79 81 99 101 103 105 107 109 111 127 129 131 133 135 137
+
+    {138:893 1 5 42,230 ht ->} hc000 PHASE-OUT AFTER 2001 WITH ONLY 105 ONPHASE #7
+    {138:903 1 5 42,230 ht ->} hc000 shotshottie onPhase 105 (2395) 2=NEW_LEADER+2
+    {138:912 1 5 42,230 ht ->} hc000 LAMERS: 15 17 19 21 23 25 27 43 45 47 49 51 53 55 71 73 75 77 79 81 83 99 101 103 105 107 109 111 127 129 131 133 135 137 139
+
+    {138:893 1 5 42,230 ht ->} hc000 PHASE-OUT AFTER 2001 WITH ONLY 105 ONPHASE #8
+    {138:903 1 5 42,230 ht ->} hc000 shotshottie onPhase 105 (2349) 3=RUN_EVENTS+1
+    {138:912 1 5 42,230 ht ->} hc000 LAMERS: 15 17 19 21 23 25 27 43 45 47 49 51 53 55 71 73 75 77 79 81 83 99 101 103 105 107 109 111 127 129 131 133 135 137 139
+
+So, it's a little weird that a
+couple more lamers pop up during
+the festivities; perhaps we'll
+see about that (or not) as we go
+along.
+
+And it's worth noting that it's
+not that the hubs were dead from
+the start:
+
+    {138:877 1 5 42,230 ht ->} PHASERBOLT <3:2=NEW_LEADER+2> (was <2:1=HOLD_AT_BIRTH>)
+    {138:903 1 5 42,230 ht ->} hc000 shotshottie   <<CONSENSUS!>>   140 (2) 2=NEW_LEADER+2
+ .. {138:877 1 5 42,230 ht ->} PHASERBOLT <4:3=RUN_EVENTS+1> (was <3:2=NEW_LEADER>)
+ .. {138:903 1 5 42,230 ht ->} hc000 shotshottie   <<CONSENSUS!>>   140 (2) 3=RUN_EVENTS+1
+
+No, it's the second NEW_LEADER
+bolt - the first that tries to
+save caches, hmmmm - where
+things seem to fall off the
+rails.[1178:
+
+Sun Nov  8 01:12:48 2026 And so,
+once again, let us bow our heads
+and Trace The Log.
+
+[1179:
+
+Sun Nov  8 04:03:04 2026
+AAAAAAND FUCK ME SIDEWAYS:
+
+        // DEBUG: DELIBERATELY BREAK SHIPT CARS
+        // DEBUG: TO READ AS INCOMPLETE UNTIL THEY RETURN
+        car.getHeader().mTCMMagic = 0;
+
+there were at least TWO places
+that spoiled packets and I only
+nuked one...
+[1180:
+
+Sun Nov  8 04:27:46 2026 OK well
+that indeed was the problem I
+was chasing fuck me fuck but
+we'll be moving forward again in
+what time remains, after some
+sleep..
+
+[1181:
+
+Sun Nov  8 08:48:17 2026 So I
+guess we could be trying to find
+out why the HUB lamers aren't
+joining the consensus on
+supercycle #2 @ NEW_LEADER.
+[1182:
+
+Sun Nov  8 09:19:07 2026 OK,
+and, first up after we raise our
+eyes once again to Trace The
+Logs, we see that
+CacheLoader::loadPacket is
+getting called and loading a
+packet when entering RUN_EVENTS
+event .. even when we're the
+leader.
+
+:1182]
+:1181]
+
+:1180]
+:1179]
+
+:1178]
+
+:1177]
+
+:1176]
+[1183:
+
+Sun Nov  8 12:32:48 2026 So,
+this is a bit different:
+
+    {138:903 1 5 0,37 ht ->} hc000 shotshottie onPhase 131 (3154) 3=RUN_EVENTS+1
+    {138:912 1 5 0,37 ht ->} hc000 LAMERS: 17 21 25 73 77 81 129 133 137
+
+Here, only nine not on phase..
+and they look to be the nine
+supercell leader hubs.
+
+So let's look at exiting
+RUN_EVENTS.. 
+
+:1183]
+[1184:
+
+Sun Nov  8 18:42:14 2026 OK, we
+now have (at least from
+follower) IH cars specifying the
+U8C of the first atom in the
+packet. How can we map that to
+the leader coords so we can
+check if we're where we think we
+are? [1185:
+
+Sun Nov  8 19:28:07 2026 OK, we
+have reasonably easy visibility
+onto IH atom sender and
+receiver, and seeing problems in
+getting the site-to-cache coords
+mapped properly. I think'll
+that'll be pretty debuggable,
+but.. nap first.[1186:
+
+Sun Nov  8 21:59:10 2026 OK
+let's do this go gogog oogogo.
+
+So the first thought is we need
+the coord difference between,
+say, WT8 sites and ET8 caches.
+So we're flipping dir8 AND
+sites/caches simultaneously.
+
+So, an IHPAtoms we (as say
+leader, for now) receive from
+our ET8, should have been loaded
+with atoms from the ngb's WT8
+sites, and should be placed in
+our ET8 caches.
+
+[1187:
+
+Sun Nov  8 22:43:14 2026 And
+this would need to be set at
+configureCacheLoaders time?
+[1188:
+
+Sun Nov  8 22:45:08 2026 So,
+'d8' in configCL is the
+DIRECTION TO THE DESTINATION in
+all cases, whether we are leader
+or follower.
+
+So that does mean the iterator
+range we pick should be that
+same d8's regardless of whether
+we are leader (in which case
+CACHE_RANGE) or follower (in
+which case SITE_RANGE).
+
+And I'd think it means that, at
+the destination, we could
+map/check the source's 'at'
+coords by considering the
+opposite d8 (from our point of
+view) and pick its SITES range
+(if we're the leader, mapping
+follower's coords) or its CACHES
+range (if we're the follower
+mapping leader's coords).
+
+Then, I'd think, we'd be able to
+confirm that, for example, the
+IHPAtoms packets arrived in
+iterator order. Which we are
+currently counting on, so we'd
+really like to be able to
+confirm. 
+[1189:
+
+Sun Nov  8 23:31:09 2026 OK,
+after a bunch of flipping and
+flopping, it looks like we have
+mapped coords plausibly:
+
+    {23:281 7556 0 4,5 hb THEY@:(106,13)}
+    {23:282 7556 0 4,5 hb WE@:(106,121)}
+    {23:283 7556 0 4,5 hb STATU:(106,121)}
+
+from
+
+      U8C theyAreAt = patoms.getStartsAt();
+      U8C weShouldBeAt = NgbCacheMgr::mapDestCToUs(mDir8, isThatAFollower(), theyAreAt);
+      LOGPTAG(THEY@,theyAreAt);
+      LOGPTAG(WE@,itr.at); 
+      LOGPTAG(STATU,weShouldBeAt);
+
+with
+
+    {23:282 7556 0 4,5 hb WE@:(153,86)}
+    {23:283 7556 0 4,5 hb STATU:(153,86)}
+
+    {23:282 7556 0 4,5 hb WE@:(127,1)}
+    {23:283 7556 0 4,5 hb STATU:(127,1)}
+
+    {23:282 7554 0 4,5 hb WE@:(0,0)}
+    {23:283 7554 0 4,5 hb STATU:(0,0)}
+
+and so forth.
+
+So let's switch that logging to
+an assert and move on, unless
+and until..
+
+
+:1189]
+:1188]
+
+:1187]
+
+:1186]
+
+:1185]
+
+:1184]
+[1190:
+
+Sun Nov  8 23:43:44 2026 And We
+Trace The Logs.
+
+In the current run the lamers
+first appear thus:
+
+    {138:893 1 5 42,15 ht ->} hc000 PHASE-OUT AFTER 2001 WITH ONLY 134 ONPHASE #4
+    {138:903 1 5 42,15 ht ->} hc000 shotshottie onPhase 134 (3681) 3=RUN_EVENTS+1
+    {138:912 1 5 42,15 ht ->} hc000 LAMERS: 45 49 53 101 105 109
+    {139:320 1 5 42,15 ht ->} 1249066 QuBo::SCY SUPERCYCLE #1 ENDS WITH LEADER cL3
+
+which again looks like a
+saveCaches problem. The lamers
+45..109 are precisely the
+supercell leaders for this
+supercycle #1.
+
+
+:1190]
+[1191:
+
+Mon Nov  9 00:58:08 2026 OK, now
+we've hacking QuietBox.cpp to
+for at025 to be a supercell
+leader on the first supercycle,
+and we're thinned the logs
+diligently, and now one problem
+seems pretty damn clear: at025
+never receives any packets from
+the diagonal corners.
+
+Which is sure easy to believe,
+and that is going to be our next
+frontier. [1192:
+
+Mon Nov  9 01:00:54 2026 So.
+at025 has
+
+    {23:110 7646 0 2,5 hb _UFLW!:NT8}
+    {23:110 7646 0 2,5 hb _UFLW!:ST8}
+    {23:110 7646 0 2,5 hb _UFLW!:SE8}
+    {23:110 7646 0 2,5 hb _UFLW!:ET8}
+    {23:110 7646 0 2,5 hb _UFLW!:NE8}
+
+live ngb hubs. Let's start with
+the NE8 corner. That should be
+at043? T17, yes, I think so.
+Let's take a quick moment to
+Trace That Log.
+
+[1193:
+
+Mon Nov  9 01:04:02 2026 OK, we
+see NE8:at043 setting up okay:
+
+    {23:26 7646 0 4,3 hb WE..ARE..:FOLLOWER}
+    {23:116 7646 0 4,3 hb _FOFO!:WT8}
+    {23:104 7646 0 4,3 hb _ULDR!:SW8}
+this should be at025 right heah--^^^
+    {23:116 7646 0 4,3 hb _FOFO!:ST8}
+    {23:104 7646 0 4,3 hb _ULDR!:SE8}
+    {23:116 7646 0 4,3 hb _FOFO!:ET8}
+
+[1194:
+
+Mon Nov  9 01:09:54 2026 OK,
+going again after thinning logs
+on the loadPacket path. So far
+we've seen a plausible packet
+prepped for SW by at043, and saw
+it added to crbo.. but didn't
+see hn handling it before the
+log block ran out and we had a
+gap..
+[1195:
+
+Mon Nov  9 01:19:54 2026 Going
+again after redistributing some
+logs. Meaning: Thinned in lots
+of places, expanded in a few
+currently key places.
+
+Which we shall henceforth call..
+'sculpting'.
+
+Going again after sculpting the
+logs. 
+
+[1196:
+
+Mon Nov  9 01:37:16 2026 Well,
+still have some weirdness in the
+follower ihatom inits.[1197:
+
+Mon Nov  9 02:52:46 2026 Ooh and
+I'd missed this
+
+    {88:76 55451 0 2,3 hn psSW2ENT:NEW_LEADER} 
+    {32:18 55451 0 2,3 hb BOLTR_iNL:3} 
+    {32:35 55451 0 2,3 hb BOLTR_SAV$:3}
+ >  {23:287 55451 0 2,3 hb BHANG!:IC_HUB}
+ >  {23:287 55451 0 2,3 hb BHANG!L:(10,108)} 
+ >  {23:287 55451 0 2,3 hb BHANG!R:(0,111)}
+    {23:287 55451 0 2,3 hb CALR0:0x26ec} 
+    {23:287 55451 0 2,3 hb CALR1:0x0}
+
+coming from this in loadPacket:
+
+        if (atomsInPacket > 0) {
+ ..       U8C theyAreAt = patoms.getStartsAt();
+          U8C weShouldBeAt = NgbCacheMgr::mapDestCToUs(mDir8, isThatAFollower(), theyAreAt);
+ ..       HBASSERT_EQ(itr.at,weShouldBeAt); // ILLEGAL_STATE
+
+which is the new sanity check we
+just put in..
+
+[1198:
+
+Mon Nov  9 02:55:34 2026 Here's
+another one
+
+    {23:196 55451 0 16,7 hb UNLB:3a0c/NT8IB2Op~6AT2+84}
+    {23:281 55451 0 16,7 hb uPKTRge:[10,10<148,20]}
+    {23:287 55451 0 16,7 hb BHANG!:IC_HUB}
+    {23:287 55451 0 16,7 hb BHANG!L:(10,10)}
+    {23:287 55451 0 16,7 hb BHANG!R:(0,152)}
+
+which seems way off. One thing I
+want to check is if I'm looking
+at the right Dir8's for corner
+shots.. although they're
+supposed to arrive in the proper
+diago block indices if that crap
+is working..
+
+Well so we have to once again
+Trace The Log and pass the ammo.
+[1199:
+
+Mon Nov  9 03:21:15 2026 The
+first couple instances I've
+looked at, here, seem to be
+happening while entering
+newleader after a runevents. So
+I think it's very possible that
+we're seeing leftover packets
+getting picked up late, and then
+all bets are off.
+
+:1199]
+
+:1198]
+
+:1197]
+
+:1196]
+:1195]
+
+:1194]
+:1193]
+
+:1192]
+
+:1191]
+[1200:
+
+Mon Nov  9 04:26:48 2026 OK time
+for sleep. Looking very grim for
+t2sday. Thinking about just
+doing a twitch-like livestream,
+showing whatever the fuck I am
+doing, and then roughly chopping
+it down for the update.
+
+:1200]
+[1201:
+
+Mon Nov  9 14:56:05 2026 OK,
+well, FWIW I've now got five
+separate emacs' going in five
+separate connections to the QB,
+and I'm going to trace a few
+packets - using the new src-dest
+addr logging - as they go on
+round-trips among the tiles.
+
+Particularly focusing on corner
+shots.
+
+:1201]
+[1202:
+
+Mon Nov  9 15:09:41 2026 Can we
+make logbufs any bigger?
+
+:1202]
+[1203:
+
+Tue Nov 10 06:10:30 2026 Well
+it's T2sday. 
+
+:1203]
+[1204:
+
+Tue Nov 10 10:35:20 2026 OK I'm
+going to break the code so we
+can demo a buildcast failure.
+
+:1204]
+[1205:
+
+Tue Nov 10 23:09:06 2026 OK, so
+we got past the last t2sday of
+2026. In the end it was pretty
+fun and there was a lot of
+chatting afterwards.
+
+And now what I want is more
+debug visualization support!
+Specifically I want TODO
+something like this:
+
+ - host-side support for
+   tag-based reassortment
+
+ - with an initial focus on
+   automatically tracking
+   packets moving between tiles. 
+
+ - for starters, any LOG tag
+   that begins with, say a '.'
+   or a '!', or whatever, gets
+   put into a priority queue
+   based on the time in the tag
+   = or maybe they all do..
+
+ - and once the root of the
+   queue is old enough - maybe
+   as much as five seconds - it
+   gets pulled out and analyzed
+   further
+
+[1206:
+
+Tue Nov 10 23:58:28 2026
+Actually, you know, this notes
+file is over 21Klines. It's way
+too long. Let's start another
+one, in honor of the last t2sday
+of 2026.
+
+[1207:
+
+Wed Nov 11 00:10:03 2026 OK,
+switching to 202611110009-debug-notes.txt
+
+:1207]
+
+:1206]
+
+:1205]
