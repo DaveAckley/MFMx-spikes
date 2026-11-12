@@ -2,6 +2,7 @@
 #define HOSTBLOCK_H
 
 #include "itype.h"
+#include "HostFlags.h"
 #include "RingBuffer.h"
 #include "UxC.h" // for U8C
 #include "SimConstants.h" // for HOST_RAM_PER_BH
@@ -12,17 +13,6 @@ namespace MFM {
   struct HostBlock {
     static const u32 HBMAGIC = 0xACAB8645; // to stay in-theme but not ..47
     static const u32 HBCIGAM = 0x5468BACA; // reverse is easier to see than invert..
-
-    enum HostFlags : u8 {
-      HBF_ASSERT_STOP_LOG = 0x01, // block further hblogging if any HBASSERT blows
-      HBF_RSV1 = 0x02,
-      HBF_RSV2 = 0x04,
-      HBF_RSV3 = 0x08,
-      HBF_RSV4 = 0x10,
-      HBF_RSV5 = 0x20,
-      HBF_RSV6 = 0x40,
-      HBF_RSV7 = 0x80
-    };
 
     //// DATA MEMBERS
     u32 mHBMagic;               // MUST BE FIRST u32 BYTES 0..3

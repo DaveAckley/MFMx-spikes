@@ -1,0 +1,74 @@
+# -*- mode: conf-toml; -*-
+# Wed Nov 11 03:17:33 2026 Add default and per-image host flags
+# Sat Aug  8 09:24:31 2026 Back to one card for construction
+# Sun Jul  5 22:46:50 2026 Ditch zot for build speed
+# Mon May 11 09:14:21 2026 Resurrect host logging
+# Sat May  2 02:00:18 2026 Rename bhcard -> bhchip
+# Thu Feb 12 12:23:10 2026 Consider adding multimage host config here
+# Sat Feb  7 11:27:45 2026 Rename layout.card.. -> layout.cell..
+# Sun Jan 18 08:46:21 2026 First spike at a multi-t6-images config file
+
+[Config]
+ activeLayout=ewpandhub
+ bindirs = [ "$script_dir/../../../../build_cross/bin", "." ]
+
+[module.AcceptLogging]
+  blocks = [BC_LOGBLOCK]
+
+[module.AcceptPHASER]
+  blocks = [BC_PHASER]
+
+[module.AcceptACache]
+  blocks = [BC_ACACHEBLOCK]
+
+[module.OriginateEWs]
+#  blocks = [BC_EWCARS]
+
+[layout.allone]
+  bhchips = [2]
+#  defaultImage = EWP
+  defaultImage = HUB
+  cell.all = C1X1_ONE
+  #hostModules = [ AcceptLogging ]
+
+[layout.ewpandhub]
+  bhchips = [0]
+#  bhchips = [1]
+#  bhchips = [1,2]
+#  bhchips = [3]
+#  bhchips = [0,1,2,3]
+  defaultImage = EWP
+#  cell.all = C1X2_EWP_HUB
+#  cell.all = C2X1_EWP_HUB
+  cell.all = C2X2_EWP_HUB
+  hostModules = [ AcceptLogging, AcceptACache, AcceptPHASER ]
+
+[cell.C1X1_ONE]
+  size = [1,1]
+  image.all.all = HUB
+#  image.all.all = EWP
+
+[cell.C1X2_EWP_HUB]
+  size = [1,2]
+  fill = EWP
+  image.0.1 = HUB
+
+[cell.C2X1_EWP_HUB]
+  size = [2,1]
+  fill = HUB
+  image.1.0 = EWP
+
+[cell.C2X2_EWP_HUB]
+  size = [2,2]
+  fill = EWP
+  image.1.1 = HUB
+
+[image.EWP]
+  binfile="ewp.bin"
+  hostFlags = 3  # assert_stop_log + no_utag
+  code=1
+
+[image.HUB]
+  binfile="hub.bin"
+  hostFlags = 7  # assert_stop_log + no_utag + stag_ptrace
+  code=2

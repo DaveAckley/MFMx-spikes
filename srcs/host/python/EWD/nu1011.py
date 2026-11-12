@@ -655,7 +655,7 @@ class EWD(App):
     self.theRTMPFeed.sendGraphicsFrame(frameNP,simnanos,f"{self.scriptName}/{self.mfmxVersion}") 
 
 if __name__ == "__main__":
-  c = Config.Config(__file__,"config/nu1011.dtoml")
+  c = Config.Config(__file__,"config/nu1012.dtoml")
   #dumper.dump(c)
   app = EWD(c)
   print("GOINDGINKTORUN",app)

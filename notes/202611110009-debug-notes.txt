@@ -1,0 +1,91 @@
+{6}  -*-  mode: text; fill-column: 32;  -*-
+[0:
+
+Wed Nov 11 00:09:40 2026 OK,
+switching here from
+202608080245-regional-notes.txt.
+
+importing a chunk of :1205: from
+there:
+
+    now what I want is more
+    debug visualization support!
+    Specifically I want TODO
+    something like this:
+
+     - host-side support for
+       tag-based reassortment
+
+     - with an initial focus on
+       automatically tracking
+       packets moving between tiles. 
+
+     - for starters, any LOG tag
+       that begins with, say a '.'
+       or a '!', or whatever, gets
+       put into a priority queue
+       based on the time in the tag
+       = or maybe they all do..
+
+     - and once the root of the
+       queue is old enough - maybe
+       as much as five seconds - it
+       gets pulled out and analyzed
+       further
+
+[1:
+
+Wed Nov 11 00:11:53 2026 What
+I'm thinking:
+
+ - would it be too fragile to
+   call up to python for tag
+   matching? 
+
+ - in general I want to be able
+   to do more log configuration
+   without rebuilding
+
+[2:
+
+Wed Nov 11 00:38:27 2026 Is
+there any room left in the
+HostBlock? Could we steal a few
+bits for log control flags? For
+example I'd like to be able to
+ignore all LOG calls except for
+ones involving packet motion.
+[3:
+
+Wed Nov 11 00:40:08 2026 Ah, how
+nice. We have a u8 mHostFlags of
+which seven of the bits are
+currently reserved. (And I'm not
+sure the one defined bit is
+actually used?)[4:
+
+Wed Nov 11 00:41:38 2026 Wow
+looks like it is:
+
+      static void debugPackToHost(char * buf) { // let's try marking one at a time..
+        // Suppress all debug logging after a fail if hostflag is set
+        if ((theHostBlock.mHostFlags & HostBlock::HBF_ASSERT_STOP_LOG) != 0 &&
+            (theHostBlock.mFails != 0))
+ ..
+
+[5:
+
+Wed Nov 11 00:42:54 2026
+Actually let's start a branch
+for this too.
+
+:5]
+
+:4]
+
+:3]
+:2]
+
+:1]
+
+:0]

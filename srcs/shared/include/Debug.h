@@ -74,8 +74,9 @@ ALL_DEBUG_TRACE_VARIABLES()
 #define LOGPX(EXPR) LOGPTAG(EXPR,EXPR)
 #define LOGXX(EXPR) LOGXTAG(EXPR,EXPR)
 #define LOGMARK FIDLMARKLG(GET_FILE_ID(__FILE__),__LINE__)
+
 #define FIDLMARKLG(F,L) do {                                            \
-    markLogBlock(F,L, getNameFromImageCode((ImageCode) fAll.mImageCode)); \
+    markLogBlockDoIt(F,L, getNameFromImageCode((ImageCode) fAll.mImageCode)); \
   } while (0)
 
 #define LOGNOTE(MSG) LOGPTAG(MSG,getNameFromImageCode((ImageCode) fAll.mImageCode))

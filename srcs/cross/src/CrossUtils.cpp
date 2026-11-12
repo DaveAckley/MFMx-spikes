@@ -12,6 +12,7 @@
 #include "FastT0.h"             // for ticksElapsed()
 #include "PHASER.h" // for PhaserBolt
 #include "PT_InterHub.h" // for InterHubBlock
+#include "HostBlock.h"
 
 namespace MFM {
   DebugHookFncPtr theGlobalDebugHook;
@@ -21,11 +22,21 @@ namespace MFM {
   static constexpr u32 MINI_BUF_SIZ = 32;
 
   extern HostBlock theHostBlock;
+  bool logTagCheck(const char * tag) {
+    u8 flags = theHostBlock.mHostFlags;
+    if (!tag || tag[0] == 0 || tag[0] != '.') // missing, empty, and OG tags are in unless NO_UTAG
+      return !(flags&HostFlags::HBF_NO_UTAG);
+    // STRUCTURED TAG HANDLING
+    if (tag[1] == 'p')          //< ".pSTUF" for packet tags
+      return flags&HostFlags::HBF_STAG_PTRACE;
+    return true;                //< make unrecognized stags obnoxious
+  }
+
 
   static AtomicLock stringPackLock;
   static void debugPackToHost(char * buf) { // let's try marking one at a time..
     // Suppress all debug logging after a fail if hostflag is set
-    if ((theHostBlock.mHostFlags & HostBlock::HBF_ASSERT_STOP_LOG) != 0 &&
+    if ((theHostBlock.mHostFlags & HostFlags::HBF_ASSERT_STOP_LOG) != 0 &&
         (theHostBlock.mFails != 0))
       return;
 
@@ -49,75 +60,85 @@ namespace MFM {
     }
   }
 
-  void markLogBlock(u16 fileid, u16 lineno,const char * msg) {
+  // Unconditional log attempt
+  void markLogBlockDoIt(u16 fileid, u16 lineno,const char * msg) {
     theLogBlockL1Control.writeMark(fileid, lineno, msg);
   }
 
   void markLogBlock64(u16 fileid, u16 lineno,const u64 val, const char * tag = 0) {
+    if (!logTagCheck(tag)) return;
     char buf[MINI_BUF_SIZ];
     snprintf(buf,MINI_BUF_SIZ,"%s0x%lx'%08lx.",
              tag?tag:"=",
              (u32)(val>>32),
              (u32)(val&0xffffffff)
              );
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s0x%p", tag?tag:"=", ptr);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const int val, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s%d", tag?tag:"=", val);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const U8C c, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s(%u,%u)", tag?tag:"=", c.x, c.y);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const U8CRange r, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u]",
              tag?tag:"=",
              r.start.x,r.start.y,
              r.stop.x,r.stop.y);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const U16CRange r, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s[%u,%u<%u,%u)",
              tag?tag:"=",
              r.start.x,r.start.y,
              r.stop.x,r.stop.y);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const S8C c, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
   
   void markLogBlock(u16 fileid, u16 lineno,const S16C c, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s(%d,%d)", tag?tag:"=", c.x, c.y);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) {
+    if (!logTagCheck(tag)) return;
     char buf[MARK_BUF_SIZ];
     snprintf(buf,MARK_BUF_SIZ,"%s%s",
              tag?tag:"",
              msg
              );
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   static u16 lowTicks() { return ticksElapsed()%10'000; }
@@ -273,9 +294,10 @@ namespace MFM {
   }
 
   void markLogBlock(u16 fileid, u16 lineno,const P4Atom atom) {
+    //XXX perhaps implement: if (!logTagCheck(".a")) return;
     AtomCharBuf buf;
     formatP4Atom(atom,buf);
-    markLogBlock(fileid,lineno,buf);
+    markLogBlockDoIt(fileid,lineno,buf);
   }
 
   bool formatP4Atom(const P4Atom a, AtomCharBuf buf) {

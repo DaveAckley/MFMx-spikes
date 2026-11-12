@@ -8,8 +8,10 @@
 #include "P4Atom.h"
 
 namespace MFM {
+  bool logTagCheck(const char * tag) ;
+  void markLogBlockDoIt(u16 fileid, u16 lineno,const char * msg) ;
+
   void markLogBlock(u16 fileid, u16 lineno,const P4Atom atom) ;
-  void markLogBlock(u16 fileid, u16 lineno,const char * msg) ;
   void markLogBlock(u16 fileid, u16 lineno,const void * ptr, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const char * msg, const char * tag) ;
   void markLogBlock(u16 fileid, u16 lineno,const int val, const char * tag) ;

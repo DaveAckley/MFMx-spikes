@@ -293,7 +293,7 @@ namespace MFM {
           u8 carnonce = chbcar.getHeader().getPacketNonce();
           if (!chs.updateSavedNonce(c,carnonce)) continue;
           /// WITH A NONCE DIFFERENT FROM BEFORE
-          LOGPTAG(CR___,
+          LOGPTAG(.pcr,
                   formatT6RecvBuf32(b32,
                                     &chbcar,chbcar.currentTCSize(),
                                     dir4ToDir8(ourDir4)));
@@ -376,7 +376,7 @@ namespace MFM {
             //LOGXX(destaddr);
           }
           //LOGPTAG(CS___,formatIHBlockBuf32(b32,chbcar,dir4ToDir8(ourDir4),c));
-          LOGPTAG(CS___,formatT6SendBuf32(b32,&chbcar,chbcar.currentTCSize(),
+          LOGPTAG(.pcs,formatT6SendBuf32(b32,&chbcar,chbcar.currentTCSize(),
                                           theirnoc0,(void*) destaddr));
           s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &chbcar, wordCount, theirnoc0, destaddr);
           MFM_API_ASSERT(status > 0,ILLEGAL_STATE);
