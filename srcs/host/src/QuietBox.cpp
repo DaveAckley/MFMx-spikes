@@ -504,7 +504,7 @@ namespace MFM {
           Eprintf("QB::IHHThread (%u) %u MILLION UPDATES\n",bhl.getThrId(),(MFM::u32) (i/aMILLION));
         }
         // XXXX DO IHHTHREAD WORK HERE
-        // this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
+        // this->mOurTLBs.updateTransports(getStep() >= Step::HAS_T6_EVENT_WINDOWS);
       }
       Eprintf("QB::IHHThread (%u) OUT\n",bhl.getThrId());
     });

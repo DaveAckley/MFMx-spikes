@@ -929,7 +929,7 @@ namespace MFM {
     // so the caller can poll onPhases() / getOnPhase() to track T6 acks without
     // blocking this thread.
     // Intended use: call before releasing T6s (before HAS_T6_CODE_RUNNING);
-    // T6s read the HOLD_AT_BIRTH stage data as they init and ack it on their own.
+    // T6s read the HOLD_AT_BIRTH phase data as they init and ack it on their own.
     BHTag tag(TagType::HOSTCT,mDevChipNum);
     HTprintf("%s OurTLBs::firePHASER %u=%s+%u #%u\n",
              tag.to_string().c_str(),

@@ -10,11 +10,11 @@
 
 namespace MFM {
 
-  Blackhole::Phase Blackhole::changePhase(Blackhole::Phase newPhase) {
+  Blackhole::Step Blackhole::changeStep(Blackhole::Step newStep) {
     BHLOGprintf("Elapsed %0.3f sec\n", millisElapsed()/1000.0);
-    Phase ret = mCurrentPhase;
-    while (mCurrentPhase < newPhase) phaseAdvance();
-    while (mCurrentPhase > newPhase) phaseRetreat();
+    Step ret = mCurrentStep;
+    while (mCurrentStep < newStep) stepAdvance();
+    while (mCurrentStep > newStep) stepRetreat();
     return ret;
   }
 
@@ -24,7 +24,7 @@ namespace MFM {
       if (hackret != 0)
         Eprintf("BH%d DISPLAYED SOMETHING?! (%d)\n",mChipNum,hackret);
     }
-    if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
+    if (mCurrentStep < Step::HAS_T6_CODE_DEPLOYED)
       return U32_MAX;
     s32 tot = 0;
     for (u32 i = 0u; i < count; ++i) 
@@ -33,7 +33,7 @@ namespace MFM {
   }
 
   u32 Blackhole::monitorFleet() {
-    if (mCurrentPhase < Phase::HAS_T6_CODE_DEPLOYED)
+    if (mCurrentStep < Step::HAS_T6_CODE_DEPLOYED)
       return U32_MAX;
     u32 newfails = mCodeManager.newFails([] (BHTag tag, HostBlock & hb, u8 oldf, u8 newf) -> void {
       const u32 BUF_SIZE = 500u;
@@ -57,16 +57,16 @@ namespace MFM {
     return newfails;
   }
 
-  void Blackhole::phaseAdvance() {
+  void Blackhole::stepAdvance() {
     BHLog & bhl = BHLog::getTheBHLog();
     Eprintf("%d(%u) advancing from %s(%u)\n",mChipNum,bhl.getThrId(),
-            nameOfCurrentPhase(),
-            (u32) mCurrentPhase);
+            nameOfCurrentStep(),
+            (u32) mCurrentStep);
     bool worked;
-    switch (mCurrentPhase) {
-    case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
+    switch (mCurrentStep) {
+    case Step::UNINITTED: FAIL(ILLEGAL_STATE);
 
-    case Phase::HAS_CHIP_NUM: 
+    case Step::HAS_CHIP_NUM: 
       worked = openChip();
       Eprintf("after openchip %u\n",(u32) worked);
       Eprintf("hbmagic+%d, mperhst[4]+%d, mpos+%d, mtlbi+%d, size+%d\n",
@@ -75,75 +75,75 @@ namespace MFM {
               offsetof(HostBlock, mNoC0),
               offsetof(HostBlock, mTLBI),
               sizeof(HostBlock));
-      if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
+      if (worked) mCurrentStep = Step::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
       Eprintf("before bhlog (%u)\n",bhl.getThrId());
       BHLOGprintf("<Blackhole:%u> opened fd %d\n",mChipNum,mChipFD);
       Eprintf("after bhlog (%u)\n",bhl.getThrId());
       break;
 
-    case Phase::HAS_OPEN_DEVICE:
+    case Step::HAS_OPEN_DEVICE:
       worked = allocateTLBs();
       Eprintf("after allocatetlbs (%u)\n",bhl.getThrId());
-      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_TLBS;
+      if (worked) mCurrentStep = Step::HAS_ALLOCATED_TLBS;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> allocated TLBs\n",mChipNum);
       break;
 
-    case Phase::HAS_ALLOCATED_TLBS:
+    case Step::HAS_ALLOCATED_TLBS:
       worked = configureTLBs();
-      if (worked) mCurrentPhase = Phase::HAS_CONFIGURED_TLBS;
+      if (worked) mCurrentStep = Step::HAS_CONFIGURED_TLBS;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> configured TLBs\n",mChipNum);
       break;
 
-    case Phase::HAS_CONFIGURED_TLBS:
+    case Step::HAS_CONFIGURED_TLBS:
       worked = allocateHostRAM();
-      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM;
+      if (worked) mCurrentStep = Step::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
 
       BHLOGprintf("<Blackhole:%u> allocated %u (per T6) host RAM\n",
                   mChipNum, HOST_RAM_PER_BH);
       break;
 
-    case Phase::HAS_ALLOCATED_HOST_RAM:
+    case Step::HAS_ALLOCATED_HOST_RAM:
       worked = resetTheFleet();
-      if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
+      if (worked) mCurrentStep = Step::HAS_T6_TILES_RESET;
       BHLOGprintf("<Blackhole:%u> fleet holding at first positions\n", mChipNum);
       break;
 
-    case Phase::HAS_T6_TILES_RESET:
+    case Step::HAS_T6_TILES_RESET:
       worked = layoutImages();
       if (worked) {
-        mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED;
+        mCurrentStep = Step::HAS_T6_CODE_DEPLOYED;
         BHLOGprintf("<Blackhole:%u> code delivered to the fleet\n", mChipNum);
       } else
         HOST_FATAL(ILLEGAL_STATE,"Failed to deploy code");
       break;
 
-    case Phase::HAS_T6_CODE_DEPLOYED:
+    case Step::HAS_T6_CODE_DEPLOYED:
       worked = startTransportThread();
-      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
+      if (worked) mCurrentStep = Step::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> started transport thread\n", mChipNum);
       break;
 
-    case Phase::HAS_TRANSPORT_THREAD:
+    case Step::HAS_TRANSPORT_THREAD:
       BHLOGprintf("<Blackhole:%u> transmitting the go code\n", mChipNum);
       worked = releaseTheHounds();
       if (worked) {
-        mCurrentPhase = Phase::HAS_T6_CODE_RUNNING;
+        mCurrentStep = Step::HAS_T6_CODE_RUNNING;
         BHLOGprintf("<Blackhole:%u> the fleet is operational\n", mChipNum);
       } else
         HOST_FATAL(ILLEGAL_STATE,"Failed to release the fleet");
       break;
 
-    case Phase::HAS_T6_CODE_RUNNING:
+    case Step::HAS_T6_CODE_RUNNING:
       BHLOGprintf("<Blackhole:%u> event window processing begun\n", mChipNum);
-      mCurrentPhase = Phase::HAS_T6_EVENT_WINDOWS;
+      mCurrentStep = Step::HAS_T6_EVENT_WINDOWS;
       break;
 
-    case Phase::HAS_T6_EVENT_WINDOWS:
+    case Step::HAS_T6_EVENT_WINDOWS:
       {
         static bool once;
         if (!once) {
@@ -154,77 +154,77 @@ namespace MFM {
       break;
       
     default:
-      HOST_FATAL(ILLEGAL_STATE,"Unhandled phase %d", mCurrentPhase);
+      HOST_FATAL(ILLEGAL_STATE,"Unhandled phase %d", mCurrentStep);
     }
   }
 
-  void Blackhole::phaseRetreat() {
+  void Blackhole::stepRetreat() {
     BHLog & bhl = BHLog::getTheBHLog();
-    if (mCurrentPhase >= Phase::HAS_T6_CODE_DEPLOYED &&
+    if (mCurrentStep >= Step::HAS_T6_CODE_DEPLOYED &&
         monitorFleet() == 0u)
       Eprintf("(%u) No fail changes detected #%d\n",bhl.getThrId(),mChipNum);
     Eprintf("(%u) retreating from %s (%u)\n",bhl.getThrId(),
-            nameOfCurrentPhase(),
-            (u32) mCurrentPhase);
+            nameOfCurrentStep(),
+            (u32) mCurrentStep);
     bool worked;
-    switch (mCurrentPhase) {
-    case Phase::UNINITTED: FAIL(ILLEGAL_STATE);
+    switch (mCurrentStep) {
+    case Step::UNINITTED: FAIL(ILLEGAL_STATE);
 
-    case Phase::HAS_CHIP_NUM: break; // got no down genes
+    case Step::HAS_CHIP_NUM: break; // got no down genes
 
-    case Phase::HAS_OPEN_DEVICE:
+    case Step::HAS_OPEN_DEVICE:
       {
         s32 fd = mChipFD;
         worked = closeChip();
-        if (worked) mCurrentPhase = Phase::HAS_CHIP_NUM;
+        if (worked) mCurrentStep = Step::HAS_CHIP_NUM;
         else FAIL(ILLEGAL_STATE);
         BHLOGprintf("<Blackhole:%u> closed fd %d\n",mChipNum,fd);
       }
       break;
 
-    case Phase::HAS_ALLOCATED_TLBS:
+    case Step::HAS_ALLOCATED_TLBS:
       worked = deallocateTLBs();
-      if (worked) mCurrentPhase = Phase::HAS_OPEN_DEVICE;
+      if (worked) mCurrentStep = Step::HAS_OPEN_DEVICE;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> deallocated TLBs\n",mChipNum);
       break;
 
-    case Phase::HAS_CONFIGURED_TLBS:
+    case Step::HAS_CONFIGURED_TLBS:
       worked = unconfigureTLBs();
-      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_TLBS;
+      if (worked) mCurrentStep = Step::HAS_ALLOCATED_TLBS;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> unconfigured TLBs\n",mChipNum);
       break;
 
-    case Phase::HAS_ALLOCATED_HOST_RAM:
+    case Step::HAS_ALLOCATED_HOST_RAM:
       worked = deallocateHostRAM();
-      if (worked) mCurrentPhase = Phase::HAS_CONFIGURED_TLBS;
+      if (worked) mCurrentStep = Step::HAS_CONFIGURED_TLBS;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> deallocated %u (per T6) host RAM\n", mChipNum, HOST_RAM_PER_BH);
       break;
 
-    case Phase::HAS_T6_TILES_RESET:
+    case Step::HAS_T6_TILES_RESET:
       worked = true; // don't unreset?
-      if (worked) mCurrentPhase = Phase::HAS_ALLOCATED_HOST_RAM; // WAS Phase::HAS_TRANSPORT_THREAD;
+      if (worked) mCurrentStep = Step::HAS_ALLOCATED_HOST_RAM; // WAS Step::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> (left fleet at reset)\n", mChipNum);
       break;
 
-    case Phase::HAS_T6_CODE_DEPLOYED:
+    case Step::HAS_T6_CODE_DEPLOYED:
       worked = resetTheFleet(); // reset as 'undeploy'
-      if (worked) mCurrentPhase = Phase::HAS_T6_TILES_RESET;
+      if (worked) mCurrentStep = Step::HAS_T6_TILES_RESET;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> (fleet reset to undeploy code)\n", mChipNum);
       break;
 
-    case Phase::HAS_TRANSPORT_THREAD:
+    case Step::HAS_TRANSPORT_THREAD:
       worked = stopTransportThread();
-      if (worked) mCurrentPhase = Phase::HAS_T6_CODE_DEPLOYED; // WAS Phase::HAS_ALLOCATED_HOST_RAM;
+      if (worked) mCurrentStep = Step::HAS_T6_CODE_DEPLOYED; // WAS Step::HAS_ALLOCATED_HOST_RAM;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> stopped transport thread\n", mChipNum);
       break;
 
-    case Phase::HAS_T6_CODE_RUNNING:
+    case Step::HAS_T6_CODE_RUNNING:
       // We'd like retreating from state to mean 'debug pause', but
       // the Blackhole doc for that appears to be so-far missing and
       // the wormhole doc has some not-encouraging stuff (e.g., can't
@@ -232,18 +232,18 @@ namespace MFM {
       // XXX no longer true: So just retreat here, for now, by bailing all the way back to reset.
 
       worked = resetTheFleet(); 
-      if (worked) mCurrentPhase = Phase::HAS_TRANSPORT_THREAD;
+      if (worked) mCurrentStep = Step::HAS_TRANSPORT_THREAD;
       else FAIL(ILLEGAL_STATE);
       BHLOGprintf("<Blackhole:%u> (fleet reset to stop running code)\n", mChipNum);
       break;
 
-    case Phase::HAS_T6_EVENT_WINDOWS:
-      mCurrentPhase = Phase::HAS_T6_CODE_RUNNING;
+    case Step::HAS_T6_EVENT_WINDOWS:
+      mCurrentStep = Step::HAS_T6_CODE_RUNNING;
       BHLOGprintf("<Blackhole:%u> event window processing ceased\n", mChipNum);
       break;
 
     default:
-      HOST_FATAL(ILLEGAL_STATE,"Unhandled retreat from %d",mCurrentPhase);
+      HOST_FATAL(ILLEGAL_STATE,"Unhandled retreat from %d",mCurrentStep);
     }
   }
   
@@ -341,7 +341,7 @@ namespace MFM {
                         (MFM::u32) (i/aMILLION),
                         &this->mOurTLBs);
         }
-        this->mOurTLBs.updateTransports(getPhase() >= Phase::HAS_T6_EVENT_WINDOWS);
+        this->mOurTLBs.updateTransports(getStep() >= Step::HAS_T6_EVENT_WINDOWS);
         if ((i & 0xff)==0)
           this->mOurTLBs.updateOnPhase();
       }

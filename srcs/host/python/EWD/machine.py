@@ -126,7 +126,7 @@ class Machine:
 
     # ---- boot: configure -> chip reset -> init ----------------------------------
     # NB: the order mirrors nu1011 exactly: configure (which already opens the
-    # devices and allocates TLBs via setPhase) happens BEFORE 'tt-smi -r'.  That
+    # devices and allocates TLBs via setStep) happens BEFORE 'tt-smi -r'.  That
     # looks odd -- see the notes in the hand-off message; kept as-is on purpose.
     def configure(self):
         """Port of EWD.configureImageManager()."""
@@ -187,7 +187,7 @@ class Machine:
         chips = im.getActiveLayout().getActiveBHChips()
         self.bhs = [M.Blackhole(i) for i in chips]
         for bh in self.bhs:                  # far enough to configure modules
-            bh.setPhase(M.Phase.HAS_ALLOCATED_TLBS)
+            bh.setStep(M.Step.HAS_ALLOCATED_TLBS)
         for bh in self.bhs:
             for hmname in modules:
                 bh.addCommsModule(im.getCommsModule(hmname))
@@ -230,27 +230,27 @@ class Machine:
             raise RuntimeError("not booted: run 'boot' first")
 
     # ---- lifecycle ----------------------------------------------------------------
-    def phases(self):
-        return [(bh.getChipNumber(), bh.getPhase()) for bh in self.bhs]
+    def steps(self):
+        return [(bh.getChipNumber(), bh.getStep()) for bh in self.bhs]
 
     @staticmethod
     def pname(p):
         return getattr(p, "name", str(p))
 
     def start(self):
-        """nu1011 start(): startEWProcessing on every chip (walks all BH phases).
+        """nu1011 start(): startEWProcessing on every chip (walks all BH init steps).
         When firePHASER is available, fires HOLD_AT_BIRTH to L1 first so T6s
         pick it up during their init (between CODE_RUNNING and EVENT_WINDOWS).
         On return, hold_settled=True means the sequencer can skip the cycle's
-        HOLD_AT_BIRTH stage and go straight to NEW_LEADER."""
+        HOLD_AT_BIRTH phase and go straight to NEW_LEADER."""
         self.need_booted()
         self.hold_settled = False
         if self.has_fire_phaser:
             # Write HOLD_AT_BIRTH to L1 before releasing T6s.
             # startEWProcessing walks through HAS_T6_CODE_RUNNING (releasing T6s);
             # they see the HOLD_AT_BIRTH written here, ack it via the transport
-            # thread, and block waiting for the first NEW_LEADER stage.
-            self.say("start: firing HOLD_AT_BIRTH stage to L1 before T6 release")
+            # thread, and block waiting for the first NEW_LEADER phase.
+            self.say("start: firing HOLD_AT_BIRTH phase to L1 before T6 release")
             self.qb.firePHASER(self.M.PhaserBolt.Cmd.HOLD_AT_BIRTH, [0])
         out = []
         for bh in self.bhs:
@@ -258,18 +258,18 @@ class Machine:
                 bh.setStartDecayType(int(self.decay))
             t = time.monotonic()
             bh.startEWProcessing()
-            out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getPhase())} "
+            out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
                        f"({time.monotonic() - t:.1f}s)")
         if self.has_fire_phaser:
             counts = self._parse_on_phases()
             all_acked = bool(counts) and all(n >= self.t6s for n in counts.values())
             if all_acked:
                 self.hold_settled = True
-                out.append(f"HOLD_AT_BIRTH stage pre-settled: "
+                out.append(f"HOLD_AT_BIRTH phase pre-settled: "
                            f"{'/'.join(str(n) for n in counts.values())} acked; "
                            "cycle will begin at NEW_LEADER")
             else:
-                out.append(f"HOLD_AT_BIRTH stage: only {counts} acked "
+                out.append(f"HOLD_AT_BIRTH phase: only {counts} acked "
                            f"(expected {self.t6s}/chip); cycle will re-fire it")
         return "\n".join(out)
 
@@ -285,12 +285,12 @@ class Machine:
         self.need_booted()
         out = []
         for bh in self.bhs:
-            if bh.getPhase() >= self.M.Phase.HAS_T6_EVENT_WINDOWS:
+            if bh.getStep() >= self.M.Step.HAS_T6_EVENT_WINDOWS:
                 bh.stopEWProcessing()
-                out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getPhase())}")
+                out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())}")
             else:
                 out.append(f"bh{bh.getChipNumber()} not at event windows "
-                           f"({self.pname(bh.getPhase())}); left alone")
+                           f"({self.pname(bh.getStep())}); left alone")
         return "\n".join(out)
 
     def close(self):
@@ -299,7 +299,7 @@ class Machine:
         out = []
         for bh in self.bhs:
             bh.close()
-            out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getPhase())}")
+            out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())}")
         return "\n".join(out)
 
     # ---- monitoring ---------------------------------------------------------------
@@ -319,7 +319,7 @@ class Machine:
     def released(self):
         """True once every chip has been taken to CODE_RUNNING or beyond (the T6s
         have been released and have set up their hostblocks)."""
-        return bool(self.bhs) and all(bh.getPhase() >= self.M.Phase.HAS_T6_CODE_RUNNING
+        return bool(self.bhs) and all(bh.getStep() >= self.M.Step.HAS_T6_CODE_RUNNING
                                       for bh in self.bhs)
 
     def tick_slowscan(self):
@@ -466,7 +466,7 @@ class Machine:
         lines.append(f"booted: configured={self.configured} inited={self.inited} "
                      f"api={'async' if self.async_api else 'legacy' if self.inited else '-'}")
         if self.bhs:
-            lines.append("phases: " + "  ".join(f"bh{c}={self.pname(p)}" for c, p in self.phases()))
+            lines.append("steps: " + "  ".join(f"bh{c}={self.pname(p)}" for c, p in self.steps()))
         if self.inited:
             qb = self.qb
             lines.append(f"quietbox: onPhases {qb.onPhases()}  indices {qb.phaseIndices()}  "
@@ -495,7 +495,7 @@ class Machine:
                 out.append(f"{name}: FAILED {type(e).__name__}: {e}")
 
         if self.configured and self.inited:
-            if any(p >= self.M.Phase.HAS_T6_EVENT_WINDOWS for _c, p in self.phases()):
+            if any(p >= self.M.Step.HAS_T6_EVENT_WINDOWS for _c, p in self.steps()):
                 step("stop events", self.stop)
             if close:
                 step("close chips", self.close)

@@ -15,7 +15,7 @@
 #include <pybind11/native_enum.h>
 namespace py = pybind11;
 
-#define BLACKHOLE_PHASES()                     \
+#define BLACKHOLE_STEPS()                     \
   XX(UNINITTED)                                \
   XX(HAS_CHIP_NUM)                             \
   XX(HAS_OPEN_DEVICE)                          \
@@ -31,30 +31,30 @@ namespace py = pybind11;
 namespace MFM {
   class Blackhole {
   public:
-    enum Phase : u8 {
+    enum Step : u8 {
 
 #define XX(name) name,
-      BLACKHOLE_PHASES()
+      BLACKHOLE_STEPS()
 #undef XX
 
-      PHASE_COUNT
+      STEP_COUNT
     };
 
-    static constexpr const char *(PHASE_NAMES[PHASE_COUNT]) = {
+    static constexpr const char *(STEP_NAMES[STEP_COUNT]) = {
 
 #define XX(name) #name,
-        BLACKHOLE_PHASES()
+        BLACKHOLE_STEPS()
 #undef XX      
 
       };
 
-    static const char * nameOfPhase(Phase p) {
-      MFM_API_ASSERT(p < PHASE_COUNT, ILLEGAL_ARGUMENT);
-      return PHASE_NAMES[p];
+    static const char * nameOfStep(Step p) {
+      MFM_API_ASSERT(p < STEP_COUNT, ILLEGAL_ARGUMENT);
+      return STEP_NAMES[p];
     }
 
     Blackhole(unsigned chip = 0u)
-      : mCurrentPhase(Phase::HAS_CHIP_NUM)
+      : mCurrentStep(Step::HAS_CHIP_NUM)
       , mChipNum(chip)
       , mOurTLBs(*this)
       , mQuitTransportThread(false)
@@ -71,7 +71,7 @@ namespace MFM {
       std::string ret = "<Blackhole#";
       ret.append(std::to_string(mChipNum));
       ret.append(" ph=");
-      ret.append(nameOfPhase(getPhase()));
+      ret.append(nameOfStep(getStep()));
       ret.append(" cm=");
       ret.append(mOurTLBs.getHostCommsMap().to_repr());
       ret.append(">");
@@ -94,9 +94,9 @@ namespace MFM {
     void setStartDecayType(u16 decaytype) {
       mCodeManager.setStartDecayType(decaytype);
     }
-    Phase changePhase(Phase newPhase) ;
-    Phase getPhase() const { return mCurrentPhase; }
-    const char * nameOfCurrentPhase() const { return nameOfPhase(mCurrentPhase); }
+    Step changeStep(Step newStep) ;
+    Step getStep() const { return mCurrentStep; }
+    const char * nameOfCurrentStep() const { return nameOfStep(mCurrentStep); }
 
     u32 monitorFleet() ; //< return count of new failures
     s32 runSlowScans(u32 count) ; //< return something after count HostBlock scans
@@ -118,8 +118,8 @@ namespace MFM {
     CodeManager & getCodeManager() { return mCodeManager; }
 
   private:
-    void phaseAdvance() ;
-    void phaseRetreat() ;
+    void stepAdvance() ;
+    void stepRetreat() ;
 
     bool openChip() ;
     bool closeChip() ;
@@ -145,7 +145,7 @@ namespace MFM {
 
     bool releaseTheHounds() ;
 
-    Phase mCurrentPhase;
+    Step mCurrentStep;
     u32 mChipNum;
     s32 mChipFD;
 
@@ -171,18 +171,18 @@ namespace MFM {
     static void pybindings(py::module & m) {
       py::class_<Blackhole> bh(m,"Blackhole");
 
-      py::native_enum<Blackhole::Phase> bhp(m,"Phase","enum.IntEnum");
-      bhp.value("UNINITTED", Blackhole::Phase::UNINITTED);
-      bhp.value("HAS_CHIP_NUM", Blackhole::Phase::HAS_CHIP_NUM);
-      bhp.value("HAS_OPEN_DEVICE", Blackhole::Phase::HAS_OPEN_DEVICE);
-      bhp.value("HAS_ALLOCATED_TLBS", Blackhole::Phase::HAS_ALLOCATED_TLBS);
-      bhp.value("HAS_CONFIGURED_TLBS", Blackhole::Phase::HAS_CONFIGURED_TLBS);
-      bhp.value("HAS_ALLOCATED_HOST_RAM", Blackhole::Phase::HAS_ALLOCATED_HOST_RAM);
-      bhp.value("HAS_T6_TILES_RESET", Blackhole::Phase::HAS_T6_TILES_RESET);
-      bhp.value("HAS_T6_CODE_DEPLOYED", Blackhole::Phase::HAS_T6_CODE_DEPLOYED);
-      bhp.value("HAS_TRANSPORT_THREAD", Blackhole::Phase::HAS_TRANSPORT_THREAD);
-      bhp.value("HAS_T6_CODE_RUNNING", Blackhole::Phase::HAS_T6_CODE_RUNNING);
-      bhp.value("HAS_T6_EVENT_WINDOWS", Blackhole::Phase::HAS_T6_EVENT_WINDOWS);
+      py::native_enum<Blackhole::Step> bhp(m,"Step","enum.IntEnum");
+      bhp.value("UNINITTED", Blackhole::Step::UNINITTED);
+      bhp.value("HAS_CHIP_NUM", Blackhole::Step::HAS_CHIP_NUM);
+      bhp.value("HAS_OPEN_DEVICE", Blackhole::Step::HAS_OPEN_DEVICE);
+      bhp.value("HAS_ALLOCATED_TLBS", Blackhole::Step::HAS_ALLOCATED_TLBS);
+      bhp.value("HAS_CONFIGURED_TLBS", Blackhole::Step::HAS_CONFIGURED_TLBS);
+      bhp.value("HAS_ALLOCATED_HOST_RAM", Blackhole::Step::HAS_ALLOCATED_HOST_RAM);
+      bhp.value("HAS_T6_TILES_RESET", Blackhole::Step::HAS_T6_TILES_RESET);
+      bhp.value("HAS_T6_CODE_DEPLOYED", Blackhole::Step::HAS_T6_CODE_DEPLOYED);
+      bhp.value("HAS_TRANSPORT_THREAD", Blackhole::Step::HAS_TRANSPORT_THREAD);
+      bhp.value("HAS_T6_CODE_RUNNING", Blackhole::Step::HAS_T6_CODE_RUNNING);
+      bhp.value("HAS_T6_EVENT_WINDOWS", Blackhole::Step::HAS_T6_EVENT_WINDOWS);
       bhp.export_values();
       bhp.finalize();
 
@@ -190,12 +190,12 @@ namespace MFM {
       bh.def("__repr__", &Blackhole::to_repr,py::call_guard<py::gil_scoped_release>());
       bh.def("getChipNumber", &Blackhole::getChipNumber,py::call_guard<py::gil_scoped_release>());
       bh.def("setStartDecayType", &Blackhole::setStartDecayType,py::call_guard<py::gil_scoped_release>());
-      //      bh.def("getPhase", [](Blackhole& b) { return (u32) b.getPhase(); },py::call_guard<py::gil_scoped_release>());
-      bh.def("getPhase", &Blackhole::getPhase,py::call_guard<py::gil_scoped_release>());
-      bh.def("setPhase", [](Blackhole& b, int j ) {
-        if (j > Phase::UNINITTED && j <= Phase::HAS_T6_CODE_RUNNING) {
-          if (j != b.getPhase()) {
-            b.changePhase((Phase) j);
+      //      bh.def("getStep", [](Blackhole& b) { return (u32) b.getStep(); },py::call_guard<py::gil_scoped_release>());
+      bh.def("getStep", &Blackhole::getStep,py::call_guard<py::gil_scoped_release>());
+      bh.def("setStep", [](Blackhole& b, int j ) {
+        if (j > Step::UNINITTED && j <= Step::HAS_T6_CODE_RUNNING) {
+          if (j != b.getStep()) {
+            b.changeStep((Step) j);
             return true;
           }
           return false;
@@ -204,14 +204,14 @@ namespace MFM {
       },py::call_guard<py::gil_scoped_release>());
       bh.def("monitorFleet", &Blackhole::monitorFleet,py::call_guard<py::gil_scoped_release>());
 
-      bh.def("open", [](Blackhole& b) { b.changePhase(Phase::HAS_OPEN_DEVICE); },py::call_guard<py::gil_scoped_release>());
-      bh.def("allocateTLBs", [](Blackhole& b) { b.changePhase(Phase::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());
-      bh.def("configureTLBs", [](Blackhole& b) { b.changePhase(Phase::HAS_CONFIGURED_TLBS); },py::call_guard<py::gil_scoped_release>());
-      bh.def("allocateHostRAM", [](Blackhole& b) { b.changePhase(Phase::HAS_ALLOCATED_HOST_RAM); },py::call_guard<py::gil_scoped_release>());
+      bh.def("open", [](Blackhole& b) { b.changeStep(Step::HAS_OPEN_DEVICE); },py::call_guard<py::gil_scoped_release>());
+      bh.def("allocateTLBs", [](Blackhole& b) { b.changeStep(Step::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());
+      bh.def("configureTLBs", [](Blackhole& b) { b.changeStep(Step::HAS_CONFIGURED_TLBS); },py::call_guard<py::gil_scoped_release>());
+      bh.def("allocateHostRAM", [](Blackhole& b) { b.changeStep(Step::HAS_ALLOCATED_HOST_RAM); },py::call_guard<py::gil_scoped_release>());
       //bh.def("setMFMxDefaultCodePath", &Blackhole::setMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
-      //bh.def("layoutImages", [](Blackhole& b) { b.changePhase(Phase::HAS_T6_CODE_DEPLOYED); },py::call_guard<py::gil_scoped_release>());
-      bh.def("startMachine", [](Blackhole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
-      bh.def("startEWProcessing", [](Blackhole& b) { b.changePhase(Phase::HAS_T6_EVENT_WINDOWS); },py::call_guard<py::gil_scoped_release>());
+      //bh.def("layoutImages", [](Blackhole& b) { b.changeStep(Step::HAS_T6_CODE_DEPLOYED); },py::call_guard<py::gil_scoped_release>());
+      bh.def("startMachine", [](Blackhole& b) { b.changeStep(Step::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
+      bh.def("startEWProcessing", [](Blackhole& b) { b.changeStep(Step::HAS_T6_EVENT_WINDOWS); },py::call_guard<py::gil_scoped_release>());
       //
 
       bh.def("addCommsModule", &Blackhole::addCommsModule,py::call_guard<py::gil_scoped_release>());
@@ -228,13 +228,13 @@ namespace MFM {
         return BHTag(TagType::T6TADR,chipnum, col, row);
       },py::call_guard<py::gil_scoped_release>());
 
-      bh.def("stopEWProcessing", [](Blackhole& b) { b.changePhase(Phase::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
-      bh.def("stopMFMxCode", [](Blackhole& b) { b.changePhase(Phase::HAS_T6_TILES_RESET); },py::call_guard<py::gil_scoped_release>());
+      bh.def("stopEWProcessing", [](Blackhole& b) { b.changeStep(Step::HAS_T6_CODE_RUNNING); },py::call_guard<py::gil_scoped_release>());
+      bh.def("stopMFMxCode", [](Blackhole& b) { b.changeStep(Step::HAS_T6_TILES_RESET); },py::call_guard<py::gil_scoped_release>());
       bh.def("clearMFMxDefaultCodePath", &Blackhole::clearMFMxDefaultCodePath,py::call_guard<py::gil_scoped_release>());
-      bh.def("deallocateHostRAM", [](Blackhole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_HOST_RAM-1)); },py::call_guard<py::gil_scoped_release>());
-      bh.def("unconfigureTLBs", [](Blackhole& b) { b.changePhase((Phase) (Phase::HAS_CONFIGURED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());
-      bh.def("freeTLBs", [](Blackhole& b) { b.changePhase((Phase) (Phase::HAS_ALLOCATED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());
-      bh.def("close", [](Blackhole& b) { b.changePhase((Phase) (Phase::HAS_OPEN_DEVICE-1)); },py::call_guard<py::gil_scoped_release>());
+      bh.def("deallocateHostRAM", [](Blackhole& b) { b.changeStep((Step) (Step::HAS_ALLOCATED_HOST_RAM-1)); },py::call_guard<py::gil_scoped_release>());
+      bh.def("unconfigureTLBs", [](Blackhole& b) { b.changeStep((Step) (Step::HAS_CONFIGURED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());
+      bh.def("freeTLBs", [](Blackhole& b) { b.changeStep((Step) (Step::HAS_ALLOCATED_TLBS-1)); },py::call_guard<py::gil_scoped_release>());
+      bh.def("close", [](Blackhole& b) { b.changeStep((Step) (Step::HAS_OPEN_DEVICE-1)); },py::call_guard<py::gil_scoped_release>());
     }
     
   };

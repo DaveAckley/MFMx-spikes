@@ -135,22 +135,22 @@ def main(argv=None):
             return f"diagnose-on-timeout {m.diagnose}"
         raise ValueError("usage: bolt [hist | timeout CMD SECS | diagnose on|off]")
 
-    def c_phase(a):
+    def c_step(a):
         m.need_booted()
         if not a:
-            cur = "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.phases())
-            return (cur + "\nphase names, in order (setPhase goes up to HAS_T6_CODE_RUNNING):\n  "
-                    + "\n  ".join(n for n in MFMx.Phase.__members__ if n != "PHASE_COUNT"))
+            cur = "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.steps())
+            return (cur + "\nstep names, in order (setStep goes up to HAS_T6_CODE_RUNNING):\n  "
+                    + "\n  ".join(n for n in MFMx.Step.__members__ if n != "STEP_COUNT"))
         want = a[0]
-        P = MFMx.Phase
-        names = [n for n in P.__members__ if n != "PHASE_COUNT"]
+        P = MFMx.Step
+        names = [n for n in P.__members__ if n != "STEP_COUNT"]
         if want.isdigit():
             ph = P(int(want))
         elif want.upper() in names:
             ph = getattr(P, want.upper())
         else:
-            raise ValueError(f"unknown phase {want!r}; exact names are:\n  " + "\n  ".join(names))
-        return "\n".join(f"bh{bh.getChipNumber()}: setPhase -> {bh.setPhase(ph)}"
+            raise ValueError(f"unknown step {want!r}; exact names are:\n  " + "\n  ".join(names))
+        return "\n".join(f"bh{bh.getChipNumber()}: setStep -> {bh.setStep(ph)}"
                          for bh in m.bhs)
 
     def c_decay(a):
@@ -270,7 +270,7 @@ def main(argv=None):
     sh.command("start", lambda a: m.start(), "start: startEWProcessing on every chip (walks all phases; can be slow)")
     sh.command("stop", lambda a: m.stop(), "stop: stopEWProcessing (only on chips at event windows)")
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
-    sh.command("phase", c_phase, "phase [NAME|N]: show chip phases and all phase names, or setPhase to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
+    sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")

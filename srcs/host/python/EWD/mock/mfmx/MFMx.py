@@ -49,7 +49,7 @@ class _Mock:
         self.cmd_lamers = {}            # (cmd name, chip) -> set(tlbi): never ack THAT command
         self.slow = {}                  # chip -> {tlbi: extra seconds before acking}
         self.legacy_timeout = 2.0       # real C++ is ~40s/chip; scaled down
-        self.phase_step_delay = 0.0     # seconds per phase step in changePhase
+        self.step_delay = 0.0     # seconds per phase step in changeStep
         self.simdir = None
 
     # -- convenience for tests / the 'mock' REPL command --
@@ -258,7 +258,7 @@ class ImageManager:
 
 
 # --------------------------------------------------------------------- phases
-class Phase(enum.IntEnum):
+class Step(enum.IntEnum):
     UNINITTED = 0
     HAS_CHIP_NUM = 1
     HAS_OPEN_DEVICE = 2
@@ -272,7 +272,7 @@ class Phase(enum.IntEnum):
     HAS_T6_EVENT_WINDOWS = 10
 
 
-globals().update(Phase.__members__)   # export_values()
+globals().update(Step.__members__)   # export_values()
 
 
 class Blackhole:
@@ -282,56 +282,56 @@ class Blackhole:
         if chipnum in _QB.chips:
             raise RuntimeError("DUPLICATE_ENTRY")
         self.chip = int(chipnum)
-        self.phase = Phase.HAS_CHIP_NUM
+        self.step = Step.HAS_CHIP_NUM
         self.decay = None
         self.scans = 0
         self.modules = []
         _QB.chips[self.chip] = self
 
-    # internal: C++ changePhase advances AND retreats to reach the target
+    # internal: C++ changeStep advances AND retreats to reach the target
     def _change(self, target):
-        while self.phase != target:
-            if _mock.phase_step_delay:
-                _mock.sleep(_mock.phase_step_delay)
-            self.phase = Phase(self.phase + (1 if self.phase < target else -1))
+        while self.step != target:
+            if _mock.step_delay:
+                _mock.sleep(_mock.step_delay)
+            self.step = Step(self.step + (1 if self.step < target else -1))
 
     def __repr__(self):
-        return f"<Blackhole:{self.chip} {self.phase.name}>"
+        return f"<Blackhole:{self.chip} {self.step.name}>"
 
     def getChipNumber(self):
         return self.chip
 
-    def getPhase(self):
-        return self.phase
+    def getStep(self):
+        return self.step
 
     def setStartDecayType(self, t):
         self.decay = int(t)
 
-    def setPhase(self, j):
-        if Phase.UNINITTED < j <= Phase.HAS_T6_CODE_RUNNING:
-            if j != self.phase:
-                self._change(Phase(j))
+    def setStep(self, j):
+        if Step.UNINITTED < j <= Step.HAS_T6_CODE_RUNNING:
+            if j != self.step:
+                self._change(Step(j))
                 return True
             return False
-        raise RuntimeError(f"Unknown or unhandled phase {j}")
+        raise RuntimeError(f"Unknown or unhandled init step {j}")
 
     def addCommsModule(self, hm):
         self.modules.append(hm)
 
     def startEWProcessing(self):
-        self._change(Phase.HAS_T6_EVENT_WINDOWS)
+        self._change(Step.HAS_T6_EVENT_WINDOWS)
 
     def stopEWProcessing(self):      # NB: advances if below CODE_RUNNING!
-        self._change(Phase.HAS_T6_CODE_RUNNING)
+        self._change(Step.HAS_T6_CODE_RUNNING)
 
     def close(self):
-        self._change(Phase.HAS_CHIP_NUM)
+        self._change(Step.HAS_CHIP_NUM)
 
     def monitorFleet(self):
-        return U32_MAX if self.phase < Phase.HAS_T6_CODE_DEPLOYED else 0
+        return U32_MAX if self.step < Step.HAS_T6_CODE_DEPLOYED else 0
 
     def runSlowScans(self, count):
-        if self.phase < Phase.HAS_T6_CODE_DEPLOYED:
+        if self.step < Step.HAS_T6_CODE_DEPLOYED:
             return -1                 # C++ returns U32_MAX as s32
         self.scans += count
         return 0
@@ -358,7 +358,7 @@ class _ChipPhaser:
         self.nonce = (self.nonce + 1) & 0xFF
         lo, hi = _mock.delays[cmd_name]
         now = _mock.clock()
-        runs = chip.phase >= Phase.HAS_T6_CODE_RUNNING
+        runs = chip.step >= Step.HAS_T6_CODE_RUNNING
         bad = (_mock.lamers.get(chip.chip, set())
                | _mock.cmd_lamers.get((cmd_name, chip.chip), set()))
         slow = _mock.slow.get(chip.chip, {})
@@ -437,7 +437,7 @@ class _QBCore:
 
     def _fire_chip(self, c, cmd):
         bh = self.chips[c]
-        if bh.phase < Phase.HAS_CONFIGURED_TLBS:
+        if bh.step < Step.HAS_CONFIGURED_TLBS:
             raise RuntimeError(f"chip {c} has no configured TLBs")
         self.phasers.setdefault(c, _ChipPhaser()).fire(bh, cmd.name)
 
