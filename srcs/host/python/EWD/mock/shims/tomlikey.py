@@ -11,7 +11,7 @@ import re
 import tomllib
 
 _NUM = re.compile(r"^[+-]?(0x[0-9a-fA-F_]+|0o[0-7_]+|0b[01_]+|\d[\d_]*(\.\d[\d_]*)?([eE][+-]?\d+)?|inf|nan)$")
-_BARE = re.compile(r"^[A-Za-z_][\w.\-]*$")
+_BARE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")   # "looks like a variable"
 _WORDS = {"true", "false"}
 
 
