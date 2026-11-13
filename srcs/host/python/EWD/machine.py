@@ -280,8 +280,17 @@ class Machine:
         self.last_scan = rets
         return rets
 
+    def released(self):
+        """True once every chip has been taken to CODE_RUNNING or beyond (the T6s
+        have been released and have set up their hostblocks)."""
+        return bool(self.bhs) and all(bh.getPhase() >= self.M.Phase.HAS_T6_CODE_RUNNING
+                                      for bh in self.bhs)
+
     def tick_slowscan(self):
-        if self.configured and self.inited:
+        # Before the T6s are released their hostblocks hold no valid magic, so
+        # every scan would report BAD MAGIC and dump L1 to disk.  Manual 'scan'
+        # still works at any phase.
+        if self.configured and self.inited and self.released():
             self.slowscan(1)
 
     def frame(self):
@@ -377,6 +386,9 @@ class Machine:
 
     def _diagnose_if_timeout(self, b):
         if b.state == "timeout" and self.diagnose:
+            if not self.released():
+                self.say("  (no diagnosis slowscan: T6s not released yet; 'scan' to force one)")
+                return
             try:
                 self.say(f"  diagnosing: slowscan -> {self.slowscan(1)}")
             except Exception as e:

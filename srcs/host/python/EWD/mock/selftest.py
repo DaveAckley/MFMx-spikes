@@ -256,6 +256,17 @@ def scenario_feed_placeholder():
           bool(m2) and int(m2.group(1)) > 0, post[-300:])
 
 
+def scenario_slowscan_gated():
+    rc, out = run("boot\nphase HAS_TRANSPORT_THREAD\nwait 0.8\n# PRE\nstatus\nscan\n# FORCED\nstatus\n"
+                  "phase HAS_T6_CODE_RUNNING\nwait 0.8\n# POST\nstatus\nquit\n",
+                  extra_args=("--slowscan-period", "0.1", "--slowscan-gap", "0"))
+    s = sections(out)
+    n = lambda k: int(re.search(r"slowscans run: (\d+)", s.get(k, "")).group(1))
+    check("slowscan gate: no automatic scans before the T6s are released", n("PRE") == 0, s.get("PRE", "")[-300:])
+    check("slowscan gate: manual 'scan' still works", n("FORCED") == 1, s.get("FORCED", "")[-300:])
+    check("slowscan gate: automatic scans resume once released", n("POST") > 1, s.get("POST", "")[-300:])
+
+
 def scenario_feed_command():
     rc, out = run("feed\nboot\nstart\nfeed on\nwait 1.0\nfeed status\nfeed off\nfeed st\nquit\n")
     check("feed: starts with no feed", "feed: none" in out or "frame tick off" in out, out[:400])
