@@ -261,7 +261,15 @@ class Machine:
             out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
                        f"({time.monotonic() - t:.1f}s)")
         if self.has_fire_phaser:
-            counts = self._parse_on_phases()
+            # Poll for HOLD_AT_BIRTH acks: T6s need a moment to run birth code
+            # after startEWProcessing releases them from reset.
+            deadline = time.monotonic() + 5.0
+            counts = {}
+            while time.monotonic() < deadline:
+                counts = self._parse_on_phases()
+                if counts and all(n >= self.t6s for n in counts.values()):
+                    break
+                time.sleep(0.1)
             all_acked = bool(counts) and all(n >= self.t6s for n in counts.values())
             if all_acked:
                 self.hold_settled = True
