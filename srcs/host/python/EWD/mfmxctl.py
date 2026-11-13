@@ -17,11 +17,26 @@ import atexit
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _git_version():
+    """Return a brief git status string for the startup banner, or '' on failure."""
+    try:
+        log = subprocess.check_output(
+            ["git", "-C", HERE, "log", "-1", "--format=%h %s"],
+            stderr=subprocess.DEVNULL, text=True).strip()
+        dirty = subprocess.call(
+            ["git", "-C", HERE, "diff", "--quiet", "HEAD"],
+            stderr=subprocess.DEVNULL)
+        return log + (" [dirty]" if dirty else "")
+    except Exception:
+        return ""
 
 
 def parse_args(argv):
@@ -87,6 +102,9 @@ def main(argv=None):
     from sequencer import SuperCycle
 
     sh = Shell(prompt="mfmx> ")
+    _ver = _git_version()
+    if _ver:
+        sh.say(f"mfmxctl HEAD: {_ver}")
     cfg = Config.Config(os.path.join(HERE, "mfmxctl.py"), args.config)
     m = Machine(MFMx, cfg, sh.say, script_dir=HERE, logprefix=args.log_prefix,
                 t6s_per_chip=args.t6s_per_chip, verbose=args.verbose,
