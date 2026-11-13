@@ -83,6 +83,7 @@ def scenario_legacy_blocking():
     check("legacy: banner warns about blocking", "LEGACY blocking shootPHASER" in out, out[:600])
     check("legacy: clean bolt -> CONSENSUS", "RUN_EVENTS(0) CONSENSUS" in out, out[-600:])
     check("legacy: lamer bolt -> TIMEOUT", "RUN_EVENTS(0) TIMEOUT" in out, out[-600:])
+    check("legacy: timeout also triggers the auto-diagnosis slowscan", "diagnosing: slowscan" in out, out[-600:])
     check("legacy: exit 0, no QuietBox.shutdown needed", rc == 0 and "quietbox shutdown" not in out)
 
 

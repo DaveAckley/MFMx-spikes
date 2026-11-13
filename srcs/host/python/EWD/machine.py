@@ -348,6 +348,7 @@ class Machine:
         b.done = time.monotonic()
         b.state = "consensus" if all(n >= self.t6s for n in counts.values()) else "timeout"
         self._report(b)
+        self._diagnose_if_timeout(b)
 
     def _parse_on_phases(self):
         out = {}
@@ -371,12 +372,15 @@ class Machine:
         else:
             return False
         self._report(b)
+        self._diagnose_if_timeout(b)
+        return True
+
+    def _diagnose_if_timeout(self, b):
         if b.state == "timeout" and self.diagnose:
             try:
                 self.say(f"  diagnosing: slowscan -> {self.slowscan(1)}")
             except Exception as e:
                 self.say(f"  diagnosis failed: {type(e).__name__}: {e}")
-        return True
 
     def _report(self, b):
         now = time.monotonic()
