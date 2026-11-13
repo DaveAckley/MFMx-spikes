@@ -267,6 +267,14 @@ def scenario_slowscan_gated():
     check("slowscan gate: automatic scans resume once released", n("POST") > 1, s.get("POST", "")[-300:])
 
 
+def scenario_phase_names():
+    rc, out = run("boot\nphase TRANSPORT\nphase\nphase CODE_RUNNING\nphase\nphase CODE\nphase zzz\nquit\n")
+    check("phase names: unique suffix/substring accepted",
+          "bh0=HAS_TRANSPORT_THREAD" in out and "bh0=HAS_T6_CODE_RUNNING" in out, out[-600:])
+    check("phase names: ambiguous name lists candidates", "ambiguous phase 'CODE'" in out, out[-600:])
+    check("phase names: unknown name lists all phases", "unknown phase 'ZZZ'" in out or "unknown phase 'zzz'" in out)
+
+
 def scenario_feed_command():
     rc, out = run("feed\nboot\nstart\nfeed on\nwait 1.0\nfeed status\nfeed off\nfeed st\nquit\n")
     check("feed: starts with no feed", "feed: none" in out or "frame tick off" in out, out[:400])

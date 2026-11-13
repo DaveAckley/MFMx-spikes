@@ -141,7 +141,17 @@ def main(argv=None):
             return "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.phases())
         want = a[0]
         P = MFMx.Phase
-        ph = P(int(want)) if want.isdigit() else getattr(P, want.upper())
+        if want.isdigit():
+            ph = P(int(want))
+        else:
+            names = [n for n in P.__members__ if n != "PHASE_COUNT"]
+            w = want.upper()
+            hits = ([n for n in names if n == w] or [n for n in names if n.endswith(w)]
+                    or [n for n in names if n.startswith(w)] or [n for n in names if w in n])
+            if len(hits) != 1:
+                raise ValueError((f"ambiguous phase {want!r}: {', '.join(hits)}" if hits
+                                  else f"unknown phase {want!r}") + f"\n  phases: {', '.join(names)}")
+            ph = getattr(P, hits[0])
         return "\n".join(f"bh{bh.getChipNumber()}: setPhase -> {bh.setPhase(ph)}"
                          for bh in m.bhs)
 
