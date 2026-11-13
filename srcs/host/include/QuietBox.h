@@ -133,6 +133,7 @@ namespace MFM {
     std::string getRanges() { return NgbCacheMgr::dumpAllRanges(); }
 
     void shootPHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) ;
+    void firePHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) ;  // non-blocking: write to L1 and return; poll onPhases()
     std::array<u8,4> mBHNumbers = {0,1,2,3};
     PhaserBlock mPhaserBlock;
 
@@ -167,6 +168,7 @@ namespace MFM {
       qb.def("init",&QuietBox::init);
       qb.def("suspendIHH",&QuietBox::suspendInterHubHacks);
       qb.def("shootPHASER",&QuietBox::shootPHASER);
+      qb.def("firePHASER",&QuietBox::firePHASER);
       qb.def("getConstants",&QuietBox::getConstants);
       qb.def("getRanges",&QuietBox::getRanges);
       qb.def("onPhases",&QuietBox::onPhases);

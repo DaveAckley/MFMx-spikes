@@ -923,6 +923,40 @@ namespace MFM {
     */
   }
 
+  void OurTLBs::firePHASER(PhaserBolt::Cmd c, std::vector<s32> args) {
+    // Non-blocking version of shootPHASER: write the PHASER block to L1 and
+    // return immediately.  The transport thread keeps calling updateOnPhase(),
+    // so the caller can poll onPhases() / getOnPhase() to track T6 acks without
+    // blocking this thread.
+    // Intended use: call before releasing T6s (before HAS_T6_CODE_RUNNING);
+    // T6s read the HOLD_AT_BIRTH stage data as they init and ack it on their own.
+    BHTag tag(TagType::HOSTCT,mDevChipNum);
+    HTprintf("%s OurTLBs::firePHASER %u=%s+%u #%u\n",
+             tag.to_string().c_str(),
+             c,PhaserBolt::phaserCmdName(c),
+             args.size(),
+             mShadowPHASER.getHeader().getPacketNonce());
+    PhaserBolt & pb = mShadowPHASER.payload();
+    for (u32 i = 0; i < args.size(); ++i) {
+      if (!pb.setBoltDataWordIfAny(i,args[i])) break;
+      HTprintf("%s stored PHASER arg %u 0x%08x\n",
+               tag.to_string().c_str(), i, args[i]);
+    }
+    u32 oldnonce = mShadowPHASER.getHeader().getPacketNonce();
+    mShadowPHASER.closeTC(PhaserBolt::MAX_BOLT_SIZE); // bump nonce
+    HTprintf("PHASERBOLT fire <%u:%u=%s+%u> (was <%u:%u=%s>)\n",
+             mShadowPHASER.getHeader().getPacketNonce(),
+             c,PhaserBolt::phaserCmdName(c),
+             args.size(),
+             oldnonce,
+             pb.getCmd(),
+             PhaserBolt::phaserCmdName(pb.getCmd()));
+    pb.reinit(c);
+    writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, T6_PHASER_ADDR, (u32*) &mShadowPHASER, sizeof(mShadowPHASER)/4);
+    resetOnPhase(mShadowPHASER.getHeader().getPacketNonce());
+    // No spin loop: caller polls onPhases() / getOnPhase()
+  }
+
   void OurTLBs::resetTheFleet() {
     // Everybody into soft reset
     write32(MFM::OurTLBs::AHAX_TLBI_DEBUG_MULTI,

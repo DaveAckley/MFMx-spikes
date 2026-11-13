@@ -100,6 +100,8 @@ class Machine:
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
         self.configured = self.inited = False
         self.async_api = False
+        self.has_fire_phaser = False   # True when qb.firePHASER() is available
+        self.hold_settled = False      # True when start() pre-settled HOLD_AT_BIRTH
         self.feed = None
         self.frames_real = self.frames_idle = 0
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
@@ -208,10 +210,16 @@ class Machine:
         self.qb.init()
         self.qb.mDrawGrid = True             # nu1011's default checkbox value
         self.async_api = hasattr(self.qb, "phaserStatus")
+        self.has_fire_phaser = hasattr(self.qb, "firePHASER")
         self.inited = True
-        return ("async bolt API (phaserStatus available)" if self.async_api else
-                "LEGACY blocking shootPHASER: bolts freeze this shell (and its ticks) "
-                "until consensus or the C++ timeout")
+        if self.async_api:
+            return "async bolt API (phaserStatus available)"
+        elif self.has_fire_phaser:
+            return ("non-blocking firePHASER available: bolts are non-blocking; "
+                    "start() will pre-settle HOLD_AT_BIRTH")
+        else:
+            return ("LEGACY blocking shootPHASER: bolts freeze this shell (and its ticks) "
+                    "until consensus or the C++ timeout")
 
     def boot(self):
         out = [self.configure(), self.reset_chips(), self.init_box()]
@@ -230,8 +238,20 @@ class Machine:
         return getattr(p, "name", str(p))
 
     def start(self):
-        """nu1011 start(): startEWProcessing on every chip (walks all phases)."""
+        """nu1011 start(): startEWProcessing on every chip (walks all BH phases).
+        When firePHASER is available, fires HOLD_AT_BIRTH to L1 first so T6s
+        pick it up during their init (between CODE_RUNNING and EVENT_WINDOWS).
+        On return, hold_settled=True means the sequencer can skip the cycle's
+        HOLD_AT_BIRTH stage and go straight to NEW_LEADER."""
         self.need_booted()
+        self.hold_settled = False
+        if self.has_fire_phaser:
+            # Write HOLD_AT_BIRTH to L1 before releasing T6s.
+            # startEWProcessing walks through HAS_T6_CODE_RUNNING (releasing T6s);
+            # they see the HOLD_AT_BIRTH written here, ack it via the transport
+            # thread, and block waiting for the first NEW_LEADER stage.
+            self.say("start: firing HOLD_AT_BIRTH stage to L1 before T6 release")
+            self.qb.firePHASER(self.M.PhaserBolt.Cmd.HOLD_AT_BIRTH, [0])
         out = []
         for bh in self.bhs:
             if self.decay is not None:
@@ -240,7 +260,23 @@ class Machine:
             bh.startEWProcessing()
             out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getPhase())} "
                        f"({time.monotonic() - t:.1f}s)")
+        if self.has_fire_phaser:
+            counts = self._parse_on_phases()
+            all_acked = bool(counts) and all(n >= self.t6s for n in counts.values())
+            if all_acked:
+                self.hold_settled = True
+                out.append(f"HOLD_AT_BIRTH stage pre-settled: "
+                           f"{'/'.join(str(n) for n in counts.values())} acked; "
+                           "cycle will begin at NEW_LEADER")
+            else:
+                out.append(f"HOLD_AT_BIRTH stage: only {counts} acked "
+                           f"(expected {self.t6s}/chip); cycle will re-fire it")
         return "\n".join(out)
+
+    def consume_hold_settled(self):
+        """Return True (once) if start() pre-settled HOLD_AT_BIRTH; clear the flag."""
+        r, self.hold_settled = self.hold_settled, False
+        return r
 
     def stop(self):
         """stopEWProcessing only if already at EVENT_WINDOWS: the C++ call
@@ -343,6 +379,9 @@ class Machine:
         if self.async_api:
             b.nonce = self.qb.shootPHASER(cmd, list(b.args))
             self.poll_bolt()                 # may already be done (e.g. no chips)
+        elif self.has_fire_phaser:
+            self.qb.firePHASER(cmd, list(b.args))  # non-blocking L1 write
+            # bolt stays "pending"; tick_bolts() settles via poll_bolt() -> onPhases()
         else:
             self.qb.shootPHASER(cmd, list(b.args))    # BLOCKS
             self._settle_legacy(b)
@@ -367,19 +406,38 @@ class Machine:
         return out
 
     def poll_bolt(self):
-        """Advance the pending bolt's state from phaserStatus().  Returns True
-        when it just finished."""
+        """Advance the pending bolt's state.  Returns True when it just finished.
+        Supports three bolt modes:
+          async_api      -- uses phaserStatus() (async C++ API)
+          has_fire_phaser -- uses onPhases() polled by the transport thread
+          legacy          -- bolt is already settled synchronously; no-op here"""
         b = self.bolt
-        if b is None or b.state != "pending" or not self.async_api:
+        if b is None or b.state != "pending":
             return False
         now = time.monotonic()
-        b.rows = [tuple(r) for r in self.qb.phaserStatus()]
-        if all(not l for (_c, _n, _o, l) in b.rows):
-            b.state, b.done = "consensus", now
-        elif now - b.fired > b.timeout:
-            b.state, b.done = "timeout", now
+        if self.async_api:
+            b.rows = [tuple(r) for r in self.qb.phaserStatus()]
+            if all(not l for (_c, _n, _o, l) in b.rows):
+                b.state, b.done = "consensus", now
+            elif now - b.fired > b.timeout:
+                b.state, b.done = "timeout", now
+            else:
+                return False
+        elif self.has_fire_phaser:
+            # Transport thread keeps mOnPhase current; read it here.
+            counts = self._parse_on_phases()
+            if counts and all(n >= self.t6s for n in counts.values()):
+                b.rows = [(c, None, n, []) for c, n in counts.items()]
+                b.state, b.done = "consensus", now
+            elif now - b.fired > b.timeout:
+                counts = self._parse_on_phases()
+                b.rows = [(c, None, n, None if n >= self.t6s else ["?"])
+                          for c, n in counts.items()]
+                b.state, b.done = "timeout", now
+            else:
+                return False
         else:
-            return False
+            return False   # legacy: bolt was settled synchronously by fire()
         self._report(b)
         self._diagnose_if_timeout(b)
         return True

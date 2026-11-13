@@ -280,6 +280,18 @@ namespace MFM {
     }
   }
 
+  void QuietBox::firePHASER(PhaserBolt::Cmd cmd, std::vector<s32> args) {
+    HTprintf("%u QuBo::firePHASER %s \n",gettid(),PhaserBolt::phaserCmdName(cmd));
+    std::shuffle(mBHNumbers.begin(),mBHNumbers.end(),hostPRNG);
+    for (u32 i = 0; i < mBHNumbers.size(); ++i) {
+      u32 chip = mBHNumbers[i];
+      Blackhole *bhp = getBlackholeIfPresent(chip);
+      if (!bhp) continue;
+      Blackhole & bh = *bhp;
+      bh.getOurTLBs().firePHASER(cmd,args);
+    }
+  }
+
   void QuietBox::doASuperCycle(u32 nextLeader) { // runs on IHHThread
     /* A single SuperCycle, we declare, consists of
 

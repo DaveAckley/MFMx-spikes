@@ -43,6 +43,7 @@ namespace MFM {
     u32 getOnPhase() const { return mOnPhase; }
     bool isPHASERReady() const { return mOnPhase == 140; }
     void shootPHASER(PhaserBolt::Cmd c, std::vector<s32> args) ;
+    void firePHASER(PhaserBolt::Cmd c, std::vector<s32> args) ;  // non-blocking: write to L1 and return; poll onPhases()
 
     // ACCESS REAL HOST MEMORY (FOR INCOMING FROM T6s)
     LogBlockStg & getLogBlockStgHost(u32 tlbi) const ;

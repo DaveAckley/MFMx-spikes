@@ -176,6 +176,13 @@ class SuperCycle:
 
     def _begin(self):
         step, now, bolt, end = self.next_step(), self.clock(), None, None
+        # If start() already fired and settled HOLD_AT_BIRTH via firePHASER,
+        # skip it here: T6s are already blocked waiting for the first NEW_LEADER stage.
+        if step == "HOLD_AT_BIRTH" and self.m.consume_hold_settled():
+            self.m.logkt("CYCLE", "SKIP HOLD_AT_BIRTH (pre-settled by start())")
+            self.say("[cycle] HOLD_AT_BIRTH stage pre-settled by start(); skipping to NEW_LEADER")
+            self.held = True
+            return   # next tick() will begin NEW_LEADER
         try:
             if self.retry_args is not None and step != "DWELL":
                 cmd, args = self.retry_args
