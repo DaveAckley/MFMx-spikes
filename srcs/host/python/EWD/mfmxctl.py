@@ -195,6 +195,26 @@ def main(argv=None):
         raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
                          "leader N|random|first N|birth done|pending]")
 
+    def c_feed(a):
+        sub = sh.resolve(a[0], ("on", "off", "status"), "feed subcommand") if a else "status"
+        ft = sh.ticks["frame"]
+        if sub == "on":
+            if m.feed is None or isinstance(m.feed, NullFeed) and not args.mock:
+                if args.mock:
+                    m.feed = NullFeed()
+                else:
+                    from RTMPFeed13 import RTMPFeed     # needs cv2/PIL/ffmpeg
+                    m.feed = RTMPFeed(m, "ewd")
+            ft.enabled, ft.errors = True, 0
+            ft.due = time.monotonic() + ft.period
+            return f"feed on: {type(m.feed).__name__}; frames go out at {1 / ft.period:.1f}/s once booted"
+        if sub == "off":
+            ft.enabled = False
+            return ("feed frames stopped (the feed object, and any ffmpeg it started, stays "
+                    "until exit; 'feed on' resumes)")
+        return (f"feed: {type(m.feed).__name__ if m.feed is not None else 'none'}, "
+                f"frame tick {'on' if ft.enabled else 'off'}")
+
     def c_dwell(a):
         if a:
             return cyc.set_dwell(*a[:2])
@@ -266,6 +286,7 @@ def main(argv=None):
     sh.add_tick("cycle", 0.1, cyc.tick, True, "advance the SuperCycle state machine")
     sh.add_tick("slowscan", args.slowscan_period, m.tick_slowscan, True,
                 "hostblock log monitoring (no-op until booted)")
+    sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
 
     # SIGTERM/SIGHUP take the same orderly exit path as 'quit'

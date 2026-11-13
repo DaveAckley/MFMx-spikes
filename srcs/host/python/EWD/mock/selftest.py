@@ -243,6 +243,13 @@ def scenario_abbrev():
     check("abbrev: unknown still unknown", "unknown command 'zzz'" in out)
 
 
+def scenario_feed_command():
+    rc, out = run("feed\nboot\nstart\nfeed on\nwait 1.0\nfeed status\nfeed off\nfeed st\nquit\n")
+    check("feed: starts with no feed", "feed: none" in out or "frame tick off" in out, out[:400])
+    check("feed: 'feed on' enables frames", "feed on:" in out and "frame tick on" in out, out[-500:])
+    check("feed: 'feed off' stops the tick", "feed frames stopped" in out and rc == 0, out[-500:])
+
+
 if __name__ == "__main__":
     only = sys.argv[1:]
     for name, fn in list(globals().items()):
