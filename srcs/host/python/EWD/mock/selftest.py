@@ -243,6 +243,18 @@ def scenario_abbrev():
     check("abbrev: unknown still unknown", "unknown command 'zzz'" in out)
 
 
+def scenario_feed_placeholder():
+    rc, out = run("feed on\nwait 1.0\n# PRE\nstatus\nboot\nstart\nwait 1.0\n# POST\nstatus\nquit\n")
+    s = sections(out)
+    pre, post = s.get("PRE", ""), s.get("POST", "")
+    m1 = re.search(r"frames sent: (\d+) sim, (\d+) placeholder", pre)
+    m2 = re.search(r"frames sent: (\d+) sim, (\d+) placeholder", post)
+    check("placeholder: frames flow before boot, none are sim frames",
+          bool(m1) and int(m1.group(1)) == 0 and int(m1.group(2)) > 0, pre[-300:])
+    check("placeholder: sim frames take over after boot",
+          bool(m2) and int(m2.group(1)) > 0, post[-300:])
+
+
 def scenario_feed_command():
     rc, out = run("feed\nboot\nstart\nfeed on\nwait 1.0\nfeed status\nfeed off\nfeed st\nquit\n")
     check("feed: starts with no feed", "feed: none" in out or "frame tick off" in out, out[:400])

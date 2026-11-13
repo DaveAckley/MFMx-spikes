@@ -71,6 +71,12 @@ class NullFeed:
     def sendGraphicsFrame(self, frame, simnanos, info):
         self.frames += 1
         self.shape = getattr(frame, "shape", None)
+        self.last_info = info
+
+    def idle_image(self):
+        class _Idle:
+            shape = (1080, 1920, 3)
+        return _Idle()
 
 
 class Machine:
@@ -95,6 +101,7 @@ class Machine:
         self.configured = self.inited = False
         self.async_api = False
         self.feed = None
+        self.frames_real = self.frames_idle = 0
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         self.timeouts = dict(DEFAULT_TIMEOUTS)
         self.diagnose = True                 # slowscan right after a bolt timeout
@@ -283,10 +290,24 @@ class Machine:
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
         self.feed.sendGraphicsFrame(img.asNP(), ns, f"mfmxctl/{self.mfmxVersion}")
+        self.frames_real += 1
+
+    def idle_frame(self):
+        """Placeholder while there are no simulation frames (not booted yet).  The
+        feed's own overlays (UTC clock, LIVE timer) tick on it, so a stream that
+        shows this means ffmpeg + server are fine and only the sim is missing."""
+        ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
+        self.feed.sendGraphicsFrame(self.feed.idle_image(), ns,
+                                    f"mfmxctl/{self.mfmxVersion}  NO SIM FRAMES (not booted)")
+        self.frames_idle += 1
 
     def tick_frame(self):
-        if self.inited and self.feed is not None:
+        if self.feed is None:
+            return
+        if self.inited:
             self.frame()
+        elif hasattr(self.feed, "idle_image"):
+            self.idle_frame()
 
     # ---- bolts ----------------------------------------------------------------------
     def timeout_for(self, cmd_name):
@@ -383,7 +404,8 @@ class Machine:
                      + f"  diagnose-on-timeout={self.diagnose}")
         lines.append(f"slowscans run: {self.scan_count}  last: {self.last_scan}")
         if self.feed is not None:
-            lines.append(f"feed: {type(self.feed).__name__}")
+            lines.append(f"feed: {type(self.feed).__name__}  frames sent: "
+                         f"{self.frames_real} sim, {self.frames_idle} placeholder")
         return "\n".join(lines)
 
     # ---- shutdown --------------------------------------------------------------------

@@ -205,6 +205,10 @@ class RTMPFeed:
         self.ewd.logkt(self.key,f"XX {self.subproc_started}")
         self.bytesWritten = 0
 
+    def idle_image(self):
+        """A fresh dark placeholder frame (sendGraphicsFrame draws on its argument)."""
+        return self.img.copy()
+
     def restartSubProcDEBUG(self):
         self.framesSentThisSubproc = 0
         if False and self.subproc_started > 10:
