@@ -73,11 +73,11 @@ def load_rtmp_target(stream):
     ~/.config/mfmx/rtmp.toml.  Keys: user, password (required); host
     (default vidsrv), port (default 1935), app (default live).  No hardcoded
     fallback: a missing file is an error."""
-    import tomllib
+    import tomlikey     # the project's TOML dependency (Config.py uses it); tomllib needs Python 3.11+
     path = os.environ.get("MFMX_RTMP_CONF") or os.path.expanduser("~/.config/mfmx/rtmp.toml")
     try:
-        with open(path, "rb") as f:
-            c = tomllib.load(f)
+        with open(path, "r") as f:
+            c = tomlikey.loads(f.read())
         mode = os.stat(path).st_mode & 0o077
     except FileNotFoundError:
         raise RuntimeError(
