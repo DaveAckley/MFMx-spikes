@@ -408,7 +408,12 @@ class Machine:
 
     def _settle_legacy(self, b):
         counts = self._parse_on_phases()
-        b.rows = [(c, None, n, None if n >= self.t6s else ["?"]) for c, n in counts.items()]
+        bh_by_chip = {bh.getChipNumber(): bh for bh in self.bhs}
+        b.rows = [(c, None, n,
+                   None if n >= self.t6s
+                   else list(bh_by_chip[c].getNonPhaseTLBIs()) if c in bh_by_chip
+                   else ["?"])
+                  for c, n in counts.items()]
         b.done = time.monotonic()
         b.state = "consensus" if all(n >= self.t6s for n in counts.values()) else "timeout"
         self._report(b)
@@ -447,7 +452,11 @@ class Machine:
                 b.state, b.done = "consensus", now
             elif now - b.fired > b.timeout:
                 counts = self._parse_on_phases()
-                b.rows = [(c, None, n, None if n >= self.t6s else ["?"])
+                bh_by_chip = {bh.getChipNumber(): bh for bh in self.bhs}
+                b.rows = [(c, None, n,
+                           None if n >= self.t6s
+                           else list(bh_by_chip[c].getNonPhaseTLBIs()) if c in bh_by_chip
+                           else ["?"])
                           for c, n in counts.items()]
                 b.state, b.done = "timeout", now
             else:

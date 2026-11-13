@@ -115,6 +115,9 @@ namespace MFM {
 
     OurTLBs & getOurTLBs() { return mOurTLBs; }
 
+    /** Return TLBIs that have not yet acked the current phase (empty = all acked). */
+    std::vector<u32> getNonPhaseTLBIs() { return mOurTLBs.getNonPhaseTLBIList(); }
+
     CodeManager & getCodeManager() { return mCodeManager; }
 
   private:
@@ -203,6 +206,7 @@ namespace MFM {
         HOST_FATAL(ILLEGAL_ARGUMENT,"Unknown or unhandled phase %d",j);
       },py::call_guard<py::gil_scoped_release>());
       bh.def("monitorFleet", &Blackhole::monitorFleet,py::call_guard<py::gil_scoped_release>());
+      bh.def("getNonPhaseTLBIs", &Blackhole::getNonPhaseTLBIs,py::call_guard<py::gil_scoped_release>());
 
       bh.def("open", [](Blackhole& b) { b.changeStep(Step::HAS_OPEN_DEVICE); },py::call_guard<py::gil_scoped_release>());
       bh.def("allocateTLBs", [](Blackhole& b) { b.changeStep(Step::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());

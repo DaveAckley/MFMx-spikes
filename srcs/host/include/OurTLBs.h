@@ -211,6 +211,8 @@ namespace MFM {
 
     std::string getNonPhaseTLBIs() ;
 
+    std::vector<u32> getNonPhaseTLBIList() ; //< non-acking TLBI indices as a vector
+
   private:
     static const u32 AHAX_TLB2M_COUNT = (AHAX_LAST_TLBI_IN_USE + 1);
     static const u32 AHAX_MMAP_SIZE = (AHAX_CONSTANT2M * AHAX_TLB2M_COUNT);

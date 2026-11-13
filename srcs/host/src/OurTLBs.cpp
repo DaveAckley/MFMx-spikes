@@ -1027,6 +1027,17 @@ namespace MFM {
     return ret;
   }
 
+  std::vector<u32> OurTLBs::getNonPhaseTLBIList() {
+    AtomicScopeLock guard(mPhaseLock);
+    std::vector<u32> ret;
+    for (unsigned tlbi = AHAX_TLBI_L1_FIRST_UNI; tlbi <= AHAX_TLBI_L1_LAST_UNI; ++tlbi) {
+      TLBInfo & tinfo = getTLBInfo(tlbi);
+      if (tinfo.mLastPhaseSeqnoSeen == mPhaseSeqnoToMatch) continue;
+      ret.push_back(tlbi);
+    }
+    return ret;
+  }
+
   u32 OurTLBs::updateOnPhase() {
     AtomicScopeLock guard(mPhaseLock);
     ++mUpdateOnPhaseCount;
