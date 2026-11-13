@@ -245,24 +245,32 @@ class Machine:
         HOLD_AT_BIRTH phase and go straight to NEW_LEADER."""
         self.need_booted()
         self.hold_settled = False
-        if self.has_fire_phaser:
-            # Write HOLD_AT_BIRTH to L1 before releasing T6s.
-            # startEWProcessing walks through HAS_T6_CODE_RUNNING (releasing T6s);
-            # they see the HOLD_AT_BIRTH written here, ack it via the transport
-            # thread, and block waiting for the first NEW_LEADER phase.
-            self.say("start: firing HOLD_AT_BIRTH phase to L1 before T6 release")
-            self.qb.firePHASER(self.M.PhaserBolt.Cmd.HOLD_AT_BIRTH, [0])
         out = []
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))
             t = time.monotonic()
-            bh.startEWProcessing()
+            if self.has_fire_phaser:
+                # Advance to HAS_T6_CODE_DEPLOYED: TLBs are now configured and
+                # T6 code is in L1, but T6 cores are still in reset.
+                # firePHASER needs the multicast TLB (AHAX_TLBI_L1_MULTI) set up;
+                # calling it earlier (before HAS_CONFIGURED_TLBS) segfaults.
+                bh.setStep(self.M.Step.HAS_T6_CODE_DEPLOYED)
+            else:
+                bh.startEWProcessing()
             out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
                        f"({time.monotonic() - t:.1f}s)")
         if self.has_fire_phaser:
-            # Poll for HOLD_AT_BIRTH acks: T6s need a moment to run birth code
-            # after startEWProcessing releases them from reset.
+            # T6 cores are in reset: safe to write HOLD_AT_BIRTH to L1 now.
+            # T6s will see it the moment they're released by startEWProcessing.
+            self.say("start: firing HOLD_AT_BIRTH phase to L1 before T6 release")
+            self.qb.firePHASER(self.M.PhaserBolt.Cmd.HOLD_AT_BIRTH, [0])
+            for bh in self.bhs:
+                t = time.monotonic()
+                bh.startEWProcessing()   # starts transport thread, releases T6s
+                out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
+                           f"({time.monotonic() - t:.1f}s)")
+            # Poll for acks: T6s run birth code, see HOLD_AT_BIRTH, ack, and HOLD.
             deadline = time.monotonic() + 5.0
             counts = {}
             while time.monotonic() < deadline:
