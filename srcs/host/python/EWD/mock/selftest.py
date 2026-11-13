@@ -268,11 +268,14 @@ def scenario_slowscan_gated():
 
 
 def scenario_phase_names():
-    rc, out = run("boot\nphase TRANSPORT\nphase\nphase CODE_RUNNING\nphase\nphase CODE\nphase zzz\nquit\n")
-    check("phase names: unique suffix/substring accepted",
-          "bh0=HAS_TRANSPORT_THREAD" in out and "bh0=HAS_T6_CODE_RUNNING" in out, out[-600:])
-    check("phase names: ambiguous name lists candidates", "ambiguous phase 'CODE'" in out, out[-600:])
-    check("phase names: unknown name lists all phases", "unknown phase 'ZZZ'" in out or "unknown phase 'zzz'" in out)
+    rc, out = run("boot\nphase\nphase HAS_TRANSPORT_THREAD\nphase\nphase has_t6_code_running\nphase\n"
+                  "phase CODE_RUNNING\nquit\n")
+    check("phase: bare 'phase' lists every phase name", out.count("HAS_T6_EVENT_WINDOWS") >= 1
+          and "phase names, in order" in out and "UNINITTED" in out, out[:900])
+    check("phase: exact names work (any case)",
+          "bh0=HAS_TRANSPORT_THREAD" in out and "bh0=HAS_T6_CODE_RUNNING" in out, out[-900:])
+    check("phase: short names are NOT accepted; error lists exact names",
+          "unknown phase 'CODE_RUNNING'" in out and "exact names are" in out, out[-900:])
 
 
 def scenario_feed_command():

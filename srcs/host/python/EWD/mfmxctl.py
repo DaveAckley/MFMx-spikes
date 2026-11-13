@@ -138,20 +138,18 @@ def main(argv=None):
     def c_phase(a):
         m.need_booted()
         if not a:
-            return "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.phases())
+            cur = "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.phases())
+            return (cur + "\nphase names, in order (setPhase goes up to HAS_T6_CODE_RUNNING):\n  "
+                    + "\n  ".join(n for n in MFMx.Phase.__members__ if n != "PHASE_COUNT"))
         want = a[0]
         P = MFMx.Phase
+        names = [n for n in P.__members__ if n != "PHASE_COUNT"]
         if want.isdigit():
             ph = P(int(want))
+        elif want.upper() in names:
+            ph = getattr(P, want.upper())
         else:
-            names = [n for n in P.__members__ if n != "PHASE_COUNT"]
-            w = want.upper()
-            hits = ([n for n in names if n == w] or [n for n in names if n.endswith(w)]
-                    or [n for n in names if n.startswith(w)] or [n for n in names if w in n])
-            if len(hits) != 1:
-                raise ValueError((f"ambiguous phase {want!r}: {', '.join(hits)}" if hits
-                                  else f"unknown phase {want!r}") + f"\n  phases: {', '.join(names)}")
-            ph = getattr(P, hits[0])
+            raise ValueError(f"unknown phase {want!r}; exact names are:\n  " + "\n  ".join(names))
         return "\n".join(f"bh{bh.getChipNumber()}: setPhase -> {bh.setPhase(ph)}"
                          for bh in m.bhs)
 
@@ -272,7 +270,7 @@ def main(argv=None):
     sh.command("start", lambda a: m.start(), "start: startEWProcessing on every chip (walks all phases; can be slow)")
     sh.command("stop", lambda a: m.stop(), "stop: stopEWProcessing (only on chips at event windows)")
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
-    sh.command("phase", c_phase, "phase [NAME|N]: show chip phases, or setPhase up to CODE_RUNNING")
+    sh.command("phase", c_phase, "phase [NAME|N]: show chip phases and all phase names, or setPhase to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
