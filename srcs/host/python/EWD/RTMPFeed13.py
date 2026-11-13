@@ -67,7 +67,40 @@ def shadowText(img,text,org,col,offset=1,fontscale=.8):
       ret = cv2.putText(img=ret,text=text, org=(org[0]+0,org[1]+0), fontFace=2, fontScale=fs, color=col, thickness=1)      
       return ret
 
+def load_rtmp_target(stream):
+    """Return (url, secret) for the RTMP server, read from a config file that
+    is NOT in the git repo.  Search order: $MFMX_RTMP_CONF, then
+    ~/.config/mfmx/rtmp.toml.  Keys: user, password (required); host
+    (default vidsrv), port (default 1935), app (default live).  No hardcoded
+    fallback: a missing file is an error."""
+    import tomllib
+    path = os.environ.get("MFMX_RTMP_CONF") or os.path.expanduser("~/.config/mfmx/rtmp.toml")
+    try:
+        with open(path, "rb") as f:
+            c = tomllib.load(f)
+        mode = os.stat(path).st_mode & 0o077
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"RTMP settings file not found: {path}\n"
+            "Create it (outside any git repo), readable only by you (chmod 600), containing:\n"
+            '    user = "..."\n    password = "..."\n'
+            '    # optional: host = "vidsrv"   port = 1935   app = "live"\n'
+            "or point MFMX_RTMP_CONF at it.") from None
+    if mode:
+        print(f"WARNING: {path} is accessible by group/others; chmod 600 it", flush=True)
+    try:
+        user, pw = c["user"], c["password"]
+    except KeyError as e:
+        raise RuntimeError(f"{path}: missing key {e}") from None
+    host, port, app = c.get("host", "vidsrv"), c.get("port", 1935), c.get("app", "live")
+    return f"rtmp://{host}:{port}/{app}/{stream}?user={user}&pass={pw}", pw
+
+
 class RTMPFeed:
+    def redact(self, obj):
+        """str(obj) with the stream password masked (for log files)."""
+        return str(obj).replace(self.rtmp_secret, "****") if self.rtmp_secret else str(obj)
+
     def __init__(self,ewd,stream='test'):
         self.magicNum = 0
         self.ewd = ewd
@@ -80,7 +113,7 @@ class RTMPFeed:
         self.slw,self.slh = int(pctsize*lw/100),int(pctsize*lh/100)
         self.smlogo = cv2.resize(logo,(self.slw,self.slh),interpolation=cv2.INTER_AREA)
         print("smlogo",self.smlogo.shape)
-        self.rtmp_url = f"rtmp://vidsrv:1935/live/{stream}?user=rosesbh&pass=wah-wah-ditty-d0"
+        self.rtmp_url, self.rtmp_secret = load_rtmp_target(stream)
 
         h,w = 1080,1920
         #h,w = 2160,3840
@@ -202,7 +235,7 @@ class RTMPFeed:
         ffmpegCmd = [*self.ffmpegCommandBaseParms[:],
                      f"[f=flv{outputOptions}]{self.rtmp_url}|[f=flv{outputOptions}]{localFile}"]
         
-        self.ewd.logkt(self.key,f"STARTING {ffmpegCmd}")
+        self.ewd.logkt(self.key,f"STARTING {self.redact(ffmpegCmd)}")
         #print(f"SLOTRHOP STARTING {ffmpegCmd}")
         self.subproc = subprocess.Popen(ffmpegCmd,
                                         stdin=subprocess.PIPE,
