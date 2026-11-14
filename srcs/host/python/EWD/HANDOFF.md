@@ -5,6 +5,17 @@ Minimal CLI controller (`mfmxctl.py`) for the Tenstorrent Blackhole "QuietBox" -
 replaces the Textual-based nu1011/nu1012 apps.  One Python thread: a `select()`
 loop reads commands from stdin and runs periodic ticks in between.
 
+## User preferences
+- 7-bit ASCII only in all output: source comments, strings, commit messages, docs.
+  Use -> or => instead of ->, -- instead of em-dash, etc.  No Unicode arrows,
+  smart quotes, ellipses, or other non-ASCII even where "natural".
+- Address user as 'liv' or 'livcomp' in active conversation.
+- Qualify confidence in suggestions rather than always projecting certainty.
+- Push back when user suggestions seem importantly suboptimal.
+- Prefer open-source code.
+- User runs Ubuntu 24.04.  Claude desktop app runs as user 'claude' in its own
+  xvncserver, not as the user.  Prefix ambiguous paths with 'cloud:' or 'local:'.
+
 ## Git workflow (IMPORTANT)
 
 Cloud clone branch: `claude/latest`
