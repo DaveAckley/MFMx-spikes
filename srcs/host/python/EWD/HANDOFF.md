@@ -103,5 +103,6 @@ This is pure T6-side work from here.
 Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`.
 See `scripts/ptrace/README.txt` for usage, mark formats, the proposed
 `misc/PKTS.txt` host dump, and observations from run 20261114-010305.
-Open items: add `#nn` nonce to .ps/.pr/.pcs/.pcr formatters; host writes
+Open items: (nonce `#nn` now emitted by formatT6SendBuf32/formatT6RecvBuf32;
+needs cross rebuild + a real run to verify); host writes
 misc/PKTS.txt; diagonal (odd) IHUB storages log no .pr (intended?).

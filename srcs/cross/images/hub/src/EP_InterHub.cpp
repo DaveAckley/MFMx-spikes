@@ -216,6 +216,7 @@ namespace MFM {
     U8C ournoc0 = fAll.mNoC0;
     U8C destnoc0 = mDestNoC0;
     LOGPTAG(.ps, formatT6SendBuf32(b32,&car,car.currentTCSize(),
+                                    car.getHeader().getPacketNonce(),
                                     destnoc0,(void*) (u32) destcaraddr));
     return shipTCTo(car,ournoc0,destnoc0,destcaraddr);
   }
@@ -227,6 +228,7 @@ namespace MFM {
     Super::L1Data::CarIdxRB & crbi = getCarIdxs().mTheIdxs[Super::L1Data::CarIdxs::COMM2COMP];
     if (crbi.isFull()) return false; // bail if can't notify??
     LOGPTAG(.pr,formatT6RecvBuf32(b32,&car,car.currentTCSize(),
+                                   car.getHeader().getPacketNonce(),
                                    (Dir8) getSrcEPA().mBlockCodeIndex));
     // Open it up
     car.openTC();

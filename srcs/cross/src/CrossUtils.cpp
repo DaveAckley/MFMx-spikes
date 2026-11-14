@@ -403,22 +403,27 @@ namespace MFM {
     return formatIHBlockBuf32(b32, ihb, d8, caridx);
   }
 
-  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, U8C noc0, void * theiraddr) {
+  // PTRACE mark payload (see scripts/ptrace/README.txt):
+  //   send: OUR+SIZE#NN->DEST(x,y)    recv: OUR+SIZE#NN<-DIR
+  // NN is the 2-hex TCMarker nonce from the packet header.
+  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, u8 nonce, U8C noc0, void * theiraddr) {
     snprintf(b32.buf,b32.SIZE,
-             "%04x+%u%s%04x(%u,%u)",
+             "%04x+%u#%02x%s%04x(%u,%u)",
              ptrTag4(ouraddr),
              pktsiz,
+             (u32) nonce,
              "->",
              ptrTag4(theiraddr),
              noc0.x,noc0.y);
     return b32.buf;
   }
 
-  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, Dir8 fromd8) {
+  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, u8 nonce, Dir8 fromd8) {
     snprintf(b32.buf,b32.SIZE,
-             "%04x+%u%s%s",
+             "%04x+%u#%02x%s%s",
              ptrTag4(ouraddr),
              pktsiz,
+             (u32) nonce,
              "<-",
              dir8ToByteString(fromd8));
     return b32.buf;

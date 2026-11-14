@@ -230,8 +230,8 @@ namespace MFM {
   inline u32 ptrTag3(const void * p) { return 0xfff&(((u32)p)>>4); }
   inline u32 ptrTag4(const void * p) { return 0xffff&(((u32)p)>>4); }
 
-  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, U8C noc0, void * theiraddr) ;
-  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, Dir8 fromd8) ;
+  const char * formatT6SendBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, u8 nonce, U8C noc0, void * theiraddr) ;
+  const char * formatT6RecvBuf32(Buf32 & b32, void * ouraddr, u32 pktsiz, u8 nonce, Dir8 fromd8) ;
 
   const char * formatIHBlock(InterHubBlock & ihb, Dir8 d8, u32 caridx) ;
   const char * formatIHBlockBuf32(Buf32 & b32, InterHubBlock & ihb, Dir8 d8, u32 caridx) ;

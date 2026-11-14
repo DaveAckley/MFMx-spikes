@@ -296,6 +296,7 @@ namespace MFM {
           LOGPTAG(.pcr,
                   formatT6RecvBuf32(b32,
                                     &chbcar,chbcar.currentTCSize(),
+                                    carnonce,
                                     dir4ToDir8(ourDir4)));
           // Forward to dest
           /* Q1: What Midway Axis do we represent?
@@ -377,6 +378,7 @@ namespace MFM {
           }
           //LOGPTAG(CS___,formatIHBlockBuf32(b32,chbcar,dir4ToDir8(ourDir4),c));
           LOGPTAG(.pcs,formatT6SendBuf32(b32,&chbcar,chbcar.currentTCSize(),
+                                          carnonce,
                                           theirnoc0,(void*) destaddr));
           s32 status = NRI3::initiateWriteToT6(ournoc0,(u32*) &chbcar, wordCount, theirnoc0, destaddr);
           MFM_API_ASSERT(status > 0,ILLEGAL_STATE);

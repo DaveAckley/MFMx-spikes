@@ -18,8 +18,10 @@ MARKS (structured tags; HBF_STAG_PTRACE gates them via logTagCheck)
   .pcs hub send  same layout as .ps          InterHub.cpp (corner hub)
   .pcr hub recv  same layout as .pr          InterHub.cpp (corner hub)
   OUR/DEST are ptrTag4 = (addr>>4)&0xffff.  #NN = optional 2-hex
-  TCMarker nonce; NOT YET EMITTED (proposed: insert after SIZE in all
-  four formatters).  The analyzer uses it as an exact key when present.
+  TCMarker nonce (header, via getPacketNonce()).  Emitted by the T6 code
+  since the commit "PTRACE marks: add #nn nonce" (needs a cross rebuild;
+  older logs have no #nn and still parse).  The analyzer uses it as an
+  exact key when present on both ends.
 
 MATCHING (first cut, no nonce)
   Slots are 1-car point-to-point, so sends to an endpoint (tile,addr) and
