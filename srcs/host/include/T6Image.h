@@ -6,9 +6,14 @@
 #include "BlockCode.h"
 #include "PHASER.h"
 #include "DefinedConstants.h"
+#include "PT_InterHub.h"   // for InterHubStorage car size/count (PKTS.txt)
+
+#include <tuple>
+#include <vector>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/native_enum.h>
+#include <pybind11/stl.h>
 namespace py = pybind11;
 
 namespace MFM {
@@ -111,6 +116,41 @@ namespace MFM {
       return iba.to_repr();
     }
     
+
+    /** Car geometry for blockcodes whose storages hold TC packets.
+        Returns false if bc carries no packets.  EXTEND HERE when another
+        blockcode becomes a packet carrier (see misc/PKTS.txt dump). */
+    static bool getCarInfoForBlockCode(BlockCode bc, u32 & carsz, u32 & carcnt) {
+      switch (bc) {
+      case BC_INTERHUB:
+      case BC_CORNERHUB:
+        carsz = sizeof(InterHubStorage::CAR_TYPE);
+        carcnt = InterHubStorage::CAR_COUNT;
+        return true;
+      default: return false;
+      }
+    }
+
+    /** One tuple per packet-carrying block in the image:
+        (name, T6 block addr, storage count, storage size, car size, car count) */
+    std::vector<std::tuple<std::string,u32,u32,u32,u32,u32>> getPacketBlocks() const {
+      std::vector<std::tuple<std::string,u32,u32,u32,u32,u32>> ret;
+      ImageBlockHeader ibh = getImageBlockHeader();
+      if (!ibh.isValid()) return ret;
+      u32 ec = ibh.getEntriesCount();
+      for (u32 e = 0u; e < ec; ++e) {
+        const ImageBlockAddr * iba = getConstImageBlockAddrAtIndexIfAny(e);
+        if (!iba || !iba->isValid()) continue;
+        BlockCode bc = (BlockCode) iba->getBlockCode();
+        u32 carsz = 0, carcnt = 0;
+        if (!getCarInfoForBlockCode(bc, carsz, carcnt)) continue;
+        ret.emplace_back(std::string(getNameFromBlockCode(bc)),
+                         iba->getBlockAddr(), iba->getStorageCount(),
+                         getStorageSizeFromBlockCode(bc), carsz, carcnt);
+      }
+      return ret;
+    }
+
     u32 getCellBlockBinFileAddrIfAny() const {
       ImageBlockAddr *ibacb = getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_CELLBLOCK);
       if (!ibacb) return 0u;
@@ -195,6 +235,7 @@ namespace MFM {
       t6.def("getBinWord", &T6Image::getBinWord,py::call_guard<py::gil_scoped_release>());
       t6.def("getImageBlockHeader", &T6Image::getImageBlockHeader,py::call_guard<py::gil_scoped_release>());
       t6.def("getImageCode", &T6Image::getImageCode,py::call_guard<py::gil_scoped_release>());
+      t6.def("getPacketBlocks", &T6Image::getPacketBlocks,py::call_guard<py::gil_scoped_release>());
 
 
       iba.def("__repr__",[](ImageBlockAddr& iba) { return T6Image::iba_to_string(iba); },

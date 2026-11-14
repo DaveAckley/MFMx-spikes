@@ -36,16 +36,22 @@ MATCHING (first cut, no nonce)
   Unmatched marks are classed as unobservable (far tile logged no .p
   marks) vs possible loss.  Hub relays link .pcr -> .pcs per slot.
 
-PKTS.txt (proposed; host writes once at startup; parser written, untested)
-  PKTS:V1 chip=0
-  BC name=INTERHUB storcnt=8 storsz=16640 carsz=4160 carcnt=4
+PKTS.txt (written by Machine.start() -> write_pkts(); plain text, one run)
+  PKTS:V1
   BC name=CORNERHUB storcnt=4 storsz=16640 carsz=4160 carcnt=4
-  TILE tlbi=101 noc=6,5 img=HUB
-  BLK tlbi=101 bc=INTERHUB addr=0x37220
-  BLK tlbi=101 bc=CORNERHUB addr=0x26d60
-  BC values come from BLOCKCODE_LIST + the TC types.  Without PKTS.txt the
-  analyzer falls back to built-in defaults (IHUB base 0x3722, CHUB base
-  0x26d6 in ptrTag4 units), derived from run 20261114-010305 only.
+  BC name=INTERHUB storcnt=8 storsz=16640 carsz=4160 carcnt=4
+  TILE chip=0 tlbi=101 noc=6,5 tag=at065 img=HUB
+  BLK chip=0 tlbi=101 bc=INTERHUB addr=0x37220
+  BLK chip=0 tlbi=101 bc=CORNERHUB addr=0x26d60
+  Source: deployed T6Image ImageBlockAddr entries (addr, storage count) via
+  T6Image::getPacketBlocks(); car size/count from the TCStorage type, in
+  T6Image::getCarInfoForBlockCode() (explicit switch: add a case when another
+  blockcode carries packets).  Inter-T6 destinations are NOT dumped yet; the
+  analyzer still learns directions from the marks.  UNTESTED on real host
+  build; analyzer parse path tested on a hand-made file.  BLK addr is assumed
+  to be the T6 address the marks log; if autofit still needs a shift with a
+  real PKTS.txt, that assumption is wrong.  Without PKTS.txt the analyzer
+  falls back to built-in defaults (derived from run 20261114-010305).
 
 KNOWN OBSERVATIONS (run 20261114-010305; hypotheses, not conclusions)
   - All 9 tiles with .p marks are RUN_EVENTS lamers; 13 other lamers and

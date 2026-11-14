@@ -104,8 +104,9 @@ Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`.
 See `scripts/ptrace/README.txt` for usage, mark formats, the proposed
 `misc/PKTS.txt` host dump, and observations from run 20261114-010305.
 Open items: (nonce `#nn` now emitted by formatT6SendBuf32/formatT6RecvBuf32;
-needs cross rebuild + a real run to verify); host writes
-misc/PKTS.txt; diagonal (odd) IHUB storages log no .pr (intended?).
+needs cross rebuild + a real run to verify); host now writes
+misc/PKTS.txt (T6Image::getPacketBlocks + Machine.write_pkts; untested on
+real build, needs host rebuild); diagonal (odd) IHUB storages log no .pr (intended?).
 
 ## Command files (session 3)
 `mfmxctl.py -s FILE` (repeatable) runs FILE's lines as if typed, after `--boot`,

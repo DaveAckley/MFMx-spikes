@@ -287,7 +287,50 @@ class Machine:
             else:
                 out.append(f"HOLD_AT_BIRTH phase: only {counts} acked "
                            f"(expected {self.t6s}/chip); cycle will re-fire it")
+        out.append(self.write_pkts())
         return "\n".join(out)
+
+    # ---- PKTS.txt: packet-slot geometry for offline log analysis ----------------
+    @staticmethod
+    def tlbi_to_noc(t):
+        """tlbi -> (x,y) NoC0 coords (UxC.h layout: 14 cols x 10 rows)."""
+        row, col = divmod(t, 14)
+        x = col + 1 + (2 if col + 1 > 7 else 0)
+        return x, row + 2
+
+    def write_pkts(self):
+        """Write misc/PKTS.txt (plain text, once per start): per-blockcode car
+        geometry and per-tile block addresses of packet-carrying blocks, from
+        the deployed images.  Read by scripts/ptrace/ptrace.py."""
+        try:
+            lines = ["PKTS:V1"]
+            bcs, tiles = {}, []
+            for bh in self.bhs:
+                chip = bh.getChipNumber()
+                for t in range(self.t6s):
+                    iname = bh.getTLBIImageName(t)
+                    if not iname:
+                        continue
+                    blks = self.im.getT6Image(iname).getPacketBlocks()
+                    x, y = self.tlbi_to_noc(t)
+                    tiles.append(f"TILE chip={chip} tlbi={t} noc={x},{y} "
+                                 f"tag={bh.getTLBITag(t)} img={iname}")
+                    for (bn, addr, scnt, ssz, csz, ccnt) in blks:
+                        n = bn[3:] if bn.startswith("BC_") else bn
+                        bcs[n] = (scnt, ssz, csz, ccnt)
+                        tiles.append(f"BLK chip={chip} tlbi={t} bc={n} "
+                                     f"addr=0x{addr:x}")
+            for n, (scnt, ssz, csz, ccnt) in sorted(bcs.items()):
+                lines.append(f"BC name={n} storcnt={scnt} storsz={ssz} "
+                             f"carsz={csz} carcnt={ccnt}")
+            lines += tiles
+            path = f"{self.simDir}misc/PKTS.txt"
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            return f"PKTS.txt: {len(bcs)} blockcodes, {len(tiles)} tile/block lines"
+        except Exception as e:           # diagnostics must never break start()
+            return f"PKTS.txt not written: {e!r}"
 
     def consume_hold_settled(self):
         """Return True (once) if start() pre-settled HOLD_AT_BIRTH; clear the flag."""
