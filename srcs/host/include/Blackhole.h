@@ -118,6 +118,15 @@ namespace MFM {
     /** Return TLBIs that have not yet acked the current phase (empty = all acked). */
     std::vector<u32> getNonPhaseTLBIs() { return mOurTLBs.getNonPhaseTLBIList(); }
 
+    /** Return the BHTag string (e.g. "at023") for a TLBI on this chip. */
+    std::string getTLBITag(u32 tlbi) { return BHTag::t6adt(mChipNum, tlbi); }
+
+    /** Return the deployed image name for a TLBI, or "" if none deployed. */
+    std::string getTLBIImageName(u32 tlbi) {
+      const T6Image * img = mOurTLBs.getTLBInfo(tlbi).getDeployedImageIfAny();
+      return img ? img->getName() : "";
+    }
+
     CodeManager & getCodeManager() { return mCodeManager; }
 
   private:
@@ -207,6 +216,8 @@ namespace MFM {
       },py::call_guard<py::gil_scoped_release>());
       bh.def("monitorFleet", &Blackhole::monitorFleet,py::call_guard<py::gil_scoped_release>());
       bh.def("getNonPhaseTLBIs", &Blackhole::getNonPhaseTLBIs,py::call_guard<py::gil_scoped_release>());
+      bh.def("getTLBITag", &Blackhole::getTLBITag,py::call_guard<py::gil_scoped_release>());
+      bh.def("getTLBIImageName", &Blackhole::getTLBIImageName,py::call_guard<py::gil_scoped_release>());
 
       bh.def("open", [](Blackhole& b) { b.changeStep(Step::HAS_OPEN_DEVICE); },py::call_guard<py::gil_scoped_release>());
       bh.def("allocateTLBs", [](Blackhole& b) { b.changeStep(Step::HAS_ALLOCATED_TLBS); },py::call_guard<py::gil_scoped_release>());

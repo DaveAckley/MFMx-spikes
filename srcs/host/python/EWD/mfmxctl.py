@@ -280,6 +280,53 @@ def main(argv=None):
         raise ValueError("usage: mock [lamers CHIP [TLBI..] [cmd NAME] | slow CHIP SECS TLBI.. | "
                          "delay CMD LO HI | clear]")
 
+    def c_tlbi(a):
+        """Show tag and image name for one or more TLBIs."""
+        m.need_booted()
+        if not a:
+            return ("usage: tlbi [CHIP:]TLBI[,TLBI...] | lamers\n"
+                    "  tlbi 15          -- all chips, TLBI 15\n"
+                    "  tlbi 0:15,19     -- chip 0, TLBIs 15 and 19\n"
+                    "  tlbi lamers      -- TLBIs from last bolt's lamer set")
+        bh_by_chip = {bh.getChipNumber(): bh for bh in m.bhs}
+        pairs = []  # list of (chip, tlbi)
+        if a[0] == "lamers":
+            b = m.bolt
+            if b is None:
+                return "no bolt yet"
+            for (c, _nonce, _n, lamers) in b.rows:
+                if lamers:
+                    for tlbi in lamers:
+                        if isinstance(tlbi, int):
+                            pairs.append((c, tlbi))
+            if not pairs:
+                return "last bolt had no lamers (or lamers were '?')"
+        else:
+            spec = a[0]
+            chip_filter = None
+            if ':' in spec:
+                chip_str, tlbi_str = spec.split(':', 1)
+                chip_filter = int(chip_str)
+            else:
+                tlbi_str = spec
+            tlbis = [int(t) for t in tlbi_str.split(',')]
+            if chip_filter is not None:
+                pairs = [(chip_filter, tlbi) for tlbi in tlbis]
+            else:
+                for bh in m.bhs:
+                    for tlbi in tlbis:
+                        pairs.append((bh.getChipNumber(), tlbi))
+        lines = []
+        for chip, tlbi in pairs:
+            bh = bh_by_chip.get(chip)
+            if bh is None:
+                lines.append(f"bh{chip}:{tlbi}  (chip not present)")
+                continue
+            tag = bh.getTLBITag(tlbi)
+            img = bh.getTLBIImageName(tlbi) or "(no image)"
+            lines.append(f"bh{chip}:{tlbi}  {tag}  {img}")
+        return "\n".join(lines)
+
     sh.command("boot", lambda a: m.boot(),
                "boot: configure + chip reset + QuietBox init (as nu1011 did at startup)")
     sh.command("configure", lambda a: m.configure(), "configure: build layout/images/Blackholes from the dtoml")
@@ -302,6 +349,7 @@ def main(argv=None):
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [alt]: EWControl.doSeed")
     sh.command("nuke", c_nuke, "nuke [big]: EWControl.doNuke")
+    sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")
     sh.command("quit", c_quit, "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",
                aliases=("exit",))
