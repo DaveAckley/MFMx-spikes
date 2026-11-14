@@ -49,3 +49,15 @@ KNOWN OBSERVATIONS (run 20261114-010305; hypotheses, not conclusions)
     but never log a recv.  Intended: diagonal shots yield .ps, .pcr,
     .pcs, .pr.
   - Every tile's .p stream ends within ticks 30539..33665.
+
+RUN 20261114-082557 (first run with #nn nonces)
+  - Nonce reaches the receiver: ps->pr 91/91 equal, ps->pcr 16/16,
+    .pcr->.pcs relay 30/30.  So (tile, slot, nonce) is a usable key.
+  - Per-slot .ps nonce advances by exactly 4 between consecutive sends
+    (29/29 steps).  Unwrapping the 8-bit nonce within a slot is easy.
+  - Diagonal shots complete only 3 of 4 marks: all 30 .pcs target odd
+    (diagonal) IHUB storages; 8 of them go to tiles that logged .p marks
+    and none of those 8 produced a .pr (0 .pr at any odd storage).
+  - Image rebuild moved slot bases by +2 ptrTag4 units vs the first run;
+    the analyzer auto-fits a uniform shift when no PKTS.txt is present.
+    This is why PKTS.txt is needed: the layout is build-dependent.

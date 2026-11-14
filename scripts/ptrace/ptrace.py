@@ -136,6 +136,35 @@ def load_pkts(root):
     return True
 
 
+def autofit_layout(marks):
+    """Builds shift base addresses between images; if the defaults leave
+    addresses undecodable, try a uniform shift (ptrTag4 units) of all
+    bases and keep the best.  Returns shift applied."""
+    global LAYOUT, LAYOUT_SRC
+    addrs = set()
+    for m in marks:
+        addrs.add(m.our)
+        if m.dest:
+            addrs.add(m.dest[1])
+    def bad():
+        return sum(1 for ad in addrs if decode_slot(ad) is None)
+    base_layout = dict(LAYOUT)
+    best = (bad(), 0)
+    if best[0] == 0:
+        return 0
+    for sh in range(-0x80, 0x81):
+        LAYOUT = dict((k, (v[0] + sh,) + v[1:]) for k, v in base_layout.items())
+        b = bad()
+        if b < best[0]:
+            best = (b, sh)
+    sh = best[1]
+    LAYOUT = dict((k, (v[0] + sh,) + v[1:]) for k, v in base_layout.items())
+    if sh:
+        LAYOUT_SRC += ' + auto-fit shift %+d (%d addrs still undecodable)' % (
+            sh, best[0])
+    return sh
+
+
 class Mark(object):
     __slots__ = ('tile', 'chip', 'tick', 'seq', 'blk', 'tag', 'our', 'size',
                  'nonce', 'dest', 'dir', 'fid', 'line', 'raw', 'peer')
@@ -216,7 +245,7 @@ def parse_tile_file(path, stats):
     return marks
 
 
-def match_endpoint(sends, recvs, eps, maxlat, compat=None):
+def match_endpoint(sends, recvs, eps, maxlat, compat=None, use_nonce=True):
     """Order-match sends (to one endpoint) against recvs (at that endpoint).
     Slots are 1-car, point-to-point, so sends to an endpoint and recvs at it
     are 1:1 in order.  compat(s,r) may veto a pairing (direction check).
@@ -229,7 +258,7 @@ def match_endpoint(sends, recvs, eps, maxlat, compat=None):
         s, r = sends[i], recvs[j]
         dt = r.tick - s.tick
         ok = compat is None or compat(s, r)
-        if ok and s.nonce is not None and r.nonce is not None:
+        if ok and use_nonce and s.nonce is not None and r.nonce is not None:
             ok = (s.nonce == r.nonce)
         if ok and -eps <= dt <= maxlat:
             pairs.append((s, r)); i += 1; j += 1
@@ -291,6 +320,8 @@ def main():
         sys.exit('no tiles/*.mfmk under %s' % a.rundir)
     for p in files:
         marks.extend(parse_tile_file(p, stats))
+    if not have_pkts:
+        autofit_layout(marks)
 
     sends_by_dest = defaultdict(list)   # (tile,addr) -> sends targeting it
     recvs_by_ep = defaultdict(list)     # (tile,addr) -> recvs at it
@@ -303,16 +334,17 @@ def main():
     # ---- step 2: send->recv matching.  Pass 1 ignores direction; pass 2
     # re-matches vetoing pairs whose geometry contradicts the learned
     # direction table (dir -> sign of sender-minus-receiver).
-    def run_match(compat):
+    def run_match(compat, use_nonce=True):
         prs, osn, orc = [], [], []
         for ep in set(sends_by_dest) | set(recvs_by_ep):
             p, os_, or_ = match_endpoint(sends_by_dest.get(ep, []),
                                          recvs_by_ep.get(ep, []),
-                                         a.eps, a.maxlat, compat)
+                                         a.eps, a.maxlat, compat,
+                                         use_nonce)
             prs.extend(p); osn.extend(os_); orc.extend(or_)
         return prs, osn, orc
 
-    pairs1, _, _ = run_match(None)
+    pairs1, _, _ = run_match(None, False)   # nonce-blind pass
     dirtab = learn_dir_signs(pairs1)
 
     def compat(s, r):
@@ -336,6 +368,15 @@ def main():
         prv[r] = s
         r.peer = s
         s.peer = r
+
+    # nonce agreement on ORDER-matched pairs (nonce-blind pass with the same
+    # size/direction vetoes): does the sender's nonce reach the receiver?
+    blind_pairs, _, _ = run_match(compat, False)
+    agree = Counter()
+    for sm, rm in blind_pairs:
+        if sm.nonce is None or rm.nonce is None:
+            continue
+        agree[(sm.tag + '->' + rm.tag, sm.nonce == rm.nonce)] += 1
 
     # classify the unmatched by whether the far tile could have logged
     p_tiles = set(m.tile for m in marks)
@@ -409,6 +450,9 @@ def main():
                 relay[r] = s; relay_back[s] = r; i += 1; j += 1
         relay_orph_r.extend(rs[i:]); relay_orph_s.extend(ss[j:])
 
+    relay_nonce = Counter((r.nonce == x.nonce) for r, x in relay.items()
+                          if r.nonce is not None and x.nonce is not None)
+
     # ---- step 4: chains.  A chain starts at a send with no relay_back,
     # i.e. not a hub forward (.ps, or .pcs with no .pcr).
     chains = []
@@ -477,6 +521,15 @@ def main():
     if lat:
         out('latency ticks (recv-send) histogram: %s\n' %
             dict(sorted(Counter(lat).items())))
+    out('nonce agreement on order-matched pairs (equal/total by kind):\n')
+    kinds = sorted(set(k for k, _ in agree))
+    for k in kinds:
+        out('    %-9s %d/%d\n' % (k, agree[(k, True)],
+                                 agree[(k, True)] + agree[(k, False)]))
+    if not kinds:
+        out('    (no nonce-bearing pairs)\n')
+    out('relay .pcr->.pcs nonce equal/total: %d/%d\n' % (
+        relay_nonce[True], relay_nonce[True] + relay_nonce[False]))
     out('size mismatches on matched pairs: %d\n' % len(size_mismatch))
     out('recv-before-send (negative latency) pairs: %d\n' % len(neg_lat))
     out('\n-- hub relays: pcr->pcs linked=%d, pcr orphan=%d, pcs orphan=%d,'
