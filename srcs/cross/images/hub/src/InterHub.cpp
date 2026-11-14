@@ -38,9 +38,14 @@ namespace MFM {
            orthogonal hub CCW of the Dir8 corner, rather than the
            INTERHUB blocks of the Dir8 neighbor.
 
-           We are also going to try saying that all CHUB blocks are
+           DEPRECATED: We are also going to try saying that all CHUB blocks are
            'in', and the four corner IHUB blocks are 'out' (regardless
            of their tlbis), and all cars start 'out'.
+
+           REPLACEMENT: We are going to try saying the CHUBs are 'dumb
+           copper' that never touch a packet byte and have no explicit
+           in or out, and that in and out are determined 'as usual' by
+           comparison of the source and (final)dest tlbis.
          */
         /* But despite this diversion, we first need to ensure that
            the actual diagonal destination hub actually exists -
@@ -96,8 +101,14 @@ namespace MFM {
         HBPTAG(firstDestDir8,dir8ToByteString(firstDestDir8));
         HBPX(firstDestBlockIndex);
 
+        bool sane;
+
         U8C firstDestHubUCT6;
-        bool sane = firstDestHubCT6C.toU8C(firstDestHubUCT6);
+        sane = firstDestHubCT6C.toU8C(firstDestHubUCT6);
+        MFM_API_ASSERT(sane,ILLEGAL_STATE);
+
+        U8C finalDestHubUCT6;
+        sane = finalDestHubCT6C.toU8C(finalDestHubUCT6);
         MFM_API_ASSERT(sane,ILLEGAL_STATE);
 
         HBPX(usREGC);
@@ -108,6 +119,7 @@ namespace MFM {
         // cvt to noc0,
         // search ibas for our iba
         U8C firstDestHubNoC0C = U8C::makeNoC0CoordFromCT6Coord(firstDestHubUCT6);
+        U8C finalDestHubNoC0C = U8C::makeNoC0CoordFromCT6Coord(finalDestHubUCT6);
         HBPX(firstDestHubNoC0C);
         {
           S8C ngbct6off = finalDestHubCT6C-ourct6;
@@ -117,7 +129,11 @@ namespace MFM {
             ImageBlockAddr usiba = ngb.findIBAIfAny(blockCode, /*debug=*/false);
             MFM_API_ASSERT(usiba.isValid(),ILLEGAL_STATE);
             u32 theirtlbi = U8C::makeTLBIFromNoCCoord(firstDestHubNoC0C);
-            bool weAreIn = goForCHUB ? false : ourtlbi < theirtlbi;
+            u32 finaltlbi = U8C::makeTLBIFromNoCCoord(finalDestHubNoC0C);
+            bool weAreIn = goForCHUB ? ourtlbi < finaltlbi : ourtlbi < theirtlbi;
+            HBPX(goForCHUB);
+            HBPX(theirtlbi);
+            HBPX(finaltlbi);
 
             InterHubEP & ihep = myInterHubEP[finalDestDir8];
             HBPTAG(d8Now,dir8ToByteString(firstDestDir8));
