@@ -1,4 +1,4 @@
-{12}  -*-  mode: text; fill-column: 32;  -*-
+{18}  -*-  mode: text; fill-column: 32;  -*-
 [0:
 
 Wed Nov 11 00:09:40 2026 OK,
@@ -101,7 +101,8 @@ DONE :8] - Maybe draft another
    packet tracing, at least for
    now.
 
- - Extend the host-side config
+[14: Sat Nov 14 01:30:58 2026
+DONE :14] - Extend the host-side config
    dtoml to be able to set host
    flags.
 
@@ -149,7 +150,55 @@ branch and push the current WIP
 so claude can be more
 up-to-date.
 
-First let's see if it builds.. 
+First let's see if it builds..
+  [12:
+
+Thu Nov 12 11:37:31 2026 OK, it
+builds and 'runs' to the degree
+of setting things up and then
+falling off the bottom of the
+code. [13:
+
+Sat Nov 14 01:29:38 2026 Welllll
+then! We now have a pretty damn
+usable 'mfmxctl.py' UI to
+replace the textual stuff!
+
+:13]
+
+:12]
 
 :11]
 :10]
+[15:
+
+Sat Nov 14 09:18:20 2026 OK,
+have been working again with
+claude on a log file analyzer
+for packet tracking, now growing
+in scripts/ptrace .
+
+:15]
+[16:
+
+Sat Nov 14 09:19:22 2026 Also
+reworking the in-out rules for
+CHUB packets based on claude's
+hypothesis about the current
+bug!
+
+[17:
+
+Sat Nov 14 09:52:48 2026 OK,
+just going with weAreIn rules
+based on the ourtlbi vs the
+finalDestTLBI in all cases seems
+to improve packet delivery,
+though it doesn't resolve all
+the current issues.
+
+Pushing this..
+
+:17]
+
+:16]
