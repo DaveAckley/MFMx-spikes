@@ -12,6 +12,7 @@ Design (see the design discussion):
     them asynchronous (fire + poll), which is what machine.py does for bolts.
   * Works under pdb: nothing here spawns threads.
 """
+import collections
 import os
 import select
 import shlex
@@ -48,11 +49,20 @@ class Shell:
         self._prompt_up = False
         self._need_prompt = True
         self._echo = not os.isatty(fd)   # make piped transcripts readable
+        self.script = collections.deque()  # pending command-file lines (text)
+        self.script_exit = False           # quit once command files are used up
+        self._script_ran = False
+        self.max_source_depth = 8
+        self._source_depth = 0
         self.command("help", self._cmd_help, "help [CMD]: list commands, or show one")
         self.command("tick", self._cmd_tick,
                      "tick [NAME on|off|period SECS|now]: list or control periodic ticks")
         self.command("wait", self._cmd_wait,
                      "wait SECS: let ticks run for SECS (input is not read meanwhile)")
+        self.command("source", self._cmd_source,
+                     "source FILE: run the commands in FILE as if typed (comments with #)")
+        self.command("echo", lambda a: " ".join(a),
+                     "echo TEXT...: print TEXT (handy for annotating command files)")
 
     # ---- registration -------------------------------------------------------
     def command(self, name, fn, help, aliases=()):
@@ -135,6 +145,36 @@ class Shell:
             else:
                 self.eof = True
 
+    # ---- command files ------------------------------------------------------
+    def load_script(self, path, front=False, depth=1):
+        """Queue the lines of a command file.  front=True runs them next
+        (before any lines already queued) -- that is what 'source' wants, so
+        nested files run in place.  depth bounds 'source' recursion.
+        Raises OSError if the file is unreadable."""
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = [(depth, ln.rstrip("\r\n")) for ln in f]
+        if front:
+            self.script.extendleft(reversed(lines))
+        else:
+            self.script.extend(lines)
+        self._script_ran = True
+        return len(lines)
+
+    def _next_script_line(self):
+        if not self.script:
+            self._source_depth = 0
+            return None
+        self._source_depth, text = self.script.popleft()
+        return text
+
+    def _cmd_source(self, args):
+        if len(args) != 1:
+            return "usage: source FILE"
+        if self._source_depth + 1 > self.max_source_depth:
+            return f"source: nested more than {self.max_source_depth} deep (a file sourcing itself?)"
+        n = self.load_script(args[0], front=True, depth=self._source_depth + 1)
+        return f"source {args[0]}: {n} lines"
+
     # ---- main loop ----------------------------------------------------------
     @staticmethod
     def resolve(word, choices, what="command"):
@@ -187,7 +227,15 @@ class Shell:
                     self.out.write(self.prompt)
                     self.out.flush()
                     self._prompt_up, self._need_prompt = True, False
-                line = self._next_line()
+                # command-file lines take precedence over stdin; they are
+                # echoed (stdin is not what typed them) and ticks keep
+                # running between them, as they would between typed lines.
+                line = self._next_script_line()
+                from_script = line is not None
+                if not from_script:
+                    if self.script_exit and self._script_ran:
+                        break               # command files used up: quit
+                    line = self._next_line()
                 if line is None:
                     if self.eof:
                         break
@@ -195,10 +243,13 @@ class Shell:
                     self._run_due()
                     continue
                 self._prompt_up = False
-                if self._echo:
+                if self._echo or from_script:
                     self.out.write(line + "\n")
+                    self.out.flush()
                 self.dispatch(line)
                 self._need_prompt = True
+                if from_script:
+                    self._run_due()
             except KeyboardInterrupt:
                 self.say("^C (type 'quit' to exit)")
 

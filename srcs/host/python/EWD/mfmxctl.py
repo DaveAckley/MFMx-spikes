@@ -8,6 +8,7 @@ under emacs (M-x shell / M-x pdb), or with piped input.
 
   mfmxctl.py --mock --boot        # no hardware: use the mock MFMx module
   mfmxctl.py --boot --rtmp        # real machine, with the RTMP video feed
+  mfmxctl.py --boot -s run.cmd    # then run the commands in run.cmd as if typed
 
 Type 'help' at the prompt.  Typical session:
   boot ; start ; shoot HOLD_AT_BIRTH 0 ; status ; shoot NEW_LEADER 2 1 ; ...
@@ -60,6 +61,12 @@ def parse_args(argv):
                     help="SuperCycle dwell after RUN_EVENTS: SECS, or LO HI for a random range")
     ap.add_argument("--first-leader", type=int, default=2,
                     help="leader for the first NEW_LEADER (old C++ debug default: 2)")
+    ap.add_argument("-s", "--script", action="append", default=[], metavar="FILE",
+                    help="run the commands in FILE as if typed at the prompt (after --boot); "
+                         "may be repeated; then continue with stdin")
+    ap.add_argument("--script-exit", action="store_true",
+                    help="quit (orderly, like 'quit') when the --script files are used up, "
+                         "instead of continuing with stdin")
     ap.add_argument("--log-prefix", default="mfmxctl")
     ap.add_argument("--verbose", action="store_true")
     return ap.parse_args(argv)
@@ -84,6 +91,9 @@ def setup_paths(args):
 
 def main(argv=None):
     args = parse_args(argv)
+    bad = [f for f in args.script if not os.path.isfile(f)]
+    if bad:
+        sys.exit(f"mfmxctl: command file not found: {', '.join(bad)}")
     extra_bindirs = setup_paths(args)
 
     # These are existing repo files, NOT part of the mfmxctl overlay.
@@ -249,6 +259,17 @@ def main(argv=None):
     def c_where(a):
         return f"sim dir: {m.simDir}\nlog files: {m.simDir}misc/{m.logprefix}-<KEY>.txt"
 
+    def c_waitbolt(a):
+        """Run ticks until the pending bolt settles (for command files)."""
+        b = m.bolt
+        if b is None:
+            return "no bolt yet"
+        cap = float(a[0]) if a else b.timeout + 5.0
+        end = time.monotonic() + cap
+        while b.state == "pending" and time.monotonic() < end:
+            sh.run_for(0.1)
+        return b.describe(time.monotonic())
+
     def c_quit(a):
         state["close"] = bool(a and a[0] == "close")
         sh.stop()
@@ -343,6 +364,8 @@ def main(argv=None):
                "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending]: SuperCycle")
     sh.command("dwell", c_dwell, "dwell [SECS | LO HI]: SuperCycle dwell after RUN_EVENTS")
     sh.command("shoot", c_shoot, "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
+    sh.command("waitbolt", c_waitbolt,
+               "waitbolt [SECS]: let ticks run until the pending bolt settles (default: its timeout + 5s)")
     sh.command("bolt", c_bolt, "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
     sh.command("scan", c_scan, "scan [N]: run slowscans now")
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
@@ -373,6 +396,9 @@ def main(argv=None):
                 sh.say(m.boot())
             except Exception as e:
                 sh.say(f"boot failed: {type(e).__name__}: {e}")
+        sh.script_exit = args.script_exit
+        for f in args.script:
+            sh.load_script(f)
         sh.run()
     finally:
         sh.say("shutting down...")

@@ -106,3 +106,13 @@ See `scripts/ptrace/README.txt` for usage, mark formats, the proposed
 Open items: (nonce `#nn` now emitted by formatT6SendBuf32/formatT6RecvBuf32;
 needs cross rebuild + a real run to verify); host writes
 misc/PKTS.txt; diagonal (odd) IHUB storages log no .pr (intended?).
+
+## Command files (session 3)
+`mfmxctl.py -s FILE` (repeatable) runs FILE's lines as if typed, after `--boot`,
+then continues with stdin; `--script-exit` quits when the files are used up.
+`source FILE` does the same from the prompt (nested, depth-limited); `echo TEXT`
+annotates; `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
+`shoot` supersedes a pending one, so scripts want it between shots).  Script
+lines are echoed after the prompt; ticks run between lines; errors do not stop
+the script.  Test: `python3 mock/selftest.py command_file` (7 older selftests
+already fail at baseline: legacy/guards/slowscan-gate/phase -- stale, not touched).

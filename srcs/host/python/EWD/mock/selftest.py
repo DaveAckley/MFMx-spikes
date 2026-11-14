@@ -285,6 +285,34 @@ def scenario_feed_command():
     check("feed: 'feed off' stops the tick", "feed frames stopped" in out and rc == 0, out[-500:])
 
 
+def scenario_command_file():
+    d = tempfile.mkdtemp(prefix="selftest-cmd-")
+    main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))
+    with open(sub_f, "w") as f:
+        f.write("echo SUBFILE-ONE\necho SUBFILE-TWO\n")
+    with open(self_f, "w") as f:
+        f.write(f"source {self_f}\n")
+    with open(main_f, "w") as f:
+        f.write("# comment\n\n" + FAST + "start\necho BEFORE\nshoot HOLD_AT_BIRTH 0\nwaitbolt\n"
+                f"shoot NEW_LEADER 2 1\nwaitbolt\nsource {sub_f}\necho AFTER\n"
+                f"source {self_f}\necho STILL-ALIVE\n")
+    rc, out = run("echo FROM-STDIN\nquit\n", extra_args=("--boot", "-s", main_f))
+    check("script: exit 0", rc == 0, f"rc={rc}")
+    check("script: bolts settle in order",
+          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1) CONSENSUS" in out
+          and "superseded" not in out.lower(), out[-900:])
+    i = [out.find(t) for t in ("BEFORE", "SUBFILE-ONE", "SUBFILE-TWO", "AFTER", "STILL-ALIVE", "FROM-STDIN")]
+    check("script: nested source runs in place, then stdin continues",
+          all(x >= 0 for x in i) and i == sorted(i), str(i))
+    check("script: self-sourcing file is cut off, script continues",
+          "nested more than" in out and "STILL-ALIVE" in out)
+    rc, out = run("echo NEVER\n", extra_args=("--boot", "-s", main_f, "--script-exit"))
+    check("script-exit: quits when files are used up", rc == 0 and "NEVER" not in out
+          and "STILL-ALIVE" in out and "shutting down" in out, out[-500:])
+    rc, out = run("quit\n", extra_args=("-s", os.path.join(d, "no-such.cmd")))
+    check("script: missing file is a clear startup error", rc != 0 and "command file not found" in out, out[:300])
+
+
 if __name__ == "__main__":
     only = sys.argv[1:]
     for name, fn in list(globals().items()):
