@@ -6,6 +6,7 @@
 #include "S8C.h" 
 #include "S16C.h"
 #include "P4Atom.h"
+#include "Buf32.h"
 
 namespace MFM {
   bool logTagCheck(const char * tag) ;
@@ -216,10 +217,6 @@ namespace MFM {
   char * formatCountedByte(u32 count, u8 byte) ;
 
   class InterHubBlock; // FORWARD
-  struct Buf32 {
-    static constexpr u8 SIZE = 32;
-    char buf[SIZE];
-  };
 
   const char * hexDump(const void * p) ;
   const char * hexDumpBuf32(Buf32 & b32, const void * p) ;

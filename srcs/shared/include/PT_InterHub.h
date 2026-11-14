@@ -5,6 +5,8 @@
 #include "Debug.h"
 #include "TCStorage.h"
 #include "S16C.h"
+#include "Buf32.h"
+#include "EPBase.h"
 
 namespace MFM {
 
@@ -227,8 +229,12 @@ namespace MFM {
   public:
     const char * getName() const { return "InterHubBlock"; }
     const char * formatTC(EPBase & epb) {
+#ifndef BUILD_HOST
       Buf32 b32;
       return formatIHBlockBuf32(b32, *this, (Dir8) epb.getSrcBlockCodeIndex(), 99);
+#else
+      FAIL(INCOMPLETE_CODE);
+#endif
     }
 
     bool readyToClose(TCOpsData & tms,u32 msnow) const { 

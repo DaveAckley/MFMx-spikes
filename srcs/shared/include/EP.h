@@ -2,6 +2,7 @@
 
 #include "itype.h"
 
+#include "EPBase.h"
 #include "EPState.h"
 #include "TCCommon.h"
 #include "AtomicLock.h"
@@ -16,27 +17,8 @@
 
 namespace MFM {
 
-  struct EndPointAddress {
-    BlockCode mBlockCode;
-    u8 mBlockCodeIndex;
-  };
-
   inline u8& epInstantiationVar() { static u8 n = 0; return n; }
   inline u8 epInstantiationCount() { return ++epInstantiationVar(); }
-
-  struct EPBase {
-    //    const char * getName() const ;
-    EndPointAddress mSrcEPA; //< Local end
-    EndPointAddress mDestEPA;   //< Remote end
-
-    EndPointAddress getSrcEPA() const { return mSrcEPA; }
-    BlockCode getSrcBlockCode() const { return getSrcEPA().mBlockCode; }
-    u8 getSrcBlockCodeIndex() const { return getSrcEPA().mBlockCodeIndex; }
-
-    EndPointAddress getDestEPA() const { return mDestEPA; }
-    BlockCode getDestBlockCode() const { return getDestEPA().mBlockCode; }
-    u8 getDestBlockCodeIndex() const { return getDestEPA().mBlockCodeIndex; }
-  };
 
   template<class SUBEP, class SUBTC>
   struct EP : public EPBase {
