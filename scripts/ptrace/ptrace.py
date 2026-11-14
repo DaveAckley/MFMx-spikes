@@ -9,6 +9,7 @@ Marks : {fid:line tick chip x,y hH TAG:payload}
         .pcs hub send   same layout
         .pr  recv       OUR+SIZE[#NN]<-DIR
         .pcr hub recv   same layout
+        .pw  waypoint   OUR+SIZE#NN[ msg]   (fid:line = code waypoint)
         (#NN = optional 2-hex nonce; absent in logs predating the nonce
         change.  When present on both ends it is used as an exact key.)
 
@@ -165,9 +166,13 @@ def autofit_layout(marks):
     return sh
 
 
+WAY_RE = re.compile(
+    r'^([0-9a-f]{4})\+(\d+)#([0-9a-f]{2})(?: (.*))?$')
+
+
 class Mark(object):
     __slots__ = ('tile', 'chip', 'tick', 'seq', 'blk', 'tag', 'our', 'size',
-                 'nonce', 'dest', 'dir', 'fid', 'line', 'raw', 'peer')
+                 'nonce', 'dest', 'dir', 'fid', 'line', 'raw', 'peer', 'msg')
 
     def kind(self):
         return self.tag  # 'ps' 'pcs' 'pr' 'pcr'
@@ -218,6 +223,7 @@ def parse_tile_file(path, stats):
             mk.dest = None
             mk.dir = None
             mk.peer = None
+            mk.msg = None
             if tag in ('ps', 'pcs'):
                 s = SEND_RE.match(payload)
                 if not s:
@@ -228,6 +234,15 @@ def parse_tile_file(path, stats):
                 mk.nonce = None if s.group(3) is None else int(s.group(3), 16)
                 mk.dest = ((int(s.group(5)), int(s.group(6))),
                            int(s.group(4), 16))
+            elif tag == 'pw':
+                w = WAY_RE.match(payload)
+                if not w:
+                    stats['badpayload'] += 1
+                    continue
+                mk.our = int(w.group(1), 16)
+                mk.size = int(w.group(2))
+                mk.nonce = int(w.group(3), 16)
+                mk.msg = w.group(4) or ''
             elif tag in ('pr', 'pcr'):
                 r = RECV_RE.match(payload)
                 if not r:
@@ -320,6 +335,8 @@ def main():
         sys.exit('no tiles/*.mfmk under %s' % a.rundir)
     for p in files:
         marks.extend(parse_tile_file(p, stats))
+    wps = [m for m in marks if m.tag == 'pw']     # waypoint marks
+    marks = [m for m in marks if m.tag != 'pw']   # packet-motion marks
     if not have_pkts:
         autofit_layout(marks)
 
@@ -585,7 +602,7 @@ def main():
         t = tile_from_filename(pth)
         if t:
             tfiles[t] = pth
-    npm = Counter(m.tile for m in marks)
+    npm = Counter(m.tile for m in marks + wps)
     rows = Counter()
     for t in sorted(tfiles):
         lam = (None if lamers is None else (t in lamers))
@@ -601,6 +618,47 @@ def main():
         out('  silent non-lamers: %s\n' % ' '.join(
             '(%d,%d)' % t for t in sorted(
                 t for t in tfiles if t not in lamers and not npm.get(t))))
+
+    # ---- waypoints (.pw): where in the code a packet was seen
+    if wps:
+        out('\n-- waypoints (.pw): %d marks\n' % len(wps))
+        by_site = Counter((w.fid, w.line, w.msg) for w in wps)
+        for (fid, line, msg), n in sorted(by_site.items()):
+            out('  %d:%d %-12s x%d\n' % (fid, line, msg, n))
+        way_at = defaultdict(list)   # (tile,slot) -> waypoints, tick order
+        for w in sorted(wps, key=lambda w: (w.tick, w.seq)):
+            way_at[w.ep()].append(w)
+
+        def ways_for(ep, nonce, tick):
+            # a car arriving with nonce n shows n on arrival, n+1 once
+            # re-closed; accept both, at or after the send (minus skew)
+            return [w for w in way_at.get(ep, [])
+                    if w.nonce in (nonce, (nonce + 1) & 0xff)
+                    and w.tick >= tick - a.eps]
+
+        # last waypoint reached by packets that never produced a recv
+        stuck = []
+        for sd in sorted(orphan_sends, key=lambda m: m.tick):
+            if sd.dest[0] not in p_tiles and not any(
+                    w.tile == sd.dest[0] for w in wps):
+                continue            # dest tile not observed at all
+            ws = ways_for(sd.dest, sd.nonce, sd.tick) if sd.nonce is not None else []
+            stuck.append((sd, ws[-1] if ws else None))
+        if stuck:
+            out('\n-- packets with no recv: last waypoint at destination '
+                '(%d)\n' % len(stuck))
+            lastsites = Counter()
+            for sd, w in stuck:
+                lastsites[(w.fid, w.line, w.msg) if w else None] += 1
+            for k, n in sorted(lastsites.items(), key=lambda kv: -kv[1]):
+                out('  %s x%d\n' % (
+                    ('%d:%d %s' % k) if k else 'no waypoint seen', n))
+            for sd, w in stuck[:12]:
+                out('  %s t=%d -> (%d,%d)%s : %s\n' % (
+                    sd.label(), sd.tick, sd.dest[0][0], sd.dest[0][1],
+                    slot_name(sd.dest[1]),
+                    ('%d:%d %s t=%d' % (w.fid, w.line, w.msg, w.tick))
+                    if w else 'no waypoint seen'))
 
     def show(title, items, fmt, limit=12):
         if not items:
@@ -629,7 +687,18 @@ def main():
             parts = []
             for x in c:
                 parts.append('%s[t%d]' % (x.label(), x.tick))
-            out('  ' + '  >  '.join(parts) + '\n')
+            line_ = '  ' + '  >  '.join(parts)
+            if wps:
+                last = c[-1]
+                tgt = last.dest if last.is_send() else last.ep()
+                nn = last.nonce
+                if nn is not None:
+                    ws = [w for w in wps if w.ep() == tgt and
+                          w.nonce in (nn, (nn + 1) & 0xff) and
+                          w.tick >= last.tick - a.eps]
+                    for w in ws[:3]:
+                        line_ += '  @{%d:%d %s}' % (w.fid, w.line, w.msg)
+            out(line_ + '\n')
 
     if a.lanes:
         out('\n-- lane balance: sends (A:x->B:y), matched, and reverse\n')

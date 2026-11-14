@@ -17,6 +17,11 @@ MARKS (structured tags; HBF_STAG_PTRACE gates them via logTagCheck)
   .pr  recv      OUR+SIZE[#NN]<-DIR          InterHubEP::recvTC
   .pcs hub send  same layout as .ps          InterHub.cpp (corner hub)
   .pcr hub recv  same layout as .pr          InterHub.cpp (corner hub)
+  .pw  waypoint  OUR+SIZE#NN[ msg]           (proposed; analyzer-side ready)
+                 fid:line of the mark = which code waypoint was reached;
+                 msg = tiny free text (no '}').  Needs a once-per-
+                 (slot,nonce,waypoint) guard on the T6 side to avoid
+                 flooding from polling loops.
   OUR/DEST are ptrTag4 = (addr>>4)&0xffff.  #NN = optional 2-hex
   TCMarker nonce (header, via getPacketNonce()).  Emitted by the T6 code
   since the commit "PTRACE marks: add #nn nonce" (needs a cross rebuild;
@@ -61,3 +66,12 @@ RUN 20261114-082557 (first run with #nn nonces)
   - Image rebuild moved slot bases by +2 ptrTag4 units vs the first run;
     the analyzer auto-fits a uniform shift when no PKTS.txt is present.
     This is why PKTS.txt is needed: the layout is build-dependent.
+
+WAYPOINTS (.pw) IN THE ANALYZER
+  Parsed and kept out of send/recv matching.  Report sections:
+    - per-site counts (fid:line, msg)
+    - for packets with no recv, the last waypoint seen at the destination
+      slot with nonce n or n+1 (arrival / after re-close); "no waypoint
+      seen" if none.  --traces appends up to 3 waypoints (@{fid:line msg})
+      to each chain's end.
+  Tested only on synthetic .pw marks derived from run 20261114-082557.
