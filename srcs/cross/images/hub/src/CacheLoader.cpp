@@ -243,7 +243,10 @@ namespace MFM {
     else LOGPTAG(lod@,itr.at);
 
     LOGPTAG(SHI#,patoms.getAtomsInPacket());
-    u32 pktsize = patoms.getCurrentPayloadSize();
+    // MUST include the IHPHeader: patoms.getCurrentPayloadSize() alone
+    // omits the 8 header bytes, so a zero-atom car got size code 0 (8B
+    // payload) and its footer landed on mAtomCount/mStartsAt.
+    u32 pktsize = pay.getCurrentPayloadSize();
     //LOGPTAG(SHIZ,pktsize);
     ihb.closeTC(pktsize);              // packet loaded
   }
@@ -292,7 +295,7 @@ namespace MFM {
     if (itr.atEnd()) LOGPTAG(uDONE,dir8ToByteString(mDir8));
     else if (atomsInPacket > 0) LOGPTAG(uGOON,itr.at);
     patoms.setToZeroAtoms();
-    u32 pktsize = patoms.getCurrentPayloadSize();
+    u32 pktsize = pay.getCurrentPayloadSize(); // incl. IHPHeader, see loadPacket
     //LOGPTAG(unPSZ,pktsize);
     ihb.closeTC(pktsize);                // packet unloaded
   }
