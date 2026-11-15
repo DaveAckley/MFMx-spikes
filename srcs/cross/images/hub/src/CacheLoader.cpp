@@ -137,6 +137,20 @@ namespace MFM {
     }
   }
 
+  /* SAVE is the mirror image of LOAD (loadCaches): the leader ships its
+     caches back to the followers' sites, and the followers receive them.
+
+                      RUN_EVENTS (loadCaches)   NEW_LEADER (saveCaches)
+       leader tile     unload (recv sites)       load (send caches)
+       follower tile   load (send sites)         unload (recv into sites)
+
+     Cars need no explicit repositioning: a receiver-role loader that finds
+     a car in its inbound ring unloads it and ships it back, and an EMPTY
+     car (zero atoms) unloads as a no-op.  So the empties that RUN_EVENTS
+     left parked at the followers are handed to the leader automatically
+     as the followers' first SAVE 'unloads'.  Likewise, when roles change
+     with a new leader, whichever end holds the cars hands them to the end
+     that needs to send. */
   void CacheLoaders::saveCaches() {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
 
@@ -145,7 +159,10 @@ namespace MFM {
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
       CacheLoader & cl = get(i);
       SNAP(20,LOGPTAG(CLS$U,i));
-      cl.unloadPacketIfNeeded(gm);
+      if (cl.isThatAFollower())       // we lead: send our caches to them
+        cl.loadPacketIfNeeded(gm);
+      else if (cl.isThatALeader())    // we follow: receive their caches into our sites
+        cl.unloadPacketIfNeeded(gm);
     }
   }
 
