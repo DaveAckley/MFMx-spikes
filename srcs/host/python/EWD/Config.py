@@ -10,7 +10,7 @@ class Config:
         self.name = os.path.basename(self.scriptpath).removesuffix(".py")
         self.path = ""
         for cdir in (".",os.path.dirname(os.path.abspath(self.scriptpath))):
-            confpath = f"{cdir}/{path}"
+            confpath = os.path.join(cdir, path)  # absolute path wins (was f"{cdir}/{path}" -> ".//abs" never found)
             if os.path.isfile(confpath):
                 self.path = confpath
                 break
