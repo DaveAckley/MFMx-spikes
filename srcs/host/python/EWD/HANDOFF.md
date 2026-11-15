@@ -92,16 +92,18 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
    alternative fix).
 
 ### Open items / next steps
-- DL backlog is still large (3k-13k of ~15k sites per tile at cycle end): a
-  saturated FB4 grid dirties sites faster than the ACB path ships them (oldest
-  first), so the host display lags the T6 state.  `T6Grid::setAtom` already returns
-  false for unchanged atoms and `GridManager::setAtomOrDrop` only pushes the DL
-  list on real changes, so compare-before-write is NOT a possible win.  Open
-  question: what limits the ship rate (frame pacing BOGOMS_PER_FRAME in
-  EP_ACacheBlock.cpp, car count, host ZHD)?  T6-side ACB marks (`.ab` at the ship
-  point in `ACacheBlockPrivateControl::updateCars`, dotted so they survive
-  HBF_NO_UTAG) would show ship rate directly; ACB tags like SHIPFRM/WAITSENT/
-  DGLLen are undotted and currently invisible.
+- **DL backlog is by design, not a bug.**  The host display is intentionally allowed
+  to fall behind (DLGridList is lossy; ACB ships oldest-first at a paced rate) so
+  that NoC bandwidth is preserved for EWPs and InterHub traffic.  A saturated FB4
+  grid dirties 3k-13k of ~15k sites per tile faster than they ship; that is
+  expected.  `T6Grid::setAtom` already skips unchanged atoms and
+  `GridManager::setAtomOrDrop` only pushes the DL list on real changes, so
+  compare-before-write is not a win.  The ship rate (frame pacing BOGOMS_PER_FRAME
+  in EP_ACacheBlock.cpp, car count) is a tuning knob, low priority.  If you want
+  to verify ACB is not crowding out IH, measure ACB bytes/s vs IH bytes/s: add a
+  dotted `.ab` mark at the ship point in `ACacheBlockPrivateControl::updateCars`
+  (ACB tags like SHIPFRM/WAITSENT/DGLLen are undotted and suppressed by
+  HBF_NO_UTAG).
 - FB4's renderer (`renderPhysicsHACK`, ZHostDecompressor.cpp) colors by the hidden
   counter `mStg[1]`, so a saturated grid shimmers (visually striking, not dull);
   darkest FB4 pixel is (50,50,50) vs empty (15,10,5).  A seed mix (DReg/FB1; the
