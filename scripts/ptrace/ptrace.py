@@ -450,11 +450,11 @@ def report_census(root, out):
             return pick
         grid('DL backlog (changes unshipped to host), last cycle:', lv(0, -1))
         grid('DL backlog, middle cycle:', lv(0, ncyc // 2))
-        grid('FB4 event counter max (mStg[1]), last cycle:', lv(1, -1))
+        grid('atom-state XOR (all state bits), last cycle:', lv(1, -1))
         frozen = [t for t, l in live.items()
-                  if len(l) >= 3 and l[-1][1][1] == l[-2][1][1] == l[-3][1][1]
-                  and l[-1][1][1] > 0]
-        out('tiles whose FB4 counter max did not change over the last 3 cycles: %s\n'
+                  if len(l) >= 3 and l[-1][1][1:] == l[-2][1][1:] == l[-3][1][1:]
+                  and l[-1][1][2] > 0]
+        out('tiles whose atom-state XOR+SUM did not change over the last 3 cycles: %s\n'
             % (sorted(frozen) if frozen else 'none'))
     if types:
         last = {t: v[-1][1] for t, v in types.items()}

@@ -17,13 +17,14 @@ namespace MFM {
        Logged as dotted marks (always on; dotted non-.p tags ignore
        HBF_NO_UTAG):  .an/.ae:TOTAL:INTERIOR:BAND:CACHE   (hex)
                       .at:TYPE=COUNT,...  for types 2,4,5 and 'other'  (hex)
-                      .ak:DLLEN:CMAX:CSUM  DL backlog, and max/sum of the type-5
-                          event counter (mStg[1]): a frozen tile shows constant CMAX */
+                      .ak:DLLEN:CXOR:CSUM  DL backlog, and xor/sum of a fold of all
+                          state bits of all non-empty atoms: a tile whose atoms
+                          stopped changing shows constant CXOR and CSUM */
     struct GridCensus {
       u32 total, interior, band, cache;
       u32 type2, type4, type5, other;
       u32 dllen;                //< DLGridList backlog (changes not yet shipped to host)
-      u32 cmax, csum;           //< max / wrapped sum of mStg[1] over type-5 atoms (liveness)
+      u32 cxor, csum;           //< xor / wrapped sum of a fold of ALL state bits of every non-empty atom (liveness)
     };
 
     static void takeCensus(GridCensus & gc) {
@@ -39,6 +40,12 @@ namespace MFM {
           const P4Atom a = g.getAtom(U16C(x,y));
           if (a.isEmpty()) continue;
           ++gc.total;
+          {                     // fold ALL atom bits (type+parity, data0, stg[0], stg[1])
+            const u32 w = (((u32) a.mData0) << 16 | a.mParityAndType)
+              ^ a.mStg[0] ^ ((a.mStg[1] << 7) | (a.mStg[1] >> 25));
+            gc.cxor ^= w;
+            gc.csum += w;
+          }
           const bool self =
             x >= T6Grid::SELF_ORIGIN.x && x < T6Grid::SELF_MAX.x &&
             y >= T6Grid::SELF_ORIGIN.y && y < T6Grid::SELF_MAX.y;
@@ -50,8 +57,6 @@ namespace MFM {
           case 4: ++gc.type4; break;
           case 5:
             ++gc.type5;
-            if (a.mStg[1] > gc.cmax) gc.cmax = a.mStg[1];
-            gc.csum += a.mStg[1];
             break;
           default: ++gc.other; break;
           }
@@ -65,7 +70,7 @@ namespace MFM {
     }
 
     static const char * fmtCensusLive(Buf32 & b, const GridCensus & gc) {
-      snprintf(b.buf,b.SIZE,"%x:%x:%x",gc.dllen,gc.cmax,gc.csum);
+      snprintf(b.buf,b.SIZE,"%x:%x:%x",gc.dllen,gc.cxor,gc.csum);
       return b.buf;
     }
 
