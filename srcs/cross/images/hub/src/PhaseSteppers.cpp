@@ -14,12 +14,16 @@ namespace MFM {
          interior = self sites that follower events can touch (>= OVERLAP deep)
          band     = self sites in the outer OVERLAP ring (cache-exchanged)
          cache    = the OVERLAP-wide caches outside self
-       Logged as two dotted marks (always on; dotted non-.p tags ignore
-       HBF_NO_UTAG):  .ac:TOTAL:INTERIOR:BAND:CACHE   (hex)
-                      .at:TYPE=COUNT,...  for types 2,4,5 and 'other'  (hex) */
+       Logged as dotted marks (always on; dotted non-.p tags ignore
+       HBF_NO_UTAG):  .an/.ae:TOTAL:INTERIOR:BAND:CACHE   (hex)
+                      .at:TYPE=COUNT,...  for types 2,4,5 and 'other'  (hex)
+                      .ak:DLLEN:CMAX:CSUM  DL backlog, and max/sum of the type-5
+                          event counter (mStg[1]): a frozen tile shows constant CMAX */
     struct GridCensus {
       u32 total, interior, band, cache;
       u32 type2, type4, type5, other;
+      u32 dllen;                //< DLGridList backlog (changes not yet shipped to host)
+      u32 cmax, csum;           //< max / wrapped sum of mStg[1] over type-5 atoms (liveness)
     };
 
     static void takeCensus(GridCensus & gc) {
@@ -29,6 +33,7 @@ namespace MFM {
       const u32 inHi = T6Grid::SELF_MAX.x - NgbCacheMgr::OW;
       const u32 jnLo = T6Grid::SELF_ORIGIN.y + NgbCacheMgr::OH;
       const u32 jnHi = T6Grid::SELF_MAX.y - NgbCacheMgr::OH;
+      gc.dllen = theDLGridList.getLength();
       for (u32 x = 0; x < T6Grid::FULL_WIDTH; ++x) {
         for (u32 y = 0; y < T6Grid::FULL_HEIGHT; ++y) {
           const P4Atom a = g.getAtom(U16C(x,y));
@@ -43,7 +48,11 @@ namespace MFM {
           switch (a.getType()) {
           case 2: ++gc.type2; break;
           case 4: ++gc.type4; break;
-          case 5: ++gc.type5; break;
+          case 5:
+            ++gc.type5;
+            if (a.mStg[1] > gc.cmax) gc.cmax = a.mStg[1];
+            gc.csum += a.mStg[1];
+            break;
           default: ++gc.other; break;
           }
         }
@@ -52,6 +61,11 @@ namespace MFM {
 
     static const char * fmtCensusCounts(Buf32 & b, const GridCensus & gc) {
       snprintf(b.buf,b.SIZE,"%x:%x:%x:%x",gc.total,gc.interior,gc.band,gc.cache);
+      return b.buf;
+    }
+
+    static const char * fmtCensusLive(Buf32 & b, const GridCensus & gc) {
+      snprintf(b.buf,b.SIZE,"%x:%x:%x",gc.dllen,gc.cmax,gc.csum);
       return b.buf;
     }
 
@@ -98,10 +112,11 @@ namespace MFM {
       theL1CacheLoaders.configureCacheLoaders((u8) arg);
       theL1CacheLoaders.restartIterators();
       {                         // census after SAVE completed (true state)
-        GridCensus gc; Buf32 b1, b2;
+        GridCensus gc; Buf32 b1, b2, b3;
         takeCensus(gc);
         LOGPTAG(.an,fmtCensusCounts(b1,gc));
         LOGPTAG(.at,fmtCensusTypes(b2,gc));
+        LOGPTAG(.ak,fmtCensusLive(b3,gc));
       }
       HBPTAG(BOLTR_done_wOxNLB,cda.formatCmdArg());
       return true;              // all there is to it..

@@ -325,6 +325,7 @@ def parse_census(root):
     seeds = [(tile, tick)]"""
     series = defaultdict(list)
     types = defaultdict(list)
+    live = defaultdict(list)
     seeds = []
     for p in sorted(glob.glob(os.path.join(root, 'tiles', '*.mfmk'))):
         for ln in open(p, errors='replace'):
@@ -352,8 +353,16 @@ def parse_census(root):
                     except ValueError:
                         pass
                 types[tile].append((int(tick), d))
+            elif tag == '.ak':
+                try:
+                    v = tuple(int(f, 16) for f in pay.split(':'))
+                except ValueError:
+                    continue
+                if len(v) == 3:
+                    live[tile].append((int(tick), v))
             elif tag == '.as':
                 seeds.append((tile, int(tick)))
+    parse_census.live = live
     return series, types, seeds
 
 
@@ -429,6 +438,24 @@ def report_census(root, out):
                 s_ += lst[k][2][1] + lst[k][2][2]
         tot.append(s_)
     out('total self atoms, all tiles, per cycle: %s\n' % tot)
+    live = getattr(parse_census, 'live', {})
+    if live:
+        def lv(field, k):
+            def pick(tile):
+                l = live.get(tile, [])
+                if not l:
+                    return None
+                i = k if k >= 0 else len(l) + k
+                return l[i][1][field] if 0 <= i < len(l) else None
+            return pick
+        grid('DL backlog (changes unshipped to host), last cycle:', lv(0, -1))
+        grid('DL backlog, middle cycle:', lv(0, ncyc // 2))
+        grid('FB4 event counter max (mStg[1]), last cycle:', lv(1, -1))
+        frozen = [t for t, l in live.items()
+                  if len(l) >= 3 and l[-1][1][1] == l[-2][1][1] == l[-3][1][1]
+                  and l[-1][1][1] > 0]
+        out('tiles whose FB4 counter max did not change over the last 3 cycles: %s\n'
+            % (sorted(frozen) if frozen else 'none'))
     if types:
         last = {t: v[-1][1] for t, v in types.items()}
         agg = Counter()

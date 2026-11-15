@@ -101,3 +101,9 @@ ATOM CENSUS (hub image; analyzer section "atom census")
   a leader's events touch it); CACHE = copies outside self.
   .an of the first NEW_LEADER bolt is the pre-seed state; .ae of cycle k pairs
   with .an of cycle k+1 for the "SAVE changed" comparison.
+    .ak:DLLEN:CMAX:CSUM     hex; follows .an.  DLLEN = DLGridList backlog (atoms
+                            changed but not yet shipped to the host for display);
+                            CMAX/CSUM = max / wrapped sum of the type-5 (FB4) event
+                            counter mStg[1], so a tile whose events stopped shows
+                            a constant CMAX.  FB4 rewrites up to 41 sites per event,
+                            so a saturated FB4 grid keeps the DL list permanently hot.
