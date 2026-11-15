@@ -119,11 +119,44 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
    long-lived owner (daemon or the simulator host process) and a protocol for
    link retrain / E1 restart.  Link-retrain behaviour untested.
 5. E1 NoC command buffer: the code uses NIU0 cmd buf 3 (as MFMx hNC does).  It
-   worked, so the base FW is not using it, but this is not documented anywhere.
+   worked.  The base FW does use dynamic NoC counters (L1 0x7D040), so it uses the
+   NIU somehow; no conflict seen, but not documented for cmd buf 3.
 6. Repeat stage 1/2 on the remaining links (7 not yet exercised: X=7,10,11 on the
    x seam; X=4,12,13 on the y seam) and on cards 1-3 pairs (1:3, 2:3).
 7. Leader election / SuperCycle across cards, channel counts per ETH tile
    (mfmx routing: how many EP channels per link), 4 cars/ring depth vs throughput.
-8. Base FW L1 usage map is unknown (tt-metal eth_l1_address_map.h fetch failed);
-   E1 code/CTL/rings currently live at 0x4000, 0x8000, 0x10000-0x6FFFF, RXBUF
-   0x7E000.  Avoid 0x7F000 (RXQ0) and 0x7CC00 (boot results).
+8. Placement hygiene: see section 7.  Our E1 image/CTL/rings sit in regions tt-metal
+   reserves for its own ERISC firmware; fine while tt-metal is not loaded, but
+   relocate to >= 0x15B40 if the two must ever coexist.
+9. Use the retrain/FEC counters (section 7) in the tools to prove links stay clean
+   during long runs; never write the retrain-force word.
+
+## 7. Cross-check against tt-metal headers (blackhole-doc/dev_mem_map.h, eth_l1_address_map.h)
+
+Headers supplied by the user (Tenstorrent, Apache-2.0); numbers below were computed
+by compiling the macros.  They describe tt-metal's layout; the base FW 18.8.0.0 is
+not guaranteed to match, but the system-engineering addresses agree with what we
+measured (0x7CC00 boot results, RXQ0 buffer at 0x7F000).
+
+- ETH L1 is 512 KiB (0x80000).  Top 64 KiB (0x70000-0x7FFFF) is SYSENG reserved:
+  boot results 0x7CC00, retrain count 0x7CE00, corrected/uncorrected FEC codeword
+  counters 0x7CE90 / 0x7CE98, sysENG mailbox 0x7D000, base-FW dynamic NoC counters
+  0x7D040, retrain-force word at 0x1EFC.  Our RXQ2 buffer (0x7E000, empirically
+  zero) lies inside the SYSENG region but at an address the map does not name.
+- Reset PCs: 0xFFB14000 = E0 (active/idle ERISC), 0xFFB14008 = E1 ("subordinate"
+  ERISC): confirms our E1_PC register.  E1 has no base-FW local RAM use (full
+  8 KiB at 0xFFB00000); E0 base FW uses the first 0x700 bytes.
+- tt-metal active-ERISC L1 map: mailbox 0x100-0x32E0, E0 firmware 0x3330-0x9330,
+  E1 ("subordinate") firmware 0x9330-0xF330, scratch/bank-to-noc after that, kernel
+  config 26 KiB; first free address for user data ERISC_L1_UNRESERVED_BASE =
+  0x15B40; app area ends at MEM_ERISC_MAX_SIZE 0x6F260 (fabric router reserved
+  0x6F260-0x6FE70, sync/routing/barrier up to 0x70000).
+- OVERLAP: our E1 image (0x4000-0x5020), CTL/stat block (0x8000-0x83FF), rings
+  (0x10000-0x24100) and loop buffers (0x30000-) overlap tt-metal's reserved firmware
+  and scratch regions below 0x15B40.  Harmless with FW 18.8.0.0 alone (links stayed
+  up, drops 0); would corrupt state if tt-metal firmware were loaded on these tiles.
+  Relocating the image to the 0x15B40+ area is a small change if coexistence is
+  ever needed.
+- The write allowlist in the tools (scratch 0x10000-0x6FFFF) is coarser than the
+  regions actually used; the E1 never writes outside its rings/CTL/loop buffers.
+- Tensix L1 is 1.5 MiB (0x180000), consistent with the T6 region choice 0x100000.
