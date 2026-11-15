@@ -12,9 +12,12 @@ SCRIPTDIR=$(dirname $SCRIPT)
 # The file path to watch for
 WATCH_FILE="/tmp/MFMx-spikes-BUILT.new"
 BASEDIR=$(realpath $SCRIPTDIR/..)
-PROG="nu1011.py"
+PROG="mfmxctl.py"
+#PROG="nu1011.py"
+
 echo BASEDIR $BASEDIR
-PROGRAM="$BASEDIR/srcs/host/python/EWD/$PROG"
+PROGRAMDIR="$BASEDIR/srcs/host/python/EWD"
+PROGRAM="$PROGRAMDIR/$PROG"
 echo looking for $PROGRAM
 if ! [ -f $PROGRAM ] ; then
    echo "cannot find $PROGRAM"
@@ -23,7 +26,8 @@ fi
 echo "FOUND $PROGRAM"
 
 # The program to run (can be a curses/TUI program)
-PROGRAMARGS=($PROGRAM "5" "2")
+
+PROGRAMARGS=("python3" $PROGRAM "--config" "$PROGRAMDIR/config/nu1012.dtoml" "--rtmp" "--script" "$PROGRAMDIR/config/mfmxctl10.cmd")
 
 get_disk_usage_pct() {
     local mount="${1:-/}"   # default to root
@@ -67,6 +71,6 @@ while true; do
     # Run the program in the foreground.
     # We use exec with a subshell so that any exit (including signals)
     # brings control back to the loop.
-    echo "RUNNING ${PROGRAM[@]}"
-    (stdbuf -oL "${PROGRAM[@]}" 1>>/tmp/autowash.out)
+    echo "RUNNING ${PROGRAMARGS[@]}"
+    (stdbuf -oL "${PROGRAMARGS[@]}" 1>>/tmp/autowash.out)
 done
