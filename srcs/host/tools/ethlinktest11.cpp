@@ -335,7 +335,17 @@ bool burst(std::vector<Dir>& dirs, uint32_t S, uint32_t N, uint32_t Wn, uint32_t
     W(*dirs[i].tx, TXQ2 + 0x18, S, false); W(*dirs[i].tx, TXQ2 + 0x80, 1u << 8, false);
     if (Wn == 1) { W(*dirs[i].tx, TXQ2 + 0x14, SRC_L1, false); W(*dirs[i].tx, TXQ2 + 0x1c, DST_L1, false); }
   }
-  uint32_t ppp = pkts_for(*dirs[0].tx, S);
+  // Calibrate packets-per-transfer empirically: hardware max packet size counts the 32 B of Ethernet+TT-link
+  // headers, so a 1488 B payload already splits in two (found on hardware; do not trust pkts_for()).
+  std::vector<uint32_t> ppp(nd);
+  for (size_t d = 0; d < nd; ++d) {
+    issue(*dirs[d].tx, SRC_L1, DST_L1, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    uint32_t sq = R(*dirs[d].rx, RXQ2 + 0x40);
+    ppp[d] = (sq - rb[d]) & 0xff;
+    rb[d] = sq; tx0[d] = R(*dirs[d].tx, TXQ2 + 0x30);
+    if (ppp[d] == 0 || ppp[d] > 8) { printf("  calibration odd on %s: rx seq advanced %u for one xfer\n", dirs[d].tx->name.c_str(), ppp[d]); ppp[d] = ppp[d] ? ppp[d] : 1; }
+  }
   auto t0 = Clock::now();
   for (uint32_t i = 0; i < N; ++i) {
     uint32_t j = i % Wn;
@@ -343,9 +353,9 @@ bool burst(std::vector<Dir>& dirs, uint32_t S, uint32_t N, uint32_t Wn, uint32_t
   }
   double tIssue = us_since(t0);
   bool allok = true;
-  printf("  S=%-5u N=%-6u W=%-3u pkts/xfer=%u  issue %.0f us (%.2f us/xfer/dir)\n", S, N, Wn, ppp, tIssue, tIssue / N / (double)nd);
+  printf("  S=%-5u N=%-6u W=%-3u pkts/xfer=%u(cal)  issue %.0f us (%.2f us/xfer/dir)\n", S, N, Wn, ppp[0], tIssue, tIssue / N / (double)nd);
   for (size_t d = 0; d < nd; ++d) {
-    double t = wait_rx(*dirs[d].rx, rb[d], N * ppp, 3000, t0);
+    double t = wait_rx(*dirs[d].rx, rb[d], N * ppp[d], 3000, t0);
     uint32_t txd = R(*dirs[d].tx, TXQ2 + 0x30) - tx0[d], drops = R(*dirs[d].rx, RXQ2 + 0x4c) - drop0[d];
     uint32_t good = check_dst(*dirs[d].tx, *dirs[d].rx, S, Wn, tag);
     bool ok = t >= 0 && txd == N && drops == 0 && good == Wn;
