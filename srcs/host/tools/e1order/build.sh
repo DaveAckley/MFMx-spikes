@@ -2,13 +2,14 @@
 # Build e1order.bin (flat binary linked at L1 0x4000) and print a C array for embedding in ethlinktest12.cpp.
 set -e
 cd "$(dirname "$0")"
+B=${1:-e1order}
 clang --target=riscv32 -march=rv32im_zicsr -mabi=ilp32 -O2 -ffreestanding -nostdlib -fno-pic -mno-relax \
-      -fno-asynchronous-unwind-tables -fno-stack-protector -c e1order.c -o e1order.o
-ld.lld -T e1order.ld --no-relax e1order.o -o e1order.elf
-llvm-objcopy -O binary e1order.elf e1order.bin
-llvm-objdump -d --triple=riscv32 -M no-aliases e1order.elf > e1order.dis
-python3 - <<'PY'
-d=open('e1order.bin','rb').read()
+      -fno-asynchronous-unwind-tables -fno-stack-protector -c $B.c -o $B.o
+ld.lld -T e1order.ld --no-relax $B.o -o $B.elf
+llvm-objcopy -O binary $B.elf $B.bin
+llvm-objdump -d --triple=riscv32 -M no-aliases $B.elf > $B.dis
+python3 - <<PY
+d=open('$B.bin','rb').read()
 d+=b'\0'*((-len(d))%4)
 import struct
 w=struct.unpack('<%dI'%(len(d)//4),d)
