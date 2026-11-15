@@ -22,6 +22,12 @@
  * marker word = (tcms<<16)|(nonce<<8)|0x2C, tcms = 1 for 32 B, else size/64+1.  All other words (including
  * the mid word) = (v*0x01010101) ^ (idx*0x9E3779B1), v = nonce.
  *
+ * LANE MODEL (per user): NoC->L1 delivers two independent 16 B-per-write lanes (byte addr 0..15 and 16..31 mod 32),
+ * each in-order, no ordering BETWEEN lanes.  So 'older than footer' for a word in the other lane is EXPECTED.  The
+ * claim to test is the MFMx rule: header==ankle==footer  =>  all other words of that version already landed.
+ * R_TORN now counts verifications with a payload word OLDER than the footer's version (a real violation of the
+ * rule); R_NEWERW counts verifications that saw a NEWER word (overwrite race); R_GARB unclassifiable words.
+ *
  * Reads happen in the order footer, ankle, mid, header.  If the commit order is header..footer in address
  * order, then once the footer of version v is seen, ankle/mid/header can only be v ("same") or later ("newer").
  * An "older" class means the footer overtook that word.  SENSITIVITY: with read spacing d (one dependent L1 load
@@ -43,7 +49,7 @@ typedef unsigned long uintptr_t_;
 #define CTL 0x8000u
 #define RES (CTL + 0x40u)
 enum { R_SAMPLES = 0, R_INVALID = 1, R_ALLSAME = 2, R_VERIFIED = 3, R_RECHECK_SKIP = 4, R_TORN = 5, R_TORN_WORD = 6,
-       R_TORN_GOT = 7, R_TORN_EXP = 8, R_TORN_NONCE = 9, R_JOINT = 16 };
+       R_TORN_GOT = 7, R_TORN_EXP = 8, R_TORN_NONCE = 9, R_NEWERW = 10, R_GARB = 11, R_JOINT = 16 };
 
 static inline u32 magic_ok(u32 w) { return (w & 0xffu) == 0x2cu; }
 static inline u32 nonce_of(u32 w) { return (w >> 8) & 0xffu; }
@@ -58,7 +64,7 @@ static inline __attribute__((always_inline)) void monitor_body(u32 rev) {
   u32 words = size / 4u, fi = words - 1u, ai = size >= 64u ? words - 5u : fi, mi = words / 2u, mask = K - 1u;
   volatile u32* sl = P(slot);
   volatile u32* joint = P(RES + 4u * R_JOINT);
-  u32 n = 0, inv = 0, same = 0, verified = 0, skip = 0, torn = 0, countdown = every;
+  u32 n = 0, inv = 0, same = 0, verified = 0, skip = 0, torn = 0, newerw = 0, garb = 0, countdown = every;
   for (;;) {
     if (*P(CTL + 4)) break;
     u32 f, a, m, h;
@@ -72,33 +78,41 @@ static inline __attribute__((always_inline)) void monitor_body(u32 rev) {
     u32 cm = cls((m ^ (mi * 0x9E3779B1u)) & 0xffu, nf, mask);
     u32 j = ca * 9u + cm * 3u + ch;
     joint[j] = joint[j] + 1u;
-    if (j == 0) {
-      ++same;
+    if (j == 0) ++same;
+    /* THE RULE UNDER TEST (MFMx isComplete): header, ankle, footer all carry the same nonce.  Given that, every other
+     * word of that packet version must already be visible: classify each payload word as the same version (fine),
+     * NEWER (the slot was overwritten since; benign when the sender is not credit-throttled), OLDER (STALE: the
+     * rule declared the packet complete although this word had not landed -- a real violation), or garbage. */
+    if (ca == 0u && ch == 0u) {
       if (--countdown == 0) {
         countdown = every;
-        u32 bad = 0, bw = 0, bgot = 0, bexp = 0;
+        u32 nold = 0, nnew = 0, ngar = 0, bw = 0, bgot = 0, bexp = 0;
         for (u32 w = 1; w < words; ++w) {
           if (w == ai || w == fi) continue;
-          u32 got = sl[w], exp = (nf * 0x01010101u) ^ (w * 0x9E3779B1u);
-          if (got != exp) { bad = 1; bw = w; bgot = got; bexp = exp; break; }
+          u32 got = sl[w], base = w * 0x9E3779B1u, x = got ^ base, b0 = x & 0xffu;
+          if (x != b0 * 0x01010101u) { ++ngar; continue; }
+          u32 c = cls(b0, nf, mask);
+          if (c == 2u) { if (nold == 0) { bw = w; bgot = got; bexp = (nf * 0x01010101u) ^ base; } ++nold; }
+          else if (c == 1u) ++nnew;
         }
         u32 h2 = sl[0];
+        ++verified;
         if (!magic_ok(h2) || nonce_of(h2) != nf) ++skip;
-        else {
-          ++verified;
-          if (bad) {
-            if (torn == 0) {
-              *P(RES + 4u * R_TORN_WORD) = bw; *P(RES + 4u * R_TORN_GOT) = bgot;
-              *P(RES + 4u * R_TORN_EXP) = bexp; *P(RES + 4u * R_TORN_NONCE) = nf;
-            }
-            ++torn;
+        if (nnew) ++newerw;
+        if (ngar) ++garb;
+        if (nold) {
+          if (torn == 0) {
+            *P(RES + 4u * R_TORN_WORD) = bw; *P(RES + 4u * R_TORN_GOT) = bgot;
+            *P(RES + 4u * R_TORN_EXP) = bexp; *P(RES + 4u * R_TORN_NONCE) = nf;
           }
+          ++torn;
         }
       }
     }
   }
   *P(RES + 4u * R_SAMPLES) = n; *P(RES + 4u * R_INVALID) = inv; *P(RES + 4u * R_ALLSAME) = same;
   *P(RES + 4u * R_VERIFIED) = verified; *P(RES + 4u * R_RECHECK_SKIP) = skip; *P(RES + 4u * R_TORN) = torn;
+  *P(RES + 4u * R_NEWERW) = newerw; *P(RES + 4u * R_GARB) = garb;
 }
 
 #ifdef HOSTTEST
