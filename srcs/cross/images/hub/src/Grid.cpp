@@ -54,7 +54,7 @@ namespace MFM {
 
   bool GridManager::seekRandomNonEmptySite(U16C & found) {
     if (mAutoseedWaitCount == U32_MAX)
-      mAutoseedWaitCount = /*create(1'000'000)+*/1'000'000;
+      mAutoseedWaitCount = create(500'000)+500'000;
     
     if (mAutoseedWaitCount > 0) {
       if (--mAutoseedWaitCount == 0) {
@@ -70,9 +70,9 @@ namespace MFM {
         case 4:  type = 4; break;
         default: type = 2; break;
         }
-        //mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
-        mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
-        //mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
+        //setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
+        setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
+        //setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
         HBPTAG("AUTOSEEDOMATIC",type);
         LOGPTAG("LOGOAUTOSEEDOMATIC",type);
         LOGPTAG(.as,5);      // dotted: survives HBF_NO_UTAG (seed atom type)
@@ -163,6 +163,23 @@ namespace MFM {
     }
   }
 
+  bool GridManager::setAtom(U16C gridc, const P4Atom atom) {
+    MFM_API_ASSERT(isValidT6GridC(gridc),ILLEGAL_ARGUMENT);
+    return setAtomOrDrop(gridc, atom);
+  }
+  
+  bool GridManager::setAtomOrDrop(U16C gridc, const P4Atom atom) {
+    T6Grid & g = *mT6GridPtr;
+    if (g.setAtomOrDrop(gridc,atom)) {
+      bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
+      if (b) EACH(1'000'000,LOGPTAG(oldATOM,gridc));
+      else EACH(1'000'000,LOGPTAG(newATOM,gridc));
+      EACH(1'000'000,LOGPTAG(ATOMS,mDLGridListPtr->getLength()));
+      return true;
+    }
+    return false;
+  }
+
   u32 GridManager::writeEW(const EventWindow & ew,U16C center) {
     T6Grid & g = *mT6GridPtr;
     u32 changes = g.getTotalChanges();
@@ -172,18 +189,7 @@ namespace MFM {
       S16C offc = siteNumberToOffset(sn);
       U16C gridc(scenter.x+offc.x,scenter.y+offc.y);
       const P4Atom atom = ew.getAtom(sn);
-      if (g.setAtomOrDrop(gridc,atom)) {
-        // atom valid and was different than before
-        // so add it to the DLGridList
-        //        LOGPTAG(gmwEWdc,gridc);
-        //        LOGATOM(atom);
-        EACH(1'000'000,LOGATOM(g.getAtom(gridc)));
-        bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
-        if (b) EACH(1'000'000,LOGPTAG(oldATOM,gridc));
-        else EACH(1'000'000,LOGPTAG(newATOM,gridc));
-        EACH(1'000'000,LOGPTAG(ATOMS,mDLGridListPtr->getLength()));
-
-      }
+      setAtomOrDrop(gridc,atom);
     }
     return g.getTotalChanges()-changes;
   }

@@ -305,7 +305,7 @@ namespace MFM {
       if (nextIdx >= atomsInPacket) break; // Ain't Got No More
       U8C ac = *itr++;
       P4Atom a = patoms.getAtomFromPacketOrDie(nextIdx++);
-      t6grid.setAtom(U16C(ac.x,ac.y),a);
+      gm.setAtom(U16C(ac.x,ac.y),a);
     }
     MFM_API_ASSERT(itr.atEnd() || nextIdx >= atomsInPacket,ILLEGAL_STATE);    // can't stop unless car empty or itr done..
 

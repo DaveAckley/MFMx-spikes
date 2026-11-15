@@ -66,6 +66,10 @@ namespace MFM {
       return P4Atom::makeInaccessibleAtom();
     }
 
+    /* NB: T6Grid::setAtom does not update the DLList so its changes
+       may not (ever) be visible at the host! Prefer calling
+       GridManager::setAtom(c,a) for most changes!
+     */
     bool setAtom(U16C c, const P4Atom newval) {
       HBASSERT_EQ(isValidT6GridC(c),true);
       if (mT6Grid[c.x][c.y] == newval) return false;

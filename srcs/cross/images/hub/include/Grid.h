@@ -295,6 +295,9 @@ namespace MFM {
     
     bool seekRandomNonEmptySite(U16C & found) ;
 
+    bool setAtom(U16C gridc, const P4Atom a) ;
+    bool setAtomOrDrop(U16C gridc, const P4Atom a) ;
+
     bool matchesEW(const EventWindow & ew,U16C center) const ;
 
     void readEW(EventWindow & ew,U16C center) ;
