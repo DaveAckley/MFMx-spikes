@@ -78,17 +78,35 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
    reached the DLGridList / host display.  Now `GridManager::setAtom` (user,
    07c43b7).
 6. `Config.py` rejected absolute `--config` paths (`.//abs`).  Fixed (06a9c5a).
+7. **Blank tiles on the host display** = host-side ACB spinner desync, NOT missing
+   atoms and NOT (mainly) DL lag.  `ZHostDecompressor::sinkByte` drops any atom
+   report whose spinner != the host's running count (`ar.isValid(spin)`).  On
+   6-11 of 35 tiles per run the host count started offset (constant
+   expected-spin1 offset, repeated-byte values like 0x1212/0x1818: probably stale
+   or uninitialized ACB cars decoded before the T6 starts), so every report was
+   rejected forever though ACB packets kept flowing.  Found with ptrace's
+   "host ACB stream" section; blank tile sets matched the user's observations
+   exactly.  Fixed by a host-side resync (user, 4e1e154); run 20261115-034854:
+   each affected tile shows one bad sample, then good.  Root cause of the initial
+   bogus count is still unexplained (clearing ACB cars at deploy would be the
+   alternative fix).
 
 ### Open items / next steps
-- Some tiles still looked visually empty on the host display although the census
-  (`.an`/`.at`) shows them full of type 5: suspected DL-list shipping lag (FB4
-  rewrites up to 41 sites/event, so a saturated grid keeps the DL list hot; the
-  ACache path pops oldest first).  `.ak` (DL backlog + atom-state XOR/SUM) was
-  added to confirm; analyze the next run.  Needs the rebuild containing 6c02c26+.
-- A grid saturated with FB4 is not inert (counter changes every event) but is
-  visually uninteresting; consider a seed mix (DReg/FB1; the `create(50)` switch in
-  `GridManager::seekRandomNonEmptySite` is computed but unused -- seed is
-  hard-coded to type 5).
+- DL backlog is still large (3k-13k of ~15k sites per tile at cycle end): a
+  saturated FB4 grid dirties sites faster than the ACB path ships them (oldest
+  first), so the host display lags the T6 state.  `T6Grid::setAtom` already returns
+  false for unchanged atoms and `GridManager::setAtomOrDrop` only pushes the DL
+  list on real changes, so compare-before-write is NOT a possible win.  Open
+  question: what limits the ship rate (frame pacing BOGOMS_PER_FRAME in
+  EP_ACacheBlock.cpp, car count, host ZHD)?  T6-side ACB marks (`.ab` at the ship
+  point in `ACacheBlockPrivateControl::updateCars`, dotted so they survive
+  HBF_NO_UTAG) would show ship rate directly; ACB tags like SHIPFRM/WAITSENT/
+  DGLLen are undotted and currently invisible.
+- FB4's renderer (`renderPhysicsHACK`, ZHostDecompressor.cpp) colors by the hidden
+  counter `mStg[1]`, so a saturated grid shimmers (visually striking, not dull);
+  darkest FB4 pixel is (50,50,50) vs empty (15,10,5).  A seed mix (DReg/FB1; the
+  `create(50)` switch in `GridManager::seekRandomNonEmptySite` is computed but
+  unused -- seed is hard-coded to type 5) would add variety.
 - `loadPacket` ships every site in the range including EMPTY atoms (full cars
   regardless of occupancy): a bandwidth/latency optimization opportunity.
 - `dwell` is the only knob for event time per cycle (default 3s vs ~2-3s cache
@@ -96,6 +114,8 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
 - First-NEW_LEADER `once` hack in `workOnEnteringNewLeaderB` is probably removable
   (zero-initialized loaders make the first save a no-op anyway).
 - Not yet emitted: `.pw` waypoint marks on the T6 side (analyzer parses them).
+- ZHD sampled log lines "#N (exp=spin1=spin2[ XXX]) HAR@(x,y)" print `#%llu` for a
+  u32 (garbage upper bits on some tiles): cosmetic printf-type bug.
 - Hub undotted tags (`LOGPTAG(BADC,...)` etc.) are suppressed by HBF_NO_UTAG;
   use dotted tags (`.x`, not `.p*` unless PTRACE-gated) for anything you need.
 - Inter-T6 destinations are not in PKTS.txt (analyzer learns directions from marks).
@@ -151,6 +171,7 @@ Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`
   geometry and block addresses; without it the analyzer falls back to defaults
   and auto-fits a uniform shift.  Verified on a real run (hub bases 0x37240 /
   0x26d80; `mBlockAddr` equals the logged address).
+- ACB health: the "host ACB stream" section reports per-tile spinner desync (see bug 7 in HANDOFF).
 - Atom census section: `.ae/.an/.at/.as/.ak` marks (see README) show per-tile
   occupancy by region, SAVE effect, DL backlog and liveness checksums.
 - Reading a run: BOLT.txt/CYCLE.txt first (bolt results, lamers), then the
