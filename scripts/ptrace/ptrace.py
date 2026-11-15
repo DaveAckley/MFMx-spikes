@@ -320,8 +320,8 @@ def main():
     ap.add_argument('rundir')
     ap.add_argument('--traces', action='store_true')
     ap.add_argument('--lanes', action='store_true')
-    ap.add_argument('--eps', type=int, default=2,
-                    help='allowed recv-before-send tick skew (default 2)')
+    ap.add_argument('--eps', type=int, default=40,
+                    help='allowed recv-before-send tick skew (default 40; run 20261114-230036 showed up to ~25 between tiles)')
     ap.add_argument('--maxlat', type=int, default=700,
                     help='max send->recv tick latency (default 700)')
     a = ap.parse_args()

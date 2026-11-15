@@ -81,3 +81,10 @@ WAYPOINTS (.pw) IN THE ANALYZER
       seen" if none.  --traces appends up to 3 waypoints (@{fid:line msg})
       to each chain's end.
   Tested only on synthetic .pw marks derived from run 20261114-082557.
+
+CLOCK SKEW (run 20261114-230036, 27 full cycles, 66k .p marks)
+  Tile clocks differ by up to ~25 ticks on one chip, so recv-before-send
+  by up to ~25 is normal.  --eps now defaults to 40 (was 2, which made ~25%
+  of pairs look lost).  At eps>=30: 32771/33022 sends matched, nonce agreement
+  100% (ps->pr 20812/20812, relays 6007/6007); the residue is the last ~5k
+  ticks of the run.
