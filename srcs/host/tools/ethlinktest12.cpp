@@ -559,7 +559,12 @@ double report_order(const char* label, uint32_t S, const Order& o, bool baseline
   unsigned shown = 0;
   for (int j = 1; j < 27 && shown < 8; ++j)
     if (o.joint[j]) { printf("      tuple ankle=%-5s mid=%-5s header=%-5s : %u\n", nm[j / 9], nm[(j / 3) % 3], nm[j % 3], o.joint[j]); ++shown; }
-  if (o.torn) printf("      first STALE word: payload word %u (lane %c) got %08x, version %u expected, although header/ankle/footer all matched\n", o.torn_word, lane(o.torn_word), o.torn_got, o.torn_nonce);
+  if (o.torn) {
+    uint32_t g = o.torn_word / 4;   // 16 B granule; NoC->L1 writes are reportedly atomic per 16 B, so a stale word sharing a granule with a matching marker would mean the ETH RX path is NOT
+    printf("      first STALE word: payload word %u (lane %c, 16B granule shared with: %s%s%s) got %08x, version %u expected, although header/ankle/footer all matched\n", o.torn_word, lane(o.torn_word),
+           g == 0 ? "header " : "", g == ai / 4 ? "ankle " : "", g == fi / 4 ? "footer" : "", o.torn_got, o.torn_nonce);
+    if (g != 0 && g != ai / 4 && g != fi / 4) printf("      (that granule holds no marker, so the rule never covered it)\n");
+  }
   double span = -1;
   uint64_t valid = o.samples - o.invalid, strad = 0;
   for (int j = 1; j < 27; ++j) strad += o.joint[j];
