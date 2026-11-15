@@ -94,8 +94,8 @@ namespace MFM {
         u16 spin = (u16) (mAtomReportsReceived&0xffff);
         bool arvalid = ar.isValid(spin);
         bool atomvalid = ar.mAtom.isValid();
-        ++mAtomReportsReceived;
         if (arvalid && atomvalid) {
+          ++mAtomReportsReceived;
           BGRImageHD & bgr = QuietBox::getT6GridImage() ;
           QuietBox& qb = QuietBox::get();
 
