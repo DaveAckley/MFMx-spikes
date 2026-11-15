@@ -1,6 +1,7 @@
 /* e1order.c -- diagnostic RISC-V E1 image for Blackhole Ethernet tiles (eth-seam).
  *
- * PURPOSE: observe, at core speed (~1.35 GHz, L1 loads back-to-back), the ORDER in which the Ethernet RX queue
+ * PURPOSE: observe, at core speed (L1 loads back-to-back; clock NOT assumed -- reported to be ~800 MHz on the
+ * test machine, 1.35 GHz is only the nominal max, so ~9 ns per L1 load), the ORDER in which the Ethernet RX queue
  * commits an incoming TT-link L1-write packet to this tile's L1.  MFMx packets carry a nonce in a header word,
  * an "ankle" word 5 words before the footer, and a footer word; the question is whether, when the footer
  * is visible, the ankle/header/payload are also already visible.  A host over PCIe cannot see this (a PCIe read
@@ -13,6 +14,8 @@
  *   CTL+0x00 go    CTL+0x04 stop   CTL+0x08 ready(0xE1E1E1E1)  CTL+0x0C done
  *   CTL+0x10 slot L1 address  CTL+0x14 size bytes  CTL+0x18 K (power of two, nonce cycle length)
  *   CTL+0x1C verify-every-N full-payload verifications
+ *   CTL+0x20 mode: 0 = footer,ankle,mid,header read order (the test); 1 = header,mid,ankle,footer (POSITIVE CONTROL:
+ *            a sample that straddles a packet landing shows up as older/newer; used to size the sensitivity)
  *   RES = CTL+0x40: see R_* below; joint histogram at RES+16*4 .. (27 words)
  *
  * PACKET LAYOUT (matches TCMarker.h): word0 = header, word[words-1] = footer, word[words-5] = ankle (size >= 64),
@@ -21,7 +24,10 @@
  *
  * Reads happen in the order footer, ankle, mid, header.  If the commit order is header..footer in address
  * order, then once the footer of version v is seen, ankle/mid/header can only be v ("same") or later ("newer").
- * An "older" class means the footer overtook that word.
+ * An "older" class means the footer overtook that word.  SENSITIVITY: with read spacing d (one dependent L1 load
+ * plus loop glue, ~10 ns at 800 MHz) mode 0 can only see a word that lags the footer by more than d (ankle),
+ * 2d (mid), 3d (header).  Mode 1 reads footer last, so 'older' there is expected whenever a packet lands
+ * mid-sample; its rate times the packet interarrival time estimates the span of one four-word sample.
  *
  * Build (see build.sh): clang --target=riscv32 -march=rv32im_zicsr -mabi=ilp32 -O2 -ffreestanding -nostdlib
  */
@@ -47,12 +53,7 @@ static inline u32 cls(u32 x, u32 f, u32 mask) {
   return d == 0 ? 0u : (d <= (mask >> 1) ? 1u : 2u);
 }
 
-#ifdef HOSTTEST
-void monitor(void)
-#else
-static void monitor(void)
-#endif
-{
+static inline __attribute__((always_inline)) void monitor_body(u32 rev) {
   u32 slot = *P(CTL + 0x10), size = *P(CTL + 0x14), K = *P(CTL + 0x18), every = *P(CTL + 0x1c);
   u32 words = size / 4u, fi = words - 1u, ai = size >= 64u ? words - 5u : fi, mi = words / 2u, mask = K - 1u;
   volatile u32* sl = P(slot);
@@ -60,10 +61,9 @@ static void monitor(void)
   u32 n = 0, inv = 0, same = 0, verified = 0, skip = 0, torn = 0, countdown = every;
   for (;;) {
     if (*P(CTL + 4)) break;
-    u32 f = sl[fi];
-    u32 a = sl[ai];
-    u32 m = sl[mi];
-    u32 h = sl[0];
+    u32 f, a, m, h;
+    if (rev) { h = sl[0]; m = sl[mi]; a = sl[ai]; f = sl[fi]; }
+    else     { f = sl[fi]; a = sl[ai]; m = sl[mi]; h = sl[0]; }
     ++n;
     if ((n & 0xffffu) == 0) *P(RES + 4u * R_SAMPLES) = n;
     if (!(magic_ok(f) && magic_ok(a) && magic_ok(h))) { ++inv; continue; }
@@ -99,6 +99,15 @@ static void monitor(void)
   }
   *P(RES + 4u * R_SAMPLES) = n; *P(RES + 4u * R_INVALID) = inv; *P(RES + 4u * R_ALLSAME) = same;
   *P(RES + 4u * R_VERIFIED) = verified; *P(RES + 4u * R_RECHECK_SKIP) = skip; *P(RES + 4u * R_TORN) = torn;
+}
+
+#ifdef HOSTTEST
+void monitor(void)
+#else
+static void monitor(void)
+#endif
+{
+  if (*P(CTL + 0x20)) monitor_body(1u); else monitor_body(0u);
 }
 
 #ifndef HOSTTEST

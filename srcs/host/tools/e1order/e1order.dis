@@ -24,181 +24,322 @@ Disassembly of section .text:
     403c: 23 22 91 03  	sw	s9, 0x24(sp)
     4040: 23 20 a1 03  	sw	s10, 0x20(sp)
     4044: 23 2e b1 01  	sw	s11, 0x1c(sp)
-    4048: 37 e5 e1 e1  	lui	a0, 0xe1e1e
-    404c: 93 05 15 1e  	addi	a1, a0, 0x1e1
-    4050: 37 85 00 00  	lui	a0, 0x8
-    4054: 23 24 b5 00  	sw	a1, 0x8(a0)
-    4058: 93 06 c0 02  	addi	a3, zero, 0x2c
-    405c: b7 05 01 01  	lui	a1, 0x1010
-    4060: 93 85 15 10  	addi	a1, a1, 0x101
-    4064: 23 26 b1 00  	sw	a1, 0xc(sp)
-    4068: 37 88 37 9e  	lui	a6, 0x9e378
-    406c: 93 05 18 9b  	addi	a1, a6, -0x64f
-    4070: 23 24 b1 00  	sw	a1, 0x8(sp)
-    4074: 93 02 f0 ff  	addi	t0, zero, -0x1
-    4078: 83 25 05 00  	lw	a1, 0x0(a0)
-    407c: e3 8e 05 fe  	beq	a1, zero, 0x4078 <main_e1+0x68>
-    4080: 23 26 05 00  	sw	zero, 0xc(a0)
-    4084: 83 23 05 01  	lw	t2, 0x10(a0)
-    4088: 03 2e 45 01  	lw	t3, 0x14(a0)
-    408c: 03 2b 85 01  	lw	s6, 0x18(a0)
-    4090: 83 25 c5 01  	lw	a1, 0x1c(a0)
-    4094: 23 2a b1 00  	sw	a1, 0x14(sp)
-    4098: 13 5f 2e 00  	srli	t5, t3, 0x2
-    409c: 13 06 ff ff  	addi	a2, t5, -0x1
-    40a0: 93 05 f0 03  	addi	a1, zero, 0x3f
-    40a4: 63 e6 c5 01  	bltu	a1, t3, 0x40b0 <main_e1+0xa0>
-    40a8: 93 0f 06 00  	addi	t6, a2, 0x0
-    40ac: 6f 00 80 00  	jal	zero, 0x40b4 <main_e1+0xa4>
-    40b0: 93 0f bf ff  	addi	t6, t5, -0x5
-    40b4: 83 25 45 00  	lw	a1, 0x4(a0)
-    40b8: 23 2c 01 00  	sw	zero, 0x18(sp)
-    40bc: 93 04 00 00  	addi	s1, zero, 0x0
-    40c0: 13 09 00 00  	addi	s2, zero, 0x0
-    40c4: 93 09 00 00  	addi	s3, zero, 0x0
-    40c8: 13 0a 00 00  	addi	s4, zero, 0x0
-    40cc: 93 0a 00 00  	addi	s5, zero, 0x0
-    40d0: 63 8a 05 02  	beq	a1, zero, 0x4104 <main_e1+0xf4>
-    40d4: 23 20 55 05  	sw	s5, 0x40(a0)
-    40d8: 23 22 45 05  	sw	s4, 0x44(a0)
-    40dc: 23 24 35 05  	sw	s3, 0x48(a0)
-    40e0: 23 26 25 05  	sw	s2, 0x4c(a0)
-    40e4: 23 28 95 04  	sw	s1, 0x50(a0)
-    40e8: 83 25 81 01  	lw	a1, 0x18(sp)
-    40ec: 23 2a b5 04  	sw	a1, 0x54(a0)
-    40f0: 93 05 10 00  	addi	a1, zero, 0x1
-    40f4: 23 26 b5 00  	sw	a1, 0xc(a0)
-    40f8: 83 25 05 00  	lw	a1, 0x0(a0)
-    40fc: e3 9e 05 fe  	bne	a1, zero, 0x40f8 <main_e1+0xe8>
-    4100: 6f f0 9f f7  	jal	zero, 0x4078 <main_e1+0x68>
-    4104: 93 0a 00 00  	addi	s5, zero, 0x0
-    4108: 13 0a 00 00  	addi	s4, zero, 0x0
-    410c: 93 09 00 00  	addi	s3, zero, 0x0
-    4110: 13 09 00 00  	addi	s2, zero, 0x0
-    4114: 93 04 00 00  	addi	s1, zero, 0x0
-    4118: 23 2c 01 00  	sw	zero, 0x18(sp)
-    411c: 13 0b fb ff  	addi	s6, s6, -0x1
-    4120: 93 55 3e 00  	srli	a1, t3, 0x3
-    4124: 13 16 26 00  	slli	a2, a2, 0x2
-    4128: b3 8b c3 00  	add	s7, t2, a2
-    412c: 13 9c 2f 00  	slli	s8, t6, 0x2
-    4130: 33 8c 83 01  	add	s8, t2, s8
-    4134: 93 9c 25 00  	slli	s9, a1, 0x2
-    4138: b3 8c 93 01  	add	s9, t2, s9
-    413c: 13 5d 1b 00  	srli	s10, s6, 0x1
-    4140: 13 06 10 0b  	addi	a2, zero, 0xb1
-    4144: b3 8d c5 02  	<unknown>
-    4148: b3 00 e0 41  	sub	ra, zero, t5
-    414c: 93 85 43 00  	addi	a1, t2, 0x4
-    4150: 23 28 b1 00  	sw	a1, 0x10(sp)
-    4154: 83 2e 41 01  	lw	t4, 0x14(sp)
-    4158: 6f 00 00 01  	jal	zero, 0x4168 <main_e1+0x158>
-    415c: 13 0a 1a 00  	addi	s4, s4, 0x1
-    4160: 83 25 45 00  	lw	a1, 0x4(a0)
-    4164: e3 98 05 f6  	bne	a1, zero, 0x40d4 <main_e1+0xc4>
-    4168: 03 a7 0b 00  	lw	a4, 0x0(s7)
-    416c: 03 26 0c 00  	lw	a2, 0x0(s8)
-    4170: 83 a5 0c 00  	lw	a1, 0x0(s9)
-    4174: 83 a8 03 00  	lw	a7, 0x0(t2)
-    4178: 93 8a 1a 00  	addi	s5, s5, 0x1
-    417c: 93 97 0a 01  	slli	a5, s5, 0x10
-    4180: 63 94 07 00  	bne	a5, zero, 0x4188 <main_e1+0x178>
-    4184: 23 20 55 05  	sw	s5, 0x40(a0)
-    4188: 93 77 f7 0f  	andi	a5, a4, 0xff
-    418c: e3 98 d7 fc  	bne	a5, a3, 0x415c <main_e1+0x14c>
-    4190: 93 77 f6 0f  	andi	a5, a2, 0xff
-    4194: e3 94 d7 fc  	bne	a5, a3, 0x415c <main_e1+0x14c>
-    4198: 93 f7 f8 0f  	andi	a5, a7, 0xff
-    419c: e3 90 d7 fc  	bne	a5, a3, 0x415c <main_e1+0x14c>
-    41a0: 13 17 07 01  	slli	a4, a4, 0x10
-    41a4: 93 57 87 01  	srli	a5, a4, 0x18
-    41a8: 13 16 06 01  	slli	a2, a2, 0x10
-    41ac: 13 56 86 01  	srli	a2, a2, 0x18
-    41b0: 33 06 f6 40  	sub	a2, a2, a5
-    41b4: 33 77 66 01  	and	a4, a2, s6
-    41b8: 13 06 20 01  	addi	a2, zero, 0x12
-    41bc: 63 64 ed 00  	bltu	s10, a4, 0x41c4 <main_e1+0x1b4>
-    41c0: 13 06 90 00  	addi	a2, zero, 0x9
-    41c4: b3 c5 b5 01  	xor	a1, a1, s11
-    41c8: 93 f5 f5 0f  	andi	a1, a1, 0xff
-    41cc: b3 85 f5 40  	sub	a1, a1, a5
-    41d0: 33 f3 65 01  	and	t1, a1, s6
-    41d4: 93 05 60 00  	addi	a1, zero, 0x6
-    41d8: 63 64 6d 00  	bltu	s10, t1, 0x41e0 <main_e1+0x1d0>
-    41dc: 93 05 30 00  	addi	a1, zero, 0x3
-    41e0: 13 37 17 00  	sltiu	a4, a4, 0x1
-    41e4: 93 98 08 01  	slli	a7, a7, 0x10
-    41e8: 93 d8 88 01  	srli	a7, a7, 0x18
-    41ec: b3 88 f8 40  	sub	a7, a7, a5
-    41f0: b3 f8 68 01  	and	a7, a7, s6
-    41f4: 13 b4 18 00  	sltiu	s0, a7, 0x1
-    41f8: b3 38 1d 01  	sltu	a7, s10, a7
-    41fc: 93 88 18 00  	addi	a7, a7, 0x1
-    4200: 13 04 f4 ff  	addi	s0, s0, -0x1
-    4204: b3 78 14 01  	and	a7, s0, a7
-    4208: 13 33 13 00  	sltiu	t1, t1, 0x1
-    420c: 13 07 f7 ff  	addi	a4, a4, -0x1
-    4210: 33 76 c7 00  	and	a2, a4, a2
-    4214: 13 03 f3 ff  	addi	t1, t1, -0x1
-    4218: b3 75 b3 00  	and	a1, t1, a1
-    421c: b3 85 c5 00  	add	a1, a1, a2
-    4220: b3 85 15 01  	add	a1, a1, a7
-    4224: 13 96 25 00  	slli	a2, a1, 0x2
-    4228: 33 06 a6 00  	add	a2, a2, a0
-    422c: 03 27 06 08  	lw	a4, 0x80(a2)
-    4230: 13 07 17 00  	addi	a4, a4, 0x1
-    4234: 23 20 e6 08  	sw	a4, 0x80(a2)
-    4238: e3 94 05 f2  	bne	a1, zero, 0x4160 <main_e1+0x150>
-    423c: 93 8e fe ff  	addi	t4, t4, -0x1
-    4240: 93 89 19 00  	addi	s3, s3, 0x1
-    4244: e3 9e 0e f0  	bne	t4, zero, 0x4160 <main_e1+0x150>
-    4248: 93 05 80 00  	addi	a1, zero, 0x8
-    424c: 63 6c be 04  	bltu	t3, a1, 0x42a4 <main_e1+0x294>
-    4250: 83 25 c1 00  	lw	a1, 0xc(sp)
-    4254: 33 86 b7 02  	<unknown>
-    4258: 93 0e 10 00  	addi	t4, zero, 0x1
-    425c: 03 27 01 01  	lw	a4, 0x10(sp)
-    4260: 03 24 81 00  	lw	s0, 0x8(sp)
-    4264: 93 08 10 00  	addi	a7, zero, 0x1
-    4268: 6f 00 00 02  	jal	zero, 0x4288 <main_e1+0x278>
-    426c: 93 88 18 00  	addi	a7, a7, 0x1
-    4270: b3 be e8 01  	sltu	t4, a7, t5
-    4274: b3 85 10 01  	add	a1, ra, a7
-    4278: 13 03 18 9b  	addi	t1, a6, -0x64f
-    427c: 33 04 64 00  	add	s0, s0, t1
-    4280: 13 07 47 00  	addi	a4, a4, 0x4
-    4284: 63 88 05 02  	beq	a1, zero, 0x42b4 <main_e1+0x2a4>
-    4288: e3 82 1f ff  	beq	t6, a7, 0x426c <main_e1+0x25c>
-    428c: b3 85 10 01  	add	a1, ra, a7
-    4290: e3 8e 55 fc  	beq	a1, t0, 0x426c <main_e1+0x25c>
-    4294: 83 25 07 00  	lw	a1, 0x0(a4)
-    4298: 33 43 c4 00  	xor	t1, s0, a2
-    429c: e3 88 65 fc  	beq	a1, t1, 0x426c <main_e1+0x25c>
-    42a0: 6f 00 c0 01  	jal	zero, 0x42bc <main_e1+0x2ac>
-    42a4: 93 0e 00 00  	addi	t4, zero, 0x0
-    42a8: 93 08 00 00  	addi	a7, zero, 0x0
-    42ac: 93 05 00 00  	addi	a1, zero, 0x0
-    42b0: 6f 00 80 00  	jal	zero, 0x42b8 <main_e1+0x2a8>
-    42b4: 93 08 00 00  	addi	a7, zero, 0x0
-    42b8: 13 03 00 00  	addi	t1, zero, 0x0
-    42bc: 03 a6 03 00  	lw	a2, 0x0(t2)
-    42c0: 13 77 f6 0f  	andi	a4, a2, 0xff
-    42c4: 63 10 d7 04  	bne	a4, a3, 0x4304 <main_e1+0x2f4>
-    42c8: 13 16 06 01  	slli	a2, a2, 0x10
-    42cc: 13 56 86 01  	srli	a2, a2, 0x18
-    42d0: 63 1a f6 02  	bne	a2, a5, 0x4304 <main_e1+0x2f4>
-    42d4: 13 f6 1e 00  	andi	a2, t4, 0x1
-    42d8: 13 09 19 00  	addi	s2, s2, 0x1
-    42dc: 63 06 06 02  	beq	a2, zero, 0x4308 <main_e1+0x2f8>
-    42e0: 03 26 81 01  	lw	a2, 0x18(sp)
-    42e4: 63 1a 06 00  	bne	a2, zero, 0x42f8 <main_e1+0x2e8>
-    42e8: 23 2c 15 05  	sw	a7, 0x58(a0)
-    42ec: 23 2e b5 04  	sw	a1, 0x5c(a0)
-    42f0: 23 20 65 06  	sw	t1, 0x60(a0)
-    42f4: 23 22 f5 06  	sw	a5, 0x64(a0)
-    42f8: 13 06 16 00  	addi	a2, a2, 0x1
-    42fc: 23 2c c1 00  	sw	a2, 0x18(sp)
-    4300: 6f 00 80 00  	jal	zero, 0x4308 <main_e1+0x2f8>
-    4304: 93 84 14 00  	addi	s1, s1, 0x1
-    4308: 83 2e 41 01  	lw	t4, 0x14(sp)
-    430c: 6f f0 5f e5  	jal	zero, 0x4160 <main_e1+0x150>
+    4048: 37 85 37 9e  	lui	a0, 0x9e378
+    404c: 93 0b 15 9b  	addi	s7, a0, -0x64f
+    4050: 37 05 01 01  	lui	a0, 0x1010
+    4054: 13 05 15 10  	addi	a0, a0, 0x101
+    4058: 23 24 a1 00  	sw	a0, 0x8(sp)
+    405c: b7 06 01 00  	lui	a3, 0x10
+    4060: 93 86 f6 ff  	addi	a3, a3, -0x1
+    4064: 37 e5 e1 e1  	lui	a0, 0xe1e1e
+    4068: 13 05 15 1e  	addi	a0, a0, 0x1e1
+    406c: 37 87 00 00  	lui	a4, 0x8
+    4070: 23 24 a7 00  	sw	a0, 0x8(a4)
+    4074: 93 08 c0 02  	addi	a7, zero, 0x2c
+    4078: 13 03 f0 ff  	addi	t1, zero, -0x1
+    407c: 03 25 07 00  	lw	a0, 0x0(a4)
+    4080: e3 0e 05 fe  	beq	a0, zero, 0x407c <main_e1+0x6c>
+    4084: 23 26 07 00  	sw	zero, 0xc(a4)
+    4088: 83 25 07 02  	lw	a1, 0x20(a4)
+    408c: 03 2e 07 01  	lw	t3, 0x10(a4)
+    4090: 83 2e 47 01  	lw	t4, 0x14(a4)
+    4094: 83 24 87 01  	lw	s1, 0x18(a4)
+    4098: 03 2f c7 01  	lw	t5, 0x1c(a4)
+    409c: 93 df 2e 00  	srli	t6, t4, 0x2
+    40a0: 13 85 ff ff  	addi	a0, t6, -0x1
+    40a4: 13 06 f0 03  	addi	a2, zero, 0x3f
+    40a8: 63 66 d6 01  	bltu	a2, t4, 0x40b4 <main_e1+0xa4>
+    40ac: 13 04 05 00  	addi	s0, a0, 0x0
+    40b0: 6f 00 80 00  	jal	zero, 0x40b8 <main_e1+0xa8>
+    40b4: 13 84 bf ff  	addi	s0, t6, -0x5
+    40b8: 03 26 47 00  	lw	a2, 0x4(a4)
+    40bc: 93 84 f4 ff  	addi	s1, s1, -0x1
+    40c0: 63 8e 05 20  	beq	a1, zero, 0x42dc <main_e1+0x2cc>
+    40c4: 63 1e 06 20  	bne	a2, zero, 0x42e0 <main_e1+0x2d0>
+    40c8: 13 09 00 00  	addi	s2, zero, 0x0
+    40cc: 93 09 00 00  	addi	s3, zero, 0x0
+    40d0: 13 0a 00 00  	addi	s4, zero, 0x0
+    40d4: 23 2c 01 00  	sw	zero, 0x18(sp)
+    40d8: 13 0b 00 00  	addi	s6, zero, 0x0
+    40dc: 23 2a 01 00  	sw	zero, 0x14(sp)
+    40e0: 93 d5 3e 00  	srli	a1, t4, 0x3
+    40e4: 13 9c 25 00  	slli	s8, a1, 0x2
+    40e8: 33 0c 8e 01  	add	s8, t3, s8
+    40ec: 93 1c 24 00  	slli	s9, s0, 0x2
+    40f0: b3 0c 9e 01  	add	s9, t3, s9
+    40f4: 13 15 25 00  	slli	a0, a0, 0x2
+    40f8: 33 0d ae 00  	add	s10, t3, a0
+    40fc: 93 dd 14 00  	srli	s11, s1, 0x1
+    4100: 13 05 10 0b  	addi	a0, zero, 0xb1
+    4104: b3 80 a5 02  	<unknown>
+    4108: 33 05 f0 41  	sub	a0, zero, t6
+    410c: 93 05 4e 00  	addi	a1, t3, 0x4
+    4110: 23 26 b1 00  	sw	a1, 0xc(sp)
+    4114: 23 28 e1 01  	sw	t5, 0x10(sp)
+    4118: 6f 00 00 01  	jal	zero, 0x4128 <main_e1+0x118>
+    411c: 93 89 19 00  	addi	s3, s3, 0x1
+    4120: 83 25 47 00  	lw	a1, 0x4(a4)
+    4124: 63 9a 05 1c  	bne	a1, zero, 0x42f8 <main_e1+0x2e8>
+    4128: 83 27 0e 00  	lw	a5, 0x0(t3)
+    412c: 83 23 0c 00  	lw	t2, 0x0(s8)
+    4130: 83 a5 0c 00  	lw	a1, 0x0(s9)
+    4134: 03 26 0d 00  	lw	a2, 0x0(s10)
+    4138: 13 09 19 00  	addi	s2, s2, 0x1
+    413c: 33 78 d9 00  	and	a6, s2, a3
+    4140: 63 14 08 00  	bne	a6, zero, 0x4148 <main_e1+0x138>
+    4144: 23 20 27 05  	sw	s2, 0x40(a4)
+    4148: 13 78 f6 0f  	andi	a6, a2, 0xff
+    414c: e3 18 18 fd  	bne	a6, a7, 0x411c <main_e1+0x10c>
+    4150: 13 f8 f5 0f  	andi	a6, a1, 0xff
+    4154: e3 14 18 fd  	bne	a6, a7, 0x411c <main_e1+0x10c>
+    4158: 13 f8 f7 0f  	andi	a6, a5, 0xff
+    415c: e3 10 18 fd  	bne	a6, a7, 0x411c <main_e1+0x10c>
+    4160: 13 16 06 01  	slli	a2, a2, 0x10
+    4164: 93 52 86 01  	srli	t0, a2, 0x18
+    4168: 93 95 05 01  	slli	a1, a1, 0x10
+    416c: 93 d5 85 01  	srli	a1, a1, 0x18
+    4170: b3 85 55 40  	sub	a1, a1, t0
+    4174: b3 f5 95 00  	and	a1, a1, s1
+    4178: 13 06 20 01  	addi	a2, zero, 0x12
+    417c: 63 e4 bd 00  	bltu	s11, a1, 0x4184 <main_e1+0x174>
+    4180: 13 06 90 00  	addi	a2, zero, 0x9
+    4184: 33 c8 13 00  	xor	a6, t2, ra
+    4188: 13 78 f8 0f  	andi	a6, a6, 0xff
+    418c: 33 08 58 40  	sub	a6, a6, t0
+    4190: b3 73 98 00  	and	t2, a6, s1
+    4194: 13 08 60 00  	addi	a6, zero, 0x6
+    4198: 63 e4 7d 00  	bltu	s11, t2, 0x41a0 <main_e1+0x190>
+    419c: 13 08 30 00  	addi	a6, zero, 0x3
+    41a0: 93 b5 15 00  	sltiu	a1, a1, 0x1
+    41a4: 93 97 07 01  	slli	a5, a5, 0x10
+    41a8: 93 d7 87 01  	srli	a5, a5, 0x18
+    41ac: b3 87 57 40  	sub	a5, a5, t0
+    41b0: b3 f7 97 00  	and	a5, a5, s1
+    41b4: 93 ba 17 00  	sltiu	s5, a5, 0x1
+    41b8: b3 b7 fd 00  	sltu	a5, s11, a5
+    41bc: 93 87 17 00  	addi	a5, a5, 0x1
+    41c0: 93 8a fa ff  	addi	s5, s5, -0x1
+    41c4: b3 f7 fa 00  	and	a5, s5, a5
+    41c8: 93 b3 13 00  	sltiu	t2, t2, 0x1
+    41cc: 93 85 f5 ff  	addi	a1, a1, -0x1
+    41d0: b3 f5 c5 00  	and	a1, a1, a2
+    41d4: 93 83 f3 ff  	addi	t2, t2, -0x1
+    41d8: 33 f6 03 01  	and	a2, t2, a6
+    41dc: b3 85 c5 00  	add	a1, a1, a2
+    41e0: b3 85 f5 00  	add	a1, a1, a5
+    41e4: 13 96 25 00  	slli	a2, a1, 0x2
+    41e8: 33 06 e6 00  	add	a2, a2, a4
+    41ec: 83 27 06 08  	lw	a5, 0x80(a2)
+    41f0: 93 87 17 00  	addi	a5, a5, 0x1
+    41f4: 23 20 f6 08  	sw	a5, 0x80(a2)
+    41f8: e3 94 05 f2  	bne	a1, zero, 0x4120 <main_e1+0x110>
+    41fc: 13 0f ff ff  	addi	t5, t5, -0x1
+    4200: 13 0a 1a 00  	addi	s4, s4, 0x1
+    4204: e3 1e 0f f0  	bne	t5, zero, 0x4120 <main_e1+0x110>
+    4208: 93 05 80 00  	addi	a1, zero, 0x8
+    420c: 63 ea be 04  	bltu	t4, a1, 0x4260 <main_e1+0x250>
+    4210: 83 25 81 00  	lw	a1, 0x8(sp)
+    4214: 33 86 b2 02  	<unknown>
+    4218: 13 0f 10 00  	addi	t5, zero, 0x1
+    421c: 83 25 c1 00  	lw	a1, 0xc(sp)
+    4220: 93 8a 0b 00  	addi	s5, s7, 0x0
+    4224: 93 07 10 00  	addi	a5, zero, 0x1
+    4228: 6f 00 c0 01  	jal	zero, 0x4244 <main_e1+0x234>
+    422c: 93 87 17 00  	addi	a5, a5, 0x1
+    4230: 33 bf f7 01  	sltu	t5, a5, t6
+    4234: 33 08 f5 00  	add	a6, a0, a5
+    4238: b3 8a 7a 01  	add	s5, s5, s7
+    423c: 93 85 45 00  	addi	a1, a1, 0x4
+    4240: 63 0a 08 02  	beq	a6, zero, 0x4274 <main_e1+0x264>
+    4244: e3 04 f4 fe  	beq	s0, a5, 0x422c <main_e1+0x21c>
+    4248: 33 08 f5 00  	add	a6, a0, a5
+    424c: e3 00 68 fe  	beq	a6, t1, 0x422c <main_e1+0x21c>
+    4250: 83 a3 05 00  	lw	t2, 0x0(a1)
+    4254: 33 c8 ca 00  	xor	a6, s5, a2
+    4258: e3 8a 03 fd  	beq	t2, a6, 0x422c <main_e1+0x21c>
+    425c: 6f 00 00 02  	jal	zero, 0x427c <main_e1+0x26c>
+    4260: 13 0f 00 00  	addi	t5, zero, 0x0
+    4264: 93 07 00 00  	addi	a5, zero, 0x0
+    4268: 93 03 00 00  	addi	t2, zero, 0x0
+    426c: 13 08 00 00  	addi	a6, zero, 0x0
+    4270: 6f 00 c0 00  	jal	zero, 0x427c <main_e1+0x26c>
+    4274: 93 07 00 00  	addi	a5, zero, 0x0
+    4278: 93 03 00 00  	addi	t2, zero, 0x0
+    427c: 83 25 0e 00  	lw	a1, 0x0(t3)
+    4280: 13 f6 f5 0f  	andi	a2, a1, 0xff
+    4284: 63 16 16 05  	bne	a2, a7, 0x42d0 <main_e1+0x2c0>
+    4288: 93 95 05 01  	slli	a1, a1, 0x10
+    428c: 93 d5 85 01  	srli	a1, a1, 0x18
+    4290: 63 90 55 04  	bne	a1, t0, 0x42d0 <main_e1+0x2c0>
+    4294: 93 75 1f 00  	andi	a1, t5, 0x1
+    4298: 03 26 81 01  	lw	a2, 0x18(sp)
+    429c: 13 06 16 00  	addi	a2, a2, 0x1
+    42a0: 23 2c c1 00  	sw	a2, 0x18(sp)
+    42a4: 63 88 05 02  	beq	a1, zero, 0x42d4 <main_e1+0x2c4>
+    42a8: 03 2f 01 01  	lw	t5, 0x10(sp)
+    42ac: 83 25 41 01  	lw	a1, 0x14(sp)
+    42b0: 63 9a 05 00  	bne	a1, zero, 0x42c4 <main_e1+0x2b4>
+    42b4: 23 2c f7 04  	sw	a5, 0x58(a4)
+    42b8: 23 2e 77 04  	sw	t2, 0x5c(a4)
+    42bc: 23 20 07 07  	sw	a6, 0x60(a4)
+    42c0: 23 22 57 06  	sw	t0, 0x64(a4)
+    42c4: 93 85 15 00  	addi	a1, a1, 0x1
+    42c8: 23 2a b1 00  	sw	a1, 0x14(sp)
+    42cc: 6f f0 5f e5  	jal	zero, 0x4120 <main_e1+0x110>
+    42d0: 13 0b 1b 00  	addi	s6, s6, 0x1
+    42d4: 03 2f 01 01  	lw	t5, 0x10(sp)
+    42d8: 6f f0 9f e4  	jal	zero, 0x4120 <main_e1+0x110>
+    42dc: 63 08 06 04  	beq	a2, zero, 0x432c <main_e1+0x31c>
+    42e0: 13 09 00 00  	addi	s2, zero, 0x0
+    42e4: 93 09 00 00  	addi	s3, zero, 0x0
+    42e8: 13 0a 00 00  	addi	s4, zero, 0x0
+    42ec: 23 2c 01 00  	sw	zero, 0x18(sp)
+    42f0: 13 0b 00 00  	addi	s6, zero, 0x0
+    42f4: 23 2a 01 00  	sw	zero, 0x14(sp)
+    42f8: 23 20 27 05  	sw	s2, 0x40(a4)
+    42fc: 23 22 37 05  	sw	s3, 0x44(a4)
+    4300: 23 24 47 05  	sw	s4, 0x48(a4)
+    4304: 03 25 81 01  	lw	a0, 0x18(sp)
+    4308: 23 26 a7 04  	sw	a0, 0x4c(a4)
+    430c: 23 28 67 05  	sw	s6, 0x50(a4)
+    4310: 03 25 41 01  	lw	a0, 0x14(sp)
+    4314: 23 2a a7 04  	sw	a0, 0x54(a4)
+    4318: 13 05 10 00  	addi	a0, zero, 0x1
+    431c: 23 26 a7 00  	sw	a0, 0xc(a4)
+    4320: 03 25 07 00  	lw	a0, 0x0(a4)
+    4324: e3 1e 05 fe  	bne	a0, zero, 0x4320 <main_e1+0x310>
+    4328: 6f f0 5f d5  	jal	zero, 0x407c <main_e1+0x6c>
+    432c: 13 09 00 00  	addi	s2, zero, 0x0
+    4330: 93 09 00 00  	addi	s3, zero, 0x0
+    4334: 13 0a 00 00  	addi	s4, zero, 0x0
+    4338: 23 2c 01 00  	sw	zero, 0x18(sp)
+    433c: 13 0b 00 00  	addi	s6, zero, 0x0
+    4340: 23 2a 01 00  	sw	zero, 0x14(sp)
+    4344: 93 d5 3e 00  	srli	a1, t4, 0x3
+    4348: 13 15 25 00  	slli	a0, a0, 0x2
+    434c: 33 0c ae 00  	add	s8, t3, a0
+    4350: 93 1c 24 00  	slli	s9, s0, 0x2
+    4354: b3 0c 9e 01  	add	s9, t3, s9
+    4358: 13 9d 25 00  	slli	s10, a1, 0x2
+    435c: 33 0d ae 01  	add	s10, t3, s10
+    4360: 93 dd 14 00  	srli	s11, s1, 0x1
+    4364: 13 05 10 0b  	addi	a0, zero, 0xb1
+    4368: b3 80 a5 02  	<unknown>
+    436c: 33 05 f0 41  	sub	a0, zero, t6
+    4370: 93 05 4e 00  	addi	a1, t3, 0x4
+    4374: 23 26 b1 00  	sw	a1, 0xc(sp)
+    4378: 23 28 e1 01  	sw	t5, 0x10(sp)
+    437c: 6f 00 00 01  	jal	zero, 0x438c <main_e1+0x37c>
+    4380: 93 89 19 00  	addi	s3, s3, 0x1
+    4384: 83 25 47 00  	lw	a1, 0x4(a4)
+    4388: e3 98 05 f6  	bne	a1, zero, 0x42f8 <main_e1+0x2e8>
+    438c: 03 26 0c 00  	lw	a2, 0x0(s8)
+    4390: 83 a5 0c 00  	lw	a1, 0x0(s9)
+    4394: 03 28 0d 00  	lw	a6, 0x0(s10)
+    4398: 83 27 0e 00  	lw	a5, 0x0(t3)
+    439c: 13 09 19 00  	addi	s2, s2, 0x1
+    43a0: b3 72 d9 00  	and	t0, s2, a3
+    43a4: 63 94 02 00  	bne	t0, zero, 0x43ac <main_e1+0x39c>
+    43a8: 23 20 27 05  	sw	s2, 0x40(a4)
+    43ac: 93 72 f6 0f  	andi	t0, a2, 0xff
+    43b0: e3 98 12 fd  	bne	t0, a7, 0x4380 <main_e1+0x370>
+    43b4: 93 f2 f5 0f  	andi	t0, a1, 0xff
+    43b8: e3 94 12 fd  	bne	t0, a7, 0x4380 <main_e1+0x370>
+    43bc: 93 f2 f7 0f  	andi	t0, a5, 0xff
+    43c0: e3 90 12 fd  	bne	t0, a7, 0x4380 <main_e1+0x370>
+    43c4: 13 16 06 01  	slli	a2, a2, 0x10
+    43c8: 93 52 86 01  	srli	t0, a2, 0x18
+    43cc: 93 95 05 01  	slli	a1, a1, 0x10
+    43d0: 93 d5 85 01  	srli	a1, a1, 0x18
+    43d4: b3 85 55 40  	sub	a1, a1, t0
+    43d8: b3 f5 95 00  	and	a1, a1, s1
+    43dc: 13 06 20 01  	addi	a2, zero, 0x12
+    43e0: 63 e4 bd 00  	bltu	s11, a1, 0x43e8 <main_e1+0x3d8>
+    43e4: 13 06 90 00  	addi	a2, zero, 0x9
+    43e8: 33 48 18 00  	xor	a6, a6, ra
+    43ec: 13 78 f8 0f  	andi	a6, a6, 0xff
+    43f0: 33 08 58 40  	sub	a6, a6, t0
+    43f4: b3 73 98 00  	and	t2, a6, s1
+    43f8: 13 08 60 00  	addi	a6, zero, 0x6
+    43fc: 63 e4 7d 00  	bltu	s11, t2, 0x4404 <main_e1+0x3f4>
+    4400: 13 08 30 00  	addi	a6, zero, 0x3
+    4404: 93 b5 15 00  	sltiu	a1, a1, 0x1
+    4408: 93 97 07 01  	slli	a5, a5, 0x10
+    440c: 93 d7 87 01  	srli	a5, a5, 0x18
+    4410: b3 87 57 40  	sub	a5, a5, t0
+    4414: b3 f7 97 00  	and	a5, a5, s1
+    4418: 93 ba 17 00  	sltiu	s5, a5, 0x1
+    441c: b3 b7 fd 00  	sltu	a5, s11, a5
+    4420: 93 87 17 00  	addi	a5, a5, 0x1
+    4424: 93 8a fa ff  	addi	s5, s5, -0x1
+    4428: b3 f7 fa 00  	and	a5, s5, a5
+    442c: 93 b3 13 00  	sltiu	t2, t2, 0x1
+    4430: 93 85 f5 ff  	addi	a1, a1, -0x1
+    4434: b3 f5 c5 00  	and	a1, a1, a2
+    4438: 93 83 f3 ff  	addi	t2, t2, -0x1
+    443c: 33 f6 03 01  	and	a2, t2, a6
+    4440: b3 05 b6 00  	add	a1, a2, a1
+    4444: b3 85 f5 00  	add	a1, a1, a5
+    4448: 13 96 25 00  	slli	a2, a1, 0x2
+    444c: 33 06 e6 00  	add	a2, a2, a4
+    4450: 83 27 06 08  	lw	a5, 0x80(a2)
+    4454: 93 87 17 00  	addi	a5, a5, 0x1
+    4458: 23 20 f6 08  	sw	a5, 0x80(a2)
+    445c: e3 94 05 f2  	bne	a1, zero, 0x4384 <main_e1+0x374>
+    4460: 13 0f ff ff  	addi	t5, t5, -0x1
+    4464: 13 0a 1a 00  	addi	s4, s4, 0x1
+    4468: e3 1e 0f f0  	bne	t5, zero, 0x4384 <main_e1+0x374>
+    446c: 93 05 80 00  	addi	a1, zero, 0x8
+    4470: 63 ec be 04  	bltu	t4, a1, 0x44c8 <main_e1+0x4b8>
+    4474: 83 25 81 00  	lw	a1, 0x8(sp)
+    4478: 33 86 b2 02  	<unknown>
+    447c: 13 0f 10 00  	addi	t5, zero, 0x1
+    4480: b7 85 37 9e  	lui	a1, 0x9e378
+    4484: 93 85 15 9b  	addi	a1, a1, -0x64f
+    4488: 83 2a c1 00  	lw	s5, 0xc(sp)
+    448c: 93 07 10 00  	addi	a5, zero, 0x1
+    4490: 6f 00 c0 01  	jal	zero, 0x44ac <main_e1+0x49c>
+    4494: 93 87 17 00  	addi	a5, a5, 0x1
+    4498: 33 bf f7 01  	sltu	t5, a5, t6
+    449c: 33 08 f5 00  	add	a6, a0, a5
+    44a0: b3 85 75 01  	add	a1, a1, s7
+    44a4: 93 8a 4a 00  	addi	s5, s5, 0x4
+    44a8: 63 0a 08 02  	beq	a6, zero, 0x44dc <main_e1+0x4cc>
+    44ac: e3 04 f4 fe  	beq	s0, a5, 0x4494 <main_e1+0x484>
+    44b0: 33 08 f5 00  	add	a6, a0, a5
+    44b4: e3 00 68 fe  	beq	a6, t1, 0x4494 <main_e1+0x484>
+    44b8: 83 a3 0a 00  	lw	t2, 0x0(s5)
+    44bc: 33 c8 c5 00  	xor	a6, a1, a2
+    44c0: e3 8a 03 fd  	beq	t2, a6, 0x4494 <main_e1+0x484>
+    44c4: 6f 00 00 02  	jal	zero, 0x44e4 <main_e1+0x4d4>
+    44c8: 13 0f 00 00  	addi	t5, zero, 0x0
+    44cc: 93 07 00 00  	addi	a5, zero, 0x0
+    44d0: 93 03 00 00  	addi	t2, zero, 0x0
+    44d4: 13 08 00 00  	addi	a6, zero, 0x0
+    44d8: 6f 00 c0 00  	jal	zero, 0x44e4 <main_e1+0x4d4>
+    44dc: 93 07 00 00  	addi	a5, zero, 0x0
+    44e0: 93 03 00 00  	addi	t2, zero, 0x0
+    44e4: 83 25 0e 00  	lw	a1, 0x0(t3)
+    44e8: 13 f6 f5 0f  	andi	a2, a1, 0xff
+    44ec: 63 16 16 05  	bne	a2, a7, 0x4538 <main_e1+0x528>
+    44f0: 93 95 05 01  	slli	a1, a1, 0x10
+    44f4: 93 d5 85 01  	srli	a1, a1, 0x18
+    44f8: 63 90 55 04  	bne	a1, t0, 0x4538 <main_e1+0x528>
+    44fc: 93 75 1f 00  	andi	a1, t5, 0x1
+    4500: 03 26 81 01  	lw	a2, 0x18(sp)
+    4504: 13 06 16 00  	addi	a2, a2, 0x1
+    4508: 23 2c c1 00  	sw	a2, 0x18(sp)
+    450c: 63 88 05 02  	beq	a1, zero, 0x453c <main_e1+0x52c>
+    4510: 03 2f 01 01  	lw	t5, 0x10(sp)
+    4514: 83 25 41 01  	lw	a1, 0x14(sp)
+    4518: 63 9a 05 00  	bne	a1, zero, 0x452c <main_e1+0x51c>
+    451c: 23 2c f7 04  	sw	a5, 0x58(a4)
+    4520: 23 2e 77 04  	sw	t2, 0x5c(a4)
+    4524: 23 20 07 07  	sw	a6, 0x60(a4)
+    4528: 23 22 57 06  	sw	t0, 0x64(a4)
+    452c: 93 85 15 00  	addi	a1, a1, 0x1
+    4530: 23 2a b1 00  	sw	a1, 0x14(sp)
+    4534: 6f f0 1f e5  	jal	zero, 0x4384 <main_e1+0x374>
+    4538: 13 0b 1b 00  	addi	s6, s6, 0x1
+    453c: 03 2f 01 01  	lw	t5, 0x10(sp)
+    4540: 6f f0 5f e4  	jal	zero, 0x4384 <main_e1+0x374>
