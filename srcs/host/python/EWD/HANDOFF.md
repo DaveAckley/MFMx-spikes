@@ -43,31 +43,73 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
 - HostFlags-in-a-bolt is a FUTURE idea only
 - Log-tag processing stays in C++
 
-## Current state (as of session ending 2026-11-14)
+## Current state (as of end of session 3, 2026-11-15)
 
 ### What works
-- **HOLD_AT_BIRTH pre-settlement**: `start()` calls `setStep(HAS_T6_CODE_DEPLOYED)`
-  then `firePHASER(HOLD_AT_BIRTH)` then `startEWProcessing()` per chip, then
-  polls up to 5s for all acks.  All 140 T6s (EWP + HUB) ack correctly.
-  `hold_settled=True` -> sequencer skips straight to NEW_LEADER.
-- **NEW_LEADER**: CONSENSUS from all 140 T6s.
-- **Lamer diagnostic**: `poll_bolt()` timeout branch calls
-  `bh.getNonPhaseTLBIs()` per chip (new binding) instead of reporting `?`.
-- **`tlbi` command**: `tlbi lamers` / `tlbi 15` / `tlbi 0:15,19` --
-  shows `bh{chip}:{tlbi}  {tag}  {image}` per TLBI.
-- **Startup banner**: mfmxctl prints `mfmxctl HEAD: {hash} {subject}` on start.
+- **Full SuperCycle on all 140 T6s** (35 HUB + 105 EWP): HOLD_AT_BIRTH pre-settle,
+  then NEW_LEADER / RUN_EVENTS / DWELL repeating.  Run 20261114-230036: 27 cycles,
+  108 bolts, all CONSENSUS (NEW_LEADER ~1.7-2.0s, RUN_EVENTS ~1.6-3.2s).
+  Run 20261115-013651: 58 cycles; the single autoseeded atom (FB4 at hub (6,7))
+  spreads as a wavefront and saturates all 35 hubs (14904 self sites each) by
+  cycle ~13.
+- **Hub cache exchange** (`cross/images/hub/src/CacheLoader.cpp`): RUN_EVENTS
+  entering = `loadCaches` (followers ship sites to the leader, leader unloads
+  into caches); NEW_LEADER entering = `saveCaches` (mirror: leader loads caches,
+  followers unload into sites).  No explicit "return the empties" step: a
+  receiver-role loader unloads+returns whatever car it holds, and an empty car
+  unloads as a no-op, so cars reposition themselves for either role.
+- **Packet tracing**: nonce-tagged `.ps/.pr/.pcs/.pcr` marks, host-written
+  `misc/PKTS.txt`, offline analyzer (see ptrace section).
+- **mfmxctl**: command files, `tlbi`, lamer diagnostics, startup HEAD banner.
 
-### Current frontier
-**RUN_EVENTS**: 118/140 T6s ack (EWP tiles); 22 HUB tiles do not.
-`tlbi lamers` confirms all 22 non-ackers are HUB image tiles.
-**Bug is in the HUB T6 image** -- it needs a RUN_EVENTS handler.
-This is pure T6-side work from here.
+### Bugs found and fixed this session (for the record)
+1. Diagonal EP `weAreIn` state mismatch (silent `isArriving` break) -> no `.pr`
+   on odd IHUB storages.  Fixed (user, 22536bc).
+2. RUN_EVENTS timeouts: per-car `sleepCycles(100'000'000)` DEBUG waits made a
+   leader take ~0.6s/car x ~26 cars > 10s bolt timeout.  Waits reduced.
+3. `closeTC` size omitted the 8-byte `IHPHeader` (loadPacket/unloadPacket used
+   `patoms.getCurrentPayloadSize()`): zero-atom cars closed at size code 0 so the
+   footer overlaid `mAtomCount` (= nonce), tripping `HBASSERT_EQ(itr.at,
+   weShouldBeAt)` in saveCaches; also could clip the last atom of a partial car.
+   Now `pay.getCurrentPayloadSize()` (3ec6c8c).
+4. `saveCaches` only unloaded (never loaded) -> NEW_LEADER never acked.  Mirrored
+   (2da1251).
+5. `CacheLoader::unloadPacket` wrote `T6Grid::setAtom` directly, so changes never
+   reached the DLGridList / host display.  Now `GridManager::setAtom` (user,
+   07c43b7).
+6. `Config.py` rejected absolute `--config` paths (`.//abs`).  Fixed (06a9c5a).
 
-### C++ changes requiring rebuild (all in `claude/latest`)
-- `OurTLBs::getNonPhaseTLBIList()` -- returns `vector<u32>` of non-acking TLBIs
-- `Blackhole::getNonPhaseTLBIs()` -- delegates, Python binding
-- `Blackhole::getTLBITag(u32 tlbi)` -- returns BHTag string (e.g. `at023`)
-- `Blackhole::getTLBIImageName(u32 tlbi)` -- returns image name (e.g. `HUB`)
+### Open items / next steps
+- Some tiles still looked visually empty on the host display although the census
+  (`.an`/`.at`) shows them full of type 5: suspected DL-list shipping lag (FB4
+  rewrites up to 41 sites/event, so a saturated grid keeps the DL list hot; the
+  ACache path pops oldest first).  `.ak` (DL backlog + atom-state XOR/SUM) was
+  added to confirm; analyze the next run.  Needs the rebuild containing 6c02c26+.
+- A grid saturated with FB4 is not inert (counter changes every event) but is
+  visually uninteresting; consider a seed mix (DReg/FB1; the `create(50)` switch in
+  `GridManager::seekRandomNonEmptySite` is computed but unused -- seed is
+  hard-coded to type 5).
+- `loadPacket` ships every site in the range including EMPTY atoms (full cars
+  regardless of occupancy): a bandwidth/latency optimization opportunity.
+- `dwell` is the only knob for event time per cycle (default 3s vs ~2-3s cache
+  load and ~2s NEW_LEADER); longer dwell = more events per exchange.
+- First-NEW_LEADER `once` hack in `workOnEnteringNewLeaderB` is probably removable
+  (zero-initialized loaders make the first save a no-op anyway).
+- Not yet emitted: `.pw` waypoint marks on the T6 side (analyzer parses them).
+- Hub undotted tags (`LOGPTAG(BADC,...)` etc.) are suppressed by HBF_NO_UTAG;
+  use dotted tags (`.x`, not `.p*` unless PTRACE-gated) for anything you need.
+- Inter-T6 destinations are not in PKTS.txt (analyzer learns directions from marks).
+- 7 stale mock selftests fail at baseline (legacy/guards/slowscan-gate/phase).
+- Possible `sleep SECS` mfmxctl command (offered, not requested).
+
+### C++ / host changes requiring rebuild (all in `claude/latest` history)
+- `OurTLBs::getNonPhaseTLBIList()`, `Blackhole::getNonPhaseTLBIs/getTLBITag/
+  getTLBIImageName` (bindings)
+- `T6Image::getPacketBlocks()` + `getCarInfoForBlockCode()` (PKTS.txt; add a case
+  when another blockcode carries packets)
+- `formatT6SendBuf32/formatT6RecvBuf32` nonce arguments (cross)
+- Hub: `CacheLoader.cpp` (size fix, saveCaches), `PhaseSteppers.cpp` (census marks
+  `.ae/.an/.at/.ak`), `Grid.cpp` (`.as` autoseed mark; user's GridManager::setAtom)
 
 ## Key file map
 | File | Role |
@@ -100,13 +142,20 @@ This is pure T6-side work from here.
 `startEWProcessing()` advances to `HAS_T6_EVENT_WINDOWS`.
 
 ## ptrace (packet-trace analyzer, session 3)
-Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`.
-See `scripts/ptrace/README.txt` for usage, mark formats, the proposed
-`misc/PKTS.txt` host dump, and observations from run 20261114-010305.
-Open items: (nonce `#nn` now emitted by formatT6SendBuf32/formatT6RecvBuf32;
-needs cross rebuild + a real run to verify); host now writes
-misc/PKTS.txt (T6Image::getPacketBlocks + Machine.write_pkts; untested on
-real build, needs host rebuild); diagonal (odd) IHUB storages log no .pr (intended?).
+Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`
+(RUNDIR has tiles/*.mfmk, misc/{PKTS,mfmxctl-BOLT}.txt; avoid all.mfmk, it is big).
+`scripts/ptrace/README.txt` documents usage, mark formats, matching and findings.
+- Tile clocks differ by up to ~25 ticks on one chip; `--eps` defaults to 40.  At
+  that setting run 20261114-230036 matched 99.2% of sends with 100% nonce agreement.
+- `misc/PKTS.txt` (written by `Machine.start()` -> `write_pkts()`) gives slot
+  geometry and block addresses; without it the analyzer falls back to defaults
+  and auto-fits a uniform shift.  Verified on a real run (hub bases 0x37240 /
+  0x26d80; `mBlockAddr` equals the logged address).
+- Atom census section: `.ae/.an/.at/.as/.ak` marks (see README) show per-tile
+  occupancy by region, SAVE effect, DL backlog and liveness checksums.
+- Reading a run: BOLT.txt/CYCLE.txt first (bolt results, lamers), then the
+  analyzer summary, then per-tile detail.  Log ticks ~1ms; tiles log the whole
+  run without overflow at current flag settings.
 
 ## Command files (session 3)
 `mfmxctl.py -s FILE` (repeatable) runs FILE's lines as if typed, after `--boot`,
