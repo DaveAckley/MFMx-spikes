@@ -187,7 +187,7 @@ namespace MFM {
     LOGPTAG(aLP,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     LOGPTAG(cstat,ihb.packetStatus(strTag4(&ihb)));
     crbo.add(carindex);
-    sleepCycles(100'000'000); // DEBUG give hn a chacne
+    sleepCycles(10'000'000); // DEBUG give hn a chacne
   }
 
   void CacheLoader::unloadPacketIfNeeded(GridManager & gm) {
@@ -213,7 +213,7 @@ namespace MFM {
     if (!wasEmpty)
       LOGPTAG(UNLA,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     crbo.add(carindex);
-    sleepCycles(100'000'000);
+    sleepCycles(10'000'000);
   }
 
   /** pack local atoms into ihb */
