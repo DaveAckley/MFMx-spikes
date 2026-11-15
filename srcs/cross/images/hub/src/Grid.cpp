@@ -75,6 +75,7 @@ namespace MFM {
         //mT6GridPtr->setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
         HBPTAG("AUTOSEEDOMATIC",type);
         LOGPTAG("LOGOAUTOSEEDOMATIC",type);
+        LOGPTAG(.as,5);      // dotted: survives HBF_NO_UTAG (seed atom type)
       } else {
         if ((mAutoseedWaitCount % 1'000'000) == 0)
           LOGPTAG(WAITING,mAutoseedWaitCount);

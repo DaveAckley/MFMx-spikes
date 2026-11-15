@@ -315,6 +315,129 @@ def learn_dir_signs(pairs):
     return table
 
 
+def parse_census(root):
+    """Atom-census marks (hub image PhaseSteppers.cpp):
+         .ae:TOT:INT:BAND:CACHE   (hex) end of RUN_EVENTS, before SAVE
+         .an:TOT:INT:BAND:CACHE   (hex) end of NEW_LEADER, after SAVE
+         .at:2=n,4=n,5=n,o=n      (hex) types, follows .an
+         .as:T                    autoseed fired (atom type T)
+    Returns (series, seeds): series[tile] = [(tick, kind, (tot,int,band,cache))]
+    seeds = [(tile, tick)]"""
+    series = defaultdict(list)
+    types = defaultdict(list)
+    seeds = []
+    for p in sorted(glob.glob(os.path.join(root, 'tiles', '*.mfmk'))):
+        for ln in open(p, errors='replace'):
+            m = MARK_RE.match(ln.rstrip('\n'))
+            if not m:
+                continue
+            fid, line, tick, chip, x, y, hart, msg = m.groups()
+            if not msg.startswith('.') or msg.startswith('.p'):
+                continue
+            tag, _, pay = msg.partition(':')
+            tile = (int(x), int(y))
+            if tag in ('.ae', '.an'):
+                try:
+                    v = tuple(int(f, 16) for f in pay.split(':'))
+                except ValueError:
+                    continue
+                if len(v) == 4:
+                    series[tile].append((int(tick), tag[2], v))
+            elif tag == '.at':
+                d = {}
+                for kv in pay.split(','):
+                    k, _, n = kv.partition('=')
+                    try:
+                        d[k] = int(n, 16)
+                    except ValueError:
+                        pass
+                types[tile].append((int(tick), d))
+            elif tag == '.as':
+                seeds.append((tile, int(tick)))
+    return series, types, seeds
+
+
+def report_census(root, out):
+    series, types, seeds = parse_census(root)
+    if not series and not seeds:
+        return
+    out('\n-- atom census (.ae before SAVE / .an after SAVE; counts of non-empty atoms)\n')
+    for tile, t in seeds:
+        out('autoseed fired at %s tick %d\n' % (tile, t))
+    if not series:
+        return
+    an = {t: [e for e in v if e[1] == 'n'] for t, v in series.items()}
+    ae = {t: [e for e in v if e[1] == 'e'] for t, v in series.items()}
+    ncyc = max(len(v) for v in an.values()) if an else 0
+    out('tiles with census: %d, cycles (max .an per tile): %d\n' %
+        (len(series), ncyc))
+    xs = sorted(set(t[0] for t in series))
+    ys = sorted(set(t[1] for t in series))
+
+    def grid(title, pick):
+        out('%s\n      ' % title)
+        out(' '.join('%6d' % x for x in xs) + '\n')
+        for y in ys:
+            row = []
+            for x in xs:
+                v = pick((x, y))
+                row.append('%6s' % ('-' if v is None else v))
+            out('y=%-3d ' % y + ' '.join(row) + '\n')
+
+    def at_cycle(tbl, k, field):
+        def pick(tile):
+            lst = tbl.get(tile, [])
+            if not lst:
+                return None
+            i = k if k >= 0 else len(lst) + k
+            if not (0 <= i < len(lst)):
+                return None
+            return lst[i][2][field]
+        return pick
+
+    # self atoms = interior + band (cache copies duplicate neighbors' sites)
+    def selfcnt(tbl, k):
+        def pick(tile):
+            lst = tbl.get(tile, [])
+            if not lst:
+                return None
+            i = k if k >= 0 else len(lst) + k
+            if not (0 <= i < len(lst)):
+                return None
+            v = lst[i][2]
+            return v[1] + v[2]
+        return pick
+
+    for k, name in ((0, 'first cycle'), (ncyc // 2, 'middle cycle'), (-1, 'last cycle')):
+        grid('self atoms (interior+band), %s, after SAVE:' % name, selfcnt(an, k))
+    grid('interior atoms, last cycle:', at_cycle(an, -1, 1))
+    grid('band atoms, last cycle:', at_cycle(an, -1, 2))
+    # SAVE effect: .ae -> .an on the same cycle index
+    moved = 0
+    cmp = 0
+    for t in an:
+        for a, b in zip(ae.get(t, []), an[t][1:]):   # .ae of cycle k vs .an after it
+            cmp += 1
+            if a[2][:3] != b[2][:3]:
+                moved += 1
+    out('SAVE changed self counts in %d of %d (tile,cycle) comparisons\n' % (moved, cmp))
+    tot = []
+    for k in range(ncyc):
+        s_ = 0
+        for t, lst in an.items():
+            if k < len(lst):
+                s_ += lst[k][2][1] + lst[k][2][2]
+        tot.append(s_)
+    out('total self atoms, all tiles, per cycle: %s\n' % tot)
+    if types:
+        last = {t: v[-1][1] for t, v in types.items()}
+        agg = Counter()
+        for d in last.values():
+            for k2, n in d.items():
+                agg[k2] += n
+        out('type counts (last cycle, all tiles incl. caches): %s\n' % dict(agg))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('rundir')
@@ -699,6 +822,8 @@ def main():
                     for w in ws[:3]:
                         line_ += '  @{%d:%d %s}' % (w.fid, w.line, w.msg)
             out(line_ + '\n')
+
+    report_census(a.rundir, out)
 
     if a.lanes:
         out('\n-- lane balance: sends (A:x->B:y), matched, and reverse\n')

@@ -4,9 +4,62 @@
 #include "HubLiveB.h"     //< for fB
 #include "NgbCacheMgr.h"  //< for sites-and-caches constants
 #include "CacheLoader.h"  //< for theL1CacheLoaders
+#include "Printf.h"      //< for snprintf
 
 namespace MFM {
   namespace PhaseSteppers {
+
+    /* ATOM CENSUS (diagnostic).  Counts non-empty atoms in this tile's
+       T6Grid by region, in full-grid coordinates:
+         interior = self sites that follower events can touch (>= OVERLAP deep)
+         band     = self sites in the outer OVERLAP ring (cache-exchanged)
+         cache    = the OVERLAP-wide caches outside self
+       Logged as two dotted marks (always on; dotted non-.p tags ignore
+       HBF_NO_UTAG):  .ac:TOTAL:INTERIOR:BAND:CACHE   (hex)
+                      .at:TYPE=COUNT,...  for types 2,4,5 and 'other'  (hex) */
+    struct GridCensus {
+      u32 total, interior, band, cache;
+      u32 type2, type4, type5, other;
+    };
+
+    static void takeCensus(GridCensus & gc) {
+      memset_s(&gc,'\0',sizeof(gc));
+      T6Grid & g = fB.mGridManager.getT6GridOrDie();
+      const u32 inLo = T6Grid::SELF_ORIGIN.x + NgbCacheMgr::OW;
+      const u32 inHi = T6Grid::SELF_MAX.x - NgbCacheMgr::OW;
+      const u32 jnLo = T6Grid::SELF_ORIGIN.y + NgbCacheMgr::OH;
+      const u32 jnHi = T6Grid::SELF_MAX.y - NgbCacheMgr::OH;
+      for (u32 x = 0; x < T6Grid::FULL_WIDTH; ++x) {
+        for (u32 y = 0; y < T6Grid::FULL_HEIGHT; ++y) {
+          const P4Atom a = g.getAtom(U16C(x,y));
+          if (a.isEmpty()) continue;
+          ++gc.total;
+          const bool self =
+            x >= T6Grid::SELF_ORIGIN.x && x < T6Grid::SELF_MAX.x &&
+            y >= T6Grid::SELF_ORIGIN.y && y < T6Grid::SELF_MAX.y;
+          if (!self) ++gc.cache;
+          else if (x >= inLo && x < inHi && y >= jnLo && y < jnHi) ++gc.interior;
+          else ++gc.band;
+          switch (a.getType()) {
+          case 2: ++gc.type2; break;
+          case 4: ++gc.type4; break;
+          case 5: ++gc.type5; break;
+          default: ++gc.other; break;
+          }
+        }
+      }
+    }
+
+    static const char * fmtCensusCounts(Buf32 & b, const GridCensus & gc) {
+      snprintf(b.buf,b.SIZE,"%x:%x:%x:%x",gc.total,gc.interior,gc.band,gc.cache);
+      return b.buf;
+    }
+
+    static const char * fmtCensusTypes(Buf32 & b, const GridCensus & gc) {
+      snprintf(b.buf,b.SIZE,"2=%x,4=%x,5=%x,o=%x",gc.type2,gc.type4,gc.type5,gc.other);
+      return b.buf;
+    }
+
     /* true when ready to ack "N<" (i.e., entering NEW LEADER) */
     bool workOnEnteringNewLeaderB() {
       CmdArg cda = thePLL.getIncomingCDA();
@@ -44,6 +97,12 @@ namespace MFM {
       HBASSERT_LT((u32)arg, 4);
       theL1CacheLoaders.configureCacheLoaders((u8) arg);
       theL1CacheLoaders.restartIterators();
+      {                         // census after SAVE completed (true state)
+        GridCensus gc; Buf32 b1, b2;
+        takeCensus(gc);
+        LOGPTAG(.an,fmtCensusCounts(b1,gc));
+        LOGPTAG(.at,fmtCensusTypes(b2,gc));
+      }
       HBPTAG(BOLTR_done_wOxNLB,cda.formatCmdArg());
       return true;              // all there is to it..
     }
@@ -69,6 +128,11 @@ namespace MFM {
 
       if (true /* DONE DRAINING EWPS? */ ) {
         LOGPTAG(DRAIN_EWPS,arg);
+        {                       // census at end of events, before SAVE
+          GridCensus gc; Buf32 b1;
+          takeCensus(gc);
+          LOGPTAG(.ae,fmtCensusCounts(b1,gc));
+        }
         theL1CacheLoaders.restartIterators();
         HBPTAG(BOLTR_done_wOxREB,(u32) arg);
         return true;              // done when EWPs done

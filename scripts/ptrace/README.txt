@@ -88,3 +88,16 @@ CLOCK SKEW (run 20261114-230036, 27 full cycles, 66k .p marks)
   of pairs look lost).  At eps>=30: 32771/33022 sends matched, nonce agreement
   100% (ps->pr 20812/20812, relays 6007/6007); the residue is the last ~5k
   ticks of the run.
+
+ATOM CENSUS (hub image; analyzer section "atom census")
+  Dotted, non-.p tags: always logged, even with HBF_NO_UTAG.
+    .ae:TOT:INT:BAND:CACHE  hex; non-empty atoms at end of RUN_EVENTS
+                            (before SAVE; leader caches hold the leader's work)
+    .an:TOT:INT:BAND:CACHE  hex; same after SAVE, at exiting NEW_LEADER
+    .at:2=n,4=n,5=n,o=n     hex; types DReg(2), FB1(4), FB4(5), other; follows .an
+    .as:T                   autoseed fired (T = atom type placed)
+  Regions, full-grid coords: INT = self sites >= OVERLAP deep (touchable by
+  follower events); BAND = outer OVERLAP ring of self (cache-exchanged; only
+  a leader's events touch it); CACHE = copies outside self.
+  .an of the first NEW_LEADER bolt is the pre-seed state; .ae of cycle k pairs
+  with .an of cycle k+1 for the "SAVE changed" comparison.
