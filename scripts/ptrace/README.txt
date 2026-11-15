@@ -107,3 +107,12 @@ ATOM CENSUS (hub image; analyzer section "atom census")
                             (type+parity, mData0, mStg[0], rotated mStg[1]) of every
                             non-empty atom, so any atom change moves them; a tile
                             whose atoms stopped changing shows constant CXOR+CSUM.
+
+HOST ACB STREAM SECTION (report_acb)
+  Parses ZHostDecompressor's sampled 'ht' lines  "#N (exp=spin1=spin2[ XXX]) HAR@(x,y)".
+  A report whose spinner differs from the host's running count is dropped
+  (not drawn).  A CONSTANT (exp-spin1) offset per tile = permanent desync: the
+  ACB packets keep flowing but that tile never updates on the host display.
+  Run 20261115-025117: 6/35 tiles; run 20261114-230036: 11/35 (matched the
+  visually blank tiles the user reported).  Offsets are repeated-byte patterns
+  (0x1212, 0x1818...), suggesting stale/uninitialized ACB cars decoded at startup.

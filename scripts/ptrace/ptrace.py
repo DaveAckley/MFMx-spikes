@@ -465,6 +465,46 @@ def report_census(root, out):
         out('type counts (last cycle, all tiles incl. caches): %s\n' % dict(agg))
 
 
+def report_acb(root, out):
+    """Host-side ACB (atom report) stream health, from ZHostDecompressor's
+    sampled 'ht' lines:  #N (expected=spin1=spin2[ XXX]) HAR@(x,y) ...
+    Reports whose spinner != the host's running count are DROPPED (not drawn),
+    so a constant (expected-spin1) offset means that tile's host display is
+    permanently dead even though ACB packets keep flowing."""
+    rx = re.compile(r'\((\d+)=(\d+)=(\d+)( XXX)?\) HAR@')
+    rows = []
+    for p in sorted(glob.glob(os.path.join(root, 'tiles', '*.mfmk'))):
+        t = tile_from_filename(p)
+        n = bad = 0
+        offs = Counter()
+        for line in open(p, errors='replace'):
+            if ' ht ' not in line:
+                continue
+            m = rx.search(line)
+            if not m:
+                continue
+            e, s1, s2 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            n += 1
+            if m.group(4):
+                bad += 1
+                offs[(e - s1) & 0xffff] += 1
+        rows.append((t, n, bad, offs))
+    if not any(r[1] for r in rows):
+        return
+    out('\n-- host ACB stream (ZHostDecompressor samples)\n')
+    dead = [r for r in rows if r[2]]
+    out('tiles sampled: %d, with spinner-mismatch (dropped) reports: %d\n'
+        % (len(rows), len(dead)))
+    for t, n, bad, offs in dead:
+        o = offs.most_common(1)[0]
+        out('  tile %-8s samples=%d bad=%d  dominant offset (expected-spin1)=%d (0x%04x) x%d%s\n'
+            % (t, n, bad, o[0], o[0], o[1],
+               '  CONSTANT => permanent desync' if len(offs) == 1 else ''))
+    if dead:
+        out('  (a constant offset means the host counted reports the T6 never sent,\n'
+            '   e.g. stale/uninitialized ACB cars decoded before the T6 started)\n')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('rundir')
@@ -851,6 +891,7 @@ def main():
             out(line_ + '\n')
 
     report_census(a.rundir, out)
+    report_acb(a.rundir, out)
 
     if a.lanes:
         out('\n-- lane balance: sends (A:x->B:y), matched, and reverse\n')
