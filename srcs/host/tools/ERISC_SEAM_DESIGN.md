@@ -223,3 +223,37 @@ Verification: the unmodified tree and the patched tree both build (hub, ewp) wit
 directory to exist).  Code growth: hub.bin text +2032 B (146604 -> 148636), ewp +1600 B (83952 -> 85552); factoring the common NoC sequence of the two
 write functions into one helper would roughly halve that if code size matters.  NOT run on hardware: the NoC sequence is the one t6pp2 proved
 (ERISC_NOTES 9.11); the dispatch and the new function are unexercised until a hub image sends to an ETH tile.
+
+## 13. Decisions of 2026-11-16 (user + session) and shared/include/EthSeam.h
+
+Answers to the section 10 questions:
+1. Which ETH tile / channel: BALANCED DEALING for both seams.  A literal "nearest ETH tile" works for the y seam but not the x seam (all ETH tiles are
+   in NoC row y=1, so for the east/west edge hubs the distance is dominated by x and nearly equal; nearest would pile the 13 channels onto one tile),
+   and tile position does not matter for latency anyway (ERISC_NOTES 9.11: every tile pair gave 2.59-2.61 us).  The rule (EthSeam.h): number the
+   directed storages crossing one seam in one direction canonically (edge hub e = 0..E-1 from the north / west end; per hub CARDINAL, then the diagonal
+   toward e-1, then toward e+1), and deal ordinal i to live link i mod L as channel i div L.  Link counts differ by at most one.
+2. Seam table: there is no table to deliver.  The mapping (hub, direction, kind) -> (ETH tile, channel) is a pure function of the edge-hub count E and
+   the live link list (<= 4 ETH x coordinates per seam, the only runtime data; it fits the HostBlock), computed identically by the host and the T6
+   images from EthSeam.h.  Per-E1 data (which local T6 storage each channel's IN leg writes, peer ring addresses) differs per E1 and is written by the
+   host into each E1's channel blocks at deploy, as the ethfwd tools do today; the E1 image stays one binary.  E1s are unicast anyway (ETH tiles cannot
+   receive NoC multicast).  The T6 side's configureDest ETH branch (currently FAIL(INCOMPLETE_CODE), section 12) will compute
+   mDestNoC0 = (ethX(link), 1) and mDestBlockAddr = outRingAddr(channel).
+3. HAS_ETH_SEAM_UP: only at stage 3c, as proposed.
+4. Channels per tile: a channel carries exactly one directed storage, so a seam needs 3E-2 channels (two cards; 3E for the full ring), E = edge hubs; the three
+   kinds per hub and neighbor (ihub->ihub cardinal, ihub->chub first hop, chub->ihub second hop) are why it is not just E.  Dealt over L live links each E1
+   serves ceil(N/L).  The image supports NCH_MAX = 8; the minimum needed is 4 (x) / 5-6 (y) per tile with four live links.  (The earlier "start with 2"
+   applies only to a first stage with cardinal crossings only.)
+
+Geometry (cell size) dependence.  The seam layer depends on the cell geometry ONLY through E: E/W seams have one edge hub per cell row (10 / cell height),
+N/S seams one per cell column (14 / cell width), with one hub per cell.  EthSeam.h takes E as a parameter.  Table (ethseam_test.cpp, which also checks
+bijection, assign/invert round trip and balance), channels per link with 4 live links, two cards (full ring in brackets):
+  2x2: E/W E=5  4 (4);  N/S E=7  5 (6)       2x1: E/W E=10 7 (8);  N/S E=7 5 (6)
+  1x2: E/W E=5  4 (4);  N/S E=14 10 (11)      1x1: E/W E=10 7 (8);  N/S E=14 10 (11)
+All fit NCH_MAX = 8 except N/S for 1x2 and 1x1 (10-11 per tile), which need the image rebuilt with NCH_MAX 11 (EthSeam.h accepts ETHSEAM_NCH_MAX up to 11 and
+grows the CTL window; 12 trips a static_assert because the rings would run into the syseng region).  With only 3 live links the y seam of 2x2 needs 7 (ring 7),
+with 2 live links 10-11 > 8.
+IMPORTANT, NOT part of the seam layer: the existing hub code is hard-wired to 2x2 regions.  cross/images/hub/src/InterHub.cpp:32-34 sets
+uct6_per_ureg(2,2) / ureg_per_uscl(2,2) and does HBASSERT_EQ(ourstride, S8C(uct6_per_ureg)) ("confirm naming"), and cross/images/hub/src/CacheLoader.cpp:28-29 has the
+same constants.  A 1x2 or 2x1 (or 1x1) cell layout would trip that assertion in the existing images regardless of the seam, so generalizing those constants (they are
+derivable from CellBlock mCellStride / mCellSize, which the image already carries) is a prerequisite for any non-2x2 geometry.  Not audited: every other place (python
+visualisation, host config) that may assume 2x2 or 7x5 hubs.
