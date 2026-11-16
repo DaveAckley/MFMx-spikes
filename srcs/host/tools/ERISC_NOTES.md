@@ -488,3 +488,24 @@ really do become visible piecewise on the T6 and the header == ankle == footer r
 torn car through.  This is the strongest evidence yet for the two-stream argument (ERISC_NOTES sec 3), still evidence rather than proof.
 What this does NOT yet cover: MFMx's own protocol layers (EPs, PLL, phase handling, SuperCycle), many hubs at once, the sending T6 being MFMx code (shipTCTo ETH branch),
 E1 management from the MFMx host, link retrain/failure handling, the y seam and diagonals.
+
+### 9.12 e1fwd16 / ethfwd19 / expts14.sh: BH-55 workaround, E1 over NoC1, NIU dump, link health -- written 2026-11-16, NOT run on hardware
+
+Prompted by the user's pointer to boopdotpng/tenstorrent-docs hardware/erisc-cores-and-ethernet-launch.md and tt-metal issue #28366 (read via a summarising
+fetch tool, so details are the summarised content).  What the doc confirms: E1 = subordinate ERISC (DM1) with reset PC 0xFFB14008 (DM0: 0xFFB14000); 8 KB
+local RAM at 0xFFB00000; tt-metal's boot copies the data image from L1 scratch into local memory (supports the crt0 idea in 9.10); syseng reserves
+0x70000-0x7FFFF (boot results 0x7CC00, heartbeat 0x7CC70, mailbox 0x7D000, base-FW dynamic NoC counters 0x7D040); TXQ sequence as ours (STATUS bit 16 =
+command ongoing; 16 B minimum); ETH cores cannot receive NoC multicast (unicast only); ETH translated coords are (20+channel, 25) while we use raw NoC0
+(x,1), which works.  New: BH-55 -- "polling ETH_TXQ_CMD for busy is unreliable on BH; do a dummy read of ETH_TXQ_CMD, then check STATUS bit 16".  We poll STATUS
+bit 16 but never did the dummy read.  Issue #28366: tt-metal moved its ERISC fabric to NoC1 on Blackhole because base firmware on E0 "may use NoC 0 at any
+time"; its hang was a software NoC counter out of step with the NIU hardware counter (fabric skips the nonposted-write counter); closed Sep 2025.  Our E1
+keeps no such counters (posted writes, only the command buffer's busy bit is polled), but it DOES share NIU0 and command buffer 3 with whatever base FW does.
+e1fwd16.c = e1fwd15 + F_TXQFIX (16: dummy TXQ2 CMD read before every STATUS poll), F_NOC1 (32: NoC writes over NIU1 0xFFB30000, node ids still raw NoC0
+coordinates -- UNPROVEN) and CTL+0x58 = NIU command buffer (0 default 3, 0xFF = buffer 0, 1..3); image id 0xE1F00016; hosttest16.c covers the flag paths logically
+(not the register bases) and passes.  ethfwd19.cpp adds --txqfix, --e1-noc 0|1, --e1-nri-buf N, --dump-niu (READ-ONLY NIU0/NIU1 command-buffer registers
+of the ETH tile on both cards: run before any E1 use; non-zero buffers show what base FW has driven) and, on every run, read-only link-health snapshots before
+and after (port status, heartbeat 0x7CC70, retrain count 0x7CE00, FEC corrected/uncorrected 0x7CE90/0x7CE98, dyn NoC words 0x7D040..) with deltas; it never
+writes them.  expts14.sh: NIU dump; BH-55 A/B on the same image (idle, reflect speed, route, reflect --regen, T6 ping-pong); an E1-over-NoC1 probe (larger NoC1
+steps only if it works; tile 1:2 is mirror-safe: its NoC1 mirror (15,9) is another Tensix tile); two 60 s soaks with link-health deltas.
+Interpretation guide: a slower --txqfix run measures the BH-55 cost; any BAD/timeout only under --txqfix would mean the workaround itself matters; a NoC1 probe
+that times out means NIU1 does not deliver raw-NoC0-coordinate writes from an ETH tile as configured (T6->ETH over NoC1 is a separate, still-untested question).
