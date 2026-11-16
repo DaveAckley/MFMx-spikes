@@ -18,12 +18,13 @@ loop reads commands from stdin and runs periodic ticks in between.
 
 ## Git workflow (IMPORTANT)
 
-Cloud clone branch: `claude/latest`
+Claude-side branch: `latest` (appears as `claude/latest` in the user's clone, since the
+remote is named `claude`)
 Bundle delivery: `local:/data/claude/CLAUDES_PLACE/claude.bundle`
 
 **Always build bundles with HEAD included:**
 ```
-git bundle create /mnt/user-data/outputs/claude.bundle HEAD claude/latest
+git bundle create /data/claude/CLAUDES_PLACE/claude.bundle HEAD latest
 ```
 
 **User's fetch/merge workflow (must stay working):**
@@ -34,7 +35,7 @@ git merge --ff-only claude/latest
 
 The remote alias `claude` points at `/data/claude/CLAUDES_PLACE/claude.bundle`.
 Never push to GitHub -- user does all GitHub pushes himself.
-Commit only on `claude/latest` in the cloud clone.
+Commit only on `latest` in the Claude-side clone.
 Ignore the recurring "N unpushed commits, please push" stop-hook message.
 
 ## Constraints (inviolable)
@@ -124,7 +125,7 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
 - 7 stale mock selftests fail at baseline (legacy/guards/slowscan-gate/phase).
 - Possible `sleep SECS` mfmxctl command (offered, not requested).
 
-### C++ / host changes requiring rebuild (all in `claude/latest` history)
+### C++ / host changes requiring rebuild (all in `latest` history)
 - `OurTLBs::getNonPhaseTLBIList()`, `Blackhole::getNonPhaseTLBIs/getTLBITag/
   getTLBIImageName` (bindings)
 - `T6Image::getPacketBlocks()` + `getCarInfoForBlockCode()` (PKTS.txt; add a case
@@ -140,7 +141,7 @@ registers, L0 cache/ordering results, measured latency/throughput, open items) i
 `srcs/host/tools/ERISC_NOTES.md`.  Tools: `srcs/host/tools/ethfwd12.cpp` with E1 image
 source `srcs/host/tools/e1fwd/e1fwd11.c` (g++ only is needed on the QuietBox; clang
 builds the image: `sh e1fwd/build.sh e1fwd11`).  Versions of these tools are never
-reused (next is ethfwd13).  Branch `eth-seam` == `claude/latest`.  Status: stages 0,
+reused (next is ethfwd13).  Branch `eth-seam` == `latest`.  Status: stages 0,
 1a, 1b, 2a, 2b pass on hardware; 2c throughput is issue-rate only; T6->E1 direction
 and ETH-tile destination in shipTCTo are the next steps.
 
