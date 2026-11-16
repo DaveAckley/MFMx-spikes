@@ -232,3 +232,31 @@ the name tried) unread.
 Consequences for e1fwd13 (planned changes, not yet made): hoist per-channel config into local RAM/stack once at start;
 keep counters local and publish to L1 with plain stores (no read-modify-write); poll the stop word in L1 only.  Verify by
 the existing CTL+0x30 sweep counter (idle sweeps/second) and by mcycle deltas.
+
+### 8.1 ethdump sample (EthernetTile/Samples/ethdump/{README.md,ethdump.c}; Apache-2.0, Tenstorrent 2025)
+
+Read 2026-11-16 via a summarizer (not verbatim).  A host program that runs a ~400-byte RV32 program on E1 which drains an
+ETH RX queue (queue 2, RAW mode) into a ring in L1 and NoC-writes it to a pinned host ring through the PCIe tile.
+Independent confirmation of several things we found by experiment:
+- E1 start recipe agrees with ours: code via L1, E1 PC/END at 0xFFB14008/0xFFB1400C, soft reset 0xFFB121B0 with E0 = 0x800
+  (bit 11) and E1 = 0x1000 (bit 12); sp = 0xFFB02000; tt-kmd SET_NOC_CLEANUP (0xFA0E) so E1 is re-reset if the owner dies
+  (older tt-kmd returns EINVAL: ignorable).  Boot results 0x7CC00, boot params 0x7C000.
+- TXQ quieting used there: ETH_TXQ_CTRL = 8 (DIS_DROP: no drop-notice resends) and ETH_TXQ_REMOTE_SEQ_TIMEOUT (+0x48) = ~0
+  on queues 0-2.  (Not what we do on TXQ2 in TT-link mode; recorded for reference.)
+- RX queue 2 raw mode: CTRL(+0)=0, BUF_START_WORD(+0x0C), BUF_SIZE_WORDS(+0x10) = bytes>>4, HDR_CTRL(+0x18)=0 keeps all
+  headers, BUF_PTR(+8)=0.  Valid RX data is bounded by BUF_PTR - OUTSTANDING_WR_CNT(+0x50)*96 (the firmware uses *128 as a
+  faster safe overapproximation; the quantity is non-monotonic, track a high-water mark).  Classifier: override-decision
+  0xFFB9D000 (1 = drop all, 0 = accept), MAC_RX_ROUTING 0xFFB98150 = 2 (from actions), NO_MATCH_ACTIONS 0xFFB9CD04 =
+  0x40 (prepend HW metadata) + rxq index, TCAM flush 0xFFB9CD60.
+- NoC from E1: NIU(i) = 0xFFB20000 + i*0x10000, ethdump uses NIU 1 (we use NIU 0).  NOC_CMD_WR = 2; ordering of successive NoC
+  writes is kept with the NOC_CMD_VC_STATIC flag (1<<7 in the command word, offset 0x1C), which the sample says preserves
+  order through to the PCIe tile.  e1fwd13's noc_write sends command word 2 WITHOUT VC_STATIC (as e1fwd11 / NRI3 do); worth
+  testing VC_STATIC on the NoC leg if the ordering question (two streams) shows up there.  The sample also treats 12288 B
+  as a safe per-NoC-transaction limit (real limit "just under 16 KiB"); our 4160 B car is well inside it.
+- Ordering inside the firmware: dummy `lw x0, ...` loads and `fence` instructions force stores out before later loads
+  (e.g. after the NoC command store, before reading PACKET_DROP_CNT).  It tolerates occasional stale metadata (benign for
+  its use, NOT for car completeness).
+- NIU registers ROUTER_CFG_2 / ROUTER_CFG_4 (0x10C / 0x114) are used as host<->E1 mailboxes (host-writable registers that
+  need no L1 traffic).  E1 loads of NIU registers cost >= 7 cycles like L1 misses, so this is a convenience, not a speedup.
+- No cache or reset warnings in the sample; address map facts match section 7 (tile coords: ETH tiles at NoC y=1, x 1-7 and
+  10-16; X=8,9 are not ETH).
