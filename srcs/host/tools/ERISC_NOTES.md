@@ -339,7 +339,7 @@ on this loop (37.1 vs ~40 fenced, 32.1 vs ~35 L0-off; loops are compiled differe
 
 e1fwd/e1fwd14.c = e1fwd13 with per-channel config + node id copied to the stack at run start, stats kept on the stack and
 published to L1 with plain stores (zeroed at run start), stop word polled every 16 sweeps.  Same CTL/channel layout and wire
-behaviour.  gcc build: 3320 B (e1fwd13: 2792 B); router frame ~1168 B of the 8 KiB local RAM.  hosttest14.c = hosttest13.c
+behaviour.  gcc build: 3320 B (e1fwd13: 2880 B as a .bin); router frame ~1168 B of the 8 KiB local RAM.  hosttest14.c = hosttest13.c
 retargeted; passes for the 6 car sizes.  Host contract change: config words must be final before go is raised.  Host tool for
 its host tool is ethfwd14 (written, section 9.3).  Hardware plan: with ethfwd14, run e1fwd13 and e1fwd14 on the same link test and compare
 S_FWD rate / sweeps per second (CTL+0x30 with mcycle if needed).
@@ -355,3 +355,10 @@ all channels, per-channel min/max hops).  No NoC (L_IN_NOC) leg yet.  Procedure 
   ./ethfwd14 --link 0:1:6 --image e1fwd/e1fwd13.bin                       (dry run)
   ./ethfwd14 --link 0:1:6 --image e1fwd/e1fwd13.bin --go --idle --nch 1   (first real run: just the sweep rate)
   then --route, then --reflect, then the same with e1fwd14.bin, then --csr, --nch 8.  Compare sweeps/s and reflect hops/s.
+
+### 9.4 First ethfwd14 hardware run (e1fwd13.bin, --go --idle --nch 1, link 0:1:6, 800 MHz): PASS
+
+Queue-2 setup, 64 B smoke test both ways, deploy of the 2880 B gcc e1fwd13 on both cards (image id 0xE1F00013 read back), E1 reset
+on exit.  Idle router, 1 channel, fence mode: 5.438 M sweeps/s on both cards = 184 ns/sweep (~147 cycles).  That is roughly ten
+fenced L1 loads per sweep (stop word, OUT/IN legs, config words, one car header each way) at ~18 ns each -- the cost e1fwd14 removes
+(prediction: e1fwd14 sweeps need only ~2 L1 loads plus stores).  Not yet run: e1fwd14 idle, --route, --reflect, --csr, --nch 8.
