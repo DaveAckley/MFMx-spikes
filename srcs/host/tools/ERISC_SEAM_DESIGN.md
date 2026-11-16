@@ -164,9 +164,9 @@ The sender cannot discover the remote T6's L1 layout.  So the HOST fills it in:
    TT engineers via the Discord bot).  For a single-packet write, header == ankle ==
    footer proves both streams complete (derivation in ERISC_NOTES section 3), so the
    NoC leg into E1 L1 is covered by the same argument if the car goes as ONE NoC packet
-   (4160 B is well under the 12 KiB the ethdump sample treats as safe).  Still
+   (4160 B is far under the 16 KiB single-packet NoC limit that MFMx embraces everywhere).  Still
    UNVERIFIED: cross-packet landing order on the ETH hop (a 4160 B car is 3 TT-link
-   chunks) and on any multi-packet NoC split.  Keep the sequence-stamped 4160 B stress
+   chunks).  Keep the sequence-stamped 4160 B stress
    test and try NOC_CMD_VC_STATIC on the NoC leg.
 3. Posted writes: same as T6->T6 today; ack-counted writes would harden the hop.
 4. Corner diagonals that cross two seams are two independent seam crossings at

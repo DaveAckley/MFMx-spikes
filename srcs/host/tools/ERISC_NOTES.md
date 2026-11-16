@@ -60,6 +60,17 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   0x80020008 with our tag bit; 0% missed without fence).  Same trick MFMx
   cross/src/_BUD.S line ~108 uses on the T6 harts.  Poll cost: ~20 ns stale-
   cached (meaningless), ~35 ns L0-off, ~40 ns fenced.
+- POLICY (user, 2026-11-16): the MFMx codebase turns the L0 data cache OFF (CSR 0x7c0 bit 3) on its
+  T6 harts (cross/src/_BUD.S) and the E1 experiment above showed E1 honors the same bit.  So the
+  L0 data cache is NOT assumed to be an issue for MFMx or E1 images: run with the CSR route
+  (e1fwd F_CSR; no per-poll fence needed) and treat the stale-L0 numbers above as history.
+  The fence route (F_FENCE) remains only as a fallback / for the older stage-0 tests.
+  (Instruction cache is separate and unaffected by this bit.)
+- NoC packet size (user, 2026-11-16): the NoC has a 16 KiB single-packet limit; anything larger
+  must be split by the sender or by the NoC's autosplit logic.  MFMx embraces the 16 KiB single-
+  packet limit in ALL contexts (a 4160 B car is one NoC packet).  So the multi-packet caveat below
+  applies to the Ethernet hop (1456 B TT-link chunks), not to NoC writes of cars.  (The ethdump
+  sample's 12288 B figure is its own conservative choice.)
 - NoC->L1 and ETH-RX->L1 writes are atomic per 16 B lane (per user/Tenstorrent).
 - IMPORTANT (per user/Tenstorrent): the L1 write of a single packet is carried out
   by TWO INDEPENDENT STREAMS, and the in-order guarantee applies only WITHIN a
@@ -98,10 +109,10 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   consecutive cars in a slot (nonce+1 per departure; 8-bit nonce, 4-slot ring).
 - NOT covered by that argument: a car that arrives as SEVERAL packets.  A 4160 B car
   is 3 TT-link chunks on the ETH hop (1456 B payload each: note 1456 mod 32 = 16, so
-  chunk boundaries fall mid 32 B block, harmless for the address-based stream rule),
-  and the NoC may also split large writes.  The header is in chunk 1 and the ankle +
+  chunk boundaries fall mid 32 B block, harmless for the address-based stream rule; a NoC
+  write of a car is a single packet, 4160 B << 16 KiB).  The header is in chunk 1 and the ankle +
   footer are in chunk 3, so a match says nothing about chunk 2.  Cross-packet landing
-  order at the receiver is not documented for the ETH RX queue; for the NoC, packets
+  order at the receiver is not documented for the ETH RX queue; if NoC packets ever did have to be ordered, packets
   on the same route with the same VC at every shared hop do not reorder (NOC_CMD_VC_STATIC
   pins the first-hop VC), but the page states commit ordering between packets only for
   overlapping bytes (and write-before-read).  Hardware evidence so far: --regen payload
