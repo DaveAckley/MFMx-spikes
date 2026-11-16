@@ -312,3 +312,17 @@ write-then-read (all writes of packet 1 commit before reads of packet 2), overla
 (per byte), MMIO writes in order, L1 write then MMIO write has NO guarantee.  Responses/acks cannot be ordered (use counters).
 Stronger ordering = issue, wait for response, then issue the next.  The page says nothing on max packet size, barriers or
 write-data-then-flag patterns.
+
+## 9. First gcc-built E1 test on hardware (procedure; NOT yet run)
+
+Tool: ethfwd13 (ethfwd12 + --image FILE.bin + --boot-only).  Build the tool: g++ -std=c++17 -O2 -Wall -Wextra -Werror
+ethfwd13.cpp -o ethfwd13.  Build the image: sh e1fwd/build.sh e1fwd11 (sfpi gcc; leaves e1fwd/e1fwd11.bin, do not commit it).
+Run on the QuietBox, in this order, stopping at the first surprise:
+  1. ./ethfwd13 --link 0:1:6 --boot-only --image e1fwd/e1fwd11.bin           (dry run: reads only, prints what it would write)
+  2. ./ethfwd13 --link 0:1:6 --boot-only --image e1fwd/e1fwd11.bin --go      (deploy on card 1 only, stage 0, reset E1)
+Boot-only writes: E1 image at L1 0x4000.., CTL block 0x8000..0x83FF, a few ring/CTL words (scratch), E1 PC/END regs, soft-reset
+bit 12 (E1 only).  No queue-2/TXHDR/RXQ writes, no link traffic.  Pass criteria: image readback has no mismatch; ready word
+0xE1E1E1E1 appears; stage 0 reports (as under clang) no-fence misses >> fence 0% ~ CSR-l0off 0%; CSR readback 0x80000008;
+"E1 back in reset" with soft-reset 0x00047000 and E1 PC/END at their original values.  Compare ns/poll with the clang numbers in
+section 3 (~40 ns fenced, ~35 ns L0-off at the user's 800 MHz).  Only after this passes: rerun --stage1a/1b/2 with the gcc image
+(without --boot-only), then e1fwd13 once an ethfwd14 exists.  --mock results are FAKE (they exercise the tool, not the image).

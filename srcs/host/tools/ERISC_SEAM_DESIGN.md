@@ -121,7 +121,7 @@ Per channel c (config in the channel block, filled by the host):
   can move above tt-metal's reserved region later without a code change.
 - Source reuse is safe by protocol: a ring slot is not rewritten until the far end
   has returned the car, long after the posted NoC write has been issued/read.
-Versions are never reused: this is e1fwd13.c (matching the next tool, ethfwd13).
+Versions are never reused: this is e1fwd13.c (its host tool will be ethfwd14: ethfwd13 became ethfwd12 + --image/--boot-only).
 
 STATUS of e1fwd13 (written 2026-11-16, not yet run on hardware): e1fwd/e1fwd13.c and
 the native harness e1fwd/hosttest13.c exist.  The harness (gcc -O2 -Wall -pthread
@@ -131,7 +131,7 @@ full-duplex channels, a one-way channel, a count-only channel (T6 untouched),
 duplicate suppression, and the once-per-occupancy partial counter.  Mutation checks
 (duplicate suppression removed; NoC destination offset) make it fail as they should.
 The RISC-V image builds cleanly with the sfpi gcc toolchain (`sh e1fwd/build.sh e1fwd13`,
-2792 bytes, no .data/.bss) but has not been run.  NOT done: a host tool, ethfwd13,
+2792 bytes, no .data/.bss) but has not been run.  NOT done: a host tool, ethfwd14,
 that speaks the new channel-block layout: CHC+c*0x80 with config words 0..5 and stats
 at words 8..23, CTL window 0x600 bytes); no hardware run; no fairness test (the
 per-visit bound makes starvation impossible by construction, not by test).
@@ -177,7 +177,7 @@ The sender cannot discover the remote T6's L1 layout.  So the HOST fills it in:
 
 - Stage 3a: one-way T6 -> E1 -> link -> E1 -> T6 using the router image with legs
   split by card (A: OUT leg, B: IN leg).  New: a small sfpi T6 test image on card A
-  using the new shipTCTo branch, and ethfwd13.
+  using the new shipTCTo branch, and ethfwd14.
 - Stage 3b: both legs both ways; two T6 test images ping-pong cars across the seam.
 - Stage 3c: cardinal InterHub EPs across the x seam (bhchips [0,1]); seam table;
   HAS_ETH_SEAM_UP; ptrace learns the E1 hop.
