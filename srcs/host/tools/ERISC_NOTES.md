@@ -468,3 +468,23 @@ and ethfwd18 reproduce for NC; the eventual flow into _BUD.S inherits it.
 before the queue/CTL space is zeroed.  Feasible; notes: the LMA should sit right after .text inside the 0x4000..0x7FFF image window (objcopy -O binary
 fills gaps, so an LMA far away in queue space would bloat the .bin) unless that window gets tight; build.sh's .data/.bss refusal would become a
 local-RAM budget check (data + bss + worst-case stack <= 8 KiB); today's e1fwd14/15 keep all hot state on the stack already.
+
+### 9.11 out13 (expts13.sh, 2026-11-16): stage 3a WORKS on hardware -- all 17 steps PASS, first try
+
+Bare-metal t6pp2 on a Tensix tile of EACH card (card 0 and 1, link 0:1:6) ping-pongs MFMx-format cars T6 -> E1 -> link -> E1 -> T6 -> E1 -> link -> E1 -> T6 with
+no host in the data path.  All six probes worked: hart NC and hart B, NIU command buffers 0, 1, 2 and 3 (NC/3 = what MFMx does), identical rates (~2.6 us per
+64 B K=1 round trip each).  So on this hardware nothing restricts BRISC from driving cmd buffer 3 (only one hart per tile was running, so sharing between
+harts is untested).  Full suite ran on NC/3.  Totals over the 51 measurement points: ~29 M round trips completed at A, 4,401,468 payload checks, 0 BAD,
+0 noc-fail, 0 txfail, all stop acks received.
+Latency (per car, one full round trip = two seam crossings; 1 channel): 16 B 2.59 us, 64 B 2.60, 576 B 2.92, 4160 B 6.00 us at K=1.  One-way T6->T6 across the
+seam is therefore ~1.3 us (64 B) to ~3.0 us (4160 B).  Of the 2.6 us: 2 x ~0.55 us E1-to-E1 hops (9.5), the rest is 4 NoC writes + T6/E1 polling.
+Throughput (round trips/s, total): 1 ch K=4: 16 B 1.36 M, 64 B 1.30 M, 576 B 0.90 M, 4160 B 0.278 M; 2 ch K=4: 64 B 1.78 M, 576 B 1.16 M, 4160 B 0.30 M;
+8 ch K=4: 64 B 2.12 M, 4160 B 0.547 M (~4.5 GB/s of car payload across the link, both directions combined).  K=2 doubles K=1 until the E1 saturates.
+Tile position does NOT matter at this precision: near (1,2)/(1,2), (7,2)/(7,2), far (16,11)/(16,11), cross (1,11)/(16,2) and mid (10,6)/(4,6) all gave 2.59-2.61 us
+(64 B, K=1) and 5.97-6.00 us (4160 B, K=1); NoC distance is in the noise next to the E1/polling costs.  Fence-mode E1 equals --csr.  Verifying EVERY car's payload
+in the T6 (--ppve 1) cuts 4160 B K=4 on 2 ch from 0.30 M to 0.045 M round trips/s: the check loop costs more than the transport, so production code should not.
+"Partial sightings" (a slot whose header has landed but header/ankle/footer do not all match yet) are COMMON: 6.3 M over the run, roughly 35-40% of 64 B cars.  So cars
+really do become visible piecewise on the T6 and the header == ankle == footer rule is doing real work; with 4.4 M verified payloads and 0 bad it has never let a
+torn car through.  This is the strongest evidence yet for the two-stream argument (ERISC_NOTES sec 3), still evidence rather than proof.
+What this does NOT yet cover: MFMx's own protocol layers (EPs, PLL, phase handling, SuperCycle), many hubs at once, the sending T6 being MFMx code (shipTCTo ETH branch),
+E1 management from the MFMx host, link retrain/failure handling, the y seam and diagonals.
