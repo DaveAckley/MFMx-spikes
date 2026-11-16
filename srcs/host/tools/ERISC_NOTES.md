@@ -453,3 +453,18 @@ far, cross-corner, mid) chosen to vary NoC route lengths.  Reported: round trips
 checks/BAD, noc-fail/txfail, partial sightings, stop acks.  Unknowns until the first run: BRISC start details (reset at 0 per _BUD.S; release
 of bit 11 alone per CodeManager::releaseTheHounds), whether a Tensix NoC write into the E1's L1 behaves like the host's PCIe-NoC write, NoC1
 vs NoC0 routing (t6pp always uses NoC0; MFMx's NRI3 picks per route length via preferNoC).
+
+### 9.10 Hart / NIU-buffer probing (t6pp2, ethfwd18, expts13.sh) -- written 2026-11-16, NOT run on hardware
+
+Prompted by the user's review of 9.9: (1) NRI3::initiateWriteToT6 asserts it runs on hart NC (NRIUtils.cpp: "nri3 reserved for hNC").  That is
+a MFMx software convention; whether hardware restricts which harts may drive which NIU command buffers is not established here, so t6pp2.c has
+entry points for BOTH harts (BRISC at address 0, NCRISC at address 16 like _BUD.S) and a control word (+0x48) selecting the NIU command buffer.
+ethfwd18 adds --t6-hart b|nc (nc: NCRISC_RESET_PC 0xFFB12238 = 16, override 0xFFB1223C = 1, release soft-reset bit 18 alone; both registers
+restored at exit, cores held first) and --nri-buf 0..3.  expts13.sh probes NC/3 (what MFMx does), B/3, NC/0, B/0, B/1, B/2 with one car, uses the
+first variant that works for the full suite and stops with a banner if none does.
+(2) OurTLBs.cpp:966+ (resetTheFleet) sets TRISC0-2 reset PCs 4/8/12, NCRISC 16, with overrides, leaving B at its fixed 0: exactly the table t6pp2
+and ethfwd18 reproduce for NC; the eventual flow into _BUD.S inherits it.
+(3) Idea, not implemented: give the E1 image a real crt0: .data with VMA in the 8 KiB local RAM (0xFFB00000..) and LMA in L1, copied at start
+before the queue/CTL space is zeroed.  Feasible; notes: the LMA should sit right after .text inside the 0x4000..0x7FFF image window (objcopy -O binary
+fills gaps, so an LMA far away in queue space would bloat the .bin) unless that window gets tight; build.sh's .data/.bss refusal would become a
+local-RAM budget check (data + bss + worst-case stack <= 8 KiB); today's e1fwd14/15 keep all hot state on the stack already.
