@@ -124,5 +124,20 @@ namespace MFM {
     static constexpr SeamLinks DEFAULT_NS_LINKS = { 4u, { 3u, 4u, 12u, 13u } };
     static constexpr u32 ETH_NOC0_Y = 1u;
 
+    //// PART 3: E1 control words, flags, modes (e1fwd13..16; the E1 images carry their own copies of these) ///////////////
+
+    // CTL block word offsets from CTL_BASE
+    static constexpr u32 CTL_GO = 0x00u, CTL_STOP = 0x04u, CTL_READY = 0x08u, CTL_DONE = 0x0Cu, CTL_MODE = 0x10u, CTL_FLAGS = 0x18u,
+      CTL_NCH = 0x1Cu, CTL_VERIFY_EVERY = 0x20u, CTL_RING_CARS = 0x24u, CTL_SWEEPS = 0x30u, CTL_NODE_ID = 0x44u, CTL_IMAGE_ID = 0x54u,
+      CTL_NIU_BUF = 0x58u;
+    static constexpr u32 E1_READY_WORD = 0xE1E1E1E1u;
+    // channel block word indices (u32 index within CHANNEL_BLOCK(c)): config 0..7, stats 8..23
+    enum ChannelWord : u8 { CW_OUT = 0, CW_IN = 1, CW_PEERIN = 2, CW_T6NODE = 3, CW_T6BASE = 4, CW_LEGS = 5,
+                            CW_S_FWD = 8, CW_S_INSEEN = 9, CW_S_REFL = 10, CW_S_TXFAIL = 11, CW_S_NOCW = 20, CW_S_NOCFAIL = 21, CW_S_PARTIAL = 22 };
+    enum E1Mode : u8 { E1_MODE_ROUTER = 5, E1_MODE_REFLECT = 6 };
+    enum E1Flag : u8 { E1F_FENCE = 1, E1F_CSR = 2, E1F_REGEN = 4, E1F_VCSTATIC = 8, E1F_TXQFIX = 16, E1F_NOC1 = 32 };
+    enum E1Leg : u8 { LEG_OUT = 1, LEG_IN_NOC = 2, LEG_IN_COUNT = 4 };
+    static constexpr u32 E1_IMAGE_ID_MIN = 0xE1F00013u, E1_IMAGE_ID_MAX = 0xE1F00016u;   //< e1fwd13..16 (e1fwd16 is the current image)
+
   } // namespace EthSeam
 } // namespace MFM

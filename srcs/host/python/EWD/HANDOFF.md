@@ -201,3 +201,12 @@ annotates; `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
 lines are echoed after the prompt; ticks run between lines; errors do not stop
 the script.  Test: `python3 mock/selftest.py command_file` (7 older selftests
 already fail at baseline: legacy/guards/slowscan-gate/phase -- stale, not touched).
+
+## Eth-seam E1 management from python (2026-11-16, NOT run on hardware)
+Module MFMx now has `EthSeamHost` (srcs/host/include/EthSeamHostPy.h; library in EthLinks.h/.cpp, owner in EthSeamHost.h/.cpp).  Intended order in mfmxctl for the
+x/y seam stage (3c): chips opened and T6 images DEPLOYED -> `h = MFMx.EthSeamHost.get(); err = h.bringUpLink(chipA, chipB, ethx, "<bindir>/e1fwd16.bin", channelsA=[(ch, legs,
+t6x, t6y, t6base), ...], channelsB=[...])` for each live link ("" = success) -> THEN startMachine.  `h.status()`, `h.health(chip, ethx)`, `h.channelStat(chip, ethx, ch, word)`,
+`h.tearDownLink(a, b, ethx)`, `h.tearDownAll()`.  Closing a chip (Blackhole.close / step retreat) tears its links down automatically.  Build the image with
+`sh srcs/host/tools/e1fwd/build.sh e1fwd16` (sfpi gcc only).  Channel numbers and link/ETH-tile choice come from shared/include/EthSeam.h (balanced dealing); until the
+T6-side wiring exists the t6x/t6y/t6base values must be supplied by the caller.  First thing to do with the new build: `python -c "import MFMx; print(MFMx.EthSeamHost.get().status())"`
+(compile/import check of the glue, which was written without pybind11 available).

@@ -7,6 +7,7 @@
 #include "FailStrings.h" // for sleepUsec
 #include "t6-exports.h" // for transportblock_*
 #include "BlockCode.h"
+#include "EthSeamHost.h" // chipClosing before the fd goes
 
 namespace MFM {
 
@@ -257,6 +258,7 @@ namespace MFM {
   }
 
   bool Blackhole::closeChip() {
+    EthSeamHost::get().chipClosing(mChipNum); // eth-seam links on this chip down and TLB windows freed BEFORE the fd closes
     close(mChipFD);
     mChipFD = -1;
     mOurTLBs.stopPretendingHostRAMisDeallocated();

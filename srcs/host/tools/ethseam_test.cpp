@@ -14,6 +14,8 @@ static_assert(NCH_MAX == 8 && CAR_BYTES == 0x1040 && RING_CARS == 4 && RING_BYTE
 static_assert(E1_CODE == 0x4000 && CTL_BASE == 0x8000 && CTL_WINDOW == 0x600 && CHANNEL_BLOCK0 == 0x8100 && CHANNEL_BLOCK_STRIDE == 0x80, "CTL layout");
 static_assert(OUT_RING0 == 0x10000 && IN_RING0 == 0x30800 && channelBlockAddr(3) == 0x8100 + 3 * 0x80, "ring placement");
 static_assert(outCarAddr(2, 1) == 0x10000 + 2 * 0x4100 + 0x1040, "car address");
+static_assert(CTL_GO == 0 && CTL_STOP == 4 && CTL_READY == 8 && CTL_DONE == 0xC && CTL_MODE == 0x10 && CTL_FLAGS == 0x18 && CTL_NCH == 0x1C && CTL_RING_CARS == 0x24 && CTL_NODE_ID == 0x44 && CTL_IMAGE_ID == 0x54 && CTL_NIU_BUF == 0x58, "CTL words");
+static_assert(E1F_CSR == 2 && E1F_TXQFIX == 16 && E1F_NOC1 == 32 && E1_MODE_ROUTER == 5 && LEG_IN_NOC == 2 && CW_T6BASE == 4 && CW_LEGS == 5 && CW_S_FWD == 8, "flags and channel words");
 // ---- the design doc's channel counts ----
 static_assert(channelsTwoCards(5) == 13 && channelsFullRing(5) == 15 && channelsTwoCards(7) == 19 && channelsFullRing(7) == 21, "2x2 counts");
 static_assert(edgeHubsEW(2) == 5 && edgeHubsNS(2) == 7 && edgeHubsEW(1) == 10 && edgeHubsNS(1) == 14, "edge hubs");

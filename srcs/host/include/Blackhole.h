@@ -91,6 +91,7 @@ namespace MFM {
     u32 getChipNumber() const {
       return mChipNum;
     }
+    s32 getChipFD() const { return mChipFD; }  //< device fd (valid from HAS_OPEN_DEVICE); the eth-seam port (EthSeamHostPy.h) borrows it
     void setStartDecayType(u16 decaytype) {
       mCodeManager.setStartDecayType(decaytype);
     }

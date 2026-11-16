@@ -257,3 +257,28 @@ uct6_per_ureg(2,2) / ureg_per_uscl(2,2) and does HBASSERT_EQ(ourstride, S8C(uct6
 same constants.  A 1x2 or 2x1 (or 1x1) cell layout would trip that assertion in the existing images regardless of the seam, so generalizing those constants (they are
 derivable from CellBlock mCellStride / mCellSize, which the image already carries) is a prerequisite for any non-2x2 geometry.  Not audited: every other place (python
 visualisation, host config) that may assume 2x2 or 7x5 hubs.
+
+## 14. E1 management in the MFMx host (2026-11-16)
+
+What exists (MFMx source; NOT run on hardware; native-tested with a mock pair of cards, ASan/UBSan clean; the python glue was NOT compiled where it was written):
+- shared/include/EthSeam.h PART 3: CTL word offsets, channel-block word indices, E1 modes/flags/legs, image id range (e1fwd13..16).
+- host/include/EthLinks.h, host/src/EthLinks.cpp: the ethfwd flows as a library with no pybind and no MFMx runtime dependency.  EthPort (L1/register access of
+  an ETH tile; KmdEthPort = tt-kmd windows over a borrowed fd), EthLinkEnd (validate, queue 2, smoke test, deploy E1 with NOC_CLEANUP, channel setup, start/stop,
+  reset, restore, health), EthLink (both ends: bring-up with rollback on any failure, teardown).  ONE write allowlist; a write outside it aborts.  Refusals before
+  any write: not an ETH tile, harvested, link down, chip-info invalid, peers not each other's, queue 2 in use, E1 not in reset (override with force).  Channel setup is
+  checked (channel < NCH_MAX, no duplicates, ring depth 1..4, and for IN_NOC legs the T6 must be a Tensix tile with a 16-byte-aligned base whose ring fits in L1)
+  because the E1 will NoC-write 4 cars there.
+- host/include/EthSeamHost.h, host/src/EthSeamHost.cpp: the per-process owner/registry (bringUpLink / tearDownLink / tearDownAll / status / health / channelStat),
+  chip ports created on demand through an injected factory.
+- host/include/EthSeamHostPy.h: pybind glue (module MFMx, class EthSeamHost); installs the factory (a KmdEthPort over Blackhole::getChipFD()) and a logger (HTprintf).
+- Edits to existing files: Blackhole.h getChipFD(); Blackhole::closeChip() calls EthSeamHost::get().chipClosing(chip) BEFORE close(fd) (links torn down and TLB windows
+  freed while the fd is still ours: an ioctl on a recycled fd number could hit another device); host/CMakeLists.txt gets the two new .cpp files; mfmx_wrapper.cpp registers
+  the class.  Nothing in MFMx calls bringUpLink yet.
+- Test: host/tools/ethlinks_test.cpp (see its header for the build line): happy path with exact CTL/channel-block contents and a full restore (soft-reset, PC/END, queue
+  2, rings), seven refusal cases that leave the hardware untouched, force, eight bad channel setups, the image loader, and the EthSeamHost registry including chipClosing.
+
+Deliberately NOT done: a Blackhole::Step HAS_ETH_SEAM_UP (a link is inherently two-chip, the per-chip step machine is the wrong place; the user agreed it is a stage-3c item,
+and an explicit python call between "images deployed" and "startMachine" does the same job today), and deriving the per-channel T6 storage addresses (they come from
+the image-block table once the T6-side wiring exists; until then the caller passes (channel, legs, t6x, t6y, t6base) explicitly).
+Known limits: queue 2's RX buffer (L1 0x7E000) lies in the base-firmware reserved region (empirically free, unnamed in the map); KmdEthPort allocates up to 8 2-MiB TLB windows
+per chip (two per ETH tile: L1 and registers), out of the budget left after OurTLBs' 144; the E1 dies with the fd, so the process owning the chip must outlive the links.

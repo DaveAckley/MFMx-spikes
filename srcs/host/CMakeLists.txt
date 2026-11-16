@@ -10,6 +10,8 @@ target_sources(MFMx PRIVATE
     src/Blackhole.cpp
     src/CodeManager.cpp
     src/CommsModule.cpp
+    src/EthLinks.cpp
+    src/EthSeamHost.cpp
     src/EWControl.cpp
     src/FATAL.cpp
     src/FailStrings.cpp

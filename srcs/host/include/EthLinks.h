@@ -1,0 +1,147 @@
+#pragma once   /* -*- C++ -*- */
+/** EthLinks.h -- host-side management of the Ethernet-tile E1 router cores (the eth-seam), ported from the
+    srcs/host/tools/ethfwd* hardware tools (ERISC_NOTES.md, ERISC_SEAM_DESIGN.md).  NO pybind and no MFMx runtime
+    dependencies here (only itype.h and shared/EthSeam.h), so the logic can be tested natively with a mock EthPort
+    (srcs/host/tools/ethlinks_test.cpp).  The pybind glue is EthLinksPy.h.
+
+    What it manages, per Ethernet link (one ETH tile on each of two cards, joined by the QSFP-DD link):
+      1. validate     read-only: tile is ETH, not harvested, link Up, firmware chip-info valid, queue 2 / TX header 1 pristine
+      2. queue 2      RXQ2 raw mode, TX header entry 1 (this tile's MAC -> the FW-reported peer MAC), TXQ2 on, header entry selected
+      3. smoke test   64 B each way through queue 2 (both ends configured), then the ring scratch is cleaned
+      4. E1 deploy    image to L1 0x4000, CTL window zeroed, PC/END set, tt-kmd NOC_CLEANUP armed (E1 returns to reset if the owning fd
+                      closes, even on a crash), E1's soft-reset bit released, ready word + image id checked
+      5. channels     per-channel config blocks (EthSeam.h layout), ring headers zeroed, then go
+      6. teardown     stop, E1 back in reset with its original PC/END and soft-reset value, queue 2 restored to pristine
+    Every write goes through ONE allowlist (EthLinkEnd::writeOk); a write outside it is a programming error and aborts.
+    The E1 does NOT survive the owning fd: tt-kmd's NOC_CLEANUP fires when the fd closes, so the object that owns the chip fd
+    (MFMx: the Blackhole) must outlive the links, which is why teardown is explicit AND the kernel cleanup is the safety net.
+
+    NOT here (needs the T6-side wiring, ERISC_SEAM_DESIGN.md sections 5, 12, 13): deriving the per-channel T6 storage addresses
+    from the image blocks; this layer takes them as explicit EthChannelSetup input. */
+
+#include "itype.h"
+#include "EthSeam.h"
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace MFM {
+
+  /** Access to the L1 and registers of ETH tiles (NoC0 x, y == 1) of ONE card. */
+  struct EthPort {
+    virtual ~EthPort() {}
+    virtual bool rd32(u32 ethx, u32 addr, u32 & v) = 0;
+    virtual bool wr32(u32 ethx, u32 addr, u32 v) = 0;
+    /** Ask tt-kmd to write (addr,data) to tile (ethx,1) when the owning fd closes. False if unavailable. */
+    virtual bool setNocCleanup(u32 ethx, u32 addr, u32 data) { (void) ethx; (void) addr; (void) data; return false; }
+  };
+
+  /** EthPort over a tt-kmd device fd: a few lazily allocated 2 MiB TLB windows (uncached), freed in the destructor.
+      The fd stays owned by the caller (the Blackhole); this class never closes it. */
+  class KmdEthPort : public EthPort {
+  public:
+    explicit KmdEthPort(int fd) : mFD(fd) { }
+    ~KmdEthPort() override ;
+    bool rd32(u32 ethx, u32 addr, u32 & v) override ;
+    bool wr32(u32 ethx, u32 addr, u32 v) override ;
+    bool setNocCleanup(u32 ethx, u32 addr, u32 data) override ;
+  private:
+    struct Win { u32 ethx; u64 base; u32 id; volatile u8 * ptr; };
+    volatile u32 * map(u32 ethx, u32 addr) ;
+    static constexpr u32 MAX_WINDOWS = 8u;
+    int mFD;
+    std::vector<Win> mWins;
+  };
+
+  /** Where cars arrive for one channel and what the E1 does with them (see e1fwd13.c header). */
+  struct EthChannel {
+    u8 channel;                 //< channel number on this E1 (0..EthSeam::NCH_MAX-1)
+    u8 legs;                    //< EthSeam::LEG_OUT | LEG_IN_NOC | LEG_IN_COUNT
+    u8 t6x, t6y;                //< NoC0 coordinates of the LOCAL T6 whose L1 receives this channel's cars (LEG_IN_NOC)
+    u32 t6Base;                 //< L1 address of that T6's receive storage (slot i at t6Base + i*CAR_BYTES)
+  };
+
+  struct EthChannelSetup {
+    u8 mode = EthSeam::E1_MODE_ROUTER;
+    u8 flags = EthSeam::E1F_CSR;            //< L0 data cache off via CSR 0x7c0 (proven on E1 and the default for all runs)
+    u8 ringCars = EthSeam::RING_CARS;       //< E1 ring depth (1..4); must equal the cars in flight per channel
+    u8 niuBuf = 0;                          //< NIU command buffer for the E1's NoC writes (0 = image default 3)
+    std::vector<EthChannel> channels;
+  };
+
+  struct EthHealth {
+    u32 port = 0, heartbeat = 0, retrain = 0, fecCorrected = 0, fecUncorrected = 0;
+  };
+
+  /** Pluggable log sink (default: stderr).  The MFMx glue points it at BHLog. */
+  void ethLinksSetLogger(std::function<void(const std::string &)> sink) ;
+
+  /** One end of a link: the ETH tile (ethx, 1) of one card. */
+  class EthLinkEnd {
+  public:
+    EthLinkEnd(EthPort & port, u32 chip, u32 ethx) : mPort(port), mChip(chip), mEthX(ethx) { }
+
+    bool validate(bool force) ;                       //< read-only; fills MACs; checks pristine unless force
+    bool configureQueue2() ;                          //< needs validate()
+    bool deployE1(const std::vector<u32> & image, bool force) ;
+    bool configureChannels(const EthChannelSetup & cs) ;   //< after deployE1 (E1 idle, waiting for go)
+    bool startE1() ;
+    bool stopE1() ;                                   //< stop word + wait for done; go cleared
+    void resetE1() ;                                  //< E1 back in reset, PC/END and soft-reset as found
+    void restoreQueue2() ;
+    bool smokeSendTo(EthLinkEnd & peer) ;             //< 64 B this -> peer through queue 2, verified; both queues configured
+    EthHealth health() ;
+    u32 channelStat(u32 channel, u32 wordIndex) ;     //< read a channel-block word (stats)
+
+    u32 chip() const { return mChip; }
+    u32 ethX() const { return mEthX; }
+    bool isDeployed() const { return mDeployed; }
+    bool isQueue2Configured() const { return mQ2; }
+    const std::string & lastError() const { return mErr; }
+    std::string name() const ;
+
+    // identity from validate()
+    u32 mMajor = 0, mMinor = 0, mPeerMajor = 0, mPeerMinor = 0;
+
+  private:
+    bool R(u32 addr, u32 & v) ;
+    u32 R(u32 addr) ;
+    bool W(u32 addr, u32 v, bool verify = true) ;
+    bool writeOk(u32 addr, u32 v) const ;
+    bool fail(const std::string & why) ;
+
+    EthPort & mPort;
+    u32 mChip, mEthX;
+    std::string mErr;
+    bool mValidated = false, mQ2 = false, mDeployed = false, mStarted = false;
+    u32 mSrOrig = 0xFFFFFFFFu, mPcOrig = 0, mEndOrig = 0, mImageBytes = 0;
+  };
+
+  /** Both ends of one link, with the whole bring-up / teardown sequence. */
+  class EthLink {
+  public:
+    EthLink(EthPort & portA, u32 chipA, EthPort & portB, u32 chipB, u32 ethx)
+      : mA(portA, chipA, ethx), mB(portB, chipB, ethx) { }
+
+    /** validate both, check they are each other's FW-reported peers, queue 2 on both, smoke test both ways, deploy E1 on both,
+        channel setup on both, go on both.  On failure everything already touched is torn down again and lastError() says why. */
+    bool bringUp(const std::vector<u32> & image, const EthChannelSetup & setupA, const EthChannelSetup & setupB,
+                 bool force = false, bool doSmoke = true) ;
+    void tearDown() ;                                 //< stop both, E1s back in reset, queue 2 restored; safe to call twice
+    bool isUp() const { return mUp; }
+    EthLinkEnd & a() { return mA; }
+    EthLinkEnd & b() { return mB; }
+    const std::string & lastError() const { return mErr; }
+
+  private:
+    EthLinkEnd mA, mB;
+    bool mUp = false;
+    std::string mErr;
+  };
+
+  /** Read a flat little-endian E1 image (<= 0x4000 bytes, multiple of 4) built by srcs/host/tools/e1fwd/build.sh. */
+  bool ethLoadImageFile(const std::string & path, std::vector<u32> & words, std::string & err) ;
+
+} // namespace MFM

@@ -8,6 +8,7 @@
 #include "ImageManager.h" 
 #include "BGRImage.h" 
 #include "QuietBox.h" 
+#include "EthSeamHostPy.h" // eth-seam E1 management
 #include "t6-exports.h" // for getMFMxModuleVersion()
 
 namespace py = pybind11;
@@ -54,5 +55,8 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Expose the QuietBox class
   MFM::QuietBox::pybindings(m);
+
+  // Expose the eth-seam E1 manager
+  MFM::EthSeamHostPy::pybindings(m);
   
 }
