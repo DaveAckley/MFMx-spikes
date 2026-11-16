@@ -359,6 +359,22 @@ all channels, per-channel min/max hops).  No NoC (L_IN_NOC) leg yet.  Procedure 
 ### 9.4 First ethfwd14 hardware run (e1fwd13.bin, --go --idle --nch 1, link 0:1:6, 800 MHz): PASS
 
 Queue-2 setup, 64 B smoke test both ways, deploy of the 2880 B gcc e1fwd13 on both cards (image id 0xE1F00013 read back), E1 reset
-on exit.  Idle router, 1 channel, fence mode: 5.438 M sweeps/s on both cards = 184 ns/sweep (~147 cycles).  That is roughly ten
-fenced L1 loads per sweep (stop word, OUT/IN legs, config words, one car header each way) at ~18 ns each -- the cost e1fwd14 removes
-(prediction: e1fwd14 sweeps need only ~2 L1 loads plus stores).  Not yet run: e1fwd14 idle, --route, --reflect, --csr, --nch 8.
+on exit.  Idle router, 1 channel, fence mode: 5.438 M sweeps/s on both cards = 184 ns/sweep (~147 cycles).  (An earlier version of this paragraph blamed ~ten fenced L1 loads per sweep and predicted e1fwd14 would be far faster; the 9.5 result
+shows that explanation was wrong.)  Not yet run: e1fwd14 idle, --route, --reflect, --csr, --nch 8.
+
+### 9.5 ethfwd14 hardware runs, e1fwd13 vs e1fwd14 (link 0:1:6, 800 MHz, fence mode, --nch 2 unless noted)
+
+route (host-as-hub, 2 ch, both directions, 500 rounds x 4 cars per size): PASS for both images at 64, 576 and 4160 B (3 TT-link chunks):
+2000 cars per direction per channel, 0 bad, 0 timeouts, E1 fwd/in-seen counters exactly equal (no TXFAIL).
+More evidence (not proof) that cross-chunk landing order is not a problem on the Ethernet hop.  Host time is PCIe-dominated: no speed info.
+
+idle sweep, 1 ch: e1fwd13 184 ns/sweep (5.44 M/s); e1fwd14 164 ns/sweep (6.10 M/s): only ~11% faster.
+reflect, 2 ch, K=4: e1fwd13 7.39 M hops/s (64 B), 7.38 (576 B), 5.54 (4160 B); e1fwd14 7.97, 7.97, 5.77 M hops/s: +8%, +8%, +4%.
+Per-channel hops were equal to within ~0.01% (fair).  Payload was NOT verified in these runs (no --regen); the 4160 B figure is ~23 GB/s
+total, so rerun with --regen before trusting it.
+CONCLUSION: moving config/stats/stop-poll into local RAM bought ~10%, not the big win expected, so the sweep/hop cost is NOT dominated
+by those L1 loads.  Remaining suspects: the two FENCEs per sweep (each flushes the L0), the per-sweep L1 store of the sweep counter,
+and the TXQ2/NoC register traffic.  Next experiments: idle and reflect with --csr (no fences), then publishing the sweep counter
+only every N sweeps.
+BUG found in ethfwd14 (not the images): reflect K=1 stalled for BOTH images because ethfwd14 always set the E1 ring depth to 4 while
+REFLECT needs depth = K (cars cycle through slots in order).  Fixed in ethfwd15 (e1_start takes the ring depth).  K=4 results above are valid.
