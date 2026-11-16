@@ -341,5 +341,17 @@ e1fwd/e1fwd14.c = e1fwd13 with per-channel config + node id copied to the stack 
 published to L1 with plain stores (zeroed at run start), stop word polled every 16 sweeps.  Same CTL/channel layout and wire
 behaviour.  gcc build: 3320 B (e1fwd13: 2792 B); router frame ~1168 B of the 8 KiB local RAM.  hosttest14.c = hosttest13.c
 retargeted; passes for the 6 car sizes.  Host contract change: config words must be final before go is raised.  Host tool for
-it will be ethfwd14 (not written).  Hardware plan: after ethfwd14, run e1fwd13 and e1fwd14 on the same link test and compare
+its host tool is ethfwd14 (written, section 9.3).  Hardware plan: with ethfwd14, run e1fwd13 and e1fwd14 on the same link test and compare
 S_FWD rate / sweeps per second (CTL+0x30 with mcycle if needed).
+
+### 9.3 ethfwd14 (host tool for e1fwd13/e1fwd14; mock-tested only, NOT run on hardware)
+
+tools/ethfwd14.cpp = ethfwd13 plumbing + the 8-channel layout.  --image is required (no embedded image); it checks the image id word
+(CTL+0x54: 0xE1F00013 / 0xE1F00014) and refuses otherwise.  CTL write window is 0x600 now.  Rings: OUT(c) = 0x10000 + c*0x4100, IN(c) =
+0x30800 + c*0x4100 (same addresses on both cards).  Tests: --idle (sweep rate, no cars: the e1fwd13-vs-14 comparison), --route
+(host-as-hub both directions on --nch channels, word-for-word verify, E1 counters cross-checked), --reflect (autonomous ping-pong on
+all channels, per-channel min/max hops).  No NoC (L_IN_NOC) leg yet.  Procedure on the QuietBox (stop at the first surprise):
+  g++ -std=c++17 -O2 -Wall -Wextra -Werror ethfwd14.cpp -o ethfwd14 ; sh e1fwd/build.sh e1fwd13 ; sh e1fwd/build.sh e1fwd14
+  ./ethfwd14 --link 0:1:6 --image e1fwd/e1fwd13.bin                       (dry run)
+  ./ethfwd14 --link 0:1:6 --image e1fwd/e1fwd13.bin --go --idle --nch 1   (first real run: just the sweep rate)
+  then --route, then --reflect, then the same with e1fwd14.bin, then --csr, --nch 8.  Compare sweeps/s and reflect hops/s.

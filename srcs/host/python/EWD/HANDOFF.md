@@ -141,7 +141,7 @@ registers, L0 cache/ordering results, measured latency/throughput, open items) i
 `srcs/host/tools/ERISC_NOTES.md`.  Tools: `srcs/host/tools/ethfwd12.cpp` with E1 image
 source `srcs/host/tools/e1fwd/e1fwd11.c` (only the sfpi gcc cross toolchain is needed, no clang:
 `sh e1fwd/build.sh e1fwd11`).  Versions of these tools are never
-reused (ethfwd13 = ethfwd12 + --image/--boot-only for gcc-built E1 images; next is ethfwd14).  Branch `eth-seam` == `latest`.  Status: stages 0,
+reused (ethfwd13 = ethfwd12 + --image/--boot-only for gcc-built E1 images; ethfwd14 = host tool for the 8-channel e1fwd13/e1fwd14 images, mock-tested only).  Branch `eth-seam` == `latest`.  Status: stages 0,
 1a, 1b, 2a, 2b pass on hardware; 2c throughput is issue-rate only; T6->E1 direction
 and ETH-tile destination in shipTCTo are the next steps.
 
