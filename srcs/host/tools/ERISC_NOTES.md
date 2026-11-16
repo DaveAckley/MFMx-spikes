@@ -509,3 +509,21 @@ writes them.  expts14.sh: NIU dump; BH-55 A/B on the same image (idle, reflect s
 steps only if it works; tile 1:2 is mirror-safe: its NoC1 mirror (15,9) is another Tensix tile); two 60 s soaks with link-health deltas.
 Interpretation guide: a slower --txqfix run measures the BH-55 cost; any BAD/timeout only under --txqfix would mean the workaround itself matters; a NoC1 probe
 that times out means NIU1 does not deliver raw-NoC0-coordinate writes from an ETH tile as configured (T6->ETH over NoC1 is a separate, still-untested question).
+
+### 9.13 out14 (expts14.sh, 2026-11-16): all 15 hardware steps PASS
+
+BH-55 (--txqfix, e1fwd16, same image A/B): functionally identical -- no BAD, no timeout, txfail 0 in route, reflect --regen, reflect, T6 ping-pong -- so there is no
+evidence the dummy CMD read is needed.  Cost: idle sweep unchanged (139 ns, no TX in that path); reflect K=4 2 ch: 64/576 B 7.95 -> 7.60 M hops/s (-4%),
+4160 B 5.69 -> 5.09 M (-10.5%, three chunks = three dummy reads); T6 ping-pong 64 B 1.80 -> 1.71 M round trips/s (-5%), 4160 B unchanged (not E1-bound).  Default stays off.
+E1 NoC writes over NIU1 (--e1-noc 1, raw NoC0 coordinates, T6 tile 1,2): WORKED -- noc test 1, 2 and 8 channels (64/576/4160 B) 0 bad / 0 timeouts, and the
+T6 ping-pong with the E1 on NoC1 matched NoC0 exactly (64 B K=4 1.803 M round trips/s both ways).  So firmware's coordinate translation makes NIU1 accept the same
+node ids for ETH -> T6 as MFMx assumes for T6 -> T6; E1 can avoid sharing NIU0 with base FW at no cost.  (T6 -> ETH over NoC1 is still untested.)
+NIU dump before any E1 use: NIU0 and NIU1 command buffers 0..3 all zero on both cards (base FW leaves no trace at rest).  Not yet shown that the dump is sensitive:
+run ethfwd20 --dump-niu-after after a --noc run (card B's E1 should leave its last command in the buffer it used; card A, which does no NoC writes, is the control).
+Link health: retrain +0, FEC uncorrected +0, port stays 1, heartbeat advances, over ~2 minutes of E1 traffic including two 60 s soaks.  FEC corrected rises at a steady
+~170 k/s (card A) and ~280 k/s (card B) -- corrected codewords are normal on this link and the rate did not visibly depend on traffic (idle runs vs soaks).  NOTE: ethfwd19
+printed every delta with the wrong sign (before - after) because its 'after' call swapped the snapshots, so out14 shows FEC "decreases": the absolute values in the 'before:'/
+'after:' lines are right and rise.  Fixed in ethfwd20.  The words at 0x7D040.. did not change in any run, but they look like high-entropy data, not counters, so "base-FW
+dynamic NoC counters" is only the tt-metal header's name for them; no conclusion about base-FW NoC activity from them.
+Soaks (60 s each): reflect K=4 2 ch 576 B 7.947 M hops/s, identical to the 1 s run, ~238 M hops per channel, txfail 0; T6 ping-pong K=4 2 ch 576 B 1.157 M round trips/s
+(69.4 M round trips), identical to the short run, 0 bad / 0 noc-fail.  No degradation, retrain or uncorrectable errors.
