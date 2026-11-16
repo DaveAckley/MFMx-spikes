@@ -180,3 +180,55 @@ measured (0x7CC00 boot results, RXQ0 buffer at 0x7F000).
 - The write allowlist in the tools (scratch 0x10000-0x6FFFF) is coarser than the
   regions actually used; the E1 never writes outside its rings/CTL/loop buffers.
 - Tensix L1 is 1.5 MiB (0x180000), consistent with the T6 region choice 0x100000.
+
+## 8. Cross-check against the unofficial BlackholeA0 ISA docs (fork of tt-isa-documentation)
+
+Source: github.com/DaveAckley/tt-isa-documentation, BlackholeA0/EthernetTile/{README,EthernetTxRx,BabyRISCV/README}.md and
+BlackholeA0/TensixTile/BabyRISCV/{README,CSRs,MemoryOrdering}.md (read 2026-11-16 through a summarizer, not verbatim:
+re-check exact bit numbers against the raw files before relying on them).  TT has withdrawn these pages; they were
+INCOMPLETE when released.  Treat as strong hints, not guarantees.  The Ethernet pages say the E0/E1 cores are like the
+Tensix baby cores but are not a substitute for the Tensix pages (differences: PIC, 2 cores, no Tensix coprocessor); every
+Tensix-page fact below that we have not confirmed on an ETH tile is marked (T).
+
+Clock: docs say 1.35 GHz.  The user's cards currently run at 800 MHz (1.35 GHz held in reserve), so cycle-to-time
+conversions in these notes use 800 MHz unless stated.
+
+Fast RAM (local data RAM):
+- Each ETH core has its own 8 KiB at 0xFFB00000-0xFFB01FFF, reachable only by that core's own loads/stores; unmapped to
+  the NoC (and local-RAM/pc snapshots are listed as not accessible over the NoC).  So E0 and E1 do NOT share it, and the
+  host can NOT read it: anything the host must see has to be published into L1.  Stack top 0xFFB02000 = one past the end.
+- Load latency (T): local RAM 2 cycles, no contention; L1 with L0 hit 2; L1 L0-miss >= 8 (more on bank/port conflicts);
+  L1 atomic >= 12; NoC/tile-control/PIC register loads >= 7-8.  A latency of N needs N-1 independent following
+  instructions to hide.  The doc recommends stack, thread-local data and hot read-only globals in local RAM.
+  (Tensix docs also describe a slow alias for local RAM at 0xFFB14000-0xFFB1DFFF reachable from the NoC; on the ETH tile
+  that range holds PC/PIC registers, so do not assume it.)
+- After reset local RAM may take up to 2048 cycles to zero (T); the core stalls automatically on its own accesses.
+
+L0 data cache (T): 64 B = 4 lines of 16 B; caches loads from L1 only; not coherent with other writers; any fence or atomic
+flushes all of it; a store flushes its line; each hit has ~0.8% chance of flushing everything unless cfg0 bit 24
+(DisLowCachePeriodicFlush) is set.  CSR 0x7c0 = cfg0; bit 3 is "DisLowCash" (L0 data cache off), which matches the
+0x7c0 bit 3 (value 8) used by e1fwd F_CSR.  A polling loop using fence/atomics loses the 2-cycle hit path every iteration.
+
+Memory ordering (T): loads/stores can reorder inside the LSU (4-entry store queue, 8-entry retire queue); writes are
+fire-and-forget; one request per region per cycle, so ordering is total WITHIN a region but free across regions (L1 vs
+MMIO).  A fence drains the store queue (requests SENT, not processed).  Recipe for "store processed before later
+request" is: read back the same address and consume it (matches our TXQ CMD dependency token).  Other tools: cfg0 bits
+0 DisLdBufByp, 9 SyncAllOps, 12 DisStMerge (store merging of same-16B-block L1 stores), 20 DisRegForwarding;
+pmacfg0/1 (0x7c1/0x7c2) bit 0 makes every load/store behave as if fenced (strongly ordered; whole address space due to
+a hardware bug) -- UNTESTED here, possible blunt alternative to the readback.  mcycle (0xb00/0xb80) and minstret
+(0xb02/0xb82) exist: usable for in-E1 timing.  No `time` CSR documented.
+
+Ethernet TX/RX (EthernetTxRx.md): TXQ regs as in section 2 (SRC +0x14, SIZE +0x18, DEST +0x1C, CMD +0x04 =2 for TT-link
+L1 write, STATUS +0x08 bit 16 CMD_ONGOING; do not reissue until clear; src/size/dest 16-byte aligned/multiples).  Max
+TT-link payload and default MAX_PKT_SIZE are NOT documented (our 1456 B is empirical).  TT-link resends on timeout /
+drop notices, RX discards duplicate sequence numbers; no credit flow control (the car exchange is ours).  The docs say
+NOTHING about ordering between streams or within one packet's L1 write: the two-streams caveat of section 3 stays
+UNVERIFIED either way.  TXQ2 cannot send MMIO-write/overlay packets; RXQ2 cannot receive MMIO writes (we use L1 writes
+only).  Other base facts: 3 TXQ + 3 RXQ per tile, shared 10-entry TX header table at 0xFFB98200 (+i*0x80), RX classifier
+0xFFB9C000, RXQ regs 0xFFB94000/5000/6000.
+Still looked for: the NoC -> L1 "two streams" description (not yet found); Samples/ethdump and InstructionCache.md (404 at
+the name tried) unread.
+
+Consequences for e1fwd13 (planned changes, not yet made): hoist per-channel config into local RAM/stack once at start;
+keep counters local and publish to L1 with plain stores (no read-modify-write); poll the stop word in L1 only.  Verify by
+the existing CTL+0x30 sweep counter (idle sweeps/second) and by mcycle deltas.
