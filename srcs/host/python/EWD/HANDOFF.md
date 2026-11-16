@@ -139,8 +139,8 @@ Separate workstream: moving MFMx cars between cards through the Ethernet tiles' 
 core, no PCIe in the data path.  Everything learned (hardware facts, TT-link queue
 registers, L0 cache/ordering results, measured latency/throughput, open items) is in
 `srcs/host/tools/ERISC_NOTES.md`.  Tools: `srcs/host/tools/ethfwd12.cpp` with E1 image
-source `srcs/host/tools/e1fwd/e1fwd11.c` (g++ only is needed on the QuietBox; clang
-builds the image: `sh e1fwd/build.sh e1fwd11`).  Versions of these tools are never
+source `srcs/host/tools/e1fwd/e1fwd11.c` (only the sfpi gcc cross toolchain is needed, no clang:
+`sh e1fwd/build.sh e1fwd11`).  Versions of these tools are never
 reused (next is ethfwd13).  Branch `eth-seam` == `latest`.  Status: stages 0,
 1a, 1b, 2a, 2b pass on hardware; 2c throughput is issue-rate only; T6->E1 direction
 and ETH-tile destination in shipTCTo are the next steps.

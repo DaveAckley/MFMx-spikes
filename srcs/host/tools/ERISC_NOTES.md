@@ -24,8 +24,10 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   tt-kmd ioctl SET_NOC_CLEANUP (0xFA0E) writes the reset value back when the fd
   closes, so a persistent forwarder needs a long-lived owner process.
 - E1: sp = 0xFFB02000, 8 KiB local RAM, no .data/.bss in images (linker discards
-  them): no statics.  Build with clang --target=riscv32 -march=rv32im_zicsr
-  -mabi=ilp32 -O2 -ffreestanding -nostdlib -mno-relax (see e1fwd/build.sh).
+  them): no statics.  Build with the sfpi gcc cross toolchain (riscv32-tt-elf-gcc -march=rv32im_zicsr
+  -mabi=ilp32 -O2 -ffreestanding -nostdlib -mno-relax; see e1fwd/build.sh, which also
+  rejects any .data/.bss).  Images first spiked under clang; gcc builds are to be
+  re-verified on hardware (e1fwd11 first).
 - Tensix soft-reset register is the same address (0xFFB121B0); all five RISC-V
   cores in reset = 0x47800 (BRISC 0x800, TRISC 0x7000, NCRISC 0x40000).
   L1 is NOT zeroed at boot (T6 (1,2) held 0x99fff5d7... at 0x100000).

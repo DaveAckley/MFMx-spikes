@@ -130,8 +130,8 @@ link and per-channel fake T6s and passes for six car sizes (tcms 0,1,2,3,10,66):
 full-duplex channels, a one-way channel, a count-only channel (T6 untouched),
 duplicate suppression, and the once-per-occupancy partial counter.  Mutation checks
 (duplicate suppression removed; NoC destination offset) make it fail as they should.
-NOT done: the RISC-V image has not been built (no clang here: run
-`sh e1fwd/build.sh e1fwd13` on the QuietBox, which also needs a host tool, ethfwd13,
+The RISC-V image builds cleanly with the sfpi gcc toolchain (`sh e1fwd/build.sh e1fwd13`,
+2792 bytes, no .data/.bss) but has not been run.  NOT done: a host tool, ethfwd13,
 that speaks the new channel-block layout: CHC+c*0x80 with config words 0..5 and stats
 at words 8..23, CTL window 0x600 bytes); no hardware run; no fairness test (the
 per-visit bound makes starvation impossible by construction, not by test).
