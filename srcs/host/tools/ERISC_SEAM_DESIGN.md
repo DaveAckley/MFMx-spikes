@@ -191,3 +191,13 @@ The sender cannot discover the remote T6's L1 layout.  So the HOST fills it in:
 2. Seam table delivery: HostBlock-style L1 write (recommended) or image block field?
 3. HAS_ETH_SEAM_UP step: only at stage 3c (recommended)?
 4. Channels per tile: 8 in e1fwd13 (this draft) with the first tests using 1-2.
+
+
+## 11. Status update (2026-11-16, later)
+
+Hardware (gcc images, 800 MHz): e1fwd13/e1fwd14 run on the QuietBox with ethfwd14/15: route (host as hubs) PASS on 2 and 8 channels
+at 64/576/4160 B, reflect PASS with payload verification, fair across channels, ~4 M cars/s per E1 hop-limited (ERISC_NOTES 9.5, 9.6).
+Prepared but NOT yet run: the NoC leg on the multi-channel image (ethfwd16 --noc, expts11.sh) and a VC_STATIC A/B (e1fwd15).
+Still NOT done (needs decisions, section 10): T6-side ETH destination (shipTCTo currently dispatches only to a T6 coordinate or the
+PCIe tile: see T6EPs.tcc, a third branch for an ETH tile NoC0 coordinate with the E1 OUT-ring address would do), seam table and
+edge-hub policy, HAS_ETH_SEAM_UP.  The E1 is not the throughput bottleneck for plausible seam traffic (est.), so those come first.

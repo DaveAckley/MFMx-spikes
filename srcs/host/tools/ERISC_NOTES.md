@@ -380,3 +380,35 @@ BUG found in ethfwd14 (not the images): reflect K=1 stalled for BOTH images beca
 REFLECT needs depth = K (cars cycle through slots in order).  Fixed in ethfwd15 (e1_start takes the ring depth).  K=4 results above are valid.
 
 Batch runner: tools/expts10.sh (bash) builds ethfwd15 + both images and runs the 9.5 follow-ups (idle/route/reflect x fence/csr x e1fwd13/14, with --regen) with && chaining, stopping with a banner on the first failure; output in tools/out10/ (do not commit).
+
+### 9.6 What out10 (expts10.sh, 2026-11-16) says, 15 steps all PASS
+
+Idle sweep (ns/sweep, nch=1 / nch=8): e1fwd13 fence 184/1204; e1fwd14 fence 164/1130; e1fwd13 csr 168/1099; e1fwd14 csr 149/1019.
+Per extra channel (2 leg visits): 146 (e13 fence), 138 (e14 fence), 133 (e13 csr), 124 ns (e14 csr).  So the local-RAM hoisting saves
+~7% (~9 ns/channel, although it removes ~6 of ~8 L1 loads per channel) and dropping the fences ~8-10%.  Most probable reading: the
+in-order E1 core overlaps independent loads, so a leg visit costs ~ONE dependent L1 latency (~50-60 ns incl. branch/call), not one per
+load; hoisting independent config loads therefore bought little.  (Hypothesis from the numbers, not measured directly.)  If idle
+latency ever matters, the lever is batching: issue all 2*nch ring-header loads back to back before testing any (software
+pipelining), expected to cut an 8-channel sweep several-fold.  Not done: it does not seem to matter (below).
+Reflect without regen, K=4 (hops/s total over both E1s, 2 channels): 64 B: e13f 7.39 M, e14f 7.97, e13c 7.60, e14c 8.23; 4160 B:
+5.54 / 5.77 / 5.66 / 5.90 M.  => ~243 ns per hop per E1 (e14 csr, <=576 B) and ~339 ns for 4160 B (3 chunks); ~12 GB/s per E1 of car
+payload.  The rate is IDENTICAL for 1, 2 and 8 channels (8 ch regen: same totals as 2 ch) and fair across channels (min~max): the
+E1 core's per-hop cost (TXQ2 status poll + 4 MMIO stores + bookkeeping), not the link or the ring depth, is the cap.  The clang
+e1fwd11 stage 1b number (5.8 M hops/s at 4160 B, K=4) equals the gcc numbers: gcc code is as good as clang here.
+Reflect with --regen (E1 regenerates + every 16th verifies payload, 0 BAD in ~1.3 M checks over all sizes/K/channel counts/fence
+and csr): hop rate is bounded by E1 payload regen, ~11 ns per word (~9 cycles): 4160 B 0.17 M hops/s total (~0.7 GB/s).  The 2.3 M
+hops/s at K=1/64 B is regen-bound too, so it is NOT a latency figure; ethfwd16/expts11 adds a no-regen K=1 latency run.
+Route (host-as-hub) on e1fwd14: PASS at 2 ch fence, 2 ch csr, 8 ch csr; 64/576/4160 B; 0 bad / 0 timeouts; E1 counters exact.
+OPEN QUESTION FOR THE USER: what car rate does one seam actually need?  ~4 M cars/s per E1 (before the NoC leg) is likely far more
+than 35 hubs per card per step need; if so, further E1 speed-ups are not on the critical path and the work should move to the T6
+side and the seam table.
+
+### 9.7 e1fwd15 / ethfwd16 / expts11.sh (written 2026-11-16 while the user was away; NOT run on hardware)
+
+e1fwd15.c = e1fwd14 + flag F_VCSTATIC (8): the NoC leg writes with command word 0x82 (NOC_CMD_VC_STATIC) instead of 0x2; image id
+0xE1F00015; hosttest15.c exercises both command words (odd tcms cases use the flag) and passes.  ethfwd16.cpp = ethfwd15 + --noc
+(card A E1 L_OUT, card B E1 L_IN_NOC with per-channel T6 node/base = --t6-addr + c*0x4100; host injects at A and verifies the T6
+L1 of B word for word; tool owns the T6 tile exactly like ethfwd12 stage 2: cores in reset, region zeroed/read back, restored) +
+--t6/--t6-addr + --vcstatic; it accepts image ids 13/14/15.  expts11.sh runs: noc on e1fwd14 (1/2/8 ch, csr and fence), e1fwd15
+plain vs --vcstatic, two 3000-round 4160 B stress runs (plain vs VC_STATIC), then idle/route/reflect regressions and the K=1
+latency run.  The mock models the NoC leg only to exercise the tool.
