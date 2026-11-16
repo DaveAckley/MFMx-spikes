@@ -313,7 +313,7 @@ write-then-read (all writes of packet 1 commit before reads of packet 2), overla
 Stronger ordering = issue, wait for response, then issue the next.  The page says nothing on max packet size, barriers or
 write-data-then-flag patterns.
 
-## 9. First gcc-built E1 test on hardware (procedure; NOT yet run)
+## 9. First gcc-built E1 test on hardware (RAN 2026-11-16, PASS; procedure below)
 
 Tool: ethfwd13 (ethfwd12 + --image FILE.bin + --boot-only).  Build the tool: g++ -std=c++17 -O2 -Wall -Wextra -Werror
 ethfwd13.cpp -o ethfwd13.  Build the image: sh e1fwd/build.sh e1fwd11 (sfpi gcc; leaves e1fwd/e1fwd11.bin, do not commit it).
@@ -322,7 +322,24 @@ Run on the QuietBox, in this order, stopping at the first surprise:
   2. ./ethfwd13 --link 0:1:6 --boot-only --image e1fwd/e1fwd11.bin --go      (deploy on card 1 only, stage 0, reset E1)
 Boot-only writes: E1 image at L1 0x4000.., CTL block 0x8000..0x83FF, a few ring/CTL words (scratch), E1 PC/END regs, soft-reset
 bit 12 (E1 only).  No queue-2/TXHDR/RXQ writes, no link traffic.  Pass criteria: image readback has no mismatch; ready word
-0xE1E1E1E1 appears; stage 0 reports (as under clang) no-fence misses >> fence 0% ~ CSR-l0off 0%; CSR readback 0x80000008;
+0xE1E1E1E1 appears; stage 0 reports (as under clang) no-fence misses >> fence 0% ~ CSR-l0off 0%; CSR readback has bit 3 and the bit-31 tag set (0x80000008 expected; hw showed 0x80020008, bit 17 presumably a default bit);
 "E1 back in reset" with soft-reset 0x00047000 and E1 PC/END at their original values.  Compare ns/poll with the clang numbers in
 section 3 (~40 ns fenced, ~35 ns L0-off at the user's 800 MHz).  Only after this passes: rerun --stage1a/1b/2 with the gcc image
 (without --boot-only), then e1fwd13 once an ethfwd14 exists.  --mock results are FAKE (they exercise the tool, not the image).
+
+### 9.1 Result (ethfwd13 --boot-only --image e1fwd/e1fwd11.bin --go, link 0:1:6, card 1, 800 MHz)
+
+gcc-built e1fwd11 (3660 B) booted (ready word), image readback clean, 0 write problems, E1 back in reset (soft-reset 0x00047000,
+PC 0x4000 / END 0x7fff).  Stage 0: no fence 14.3 ns/poll, MISSED 82.7%; fence 37.1 ns/poll, 0%; CSR 0x7c0 bit 3 (no fence)
+32.1 ns/poll, 0%; CSR readback 0x80020008.  So the gcc image shows the same L0 behaviour as the clang one and is slightly faster
+on this loop (37.1 vs ~40 fenced, 32.1 vs ~35 L0-off; loops are compiled differently, so not a clean comparison).
+32 ns = ~26 cycles per L1 poll with the L0 off, vs ~2 cycles documented for local RAM: motivates e1fwd14.
+
+### 9.2 e1fwd14 (local-RAM hot state; NOT yet run on hardware)
+
+e1fwd/e1fwd14.c = e1fwd13 with per-channel config + node id copied to the stack at run start, stats kept on the stack and
+published to L1 with plain stores (zeroed at run start), stop word polled every 16 sweeps.  Same CTL/channel layout and wire
+behaviour.  gcc build: 3320 B (e1fwd13: 2792 B); router frame ~1168 B of the 8 KiB local RAM.  hosttest14.c = hosttest13.c
+retargeted; passes for the 6 car sizes.  Host contract change: config words must be final before go is raised.  Host tool for
+it will be ethfwd14 (not written).  Hardware plan: after ethfwd14, run e1fwd13 and e1fwd14 on the same link test and compare
+S_FWD rate / sweeps per second (CTL+0x30 with mcycle if needed).
