@@ -426,3 +426,30 @@ size-dependent part is only ~100 ns for 4160 B).  K=2: 267-326 ns/hop, K=4: 131-
 at 1 ch, 983 ns at 8 ch (matches e1fwd14 within noise).  Regressions (route, reflect --regen 0 BAD) still PASS on e1fwd15.
 Net: T6-bypass data path A-E1 -> B-E1 -> T6 is functionally proven with the host standing in for the sending T6; what is missing for a
 true T6 -> T6 path is the sending T6's NoC write into the E1 OUT ring (ERISC_SEAM_DESIGN sec 11).
+
+### 9.9 Stage 3a: bare-metal T6 ping-pong (t6pp, ethfwd17 --pp, expts12.sh) -- written 2026-11-16, NOT run on hardware
+
+Goal: take the host out of car management without touching MFMx.  t6pp/t6pp.c is a tiny BRISC-only image (sfpi gcc, sh t6pp/build.sh,
+2268 B, linked at L1 0 = BRISC's fixed reset address, no .data/.bss).  Startup mirrors the parts of srcs/cross/src/_BUD.S that matter for one
+hart: sp = 0xFFB02000 (top of the 8 KiB local RAM, = __stack_top8K), CSR 0x7c0 bit 3 set (L0 data cache off, as _BUD.S does on every hart);
+it does NOT do gp setup, bss zeroing (it has none), C++ ctors, t6inithostblock, or the other-harts release (_BUD.S's hartB releases T0-T2/NC by
+editing soft-reset 0xFFB121B0; here the host tool holds the other four cores in reset and releases bit 11 alone).  Eventual convergence into
+_BUD.S: the t6pp loop is what a hartB/NC task would do for the seam (poll receive slot -> NoC write to the E1), the NoC sequence being
+NRI3::initiateWriteToT6 (NIU0 cmd buf 3) byte for byte.
+Protocol: each tile keeps a receive ring of K cars per channel in its OWN L1; the local E1 (ROUTER, L_OUT|L_IN_NOC, ring depth K) NoC-writes
+arriving cars into it and ships whatever the T6 NoC-writes into the E1 OUT ring (slot index preserved end to end).  Initiator seeds K cars
+(nonce 1, state 3, payload payload_word(1,w,(c<<2)|i)); both ends handle a NEW COMPLETE car (header == ankle == footer, header != last) by
+optionally verifying payload (every --ppve), flipping nonce+1 / state 3<->4 in place (ankle, footer, header order), reading the header back
+as a dependency token, and NoC-writing the slot to the E1 OUT slot.  Control block at T6 L1 0x8000 (layout in t6pp.c header).
+Native check: t6pp/hosttest.c (two tiles + a fake E1 delivering word by word in ascending order, i.e. header first) passes for tcms 0,1,2,3,
+10,66 x ring depth 1,2,4 x verify off/every car (payload errors 0, partial path exercised).
+ethfwd17.cpp = ethfwd16 + --pp --t6-image FILE --t6a X:Y --t6b X:Y --t6-addr --ppve: it owns the two tiles (all five cores in reset, image
+readback-verified, control block + rings zeroed, BRISC released alone, everything restored at exit; soft-reset writes allowlisted to
+{orig, orig|0x47800, that with only bit 11 clear}).  Tile validation: Tensix columns x 1..7 and 10..16, rows y 2..11 (others are refused
+with exit 2 -- never write soft-reset on an ARC/DRAM/PCIe tile); a HARVESTED tile gives exit code 4 ("tile unavailable") after restoring,
+which expts12.sh treats as a warning.  tt-kmd NOC_CLEANUP covers only the E1; if the tool is KILLED the T6 BRISC keeps spinning harmlessly.
+expts12.sh: first car (1 ch, K=1), sizes/K sweeps, 2 and 8 channels, verify-every-car, fence-mode E1, then six tile-pair flex runs (near,
+far, cross-corner, mid) chosen to vary NoC route lengths.  Reported: round trips/s, per-car round trip = K*nch/(A handled per s), payload
+checks/BAD, noc-fail/txfail, partial sightings, stop acks.  Unknowns until the first run: BRISC start details (reset at 0 per _BUD.S; release
+of bit 11 alone per CodeManager::releaseTheHounds), whether a Tensix NoC write into the E1's L1 behaves like the host's PCIe-NoC write, NoC1
+vs NoC0 routing (t6pp always uses NoC0; MFMx's NRI3 picks per route length via preferNoC).
