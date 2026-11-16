@@ -103,6 +103,9 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   its T6 tile (reset, zero, readback).  e1fwd/hosttest*.c: native harness for
   the E1 logic (simulated TXQ2/NIU, two cores as threads).  Tools default to a
   dry run, write only through allowlists, `--mock` exercises logic offline.
+- e1fwd/e1fwd13.c + e1fwd/hosttest13.c (session 5): multi-channel bidirectional router
+  image for the seam (see ERISC_SEAM_DESIGN.md); passes the native harness, not yet
+  built for RISC-V or run on hardware.
 - Stage 0: CSR 0x7c0 bit 3 works on E1 (x-seam 0:1:6 and y-seam 0:2:3).
 - Stage 1a (host as hubs, E1 FWD role): 8000 cars/dir at 64/576/4160 B, zero bad,
   both directions, both seams.
