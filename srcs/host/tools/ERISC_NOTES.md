@@ -63,10 +63,19 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
 - NoC->L1 and ETH-RX->L1 writes are atomic per 16 B lane (per user/Tenstorrent).
 - IMPORTANT (per user/Tenstorrent): the L1 write of a single packet is carried out
   by TWO INDEPENDENT STREAMS, and the in-order guarantee applies only WITHIN a
-  stream, not between them.  So a word arriving in one stream says nothing about
+  stream, not between them.  A word arriving in one stream says nothing about
   whether earlier-addressed words carried by the other stream have landed yet.
-  Which words of a packet go to which stream is NOT recorded here (UNVERIFIED);
-  do not assume it is a simple function of address.
+  Which addresses go to which stream (WormholeB0/NoC/Ordering.md in the user's
+  tt-isa-documentation fork; TT engineers (via the TT Discord bot) say Blackhole A0
+  behaves the same, a structural property of the NoC's two L1 write ports; we assume
+  this for BH T6 and ETH tiles until proven otherwise): the receiving NIU splits
+  L1 writes by address into 16-byte granules.  Stream 0 = byte addresses 0..15 mod
+  32, stream 1 = 16..31 mod 32.  Each 16-byte write is atomic; within a stream one
+  packet's writes occur in ascending address order; NOTHING is stated about order
+  between the streams.  (The same page also says generically that the units of a
+  packet "can be processed in any order" and that software should not assume order
+  among individual accesses; we rely on the specific per-stream ascending-order
+  statement.  This is the weakest link of the argument below.)
 - Measured: E1 reading its own L1 (fenced) saw ETH RX writes commit in address
   order on both directions of two links, and never saw an older word behind a
   matching footer.  That is an observation, not a guarantee: given the two
@@ -74,11 +83,30 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   and zero bad cars does not prove the absence of cross-stream reordering.
 - Therefore a car is COMPLETE only when header == ankle == footer (ankle = word
   (words-5), tcms >= 2; see section 4), and a footer match alone is NOT enough.
-  Keep the ankle on the ETH hop as well as the NoC hop.  (An earlier version of
-  this note called the ankle unnecessary on the ETH hop; that conclusion is
-  withdrawn.)  Whether one ankle is sufficient to cover both streams for large
-  cars is also UNVERIFIED and worth a targeted stress test (e.g. a 4160 B car
-  with per-word sequence stamps, checked at the receiver).
+  Keep the ankle on the ETH hop as well as the NoC hop.
+- WHY header+ankle+footer is enough for ONE packet (derived from the stream rule
+  above; checked for slot bases 0 and 16 mod 32 and tcms 0,1,2,3,10,66): car
+  packets are 16 B, 32 B or a multiple of 64 B and ring slots keep src%16 == dst%16
+  (stride 0x1040 = 130*32).  For tcms >= 2 the header (word 0) and the ankle (end-20,
+  in the last stream-0 granule of the packet) are in the SAME stream, and the footer
+  (end-4) is in the OTHER stream.  Header == ankle therefore proves that stream's
+  last granule landed, and by in-stream ascending order everything before it in that
+  stream; footer == header proves the same for the other stream.  That covers both
+  streams, which is exactly what TCBase.h's "5w back to get on other stream" is for.
+  tcms 1 (32 B): header and footer are in different streams, one granule each.
+  tcms 0 (16 B): one atomic granule.  The test needs header values to differ between
+  consecutive cars in a slot (nonce+1 per departure; 8-bit nonce, 4-slot ring).
+- NOT covered by that argument: a car that arrives as SEVERAL packets.  A 4160 B car
+  is 3 TT-link chunks on the ETH hop (1456 B payload each: note 1456 mod 32 = 16, so
+  chunk boundaries fall mid 32 B block, harmless for the address-based stream rule),
+  and the NoC may also split large writes.  The header is in chunk 1 and the ankle +
+  footer are in chunk 3, so a match says nothing about chunk 2.  Cross-packet landing
+  order at the receiver is not documented for the ETH RX queue; for the NoC, packets
+  on the same route with the same VC at every shared hop do not reorder (NOC_CMD_VC_STATIC
+  pins the first-hop VC), but the page states commit ordering between packets only for
+  overlapping bytes (and write-before-read).  Hardware evidence so far: --regen payload
+  verification at 4160 B (3 chunks) saw ~20k checks, zero bad (section 5); that is evidence, not proof.  Open test: long
+  runs with per-word stamps at tcms 66, plus VC_STATIC on the NoC leg.
 - The early "out of order" results in ethlinktest12/13 were L0 staleness, not
   hardware reordering.  UNVERIFIED: a T6/NoC-reader observer (should read the
   footer first or recheck markers).
@@ -222,12 +250,11 @@ Ethernet TX/RX (EthernetTxRx.md): TXQ regs as in section 2 (SRC +0x14, SIZE +0x1
 L1 write, STATUS +0x08 bit 16 CMD_ONGOING; do not reissue until clear; src/size/dest 16-byte aligned/multiples).  Max
 TT-link payload and default MAX_PKT_SIZE are NOT documented (our 1456 B is empirical).  TT-link resends on timeout /
 drop notices, RX discards duplicate sequence numbers; no credit flow control (the car exchange is ours).  The docs say
-NOTHING about ordering between streams or within one packet's L1 write: the two-streams caveat of section 3 stays
-UNVERIFIED either way.  TXQ2 cannot send MMIO-write/overlay packets; RXQ2 cannot receive MMIO writes (we use L1 writes
+NOTHING about ordering between streams or within one packet's L1 write (the Ethernet pages are silent; the stream split
+comes from the Wormhole NoC page, see section 3 and 8.2).  TXQ2 cannot send MMIO-write/overlay packets; RXQ2 cannot receive MMIO writes (we use L1 writes
 only).  Other base facts: 3 TXQ + 3 RXQ per tile, shared 10-entry TX header table at 0xFFB98200 (+i*0x80), RX classifier
 0xFFB9C000, RXQ regs 0xFFB94000/5000/6000.
-Still looked for: the NoC -> L1 "two streams" description (not yet found); Samples/ethdump and InstructionCache.md (404 at
-the name tried) unread.
+Not yet read: InstructionCache.md (404 at the name tried).
 
 Consequences for e1fwd13 (planned changes, not yet made): hoist per-channel config into local RAM/stack once at start;
 keep counters local and publish to L1 with plain stores (no read-modify-write); poll the stop word in L1 only.  Verify by
@@ -260,3 +287,17 @@ Independent confirmation of several things we found by experiment:
   need no L1 traffic).  E1 loads of NIU registers cost >= 7 cycles like L1 misses, so this is a convenience, not a speedup.
 - No cache or reset warnings in the sample; address map facts match section 7 (tile coords: ETH tiles at NoC y=1, x 1-7 and
   10-16; X=8,9 are not ETH).
+
+### 8.2 WormholeB0/NoC/Ordering.md (assumed to hold for BH T6 and ETH tiles; see section 3)
+
+Read 2026-11-16 via a summarizer.  Facts used: L1 reads/writes are split into aligned 16 B units, each atomic, processed in any
+order EXCEPT the stream rule (stream 0 = addr 0..15 mod 32, stream 1 = 16..31 mod 32; ascending within a stream for one
+packet; nothing between streams).  Between packets: same route + same VC at every shared hop => no reordering or
+interleaving there.  Request VC: NOC_CMD_VC_STATIC (software picks first-hop VC; routers may flip only the dateline bit),
+NOC_CMD_VC_LINKED (hardware picks; multi-request transactions, other side effects).  Order of NOC_CMD_CTRL writes sets
+first-hop VC order and, on a shared VC, NIU departure order.  Receiving NIU: up to 12 request + 4 response packets in flight,
+one per final-hop VC; packets on different VCs can be reordered or interleaved arbitrarily; on the same VC guarantees are:
+write-then-read (all writes of packet 1 commit before reads of packet 2), overlapping bytes get packet 1's write first
+(per byte), MMIO writes in order, L1 write then MMIO write has NO guarantee.  Responses/acks cannot be ordered (use counters).
+Stronger ordering = issue, wait for response, then issue the next.  The page says nothing on max packet size, barriers or
+write-data-then-flag patterns.

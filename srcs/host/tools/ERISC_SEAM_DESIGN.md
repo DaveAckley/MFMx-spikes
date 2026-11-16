@@ -159,11 +159,15 @@ The sender cannot discover the remote T6's L1 layout.  So the HOST fills it in:
    the E1 correctly treats as one car.  spoilCompletePacket (nonce--) is disabled in
    the CHUB forwarder; keep it that way.  The CHUB forwarder uses the same
    nonce-changed test.  (Resolved by reading, not by test.)
-2. Two-stream ordering (ERISC_NOTES section 3) is established for the ETH RX path;
-   the NoC leg into E1 L1 is UNVERIFIED.  TCBase.h itself says the ankle is "5w back
-   to get on other stream", so the T6 car format already assumes two streams.  Add a
-   stress test (sequence-stamped 4160 B cars T6 -> E1, checked at E1) before trusting
-   the NoC leg.
+2. Two-stream ordering (ERISC_NOTES section 3, 8.2): the stream split is by address
+   (16 B granules alternating, 32 B period; assumed the same on BH T6 and ETH tiles per
+   TT engineers via the Discord bot).  For a single-packet write, header == ankle ==
+   footer proves both streams complete (derivation in ERISC_NOTES section 3), so the
+   NoC leg into E1 L1 is covered by the same argument if the car goes as ONE NoC packet
+   (4160 B is well under the 12 KiB the ethdump sample treats as safe).  Still
+   UNVERIFIED: cross-packet landing order on the ETH hop (a 4160 B car is 3 TT-link
+   chunks) and on any multi-packet NoC split.  Keep the sequence-stamped 4160 B stress
+   test and try NOC_CMD_VC_STATIC on the NoC leg.
 3. Posted writes: same as T6->T6 today; ack-counted writes would harden the hop.
 4. Corner diagonals that cross two seams are two independent seam crossings at
    different hubs; nothing special for the E1.
