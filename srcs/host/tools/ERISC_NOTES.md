@@ -412,3 +412,17 @@ L1 of B word for word; tool owns the T6 tile exactly like ethfwd12 stage 2: core
 --t6/--t6-addr + --vcstatic; it accepts image ids 13/14/15.  expts11.sh runs: noc on e1fwd14 (1/2/8 ch, csr and fence), e1fwd15
 plain vs --vcstatic, two 3000-round 4160 B stress runs (plain vs VC_STATIC), then idle/route/reflect regressions and the K=1
 latency run.  The mock models the NoC leg only to exercise the tool.
+
+### 9.8 out11 (expts11.sh, 2026-11-16): all 12 hardware steps PASS
+
+NoC leg on the multi-channel image works on hardware: host -> A OUT rings -> A E1 -> link -> B E1 -> NoC -> T6 (1,2) rings @0x100000,
+host-verified word for word, 0 bad / 0 timeouts, E1 counters exact (fwd = noc-writes = in-seen = n, no noc-fail/txfail), for e1fwd14
+with 1, 2 and 8 channels (64/576/4160 B), csr and fence.  VC_STATIC A/B (e1fwd15): plain and --vcstatic both PASS at 500 rounds and in
+the 12000-cars-per-channel x 2 channels 4160 B stress (23.1 s vs 23.2 s, host-bound): no ordering failure without the flag, no hang
+or failure with it, so there is no reason to turn it on.  (Absence of failures is evidence, not proof; the flag's performance /
+deadlock behaviour with other NoC features remains uncharacterised.)
+One-way E1 hop latency (reflect, no regen, K=1, 1 channel, e1fwd15 csr): 16 B 543 ns, 64 B 554, 576 B 600, 4160 B 649 ns (the
+size-dependent part is only ~100 ns for 4160 B).  K=2: 267-326 ns/hop, K=4: 131-171 ns/hop aggregate.  Idle e1fwd15 csr: 139 ns/sweep
+at 1 ch, 983 ns at 8 ch (matches e1fwd14 within noise).  Regressions (route, reflect --regen 0 BAD) still PASS on e1fwd15.
+Net: T6-bypass data path A-E1 -> B-E1 -> T6 is functionally proven with the host standing in for the sending T6; what is missing for a
+true T6 -> T6 path is the sending T6's NoC write into the E1 OUT ring (ERISC_SEAM_DESIGN sec 11).
