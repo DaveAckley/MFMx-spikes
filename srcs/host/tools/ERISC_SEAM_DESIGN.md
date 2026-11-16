@@ -201,3 +201,25 @@ Prepared but NOT yet run: the NoC leg on the multi-channel image (ethfwd16 --noc
 Still NOT done (needs decisions, section 10): T6-side ETH destination (shipTCTo currently dispatches only to a T6 coordinate or the
 PCIe tile: see T6EPs.tcc, a third branch for an ETH tile NoC0 coordinate with the E1 OUT-ring address would do), seam table and
 edge-hub policy, HAS_ETH_SEAM_UP.  The E1 is not the throughput bottleneck for plausible seam traffic (est.), so those come first.
+
+## 12. The T6-side ETH-destination patch (2026-11-16): shipTCTo + NRI3::initiateWriteToEthL1
+
+Change (commit "T6 side: ETH-tile destination ..."; MFMx source, deliberately its own commit so it can be dropped or reworked):
+- shared/include/UxC.h: `UxC::isNoC0CoordAnETH(c)` (NoC0 row y==1, columns 1..7 and 10..16), sibling of isNoC0CoordAT6.
+- cross/include/NRIUtils.h, cross/src/NRIUtils.cpp: `NRI3::initiateWriteToEthL1(sourcenoc0, src, wordCount, destnoc0, destaddr)`: the
+  initiateWriteToT6 register sequence (NIU cmd buf 3, hart NC) with ETH-appropriate asserts (dest must be an ETH coord, destaddr < MEM_ETH_SIZE,
+  16-byte alignment rule) and ALWAYS NoC0 instead of preferNoC().  Why NoC0 only: preferNoC picks the shorter of NoC0 (E,S) / NoC1 (W,N); an ETH
+  tile is north of every T6, so NoC1 would be chosen most of the time, and NoC1 -> ETH tile has NOT been exercised on hardware (stage 3a used NoC0
+  only).  MFMx passes NoC0 coordinates to NIU1 as well, which works for T6 destinations because firmware's coordinate translation makes both NoCs
+  uniform (user notes, Dec 2025); whether that translation covers the ETH row identically is untested.  An opt-in NoC1 experiment (t6pp control
+  word for the NIU base + ethfwd flag) would settle it; then the function could use preferNoC.
+- cross/include/T6EPs.tcc: shipTCTo gets a branch for ETH destinations before the PCIe-tile branch (same wordCount/status handling);
+  configureDest gets a branch that FAILs with INCOMPLETE_CODE for an ETH destination, because the T6 branch would read a remote T6's image block
+  from an ETH tile (garbage).  The missing piece is exactly the seam table: mDestBlockAddr (E1 OUT ring address of the right channel and slot
+  base) and mDestNoC0 (the ETH tile) must come from it (sections 5, 7, 10).  Nothing calls configureDest with an ETH coordinate today, so existing
+  behaviour is unchanged.
+Verification: the unmodified tree and the patched tree both build (hub, ewp) with the sfpi toolchain in a scratch copy (cmake -S . -B build_cross
+-DPRIMARY_CMAKE_RUNNING=1 -DCMAKE_TOOLCHAIN_FILE=srcs/cross/toolchain-cross.cmake; the post-build `tee` into ../CROSS_BUILD_HISTORICAL needs that
+directory to exist).  Code growth: hub.bin text +2032 B (146604 -> 148636), ewp +1600 B (83952 -> 85552); factoring the common NoC sequence of the two
+write functions into one helper would roughly halve that if code size matters.  NOT run on hardware: the NoC sequence is the one t6pp2 proved
+(ERISC_NOTES 9.11); the dispatch and the new function are unexercised until a hub image sends to an ETH tile.

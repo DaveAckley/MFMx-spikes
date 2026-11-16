@@ -100,6 +100,14 @@ namespace MFM {
         equal to each other mod 64, and should probably both just be
         equal to 0 mod 16. */
     s32 initiateWriteToT6(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) ;
+
+    /** Initiate a packet write from our L1 into an ETHERNET tile's L1
+        (eth-seam: the E1 router's OUT ring). Same NIU register
+        sequence as initiateWriteToT6, but ALWAYS over NoC0 -- the
+        only route verified on hardware for ETH-tile destinations
+        (ERISC_NOTES 9.9-9.11) -- instead of preferNoC(). destaddr is
+        an ETH L1 address (< MEM_ETH_SIZE); same alignment rule. */
+    s32 initiateWriteToEthL1(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) ;
     
     /** Read up to 16 words from ngb's L1. Note that destaddr MAY
         point to fast local memory, because the NoC read result is

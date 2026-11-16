@@ -377,6 +377,43 @@ namespace MFM {
     return 1;
   }
 
+  s32 NRI3::initiateWriteToEthL1(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
+    MFM_API_ASSERT(U8C::isNoC0CoordAnETH(destnoc0), ILLEGAL_ARGUMENT);
+    HBASSERT_GT((u32) destaddr, 0x30); // XXX don't deliver to lo mem?
+    HBASSERT_LT(wordCount, 2000); // XXX don't be greedy
+    HBASSERT_GT(wordCount, 0); // XXX but insist we're getting something..
+
+    MFM_API_ASSERT((wordCount*4u)<=(1u<<14),OUT_OF_RESOURCES); // packets don't go over 16KB for this code
+    MFM_API_ASSERT(isInL1(sourcedata),ILLEGAL_STATE);
+    MFM_API_ASSERT(destaddr < MEM_ETH_SIZE, ILLEGAL_ARGUMENT); // ETH L1 is 512K (T6 L1 is bigger)
+    MFM_API_ASSERT((destaddr % 16) == (((u32)sourcedata) % 16), BAD_ALIGNMENT); // rule for small packets L1->L1
+
+    const u32 usenoc = 0u; // NoC0 only: see header comment
+
+    waitTilNRIClear(usenoc);
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_LO, (u32) sourcedata); // 32 bit address of source
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_MID, 0);        // no upper address bits
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_TARG_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(sourcenoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_LO, destaddr);   // 32 bit address of dest
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destnoc0));
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE, wordCount<<2u); // bytecount to write
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_AT_LEN_BE_1, 0);         // not dealing with masks or etc
+
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_CMD_CTRL,1);             // initiate write
+    volatile u32 superstition = funcReadNRIAddress(usenoc,3,NRI_NOC_CMD_CTRL); // read for memory ordering
+
+    recordBytesOINC(true,wordCount<<2);
+    return 1;
+  }
+
   void NRI3::waitTilNRIClear(u8 noc) {
     MFM_API_ASSERT_ON_HART(HARTNUM_NC); // nri3 reserved for hNC
     u32 count = 0u;

@@ -52,6 +52,11 @@ namespace MFM {
       HBXTAG64(mDBAdr,mDestBlockAddr);
       //HBPTAG(oNoC0,ournoc0);
       HBXTAG(tlbi,ourtlbi);
+    } else if (U8C::isNoC0CoordAnETH(destnoc0)) {
+      // eth-seam: dest is an ETH tile (E1 router OUT ring). The T6-style lookup below reads a remote T6's image block and
+      // cannot work here; mDestBlockAddr must come from the seam table (ERISC_SEAM_DESIGN.md sec 5/7), which does not exist
+      // yet. Fail loudly instead of reading garbage from an ETH tile.
+      FAIL(INCOMPLETE_CODE);
     } else {
       // dest is T6
       bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, destbc, iba);
@@ -135,6 +140,11 @@ namespace MFM {
       LOGPTAG(>>>,destnoc0);
       LOGPTAG(@,strTag4Buf32(b32,&car));
       */
+      return status > 0;
+    }
+
+    if (U8C::isNoC0CoordAnETH(destnoc0)) { // eth-seam: dest is an ETH tile's L1 (the E1 router's OUT ring); E1 ships it over the link
+      s32 status = NRI3::initiateWriteToEthL1(ournoc0,(u32*) &car, wordCount, destnoc0, (u32) destcaraddr);
       return status > 0;
     }
 

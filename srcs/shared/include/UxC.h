@@ -116,6 +116,15 @@ namespace MFM {
       return true;
     }
 
+    /** Ethernet tiles sit in NoC0 row y==1, same columns as the T6s
+        (x 1..7 and 10..16). Used by the eth-seam (E1 router) path. */
+    static bool isNoC0CoordAnETH(UxC nocc) {
+      if (nocc.y != 1u) return false;
+      if (nocc.x < 1u || nocc.x > 16u) return false;
+      if (nocc.x > 7u && nocc.x < 10u) return false;
+      return true;
+    }
+
     /** TLBI-only computation works regardless of NoC coords */
     static bool makeNgbTLBIInDir(Dir4 dir, u32 tlbi, u32 & tlbiresult) {
       switch (dir) {
