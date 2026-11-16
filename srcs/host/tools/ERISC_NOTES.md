@@ -378,3 +378,5 @@ and the TXQ2/NoC register traffic.  Next experiments: idle and reflect with --cs
 only every N sweeps.
 BUG found in ethfwd14 (not the images): reflect K=1 stalled for BOTH images because ethfwd14 always set the E1 ring depth to 4 while
 REFLECT needs depth = K (cars cycle through slots in order).  Fixed in ethfwd15 (e1_start takes the ring depth).  K=4 results above are valid.
+
+Batch runner: tools/expts10.sh (bash) builds ethfwd15 + both images and runs the 9.5 follow-ups (idle/route/reflect x fence/csr x e1fwd13/14, with --regen) with && chaining, stopping with a banner on the first failure; output in tools/out10/ (do not commit).
