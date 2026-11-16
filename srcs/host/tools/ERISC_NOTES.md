@@ -59,11 +59,25 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
   cross/src/_BUD.S line ~108 uses on the T6 harts.  Poll cost: ~20 ns stale-
   cached (meaningless), ~35 ns L0-off, ~40 ns fenced.
 - NoC->L1 and ETH-RX->L1 writes are atomic per 16 B lane (per user/Tenstorrent).
-  E1 reading its own L1 (fenced) sees ETH RX writes commit in address order on
-  both directions of two links: header == footer (== ankle for tcms >= 2) means
-  all payload present; never saw an older word behind a matching footer.
-  The ankle looks unnecessary on the ETH hop (keep it for the NoC hop).  The
-  early "out of order" results in ethlinktest12/13 were L0 staleness, not
+- IMPORTANT (per user/Tenstorrent): the L1 write of a single packet is carried out
+  by TWO INDEPENDENT STREAMS, and the in-order guarantee applies only WITHIN a
+  stream, not between them.  So a word arriving in one stream says nothing about
+  whether earlier-addressed words carried by the other stream have landed yet.
+  Which words of a packet go to which stream is NOT recorded here (UNVERIFIED);
+  do not assume it is a simple function of address.
+- Measured: E1 reading its own L1 (fenced) saw ETH RX writes commit in address
+  order on both directions of two links, and never saw an older word behind a
+  matching footer.  That is an observation, not a guarantee: given the two
+  streams it may only mean the streams happened to stay in step in these tests,
+  and zero bad cars does not prove the absence of cross-stream reordering.
+- Therefore a car is COMPLETE only when header == ankle == footer (ankle = word
+  (words-5), tcms >= 2; see section 4), and a footer match alone is NOT enough.
+  Keep the ankle on the ETH hop as well as the NoC hop.  (An earlier version of
+  this note called the ankle unnecessary on the ETH hop; that conclusion is
+  withdrawn.)  Whether one ankle is sufficient to cover both streams for large
+  cars is also UNVERIFIED and worth a targeted stress test (e.g. a 4160 B car
+  with per-word sequence stamps, checked at the receiver).
+- The early "out of order" results in ethlinktest12/13 were L0 staleness, not
   hardware reordering.  UNVERIFIED: a T6/NoC-reader observer (should read the
   footer first or recheck markers).
 - After storing a car's words and before a TXQ/NIU CMD store, read one stored
@@ -74,7 +88,8 @@ T6 -> NoC -> ETH tile -> link -> ETH tile -> NoC -> T6.
 - Marker word = 0x2C | nonce<<8 | tcms<<16 | state<<24 (state 3 INBOUND_DEPARTED,
   4 OUTBOUND_DEPARTED).  Packet bytes: 16 (tcms 0), 32 (1), (tcms-1)*64 (>=2);
   4160 B = tcms 66 (InterHubBlock; InterHubStorage = 4 cars).  Footer = last word,
-  ankle = word (words-5) if tcms >= 2.  Complete = header == ankle == footer.
+  ankle = word (words-5) if tcms >= 2.  Complete = header == ankle == footer (all
+  three; see the two-streams caveat in section 3).
 - Flow control IS the car exchange: a shipped car's slot is owned by the far end
   until a complete car with a changed header arrives; FIFO slot order mod ring.
   So the E1 is a transparent wire: it adds no credits.  A "new" car = complete
