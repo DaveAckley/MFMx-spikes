@@ -21,6 +21,12 @@
                           force=False,
                           smoke=True)
 
+      # Or, with seams declared and the T6 images deployed: plan the
+      # channels from the deployed InterHub addresses and bring up every
+      # live link of every declared seam.  "" on success.
+      err = h.bringUpSeams("/path/e1fwd16.bin",
+                           flags=2, ringCars=4, force=False, smoke=True)
+
       h.status()
       h.health(chip, ethx)
       h.channelStat(chip, ethx, channel, wordIndex)
@@ -40,6 +46,9 @@
 #include "QuietBox.h"
 #include "Blackhole.h"
 #include "HostUtils.h"
+#include "T6Image.h"
+#include "BlockCode.h"
+#include "UxC.h"
 
 #include <map>
 #include <tuple>
@@ -90,8 +99,46 @@ namespace MFM {
       return std::unique_ptr<EthPort>(new KmdEthPort(fd));
     }
 
+    /* The hub at CT6 (ct6x, ct6y): its NoC0 and the L1 base of its
+       deployed InterHub storages, from the image deployed there. */
+    inline bool lookupHub(u32 chip,
+                          u32 ct6x,
+                          u32 ct6y,
+                          EthSeamHost::SeamHub & hub,
+                          std::string & err) {
+      std::string tag = "Blackhole " + std::to_string(chip)
+        + " hub CT6 (" + std::to_string(ct6x)
+        + "," + std::to_string(ct6y) + ")";
+      Blackhole * bh = QuietBox::get().getBlackholeIfPresent(chip);
+      if (!bh) {
+        err = "no Blackhole " + std::to_string(chip);
+        return false;
+      }
+      U8C ct6((u8) ct6x, (u8) ct6y);
+      u32 tlbi = U8C::makeTLBIFromCT6Coord(ct6);
+      U8C noc0 = U8C::makeNoC0CoordFromCT6Coord(ct6);
+      const T6Image * img =
+        bh->getOurTLBs().getTLBInfo(tlbi).getDeployedImageIfAny();
+      if (!img) {
+        err = tag + ": no image deployed yet";
+        return false;
+      }
+      ImageBlockAddr * iba =
+        img->getImageBlockAddrForBlockCodeIfAny(BC_INTERHUB);
+      if (!iba) {
+        err = tag + ": image '" + img->getName()
+          + "' has no InterHub block";
+        return false;
+      }
+      hub.noc0x = noc0.x;
+      hub.noc0y = noc0.y;
+      hub.ihubBase = iba->getBlockAddr();
+      return true;
+    }
+
     inline void install() {
       EthSeamHost::get().setPortFactory(makePort);
+      EthSeamHost::get().setHubLookup(lookupHub);
       ethLinksSetLogger([](const std::string & s) {
         HTprintf("[EthLinks] %s\n", s.c_str());
       });
@@ -173,6 +220,14 @@ namespace MFM {
             py::arg("chipB"),
             py::arg("ethx"));
       c.def("clearSeams", &EthSeamHost::clearSeams);
+      c.def("bringUpSeams",
+            &EthSeamHost::bringUpSeams,
+            py::arg("image"),
+            py::arg("flags") = (u32) EthSeam::E1F_CSR,
+            py::arg("ringCars") = (u32) EthSeam::RING_CARS,
+            py::arg("force") = false,
+            py::arg("smoke") = true,
+            py::call_guard<py::gil_scoped_release>());
 
       c.def("tearDownLink",
             &EthSeamHost::tearDownLink,

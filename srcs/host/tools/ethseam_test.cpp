@@ -38,7 +38,7 @@ static void check_seam(u32 E) {
       CHECK(a.link < L);
       u32 ord = ordinalOf(e, s); CHECK(ord < N); CHECK(ord < 64); if (ord < 64) ++seen[ord];
       ++perLink[a.link]; if (a.channel + 1u > maxch[a.link]) maxch[a.link] = a.channel + 1u;
-      u32 e2 = 99; Slot s2 = SLOT_CARDINAL;
+      u32 e2 = 99; Slot s2 = SLOT_DIR4;
       CHECK(invert(E, L, a.link, a.channel, e2, s2)); CHECK(e2 == e && s2 == s);
     }
     CHECK(keys == N);
@@ -48,15 +48,15 @@ static void check_seam(u32 E) {
     CHECK(mx - mn <= 1);                                       // balanced
     CHECK(mx == maxChannelsPerLink(N, L));
     Assign dummy; u32 ee; Slot ss;
-    CHECK(!assign(E, L, E, SLOT_CARDINAL, dummy));             // no such hub
+    CHECK(!assign(E, L, E, SLOT_DIR4, dummy));             // no such hub
     CHECK(!invert(E, L, 0, N, ee, ss));                        // unused channel
   }
-  { Assign z; CHECK(!assign(E, 0, 0, SLOT_CARDINAL, z)); CHECK(!assign(E, MAX_LINKS + 1, 0, SLOT_CARDINAL, z)); }   // L == 0 or > MAX_LINKS rejected
+  { Assign z; CHECK(!assign(E, 0, 0, SLOT_DIR4, z)); CHECK(!assign(E, MAX_LINKS + 1, 0, SLOT_DIR4, z)); }   // L == 0 or > MAX_LINKS rejected
 }
 
-// Cardinal seam wiring (PART 4): the sending hub's dest, the host's
+// Dir4 seam wiring (PART 4): the sending hub's dest, the host's
 // receive plan and the far hub's own dest must all agree.
-static void check_cardinal() {
+static void check_Dir4() {
   const CellShape c = CELL_C2X2;
   for (u32 L = 1; L <= MAX_LINKS; ++L) {
     SeamTable a;
@@ -78,13 +78,13 @@ static void check_cardinal() {
       Dir4 back = oppositeDir4(d4);
       u32 E = edgeHubCount(d4, c);
       u32 hubs = 0;
-      CHECK(cardinalWeAreIn(d4) != cardinalWeAreIn(back));
+      CHECK(weAreInDir4(d4) != weAreInDir4(back));
       for (u32 y = 0; y < BOARD_CT6_H; ++y) {
         for (u32 x = 0; x < BOARD_CT6_W; ++x) {
           // only hubs: hub offset in the cell
           bool hub = (x % c.cw == c.hox) && (y % c.ch == c.hoy);
-          CardinalDest da = { 0, 0 };
-          bool got = cardinalDest(a, d4, x, y, c, da);
+          DestDir4 da = { 0, 0 };
+          bool got = destDir4(a, d4, x, y, c, da);
           CHECK(got == (hub && hubOnEdge(d4, x, y, c)));
           if (!got) continue;
           ++hubs;
@@ -94,16 +94,16 @@ static void check_cardinal() {
             if (a.ethX[d4][i] == da.ethx) link = i;
           }
           CHECK(link < L);
-          CardinalRecv r = { 0, 0, 0 };
-          CHECK(cardinalRecv(a, d4, link, da.channel, c, r));
+          RecvDir4 r = { 0, 0, 0 };
+          CHECK(recvDir4(a, d4, link, da.channel, c, r));
           // the receiving hub is on the facing edge, same edge index
           CHECK(hubOnEdge(back, r.recvCT6x, r.recvCT6y, c));
           CHECK(hubEdgeIndex(back, r.recvCT6x, r.recvCT6y, c) ==
                 hubEdgeIndex(d4, x, y, c));
           CHECK(r.recvDir8 == dir4ToDir8(back));
           // and its own dest toward us uses the same ETH tile + channel
-          CardinalDest db = { 0, 0 };
-          CHECK(cardinalDest(b, back, r.recvCT6x, r.recvCT6y, c, db));
+          DestDir4 db = { 0, 0 };
+          CHECK(destDir4(b, back, r.recvCT6x, r.recvCT6y, c, db));
           CHECK(db.ethx == da.ethx);
           CHECK(db.channel == da.channel);
         }
@@ -114,13 +114,13 @@ static void check_cardinal() {
   // hubs not on an edge, and seams with no links, give nothing
   SeamTable none;
   memset(&none, 0, sizeof(none));
-  CardinalDest d = { 0, 0 };
-  CHECK(!cardinalDest(none, D4_E, 13, 1, c, d));
+  DestDir4 d = { 0, 0 };
+  CHECK(!destDir4(none, D4_E, 13, 1, c, d));
   SeamTable one = none;
   one.n[D4_E] = 1;
   one.ethX[D4_E][0] = 6;
-  CHECK(!cardinalDest(one, D4_E, 11, 1, c, d));     // not on the E edge
-  CHECK(cardinalDest(one, D4_E, 13, 9, c, d));
+  CHECK(!destDir4(one, D4_E, 11, 1, c, d));     // not on the E edge
+  CHECK(destDir4(one, D4_E, 13, 9, c, d));
   CHECK(d.ethx == 6);
 }
 
@@ -169,7 +169,7 @@ int main() {
            fits(R, 4) ? "yes (even full ring)" : (fits(N, 4) ? "yes (two cards), NO for the full ring" : "NO: needs a larger NCH_MAX (and CTL window)"));
   }
   Assign a; CHECK(assign(5, 4, 2, SLOT_DIAG_HI, a)); CHECK(a.link == (ordinalOf(2, SLOT_DIAG_HI) % 4));
-  check_cardinal();
+  check_Dir4();
   check_mask();
   printf("%s\n", fails ? "SOME CHECKS FAILED" : "all ok");
   return fails != 0;

@@ -35,6 +35,23 @@ namespace MFM {
       std::function<std::unique_ptr<EthPort>(u32 chip,
                                              std::string & err)>;
 
+    /** A hub T6 as the host sees it after deploy. */
+    struct SeamHub {
+      u8 noc0x;                 //< hub T6 NoC0 x
+      u8 noc0y;                 //< hub T6 NoC0 y
+      u32 ihubBase;             //< L1 address of its BC_INTERHUB blocks
+    };
+
+    /** Find the hub at CT6 (ct6x, ct6y) of a chip: its NoC0 and the
+        L1 base of its deployed InterHub storages.  The glue installs
+        this over the Blackhole's deployed images. */
+    using HubLookup =
+      std::function<bool(u32 chip,
+                         u32 ct6x,
+                         u32 ct6y,
+                         SeamHub & hub,
+                         std::string & err)>;
+
     static EthSeamHost & get() ;
 
     /** Declare, BEFORE the T6 images are deployed, that chipB lies
@@ -53,6 +70,29 @@ namespace MFM {
     /// The HostBlock link-mask word for a chip (EthSeam
     /// packSeamMask layout); 0 if none declared
     u16 seamMaskFor(u32 chip) ;
+
+    void setHubLookup(HubLookup f) ;
+
+    /** Work out both ends' channel setups for ONE link of a declared
+        seam: for each Dir4 storage dealt to that link, the receiving
+        hub on each card and its InterHub storage address (needs the
+        hub lookup, so call after deploy).  Returns "" or an error. */
+    std::string planLink(u32 chipA,
+                         u32 chipB,
+                         u32 ethx,
+                         u32 flags,
+                         u32 ringCars,
+                         EthChannelSetup & setupA,
+                         EthChannelSetup & setupB) ;
+
+    /** Plan and bring up every live link of every declared seam.  On
+        any failure the links this call brought up are torn down
+        again.  Returns "" or an error text. */
+    std::string bringUpSeams(const std::string & imagePath,
+                             u32 flags,
+                             u32 ringCars,
+                             bool force,
+                             bool smoke) ;
 
     /** How to make the EthPort of a chip (the glue installs a
         KmdEthPort over the Blackhole's fd). */
@@ -99,6 +139,30 @@ namespace MFM {
       std::unique_ptr<EthLink> link;
     };
 
+    struct Decl {
+      u32 chipA;
+      u32 dir4;                 //< chipB lies this way from chipA
+      u32 chipB;
+    };
+
+    std::string bringUpLinkLocked(u32 chipA,
+                                  u32 chipB,
+                                  u32 ethx,
+                                  const std::string & imagePath,
+                                  const EthChannelSetup & setupA,
+                                  const EthChannelSetup & setupB,
+                                  bool force,
+                                  bool smoke) ;
+    std::string planLinkLocked(u32 chipA,
+                               u32 chipB,
+                               u32 ethx,
+                               u32 flags,
+                               u32 ringCars,
+                               EthChannelSetup & setupA,
+                               EthChannelSetup & setupB) ;
+    std::string tearDownLinkLocked(u32 chipA, u32 chipB, u32 ethx) ;
+    EthSeam::SeamTable tableLocked(u32 chip) ;
+
     /// creates on first use; mMutex held
     EthPort * portFor(u32 chip, std::string & err) ;
 
@@ -111,6 +175,8 @@ namespace MFM {
     std::map<u32, std::unique_ptr<EthPort>> mPorts;
     std::vector<Rec> mLinks;
     std::map<u32, u16> mSeams;        //< chip -> link-mask word
+    std::vector<Decl> mDecls;
+    HubLookup mHubLookup;
   };
 
 } // namespace MFM

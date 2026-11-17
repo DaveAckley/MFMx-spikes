@@ -34,12 +34,14 @@ namespace MFM {
     }
     a = EthSeam::packSeamMask(d4, nibble, a);
     b = EthSeam::packSeamMask(back, nibble, b);
+    mDecls.push_back({ chipA, dir4, chipB });
     return "";
   }
 
   void EthSeamHost::clearSeams() {
     std::lock_guard<std::mutex> lock(mMutex);
     mSeams.clear();
+    mDecls.clear();
   }
 
   u16 EthSeamHost::seamMaskFor(u32 chip) {
@@ -110,6 +112,25 @@ namespace MFM {
                                        bool force,
                                        bool smoke) {
     std::lock_guard<std::mutex> g(mMutex);
+    return bringUpLinkLocked(chipA,
+                             chipB,
+                             ethx,
+                             imagePath,
+                             setupA,
+                             setupB,
+                             force,
+                             smoke);
+  }
+
+  std::string EthSeamHost::bringUpLinkLocked(
+      u32 chipA,
+      u32 chipB,
+      u32 ethx,
+      const std::string & imagePath,
+      const EthChannelSetup & setupA,
+      const EthChannelSetup & setupB,
+      bool force,
+      bool smoke) {
     if (chipA == chipB) return "a link needs two different chips";
     if (find(chipA, chipB, ethx) || find(chipB, chipA, ethx)) {
       return "link already exists (tear it down first)";
@@ -150,6 +171,12 @@ namespace MFM {
                                         u32 chipB,
                                         u32 ethx) {
     std::lock_guard<std::mutex> g(mMutex);
+    return tearDownLinkLocked(chipA, chipB, ethx);
+  }
+
+  std::string EthSeamHost::tearDownLinkLocked(u32 chipA,
+                                              u32 chipB,
+                                              u32 ethx) {
     for (size_t i = 0; i < mLinks.size(); ++i) {
       Rec & r = mLinks[i];
       bool forward = r.a == chipA && r.b == chipB;
@@ -161,6 +188,181 @@ namespace MFM {
       }
     }
     return "no such link";
+  }
+
+  void EthSeamHost::setHubLookup(HubLookup f) {
+    std::lock_guard<std::mutex> g(mMutex);
+    mHubLookup = f;
+  }
+
+  EthSeam::SeamTable EthSeamHost::tableLocked(u32 chip) {
+    EthSeam::SeamTable t;
+    auto it = mSeams.find(chip);
+    u16 mask = it == mSeams.end() ? (u16) 0u : it->second;
+    EthSeam::decodeSeamMask(mask, t);
+    return t;
+  }
+
+  std::string EthSeamHost::planLink(u32 chipA,
+                                    u32 chipB,
+                                    u32 ethx,
+                                    u32 flags,
+                                    u32 ringCars,
+                                    EthChannelSetup & setupA,
+                                    EthChannelSetup & setupB) {
+    std::lock_guard<std::mutex> g(mMutex);
+    return planLinkLocked(chipA,
+                          chipB,
+                          ethx,
+                          flags,
+                          ringCars,
+                          setupA,
+                          setupB);
+  }
+
+  std::string EthSeamHost::planLinkLocked(u32 chipA,
+                                          u32 chipB,
+                                          u32 ethx,
+                                          u32 flags,
+                                          u32 ringCars,
+                                          EthChannelSetup & setupA,
+                                          EthChannelSetup & setupB) {
+    if (!mHubLookup) {
+      return "no hub lookup installed"
+        " (the glue must call setHubLookup)";
+    }
+    // Find the declaration, in either order, and orient it so that
+    // 'a' is the chip that declared the direction.
+    const Decl * decl = nullptr;
+    u32 a = chipA;
+    u32 b = chipB;
+    for (const Decl & d : mDecls) {
+      if (d.chipA == chipA && d.chipB == chipB) {
+        decl = &d;
+      } else if (d.chipA == chipB && d.chipB == chipA) {
+        decl = &d;
+        a = chipB;
+        b = chipA;
+      }
+    }
+    if (!decl) return "no seam declared between those chips";
+
+    Dir4 dirAB = (Dir4) decl->dir4;
+    Dir4 dirBA = oppositeDir4(dirAB);
+    EthSeam::SeamTable ta = tableLocked(a);
+    EthSeam::SeamTable tb = tableLocked(b);
+    u32 links = ta.n[dirAB];
+    u32 link = links;
+    for (u32 i = 0; i < links; ++i) {
+      if (ta.ethX[dirAB][i] == ethx) link = i;
+    }
+    if (link == links) {
+      return "ETH tile " + std::to_string(ethx)
+        + " is not a declared link of that seam";
+    }
+
+    // Both ends get the same channel set, each describing where ITS
+    // incoming cars land: the receiving hub is found by asking the
+    // plan "as sent from the other card".
+    EthChannelSetup sa;
+    EthChannelSetup sb;
+    sa.flags = (u8) flags;
+    sb.flags = (u8) flags;
+    sa.ringCars = (u8) ringCars;
+    sb.ringCars = (u8) ringCars;
+
+    const EthSeam::CellShape & cell = EthSeam::CELL_C2X2;
+    u32 E = EthSeam::edgeHubCount(dirAB, cell);
+    u32 nch = EthSeam::maxChannelsPerLink(
+        EthSeam::channelsTwoCards(E), links);
+    for (u32 c = 0; c < nch; ++c) {
+      EthSeam::RecvDir4 atB;
+      EthSeam::RecvDir4 atA;
+      bool toB = EthSeam::recvDir4(ta, dirAB, link, c, cell, atB);
+      bool toA = EthSeam::recvDir4(tb, dirBA, link, c, cell, atA);
+      if (toB != toA) return "internal: seam ends disagree";
+      if (!toB) continue;
+
+      std::string err;
+      SeamHub hubA;
+      SeamHub hubB;
+      if (!mHubLookup(a, atA.recvCT6x, atA.recvCT6y, hubA, err)) {
+        return err;
+      }
+      if (!mHubLookup(b, atB.recvCT6x, atB.recvCT6y, hubB, err)) {
+        return err;
+      }
+      EthChannel ca;
+      ca.channel = (u8) c;
+      ca.legs = EthSeam::LEG_OUT | EthSeam::LEG_IN_NOC;
+      ca.t6x = hubA.noc0x;
+      ca.t6y = hubA.noc0y;
+      ca.t6Base = hubA.ihubBase + atA.recvDir8 * EthSeam::RING_BYTES;
+      EthChannel cb = ca;
+      cb.t6x = hubB.noc0x;
+      cb.t6y = hubB.noc0y;
+      cb.t6Base = hubB.ihubBase + atB.recvDir8 * EthSeam::RING_BYTES;
+      sa.channels.push_back(ca);
+      sb.channels.push_back(cb);
+    }
+    if (sa.channels.empty()) return "no Dir4 channel on that link";
+
+    // Hand back in the caller's order.
+    if (a == chipA) {
+      setupA = sa;
+      setupB = sb;
+    } else {
+      setupA = sb;
+      setupB = sa;
+    }
+    return "";
+  }
+
+  std::string EthSeamHost::bringUpSeams(const std::string & imagePath,
+                                        u32 flags,
+                                        u32 ringCars,
+                                        bool force,
+                                        bool smoke) {
+    std::lock_guard<std::mutex> g(mMutex);
+    if (mDecls.empty()) return "no seams declared";
+    struct Up {
+      u32 a;
+      u32 b;
+      u32 ethx;
+    };
+    std::vector<Up> ups;
+    std::string err;
+    for (const Decl & d : mDecls) {
+      EthSeam::SeamTable ta = tableLocked(d.chipA);
+      Dir4 dir = (Dir4) d.dir4;
+      for (u32 i = 0; i < ta.n[dir] && err.empty(); ++i) {
+        u32 ethx = ta.ethX[dir][i];
+        EthChannelSetup sa;
+        EthChannelSetup sb;
+        err = planLinkLocked(d.chipA,
+                             d.chipB,
+                             ethx,
+                             flags,
+                             ringCars,
+                             sa,
+                             sb);
+        if (!err.empty()) break;
+        err = bringUpLinkLocked(d.chipA,
+                                d.chipB,
+                                ethx,
+                                imagePath,
+                                sa,
+                                sb,
+                                force,
+                                smoke);
+        if (err.empty()) ups.push_back({ d.chipA, d.chipB, ethx });
+      }
+      if (!err.empty()) break;
+    }
+    if (!err.empty()) {
+      for (const Up & u : ups) tearDownLinkLocked(u.a, u.b, u.ethx);
+    }
+    return err;
   }
 
   void EthSeamHost::tearDownAll() {

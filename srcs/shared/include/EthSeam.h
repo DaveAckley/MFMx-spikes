@@ -18,14 +18,14 @@
             delivered, only the live link list (<= 4 ETH x
             coordinates per seam).
     PART 3  E1 control words, flags, modes.
-    PART 4  Seam table and hub-edge geometry (cardinal crossings).
+    PART 4  Seam table and hub-edge geometry (Dir4 crossings).
 
     TERMS.  Edge index e: position of a hub along a card edge,
     counted from the north end (east/west seams) or the west end
     (north/south seams), 0..E-1.
 
     Slot: which directed storage of edge hub e crosses the seam.
-      SLOT_CARDINAL  ihub -> ihub across.
+      SLOT_DIR4  ihub -> ihub across.
       SLOT_DIAG_LO   a diagonal toward the neighbor at edge index e-1.
       SLOT_DIAG_HI   a diagonal toward the neighbor at edge index e+1.
     Whether a diagonal crossing is the first hop (ihub -> chub) or
@@ -117,7 +117,7 @@ namespace MFM {
     //// PART 2: assignment ////////////////////////////////////////////
 
     enum Slot : u8 {
-      SLOT_CARDINAL = 0,
+      SLOT_DIR4 = 0,
       SLOT_DIAG_LO = 1,
       SLOT_DIAG_HI = 2
     };
@@ -149,7 +149,7 @@ namespace MFM {
     }
 
     /** Directed storages crossing ONE seam in ONE direction:
-        E cardinal + 2(E-1) diagonal. */
+        E ihub -> ihub + 2(E-1) diagonal. */
     inline constexpr u32 channelsTwoCards(u32 E) {
       return E == 0u ? 0u : 3u * E - 2u;
     }
@@ -165,17 +165,17 @@ namespace MFM {
     inline constexpr bool slotExists(u32 E, u32 e, Slot s) {
       return
         e < E &&
-        (s == SLOT_CARDINAL ||
+        (s == SLOT_DIR4 ||
          (s == SLOT_DIAG_LO && e > 0u) ||
          (s == SLOT_DIAG_HI && e + 1u < E));
     }
 
     /** Canonical ordinal of storage (e, slot) among the
-        channelsTwoCards(E) storages: hub by hub, CARDINAL, LO, HI. */
+        channelsTwoCards(E) storages: hub by hub, DIR4, LO, HI. */
     inline u32 ordinalOf(u32 e, Slot s) {
-      // hub 0 has 2 slots (CARDINAL, HI), the others 3
+      // hub 0 has 2 slots (DIR4, HI), the others 3
       u32 before = (e == 0u) ? 0u : 3u * e - 1u;
-      if (s == SLOT_CARDINAL) return before;
+      if (s == SLOT_DIR4) return before;
       if (s == SLOT_DIAG_LO) return before + 1u;
       // HI
       return before + 1u + (e > 0u ? 1u : 0u);
@@ -332,7 +332,7 @@ namespace MFM {
 
     //// PART 4: seam table and hub-edge geometry //////////////////////////
     //
-    // What a hub (T6) and the host need to wire CARDINAL crossings
+    // What a hub (T6) and the host need to wire Dir4 crossings
     // (ihub -> ihub across a card edge).  Diagonal storages
     // (SLOT_DIAG_LO / SLOT_DIAG_HI) are NOT wired yet.
     //
@@ -477,32 +477,32 @@ namespace MFM {
     /** Which end of a seam starts out 'in' (T6EP isin).  Both ends
         must choose opposite values: the end whose neighbor is E or S
         is 'in', the end whose neighbor is W or N is 'out'. */
-    inline constexpr bool cardinalWeAreIn(Dir4 d4) {
+    inline constexpr bool weAreInDir4(Dir4 d4) {
       return d4 == D4_E || d4 == D4_S;
     }
 
-    /** T6 side: where does the hub at CT6 (x, y) send its cardinal
+    /** T6 side: where does the hub at CT6 (x, y) send its Dir4
         storage toward neighbor card d4?  False if that hub is not on
         that edge, the seam has no live links, or the table is bad.
         ethx is the ETH tile's NoC0 x (y is ETH_NOC0_Y); the cars go to
         outCarAddr(channel, i) in that tile's L1. */
-    struct CardinalDest {
-      u8 ethx;
-      u8 channel;
+    struct DestDir4 {
+      u8 ethx;                  //< ETH tile NoC0 x of the link
+      u8 channel;               //< E1 channel on that link
     };
-    inline bool cardinalDest(const SeamTable & t,
-                             Dir4 d4,
-                             u32 x,
-                             u32 y,
-                             const CellShape & c,
-                             CardinalDest & out) {
+    inline bool destDir4(const SeamTable & t,
+                         Dir4 d4,
+                         u32 x,
+                         u32 y,
+                         const CellShape & c,
+                         DestDir4 & out) {
       if (d4 > 3u || t.n[d4] == 0u) return false;
       if (!isHubCT6(x, y, c)) return false;
       if (!hubOnEdge(d4, x, y, c)) return false;
       Assign a;
       u32 E = edgeHubCount(d4, c);
       u32 e = hubEdgeIndex(d4, x, y, c);
-      if (!assign(E, t.n[d4], e, SLOT_CARDINAL, a)) return false;
+      if (!assign(E, t.n[d4], e, SLOT_DIR4, a)) return false;
       out.ethx = t.ethX[d4][a.link];
       out.channel = a.channel;
       return true;
@@ -512,26 +512,29 @@ namespace MFM {
         neighbor lies in direction d4 (the SENDING card), channel
         'channel' carries cars from a hub on this card to a hub on the
         neighbor card.  Where do they land on the neighbor?  The E1
-        there needs the receiving hub's NoC0 (from recvCT6) and
+        there needs the receiving hub's NoC0 (from recvCT6x/y) and
         recvDir8: the index of that hub's InterHub storage.  False if
-        the channel is unused or carries a diagonal. */
-    struct CardinalRecv {
-      u8 recvCT6x;
-      u8 recvCT6y;
-      u8 recvDir8;
+        the channel is unused or carries a diagonal.
+
+        For the E1 on the OTHER card of the seam, call it with that
+        card's table and direction. */
+    struct RecvDir4 {
+      u8 recvCT6x;              //< receiving hub, CT6 x
+      u8 recvCT6y;              //< receiving hub, CT6 y
+      u8 recvDir8;              //< its InterHub storage index
     };
-    inline bool cardinalRecv(const SeamTable & sender,
-                             Dir4 d4,
-                             u32 link,
-                             u32 channel,
-                             const CellShape & c,
-                             CardinalRecv & out) {
+    inline bool recvDir4(const SeamTable & sender,
+                         Dir4 d4,
+                         u32 link,
+                         u32 channel,
+                         const CellShape & c,
+                         RecvDir4 & out) {
       if (d4 > 3u) return false;
       u32 e = 0u;
-      Slot s = SLOT_CARDINAL;
+      Slot s = SLOT_DIR4;
       u32 E = edgeHubCount(d4, c);
       if (!invert(E, sender.n[d4], link, channel, e, s)) return false;
-      if (s != SLOT_CARDINAL) return false;
+      if (s != SLOT_DIR4) return false;
       Dir4 back = oppositeDir4(d4);
       u32 x = 0u;
       u32 y = 0u;

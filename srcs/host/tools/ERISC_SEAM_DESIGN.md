@@ -32,7 +32,7 @@ needs nothing new: the car exchange already is the flow control (ERISC_NOTES sec
 
 ## 3. How the T6 side works today (what we hook into)
 
-- Each hub has 8 InterHub EPs (myInterHubEP[Dir8]).  Cardinal EPs ship to the
+- Each hub has 8 InterHub EPs (myInterHubEP[Dir8]).  Dir4 EPs ship to the
   neighbor hub's BC_INTERHUB storage at index oppositeDir8.  Diagonal (corner) EPs
   ship to the BC_CORNERHUB (CHUB) block of the orthogonal neighbor CCW of the
   corner (block index = that edge direction as Dir4).  Both the final hub and the
@@ -55,8 +55,8 @@ needs nothing new: the car exchange already is the flow control (ERISC_NOTES sec
 
 ## 4. Destinations and channel counts
 
-Per hub and per cardinal neighbor there are THREE destination storages (not two):
-IHUB at the even (cardinal) index, CHUB (diagonal first hop), and IHUB at the odd
+Per hub and per Dir4 neighbor there are THREE destination storages (not two):
+IHUB at the even (Dir4) index, CHUB (diagonal first hop), and IHUB at the odd
 (corner) index (the CHUB forwarder's second hop).  12 per hub.  A seam-crossing
 diagonal crosses exactly once: on the first hop if the CHUB is across, else on the
 forwarder's second hop (corner diagonals in the 2x2 ring also cross a second seam,
@@ -64,7 +64,7 @@ at a different hub).  One E1 "channel" = an OUT ring + an IN ring, and the two
 directions of a seam pack into the same channels, so channels needed per seam =
 directed storages in ONE direction:
 
-| seam           | cardinal | diag, 1st hop | diag, 2nd hop | 2 cards | full ring (max) |
+| seam           | Dir4 | diag, 1st hop | diag, 2nd hop | 2 cards | full ring (max) |
 |----------------|----------|---------------|---------------|---------|-----------------|
 | x (5 edge hubs)| 5        | 4             | 4             | 13      | 15              |
 | y (7 edge hubs)| 7        | 6             | 6             | 19      | 21              |
@@ -77,7 +77,7 @@ the y seam then needs 3 tiles of 7 (21 <= 32).  Poll cost ~40 ns per ring head,
 so 8 channels ~0.65 us per sweep, same order as the 0.56-0.68 us hop latency and
 tiny against ms-scale car exchange.  Link bandwidth is not a constraint.
 
-Build order: cardinal crossings first (5 on x, 7 on y); diagonals afterward.
+Build order: Dir4 crossings first (5 on x, 7 on y); diagonals afterward.
 
 ## 5. T6-side changes
 
@@ -179,7 +179,7 @@ The sender cannot discover the remote T6's L1 layout.  So the HOST fills it in:
   split by card (A: OUT leg, B: IN leg).  New: a small sfpi T6 test image on card A
   using the new shipTCTo branch, and ethfwd14.
 - Stage 3b: both legs both ways; two T6 test images ping-pong cars across the seam.
-- Stage 3c: cardinal InterHub EPs across the x seam (bhchips [0,1]); seam table;
+- Stage 3c: Dir4 InterHub EPs across the x seam (bhchips [0,1]); seam table;
   HAS_ETH_SEAM_UP; ptrace learns the E1 hop.
 - Stage 3d: y seam, diagonals (CHUB forwarder seam variant), more channels per tile,
   SuperCycle across cards, link retrain/FEC monitoring.
@@ -230,7 +230,7 @@ Answers to the section 10 questions:
 1. Which ETH tile / channel: BALANCED DEALING for both seams.  A literal "nearest ETH tile" works for the y seam but not the x seam (all ETH tiles are
    in NoC row y=1, so for the east/west edge hubs the distance is dominated by x and nearly equal; nearest would pile the 13 channels onto one tile),
    and tile position does not matter for latency anyway (ERISC_NOTES 9.11: every tile pair gave 2.59-2.61 us).  The rule (EthSeam.h): number the
-   directed storages crossing one seam in one direction canonically (edge hub e = 0..E-1 from the north / west end; per hub CARDINAL, then the diagonal
+   directed storages crossing one seam in one direction canonically (edge hub e = 0..E-1 from the north / west end; per hub DIR4, then the diagonal
    toward e-1, then toward e+1), and deal ordinal i to live link i mod L as channel i div L.  Link counts differ by at most one.
 2. Seam table: there is no table to deliver.  The mapping (hub, direction, kind) -> (ETH tile, channel) is a pure function of the edge-hub count E and
    the live link list (<= 4 ETH x coordinates per seam, the only runtime data; it fits the HostBlock), computed identically by the host and the T6
@@ -240,9 +240,9 @@ Answers to the section 10 questions:
    mDestNoC0 = (ethX(link), 1) and mDestBlockAddr = outRingAddr(channel).
 3. HAS_ETH_SEAM_UP: only at stage 3c, as proposed.
 4. Channels per tile: a channel carries exactly one directed storage, so a seam needs 3E-2 channels (two cards; 3E for the full ring), E = edge hubs; the three
-   kinds per hub and neighbor (ihub->ihub cardinal, ihub->chub first hop, chub->ihub second hop) are why it is not just E.  Dealt over L live links each E1
+   kinds per hub and neighbor (ihub->ihub Dir4, ihub->chub first hop, chub->ihub second hop) are why it is not just E.  Dealt over L live links each E1
    serves ceil(N/L).  The image supports NCH_MAX = 8; the minimum needed is 4 (x) / 5-6 (y) per tile with four live links.  (The earlier "start with 2"
-   applies only to a first stage with cardinal crossings only.)
+   applies only to a first stage with Dir4 crossings only.)
 
 Geometry (cell size) dependence.  The seam layer depends on the cell geometry ONLY through E: E/W seams have one edge hub per cell row (10 / cell height),
 N/S seams one per cell column (14 / cell width), with one hub per cell.  EthSeam.h takes E as a parameter.  Table (ethseam_test.cpp, which also checks
@@ -283,7 +283,7 @@ the image-block table once the T6-side wiring exists; until then the caller pass
 Known limits: queue 2's RX buffer (L1 0x7E000) lies in the base-firmware reserved region (empirically free, unnamed in the map); KmdEthPort allocates up to 8 2-MiB TLB windows
 per chip (two per ETH tile: L1 and registers), out of the budget left after OurTLBs' 144; the E1 dies with the fd, so the process owning the chip must outlive the links.
 
-## 15. T6-side wiring for CARDINAL crossings (2026-11-16)
+## 15. T6-side wiring for DIR4 crossings (2026-11-16)
 
 What exists now (builds with the sfpi toolchain; NOT run on hardware):
 
@@ -304,25 +304,34 @@ What exists now (builds with the sfpi toolchain; NOT run on hardware):
    T6 image and in the host.  A cable change (or another machine) means
    editing them and a full MFMx rebuild; the HostBlock carries no x
    values.
-2. Hub (InterHub.cpp).  When a cardinal neighbor hub is off this card and
+2. Hub (InterHub.cpp).  When a Dir4 neighbor hub is off this card and
    the table has links that way, `configureSeamInterHubEP` calls
-   `EthSeam::cardinalDest` (balanced dealing: link and channel from the hub's
+   `EthSeam::destDir4` (balanced dealing: link and channel from the hub's
    edge index) and then `configureDest(ournoc0, ethNoC0, {BC_INTERHUB,
    channel})`.  `T6EP::configureDest`'s ETH branch now sets
    `mDestBlockAddr = EthSeam::outRingAddr(channel)`; the channel rides in
    `mBlockCodeIndex`.
-3. In/out.  `cardinalWeAreIn(d4)`: the end whose neighbor is E or S starts
+3. In/out.  `weAreInDir4(d4)`: the end whose neighbor is E or S starts
    'in', the W/N end 'out', so the two ends always disagree.
-4. Receive side (host).  `EthSeam::cardinalRecv(senderTable, d4, link,
-   channel, cell, out)` gives, for one channel of one sending E1, the CT6 of
-   the receiving hub on the facing edge and the Dir8 index of its InterHub
-   storage (2 * opposite Dir4).  The host turns CT6 into NoC0 and looks up
-   that hub's BC_INTERHUB base to fill `EthChannel.t6x/t6y/t6Base`
-   (t6Base = IBA base + recvDir8 * storage size).  Not yet wired into a
-   Python/host helper: the lookup needs the deployed image blocks.
+4. Planner (host).  `EthSeam::recvDir4(senderTable, d4, link, channel,
+   cell, out)` gives, for one channel of one sending E1, the CT6 of the
+   receiving hub on the facing edge and the Dir8 index of its InterHub
+   storage (2 * opposite Dir4).  `EthSeamHost::planLink` calls it once per
+   end (each end describes where ITS incoming cars land), asks the hub
+   lookup for each receiving hub's NoC0 and deployed BC_INTERHUB base,
+   and fills `EthChannel` t6x/t6y/t6Base = hub NoC0, IBA base + recvDir8 *
+   RING_BYTES, legs = OUT | IN_NOC.  `bringUpSeams(image)` does that for
+   every live link of every declared seam and then `bringUpLink`; any
+   failure tears down the links that call brought up.  The Python glue
+   installs the lookup (`lookupHub` in EthSeamHostPy.h: the image deployed
+   at the hub's TLBI, its BC_INTERHUB iba).  With a single live link the
+   Dir4 channels run past NCH_MAX (channel numbers up to 11), so
+   bring-up fails with a clear error; 2 or more links are needed with
+   NCH_MAX 8.
 5. Tests: `ethseam_test.cpp` (sender dest, host plan and far hub's own dest
    agree for every edge hub, every link count 1..4), `ethlinks_test.cpp`
-   (declareSeam).
+   (declareSeam; planner and bringUpSeams on a mock E/W seam, checking each
+   channel's T6 node and base against the hubs' own destDir4).
 
 NOT done, on purpose:
 - Diagonals (CHUB first hop, CHUB forwarder second hop) are still skipped

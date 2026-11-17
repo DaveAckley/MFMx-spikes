@@ -40,7 +40,7 @@ namespace MFM {
     }
   }
 
-  /* Cardinal Dir8 d8 whose neighbor hub is on another card: if the
+  /* Even Dir8 d8 (a Dir4 direction) whose neighbor hub is on another card: if the
      host declared a live seam that way (the HostBlock eth-seam
      mask), aim the EP at the E1 channel that carries this hub's
      storage.  Returns true iff the EP was set up.  Diagonals are not
@@ -52,8 +52,8 @@ namespace MFM {
     Dir4 d4 = dir8ToDir4CW(d8);
     EthSeam::SeamTable seams;
     EthSeam::decodeSeamMask(theHostBlock.getEthSeamMask(), seams);
-    EthSeam::CardinalDest dest;
-    bool found = EthSeam::cardinalDest(seams,
+    EthSeam::DestDir4 dest;
+    bool found = EthSeam::destDir4(seams,
                                        d4,
                                        ourct6.x,
                                        ourct6.y,
@@ -62,7 +62,7 @@ namespace MFM {
     if (!found) return false;
 
     U8C ethnoc0(dest.ethx, EthSeam::ETH_NOC0_Y);
-    bool weAreIn = EthSeam::cardinalWeAreIn(d4);
+    bool weAreIn = EthSeam::weAreInDir4(d4);
     HBPTAG(SEAMd8,dir8ToByteString(d8));
     HBPTAG(SEAMeth,ethnoc0);
     HBPTAG(SEAMch,dest.channel);

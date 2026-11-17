@@ -8,6 +8,7 @@
 // soft-reset bit is cleared, the E1 acknowledging stop, queue-2 packets copying L1 to the peer with the RX sequence counter, and tt-kmd NOC_CLEANUP.
 // It proves THIS LIBRARY'S LOGIC (sequence, allowlist, validation, restore); it says nothing about real E1 behaviour.
 #include "EthSeamHost.h"
+#include "UxC.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -70,6 +71,25 @@ static EthChannelSetup setup(u32 t6x, u32 t6y) {
   s.channels.push_back({3, LEG_OUT | LEG_IN_NOC, (u8) t6x, (u8) t6y, 0x100000u + RING_BYTES});
   s.ringCars = 4;
   return s;
+}
+
+// Hub lookup for the planner tests: real CT6 -> NoC0 mapping, and a
+// fake but valid InterHub base per hub.
+static bool mockHub(u32 chip,
+                    u32 x,
+                    u32 y,
+                    EthSeamHost::SeamHub & hub,
+                    std::string & err) {
+  if (chip > 1) {
+    err = "no such chip";
+    return false;
+  }
+  U8C ct6((u8) x, (u8) y);
+  U8C noc0 = U8C::makeNoC0CoordFromCT6Coord(ct6);
+  hub.noc0x = noc0.x;
+  hub.noc0y = noc0.y;
+  hub.ihubBase = 0x40000u + 0x10u * (x + 16u * y) + 0x1000u * chip;
+  return true;
 }
 
 int main() {
@@ -254,6 +274,100 @@ int main() {
     CHECK(t2.ethX[D4_N][1] == 12);
     h.clearSeams();
     CHECK(h.seamMaskFor(0) == 0);
+  }
+
+  {
+    // planner: one real E/W seam, 4 links, chips 0 (west) and 1 (east)
+    Fab f;
+    const u32 xs[4] = { 6, 7, 10, 11 };
+    for (u32 x : xs) f.init(x);
+    EthSeamHost & h = EthSeamHost::get();
+    // earlier blocks left cached ports that point at their own Fab
+    h.chipClosing(0);
+    h.chipClosing(1);
+    h.clearSeams();
+    h.setPortFactory([&f](u32 chip, std::string &)
+                     -> std::unique_ptr<EthPort> {
+      return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+    });
+    h.setHubLookup(mockHub);
+    CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
+
+    EthChannelSetup sa;
+    EthChannelSetup sb;
+    CHECK(h.planLink(0, 1, 7, 2, 4, sa, sb).empty());
+    CHECK(sa.channels.size() == sb.channels.size());
+    CHECK(!sa.channels.empty());
+    CHECK(sa.flags == 2 && sa.ringCars == 4);
+    // swapped call order swaps the setups
+    EthChannelSetup ra;
+    EthChannelSetup rb;
+    CHECK(h.planLink(1, 0, 7, 2, 4, ra, rb).empty());
+    CHECK(ra.channels.size() == sb.channels.size());
+    CHECK(ra.channels[0].t6x == sb.channels[0].t6x);
+    CHECK(!h.planLink(0, 1, 8, 2, 4, sa, sb).empty());   // not a link
+    CHECK(!h.planLink(0, 2, 7, 2, 4, sa, sb).empty());   // no seam
+
+    // bring them all up, then check every edge hub's own view
+    CHECK(h.bringUpSeams("/tmp/ethlinks_test_image.bin",
+                         2, 4, false, true).empty());
+    CHECK(h.status().find("eth11 UP") != std::string::npos);
+
+    EthSeam::SeamTable west;
+    EthSeam::SeamTable east;
+    EthSeam::decodeSeamMask(h.seamMaskFor(0), west);
+    EthSeam::decodeSeamMask(h.seamMaskFor(1), east);
+    const CellShape & cell = CELL_C2X2;
+    for (u32 e = 0; e < edgeHubCount(D4_E, cell); ++e) {
+      u32 y = e * cell.ch + cell.hoy;
+      DestDir4 d = { 0, 0 };
+      // the west card's east-edge hub sends toward the east card
+      CHECK(destDir4(west, D4_E, 13, y, cell, d));
+      u32 cb = channelBlockAddr(d.channel);
+
+      EthSeamHost::SeamHub hubW;
+      EthSeamHost::SeamHub hubE;
+      std::string err;
+      CHECK(mockHub(0, 13, y, hubW, err));      // sender's own hub
+      CHECK(mockHub(1, 1, y, hubE, err));       // receiving hub
+
+      // east card's E1 delivers into hubE's W-direction storage
+      u32 nodeE = ((u32) hubE.noc0y << 6) | hubE.noc0x;
+      u32 baseE = hubE.ihubBase
+        + dir4ToDir8(D4_W) * RING_BYTES;
+      CHECK(f.get(1, d.ethx, cb + 4 * CW_T6NODE) == nodeE);
+      CHECK(f.get(1, d.ethx, cb + 4 * CW_T6BASE) == baseE);
+
+      // west card's E1 delivers into hubW's E-direction storage
+      u32 nodeW = ((u32) hubW.noc0y << 6) | hubW.noc0x;
+      u32 baseW = hubW.ihubBase
+        + dir4ToDir8(D4_E) * RING_BYTES;
+      CHECK(f.get(0, d.ethx, cb + 4 * CW_T6NODE) == nodeW);
+      CHECK(f.get(0, d.ethx, cb + 4 * CW_T6BASE) == baseW);
+
+      // and the east card's hub sends back on the same tile+channel
+      DestDir4 back = { 0, 0 };
+      CHECK(destDir4(east, D4_W, 1, y, cell, back));
+      CHECK(back.ethx == d.ethx && back.channel == d.channel);
+    }
+    h.tearDownAll();
+    CHECK(h.status() == "no eth-seam links");
+
+    // one link cannot carry the channels: clear failure, nothing left up
+    h.clearSeams();
+    CHECK(h.declareSeam(0, D4_E, 1, { 6 }).empty());
+    std::string err1 = h.bringUpSeams("/tmp/ethlinks_test_image.bin",
+                                      2, 4, false, true);
+    CHECK(err1.find("NCH_MAX") != std::string::npos);
+    CHECK(h.status() == "no eth-seam links");
+    CHECK(f.get(0, 6, 0xFFB121B0u) == 0x47000u);
+    h.clearSeams();
+    CHECK(h.bringUpSeams("/tmp/x", 2, 4, false, true)
+          == "no seams declared");
+    // do not leave ports (or the factory) pointing at this block's Fab
+    h.chipClosing(0);
+    h.chipClosing(1);
+    h.setPortFactory(nullptr);
   }
 
   printf("%zu log lines; %s\n", logs.size(), fails ? "SOME CHECKS FAILED" : "all ok");
