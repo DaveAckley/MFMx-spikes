@@ -66,6 +66,20 @@ namespace MFM {
     //    HTprintf("ZHD %p #%u\n",this,mMade);
   }
 
+  ZHostDecompressor::~ZHostDecompressor() {
+    // Destroying a joinable std::thread calls std::terminate, which used
+    // to abort the process at exit (one thread per hub).
+    stopThread();
+  }
+
+  void ZHostDecompressor::stopThread() {
+    mQuitDecompressorThread.store(true);
+    if (mDecompressorThreadPtr && mDecompressorThreadPtr->joinable()) {
+      mDecompressorThreadPtr->join();
+    }
+    mDecompressorThreadPtr.reset();
+  }
+
   bool ZHostDecompressor::sinkByte(const u8 byte) {
     QuietBox & qb = QuietBox::get();
     //    SNAP(50,KTprintf(mBHTag,"ZHDHARO OUT 0x%02x\n",byte));

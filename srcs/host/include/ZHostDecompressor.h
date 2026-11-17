@@ -16,7 +16,13 @@ namespace MFM {
   struct ZHostDecompressor {
     static u32 mMade;
     ZHostDecompressor() ;
+    ~ZHostDecompressor() ;
     void init(const u32 tlbi, const u32 chipnum) ;
+
+    /** Ask the decompressor thread to quit (it notices at its next source
+        or sink byte and unwinds) and join it.  Safe to call when no thread
+        is running, and more than once. */
+    void stopThread() ;
     lzmfmx mLZ;
 
     BHTag mBHTag;
