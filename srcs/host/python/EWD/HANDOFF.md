@@ -248,3 +248,17 @@ Test without hardware: `MFMX_MOCK_API=fire` mock plus
 `python3 mock/selftest.py ethseams ethseams_parse`.  The T6s are idle across
 the seam for now (cache loaders and supercell parity are still per card).
 
+Running the seam test on the QuietBox (two cards, T6s idle across the seam):
+
+    cd srcs/host/python/EWD
+    python mfmxctl.py --layout seamtest --boot -s config/seamtest.cmd --script-exit
+
+`--layout NAME` overrides the config's activeLayout.  config/seamtest.cmd does
+`start`, then `seams` / `status` and a 60 s soak with `seams` twice more (watch
+retrain and FEC uncorrected stay at 0), then `stop` and `quit close`.  `boot`
+runs `tt-smi -r` unless `--no-chip-reset`.  Only the E/W link at x=6 has been
+exercised on hardware before; links 7, 10 and 11 are validated at bring-up
+(link Up, queue 2 pristine) and a failure names the tile.  If one of them
+fails, edit the layout's list down (two links are the minimum for this E1
+image), e.g. ethseams = [ "0:E:1:6,7" ].
+

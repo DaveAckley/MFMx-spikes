@@ -154,6 +154,20 @@ def scenario_ethseams():
           out[-500:])
 
 
+def scenario_ethseams_layout_option():
+    rc, out = run("quit\n", api="fire",
+                  extra_args=("--layout", "seamtest", "--boot", "-s",
+                              os.path.join(EWD, "config", "seamtest.cmd"), "--script-exit"),
+                  timeout=150)
+    check("layout opt: seamtest script runs to exit 0", rc == 0, f"rc={rc}\n{out[-600:]}")
+    check("layout opt: --layout selects seamtest", "layout 'seamtest', chips [0, 1]" in out, out[:600])
+    check("layout opt: links up after start", "eth-seams up:" in out, out[-800:])
+    check("layout opt: stop tears down", "eth-seams down" in out and "bh0 eth6: no link" in out, out[-600:])
+    rc, out = run("quit\n", api="fire", extra_args=("--layout", "nope", "--boot"))
+    check("layout opt: unknown layout is a clear error",
+          "unknown layout 'nope'" in out and "seamtest" in out, out[-500:])
+
+
 def scenario_ethseams_parse():
     sys.path.insert(0, EWD)
     import machine

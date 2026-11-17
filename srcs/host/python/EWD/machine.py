@@ -125,7 +125,7 @@ class Machine:
     def __init__(self, mfmx, config, say, *, script_dir, logprefix="mfmxctl",
                  t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
-                 extra_bindirs=(), slowscan_gap=0.2):
+                 extra_bindirs=(), slowscan_gap=0.2, layout=None):
         self.M = mfmx
         self.config = config
         self.say = say
@@ -137,6 +137,7 @@ class Machine:
         self.tt_smi, self.do_reset = tt_smi, reset_chips
         self.extra_bindirs = list(extra_bindirs)
         self.slowscan_gap = slowscan_gap
+        self.layout = layout                 # overrides [Config] activeLayout
         self.simDir = mfmx.getSimDir()
         self.mfmxVersion = mfmx.getVersion()
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
@@ -177,6 +178,11 @@ class Machine:
         M = self.M
         cfg = self.config
         cfg.load()
+        if self.layout:
+            have = list(cfg.hash["layout"].keys())
+            if self.layout not in have:
+                raise RuntimeError(f"unknown layout '{self.layout}'; the config has {have}")
+            cfg.hash["Config"]["activeLayout"] = self.layout
         if self.extra_bindirs:
             cfg.hash["Config"]["bindirs"] = self.extra_bindirs + list(cfg.hash["Config"]["bindirs"])
         im = self.im = M.ImageManager()
