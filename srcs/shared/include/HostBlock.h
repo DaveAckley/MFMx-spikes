@@ -6,7 +6,6 @@
 #include "RingBuffer.h"
 #include "UxC.h" // for U8C
 #include "SimConstants.h" // for HOST_RAM_PER_BH
-#include "EthSeam.h" // for EthSeam::SeamTable
 
 namespace MFM {
   static constexpr u8 HOST_COMMS_MAP_CHUNK_SIZE = 64u;
@@ -21,7 +20,17 @@ namespace MFM {
     s32 mPerHartStatus[5];      // MUST BE 2ND s32(x5) BYTES 4..23
     U8C mNoC0;                  // MUST BE BYTES 24..25
     u8 mTLBI, mFails;           // MUST BE BYTES 26..27
-    u8 mChipNum, mHostFlags, RSV2, RSV3; // MUST BE BYTES 28..31
+    u8 mChipNum, mHostFlags;    // MUST BE BYTES 28..29
+
+    /* Eth-seam live-link masks, 4 bits per neighbor-card Dir4 (N=0,
+       W=1, S=2, E=3), written by the host at deploy (all zero = no
+       seams).  Bit i of a nibble says the i-th link of the cabling
+       list for that direction is live.  The lists, and what a cable
+       change means, are documented at EthSeam::SEAM_LINKS_EW/NS in
+       shared/EthSeam.h.  Use the accessors below.
+       MUST BE BYTES 30..31 (these were RSV2, RSV3: layout and size
+       are unchanged) */
+    u8 mEthSeamLo, mEthSeamHi;
     u32 mCommonArgs[2];         // MUST BE BYTES 32..39
 
     u32 mPerHartWatchdog[5];    // spin counter for liveness checks
@@ -41,10 +50,6 @@ namespace MFM {
     u16 mPerHartFailFileID[5];  
     u16 mPerHartFailFileLine[5];
 
-    // Live eth-seam links per neighbor-card direction, written by the
-    // host at deploy (zeros = no seams).  See shared/EthSeam.h.
-    EthSeam::SeamTable mEthSeam;
-
     u32 mHBCigam;         // MUST BE LAST u32
 
     //// METHODS
@@ -57,6 +62,16 @@ namespace MFM {
 
     u64 getOurHostNoCBaseAddress() const {
       return getHostNoCAddr() + mTLBI * HOST_RAM_PER_BH;
+    }
+
+    /** The four link nibbles as one 16-bit word: Dir4 d is at bits
+        4d..4d+3.  See EthSeam::decodeSeamMask. */
+    u16 getEthSeamMask() const {
+      return (u16) (mEthSeamLo | (mEthSeamHi << 8));
+    }
+    void setEthSeamMask(u16 mask) {
+      mEthSeamLo = (u8) (mask & 0xff);
+      mEthSeamHi = (u8) (mask >> 8);
     }
 
     void resetLog() { mLogBuffer.reset(); }

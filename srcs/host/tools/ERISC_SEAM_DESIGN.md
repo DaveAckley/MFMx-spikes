@@ -287,12 +287,23 @@ per chip (two per ETH tile: L1 and registers), out of the budget left after OurT
 
 What exists now (builds with the sfpi toolchain; NOT run on hardware):
 
-1. Seam table.  The host declares seams BEFORE deploying T6 images:
+1. Seam mask.  The host declares seams BEFORE deploying T6 images:
    `EthSeamHost.get().declareSeam(chipA, dir4, chipB, [ethx...])`
-   (dir4: N=0 W=1 S=2 E=3, chipB lies that way from chipA; both directions
-   are recorded).  `CodeManager::deployRISCVCodeFromImage` copies
-   `seamTableFor(chip)` into `HostBlock::mEthSeam` (20 bytes: live link
-   count and ETH x list per direction).  No declaration = zeros = no seam.
+   (dir4: N=0 W=1 S=2 E=3, chipB lies that way from chipA; both
+   directions are recorded).  Each x must be in the cabling list for the
+   seam's axis (`EthSeam::SEAM_LINKS_EW` = 6,7,10,11 and
+   `SEAM_LINKS_NS` = 3,4,12,13); link order is always the cabling order.
+   `CodeManager::deployRISCVCodeFromImage` stores the result in the
+   HostBlock's two former reserved bytes, now `mEthSeamLo/mEthSeamHi`
+   (accessors `getEthSeamMask` / `setEthSeamMask`): 4 bits per Dir4,
+   bit i = cabling-list entry i is live.  HostBlock layout and size are
+   unchanged (offsets 30, 31; static_asserted in InterHub.cpp).  No
+   declaration = zero = no seam.  The T6 decodes the mask with
+   `EthSeam::decodeSeamMask`.
+   CABLING IS COMPILED IN: the lists live in EthSeam.h and are in every
+   T6 image and in the host.  A cable change (or another machine) means
+   editing them and a full MFMx rebuild; the HostBlock carries no x
+   values.
 2. Hub (InterHub.cpp).  When a cardinal neighbor hub is off this card and
    the table has links that way, `configureSeamInterHubEP` calls
    `EthSeam::cardinalDest` (balanced dealing: link and channel from the hub's

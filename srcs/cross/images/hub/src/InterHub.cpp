@@ -6,6 +6,7 @@
 #include "FastLocal.h" // for fAll
 #include "BlockCode.h" // for STORAGE_COUNT_BC_CORNERHUB
 #include "EthSeam.h"
+#include <cstddef>
 
 namespace MFM {
   FAST_LOCAL_ARRAY(InterHubEP,8,myInterHubEP,n);
@@ -17,6 +18,13 @@ namespace MFM {
   static_assert(D4_E == EthSeam::DIR4_E, "Dir4 numbering");
   static_assert(STORAGE_SIZE_BC_INTERHUB == EthSeam::RING_BYTES,
                 "an E1 ring must be one InterHub storage");
+
+  // The eth-seam mask lives in the old RSV2/RSV3 bytes: the layout
+  // _BUD.S and the host rely on must not have moved.
+  static_assert(offsetof(HostBlock, mChipNum) == 28, "HostBlock layout");
+  static_assert(offsetof(HostBlock, mEthSeamLo) == 30, "HostBlock layout");
+  static_assert(offsetof(HostBlock, mEthSeamHi) == 31, "HostBlock layout");
+  static_assert(offsetof(HostBlock, mCommonArgs) == 32, "HostBlock layout");
 
   /* Init the EP for Dir8 d8 and all of its cars.  Shared by the
      on-card and the seam setups. */
@@ -38,16 +46,19 @@ namespace MFM {
   }
 
   /* Cardinal Dir8 d8 whose neighbor hub is on another card: if the
-     host declared a live seam that way (HostBlock mEthSeam), aim the
-     EP at the E1 channel that carries this hub's storage.  Returns
-     true iff the EP was set up.  Diagonals are not wired yet. */
+     host declared a live seam that way (the HostBlock eth-seam
+     mask), aim the EP at the E1 channel that carries this hub's
+     storage.  Returns true iff the EP was set up.  Diagonals are not
+     wired yet. */
   static bool configureSeamInterHubEP(Dir8 d8,
                                       U8C ournoc0,
                                       U8C ourct6) {
     if (d8 & 1u) return false;
     u32 d4 = (u32) dir8ToDir4CW(d8);
+    EthSeam::SeamTable seams;
+    EthSeam::decodeSeamMask(theHostBlock.getEthSeamMask(), seams);
     EthSeam::CardinalDest dest;
-    bool found = EthSeam::cardinalDest(theHostBlock.mEthSeam,
+    bool found = EthSeam::cardinalDest(seams,
                                        d4,
                                        ourct6.x,
                                        ourct6.y,

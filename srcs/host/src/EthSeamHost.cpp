@@ -1,7 +1,5 @@
 #include "EthSeamHost.h"
 
-#include <cstring>
-
 namespace MFM {
 
   EthSeamHost & EthSeamHost::get() {
@@ -20,19 +18,21 @@ namespace MFM {
         + std::to_string(EthSeam::MAX_LINKS)
         + " links";
     }
+    u32 nibble = 0;
+    if (!EthSeam::linkNibble(dir4, ethx.data(), ethx.size(), nibble)) {
+      return "a link is not in the cabling list for that direction"
+        " (EthSeam::SEAM_LINKS_EW / NS), or is listed twice";
+    }
     u32 back = EthSeam::oppositeDir4Num(dir4);
     std::lock_guard<std::mutex> lock(mMutex);
-    EthSeam::SeamTable & a = mSeams[chipA];
-    EthSeam::SeamTable & b = mSeams[chipB];
-    if (a.n[dir4] != 0u || b.n[back] != 0u) {
+    u16 & a = mSeams[chipA];
+    u16 & b = mSeams[chipB];
+    if (((a >> (4u * dir4)) & 0xfu) != 0u ||
+        ((b >> (4u * back)) & 0xfu) != 0u) {
       return "seam already declared that way";
     }
-    a.n[dir4] = (u8) ethx.size();
-    b.n[back] = (u8) ethx.size();
-    for (size_t i = 0; i < ethx.size(); ++i) {
-      a.ethX[dir4][i] = ethx[i];
-      b.ethX[back][i] = ethx[i];
-    }
+    a = EthSeam::packSeamMask(dir4, nibble, a);
+    b = EthSeam::packSeamMask(back, nibble, b);
     return "";
   }
 
@@ -41,13 +41,10 @@ namespace MFM {
     mSeams.clear();
   }
 
-  EthSeam::SeamTable EthSeamHost::seamTableFor(u32 chip) {
+  u16 EthSeamHost::seamMaskFor(u32 chip) {
     std::lock_guard<std::mutex> lock(mMutex);
-    EthSeam::SeamTable t;
-    memset(&t, 0, sizeof(t));
     auto it = mSeams.find(chip);
-    if (it != mSeams.end()) t = it->second;
-    return t;
+    return it == mSeams.end() ? (u16) 0u : it->second;
   }
 
   void EthSeamHost::setPortFactory(PortFactory f) {

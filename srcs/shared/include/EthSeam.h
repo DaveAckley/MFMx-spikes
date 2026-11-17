@@ -236,25 +236,33 @@ namespace MFM {
       return L != 0u && maxChannelsPerLink(n, L) <= NCH_MAX;
     }
 
-    /** Live-link ETH tiles.  The seam's list is ETH NoC0 x
-        coordinates in row y == 1 (the same x on both cards of a
-        pair), in the order link index 0..L-1.
+    /** CABLING LISTS.  A seam's links are ETH tiles in row y == 1,
+        named by their NoC0 x coordinate (the same x on both cards of
+        a pair).  Link index 0..n-1 is the position in the list below.
 
-        DEFAULTS FOR THIS QUIETBOX ONLY (cabling facts from the
+        These lists are THIS QUIETBOX'S CABLING (facts from the
         firmware peer info, ERISC_NOTES section 6):
-          E/W seam, cards 0-1 and 2-3:  X = 6, 7, 10, 11
-          N/S seam, cards 0-2 and 1-3:  X = 3, 4, 12, 13
-        Only X=6 (x seam) and X=3 (y seam) have been exercised on
-        hardware so far; the host must confirm each link is up
-        before listing it. */
+          E/W seams, cards 0-1 and 2-3:  X = 6, 7, 10, 11
+          N/S seams, cards 0-2 and 1-3:  X = 3, 4, 12, 13
+        Only X=6 (E/W) and X=3 (N/S) have been exercised on hardware
+        so far; the host must confirm each link is up before
+        declaring it live.
+
+        The HostBlock tells each T6 which of these links are live as
+        a 4-bit mask per direction (bit i = list entry i), NOT as x
+        values.  So the lists are compiled into every T6 image and
+        into the host.  IF THE CABLING EVER CHANGES (or this code
+        runs on another machine), edit the lists here and do a FULL
+        MFMx REBUILD of the T6 images and the host module together.
+        A stale image would aim cars at the wrong ETH tiles. */
     struct SeamLinks {
-      u8 n;
-      u8 ethX[MAX_LINKS];
+      u8 n;                     //< entries in ethX
+      u8 ethX[MAX_LINKS];       //< ETH NoC0 x, in link order
     };
-    static constexpr SeamLinks DEFAULT_EW_LINKS = {
+    static constexpr SeamLinks SEAM_LINKS_EW = {
       4u, { 6u, 7u, 10u, 11u }
     };
-    static constexpr SeamLinks DEFAULT_NS_LINKS = {
+    static constexpr SeamLinks SEAM_LINKS_NS = {
       4u, { 3u, 4u, 12u, 13u }
     };
     static constexpr u32 ETH_NOC0_Y = 1u;
@@ -345,14 +353,68 @@ namespace MFM {
       return 2u * d4;
     }
 
-    /** Live links per direction, as written by the host into each
-        T6's HostBlock.  Index is the Dir4 of the neighbor CARD as seen
-        from this card.  ethX is in link order; both cards of a seam
-        list the same x values in the same order. */
+    /** The cabling list for the seam toward neighbor card d4:
+        E/W and N/S seams use different ETH tiles. */
+    inline constexpr const SeamLinks & cablingFor(u32 d4) {
+      return (d4 == DIR4_E || d4 == DIR4_W)
+        ? SEAM_LINKS_EW
+        : SEAM_LINKS_NS;
+    }
+
+    /** Live links per direction, decoded: what the T6 and host
+        code work with.  Index is the Dir4 of the neighbor CARD as
+        seen from this card.  ethX is in link order; both cards of a
+        seam see the same x values in the same order.  Only the
+        16-bit mask below lives in the HostBlock. */
     struct SeamTable {
-      u8 n[4];
-      u8 ethX[4][MAX_LINKS];
+      u8 n[4];                  //< live links per Dir4
+      u8 ethX[4][MAX_LINKS];    //< their ETH x, in cabling order
     };
+
+    /** Nibble (4 bits, bit i = cabling-list entry i) for a seam
+        toward d4 whose live links are ethx[0..count-1], in any
+        order.  False if an x is not in the cabling list, is listed
+        twice, or count is 0 or too big. */
+    inline bool linkNibble(u32 d4,
+                           const u8 * ethx,
+                           u32 count,
+                           u32 & nibble) {
+      if (d4 > 3u || count == 0u || count > MAX_LINKS) return false;
+      const SeamLinks & cab = cablingFor(d4);
+      u32 bits = 0u;
+      for (u32 i = 0u; i < count; ++i) {
+        u32 hit = MAX_LINKS;
+        for (u32 j = 0u; j < cab.n; ++j) {
+          if (cab.ethX[j] == ethx[i]) hit = j;
+        }
+        if (hit == MAX_LINKS) return false;
+        if (bits & (1u << hit)) return false;
+        bits |= 1u << hit;
+      }
+      nibble = bits;
+      return true;
+    }
+
+    /** The 16-bit HostBlock word: Dir4 d's nibble is at bits
+        4d..4d+3. */
+    inline constexpr u16 packSeamMask(u32 d4, u32 nibble, u16 mask) {
+      return (u16) ((mask & ~(0xfu << (4u * d4)))
+                    | ((nibble & 0xfu) << (4u * d4)));
+    }
+
+    /** Decode the HostBlock word into a SeamTable. */
+    inline void decodeSeamMask(u16 mask, SeamTable & out) {
+      for (u32 d4 = 0u; d4 < 4u; ++d4) {
+        const SeamLinks & cab = cablingFor(d4);
+        u32 nibble = (mask >> (4u * d4)) & 0xfu;
+        u32 n = 0u;
+        for (u32 j = 0u; j < cab.n; ++j) {
+          if (nibble & (1u << j)) out.ethX[d4][n++] = cab.ethX[j];
+        }
+        out.n[d4] = (u8) n;
+        for (u32 j = n; j < MAX_LINKS; ++j) out.ethX[d4][j] = 0u;
+      }
+    }
 
     /** Cell shape: cw x ch T6s, with the hub at (hox, hoy) in the
         cell.  C2X2_EWP_HUB is (2, 2, 1, 1). */

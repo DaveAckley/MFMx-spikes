@@ -9,6 +9,7 @@
 #include <cstring>
 using namespace MFM::EthSeam;
 using MFM::u8;
+using MFM::u16;
 using MFM::u32;
 using MFM::u32;
 
@@ -122,7 +123,38 @@ static void check_cardinal() {
   CHECK(!cardinalDest(one, DIR4_E, 11, 1, c, d));     // not on the E edge
   CHECK(cardinalDest(one, DIR4_E, 13, 9, c, d));
   CHECK(d.ethx == 6);
-  CHECK(sizeof(SeamTable) == 20);
+}
+
+// Mask encoding: HostBlock word <-> SeamTable, cabling lists.
+static void check_mask() {
+  u8 ew[2] = { 10, 6 };
+  u32 nib = 0;
+  CHECK(linkNibble(DIR4_E, ew, 2, nib) && nib == 0x5);
+  u8 bad[1] = { 3 };
+  CHECK(!linkNibble(DIR4_E, bad, 1, nib));         // N/S tile, E/W seam
+  u8 dup[2] = { 6, 6 };
+  CHECK(!linkNibble(DIR4_E, dup, 2, nib));
+  CHECK(!linkNibble(DIR4_E, ew, 0, nib));
+  u16 mask = 0;
+  mask = packSeamMask(DIR4_E, 0x5, mask);
+  mask = packSeamMask(DIR4_N, 0xf, mask);
+  mask = packSeamMask(DIR4_E, 0x5, mask);           // idempotent
+  CHECK(mask == (u16) ((0x5u << 12) | 0xfu));
+  SeamTable t;
+  decodeSeamMask(mask, t);
+  CHECK(t.n[DIR4_E] == 2);
+  CHECK(t.ethX[DIR4_E][0] == 6 && t.ethX[DIR4_E][1] == 10);
+  CHECK(t.n[DIR4_N] == 4);
+  CHECK(t.ethX[DIR4_N][3] == 13);
+  CHECK(t.n[DIR4_W] == 0 && t.n[DIR4_S] == 0);
+  // every possible mask decodes to link counts = popcount
+  for (u32 m = 0; m < 0x10000; ++m) {
+    decodeSeamMask((u16) m, t);
+    for (u32 d = 0; d < 4; ++d) {
+      u32 pc = __builtin_popcount((m >> (4 * d)) & 0xf);
+      CHECK(t.n[d] == pc);
+    }
+  }
 }
 
 int main() {
@@ -139,6 +171,7 @@ int main() {
   }
   Assign a; CHECK(assign(5, 4, 2, SLOT_DIAG_HI, a)); CHECK(a.link == (ordinalOf(2, SLOT_DIAG_HI) % 4));
   check_cardinal();
+  check_mask();
   printf("%s\n", fails ? "SOME CHECKS FAILED" : "all ok");
   return fails != 0;
 }
