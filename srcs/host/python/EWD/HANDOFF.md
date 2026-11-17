@@ -231,7 +231,7 @@ Eth-seams from mfmxctl: a layout may list its seams and the E1 image:
     [layout.seamtest]
       bhchips = [0,1]
       ethseams = [ "0:E:1:6,7,10,11" ]     # chipA:DIR:chipB:x,x,..
-      e1image  = "$script_dir/../../tools/e1fwd/e1fwd16.bin"   # optional
+      e1image  = "e1fwd16.bin"                  # optional; this is the default
 
 DIR is N, W, S or E (chipB lies that way from chipA).  `start` then declares
 the seams before any chip deploys, brings the links up after every chip is
@@ -239,8 +239,11 @@ deployed and before any T6 is released, and `stop` tears them down; `seams`
 prints the declarations, link status and health counters (retrain / FEC).
 This needs the firePHASER start path (the real QuietBox has it).  If the
 bring-up fails the T6s are not released and no link is left up.  Select the
-layout with `activeLayout=seamtest`.  Build the E1 image first with
-`sh srcs/host/tools/e1fwd/build.sh e1fwd16` (build outputs are untracked).
+layout with `activeLayout=seamtest`.  The E1 image is built by the normal
+cross build (srcs/cross/codes/e1fwd.cmake runs host/tools/e1fwd/build.sh) and
+lands in build_cross/bin next to hub.bin and ewp.bin; `e1image` is searched in
+the same bindirs as the T6 images (a path with a slash is used as given).  To
+add an image, put <name>.c in host/tools/e1fwd and list it in e1fwd.cmake.
 Test without hardware: `MFMX_MOCK_API=fire` mock plus
 `python3 mock/selftest.py ethseams ethseams_parse`.  The T6s are idle across
 the seam for now (cache loaders and supercell parity are still per card).

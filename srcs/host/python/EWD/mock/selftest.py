@@ -127,6 +127,8 @@ def scenario_ethseams():
     check("seams: 'seams' command reports health",
           "bh1 eth11: port=1" in out and "fec corrected=12345" in out, out[-800:])
     check("seams: status line lists the seams", "eth-seams: bh0-E->bh1" in out)
+    check("seams: E1 image found through the bindirs",
+          "e1image: " in out and out.split("e1image: ")[1].split("\n")[0].endswith("e1fwd16.bin"), out[-600:])
     check("seams: stop tears the links down", "eth-seams down" in out)
     check("seams: no link left after stop", "bh0 eth6: no link" in out, out[-500:])
 
@@ -146,8 +148,10 @@ def scenario_ethseams():
     # a layout without ethseams is untouched: no seam output at all
     rc, out = run("boot\nstart\nseams\nquit\n", api="fire")
     check("seams-none: layout without ethseams unchanged",
-          "no ethseams in the active layout" in out and "eth-seams" not in out.replace(
-              "no ethseams in the active layout", ""), out[-500:])
+          "no ethseams in the active layout" in out
+          and not any(t in out for t in ("eth-seams declared:", "eth-seams up:",
+                                         "\neth-seams down", "link bh", "\neth-seams: bh")),
+          out[-500:])
 
 
 def scenario_ethseams_parse():

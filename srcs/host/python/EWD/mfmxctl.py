@@ -81,7 +81,7 @@ def setup_paths(args):
         sys.path.append(os.path.join(HERE, "mock", "shims"))
         d = tempfile.mkdtemp(prefix="mfmxctl-mockbin-")
         atexit.register(shutil.rmtree, d, True)
-        for n in ("ewp.bin", "hub.bin"):
+        for n in ("ewp.bin", "hub.bin", "e1fwd16.bin"):
             with open(os.path.join(d, n), "wb") as f:
                 f.write(bytes(range(64)))
         extra_bindirs.append(d)

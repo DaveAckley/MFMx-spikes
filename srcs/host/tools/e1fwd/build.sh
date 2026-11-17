@@ -2,23 +2,33 @@
 # Build $B.bin (flat binary linked at L1 0x4000) with the sfpi gcc cross toolchain, the same
 # one used for the T6 images (srcs/cross/toolchain-cross.cmake), and print a C array to embed
 # in the host tool.  Override the toolchain location with SFPI=/path/to/sfpi/compiler.
+#
+# Environment:
+#   SFPI     toolchain directory (default /opt/tenstorrent/sfpi/compiler)
+#   OUTDIR   where $B.o/.elf/.bin/.dis go (default: next to this script)
+#   QUIET=1  do not print the C array
+# The MFMx cross build (srcs/cross/codes/e1fwd.cmake) runs this with an
+# OUTDIR under the build tree and installs $B.bin in build_cross/bin.
 set -e
 cd "$(dirname "$0")"
 B=${1:-e1fwd}
+O=${OUTDIR:-.}
+mkdir -p "$O"
 T=${SFPI:-/opt/tenstorrent/sfpi/compiler}/bin/riscv32-tt-elf
 $T-gcc -march=rv32im_zicsr -mabi=ilp32 -O2 -Wall -ffreestanding -nostdlib -fno-pic -mno-relax \
-      -fno-asynchronous-unwind-tables -fno-stack-protector -c $B.c -o $B.o
-$T-ld -T e1fwd.ld --no-relax $B.o -o $B.elf
-$T-objcopy -O binary $B.elf $B.bin
-$T-objdump -d -M no-aliases $B.elf > $B.dis
+      -fno-asynchronous-unwind-tables -fno-stack-protector -c $B.c -o $O/$B.o
+$T-ld -T e1fwd.ld --no-relax $O/$B.o -o $O/$B.elf
+$T-objcopy -O binary $O/$B.elf $O/$B.bin
+$T-objdump -d -M no-aliases $O/$B.elf > $O/$B.dis
 # E1 has no .data/.bss: the linker script discards them, so a stray static would silently
 # vanish.  Refuse to continue if the object has any.
-if $T-size -A $B.o | awk '$1 ~ /^\.(data|bss|sdata|sbss)/ && $2 > 0 {bad=1} END{exit !bad}'; then
+if $T-size -A $O/$B.o | awk '$1 ~ /^\.(data|bss|sdata|sbss)/ && $2 > 0 {bad=1} END{exit !bad}'; then
   echo "ERROR: $B.o has .data/.bss content (E1 images keep all state on the stack)" >&2
   exit 1
 fi
+[ "${QUIET:-0}" = 1 ] && exit 0
 python3 - <<PY
-d=open('$B.bin','rb').read()
+d=open('$O/$B.bin','rb').read()
 d+=b'\0'*((-len(d))%4)
 import struct
 w=struct.unpack('<%dI'%(len(d)//4),d)

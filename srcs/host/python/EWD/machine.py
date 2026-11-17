@@ -83,13 +83,16 @@ class NullFeed:
 # ---- eth-seam layout keys ----------------------------------------------------
 # A layout may carry
 #   ethseams = [ "0:E:1:6,7,10,11", "0:S:2:3,4,12,13" ]
-#   e1image  = "$script_dir/../../tools/e1fwd/e1fwd16.bin"      (optional)
+#   e1image  = "e1fwd16.bin"                                    (optional)
 # Each ethseams string is "chipA:DIR:chipB:x,x,..": chipB lies DIR (N, W, S or
 # E, or 0-3) of chipA, joined by the ETH tiles at those NoC0 x coordinates.
 # The x values must come from the cabling lists in shared/include/EthSeam.h
 # (SEAM_LINKS_EW / SEAM_LINKS_NS); EthSeamHost.declareSeam enforces that.
+# e1image is a bare file name searched in the same bindirs as the T6 images
+# (the cross build puts e1fwd16.bin in build_cross/bin), or a path (with
+# $script_dir expanded).
 ETH_DIRS = {"N": 0, "W": 1, "S": 2, "E": 3}
-DEFAULT_E1IMAGE = "$script_dir/../../tools/e1fwd/e1fwd16.bin"
+DEFAULT_E1IMAGE = "e1fwd16.bin"
 
 
 def parse_ethseams(specs, chips):
@@ -227,8 +230,7 @@ class Machine:
         im.setActiveLayout(act)
         chips = im.getActiveLayout().getActiveBHChips()
         self.seams = parse_ethseams(layouts[act].get("ethseams"), list(chips))
-        e1 = layouts[act].get("e1image", DEFAULT_E1IMAGE)
-        self.e1image = os.path.abspath(e1.replace("$script_dir", self.scriptDir, 1))
+        self.e1image = self.find_e1image(layouts[act].get("e1image", DEFAULT_E1IMAGE))
         self.bhs = [M.Blackhole(i) for i in chips]
         for bh in self.bhs:                  # far enough to configure modules
             bh.setStep(M.Step.HAS_ALLOCATED_TLBS)
@@ -237,6 +239,22 @@ class Machine:
                 bh.addCommsModule(im.getCommsModule(hmname))
         self.configured = True
         return f"layout '{act}', chips {list(chips)}, images {keys}, modules {modules}"
+
+    def find_e1image(self, name):
+        """Resolve the E1 image: a path as given, or a bare name searched in
+        the config's bindirs like the T6 images (last match wins).  If it is
+        not found, return the first candidate path so the host's 'cannot
+        open E1 image' error names a useful place."""
+        name = name.replace("$script_dir", self.scriptDir, 1)
+        if os.sep in name:
+            return os.path.abspath(name)
+        found = first = None
+        for bindir in self.config.hash["Config"]["bindirs"]:
+            bd = os.path.abspath(bindir.replace("$script_dir", self.scriptDir, 1))
+            first = first or os.path.join(bd, name)
+            if os.path.isfile(os.path.join(bd, name)):
+                found = os.path.join(bd, name)
+        return found or first or os.path.abspath(name)
 
     def reset_chips(self):
         if not self.do_reset:
