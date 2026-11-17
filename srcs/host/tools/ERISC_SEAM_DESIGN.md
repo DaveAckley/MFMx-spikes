@@ -1,5 +1,7 @@
 # T6 -> E1 seam design (rough draft, session 5, 2026-11-16)
 
+See also: /CLAUDE.md (start here, formatting rules), ERISC_NOTES.md (hardware record), ../python/EWD/HANDOFF.md (mfmxctl), ../../../scripts/ptrace/README.txt, ../../../scripts/cachecensus/cachecensus.py.
+
 STATUS: rough design only.  Nothing here is built on hardware.  Written from a read of
 cross/include/T6EPs.{h,tcc}, cross/src/NRIUtils.cpp, cross/images/hub/src/{InterHub,
 EP_InterHub}.cpp, shared/include/{UxC,MDist}.h, tools/e1fwd/e1fwd11.c and the layout

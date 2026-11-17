@@ -1,5 +1,7 @@
 # ERISC / eth-seam notes (Blackhole QuietBox, MFMx)
 
+See also: /CLAUDE.md (start here, formatting rules), ERISC_SEAM_DESIGN.md (design, slices 1-3), ../python/EWD/HANDOFF.md (mfmxctl), ../../../scripts/ptrace/README.txt.
+
 Written at the end of the eth-seam spike session, 2026-11-15.  Everything here
 was measured on the user's QuietBox (4 Blackhole cards, Ubuntu 22.04.5, TT-KMD
 2.3.0, FW bundle 18.8.0.0 on all cards, core clock ~800 MHz) unless marked

@@ -1,5 +1,6 @@
 ptrace -- packet-trace analyzer for MFMx run logs
 (7-bit ASCII; python3 stdlib only; read-only; never touches hardware)
+See also: /CLAUDE.md (start here), srcs/host/python/EWD/HANDOFF.md, srcs/host/tools/ERISC_SEAM_DESIGN.md, scripts/cachecensus/cachecensus.py
 
 USAGE
   scripts/ptrace/ptrace.py RUNDIR [--traces] [--lanes] [--eps N] [--maxlat N]

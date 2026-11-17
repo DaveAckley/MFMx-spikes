@@ -1,5 +1,7 @@
 # mfmxctl Handoff Notes
 
+See also: /CLAUDE.md (start here, formatting rules, doc map), ../../tools/ERISC_SEAM_DESIGN.md, ../../tools/ERISC_NOTES.md, ../../../../scripts/ptrace/README.txt, ../../../../scripts/cachecensus/cachecensus.py.
+
 ## Project
 Minimal CLI controller (`mfmxctl.py`) for the Tenstorrent Blackhole "QuietBox" --
 replaces the Textual-based nu1011/nu1012 apps.  One Python thread: a `select()`
@@ -278,3 +280,13 @@ mock fabric, and the E1 and T6 ping-pong harnesses) and prints one PASS/FAIL
 line each; `ASAN=1` runs the C++ ones under ASan/UBSan, and a name argument
 (`run_native_tests.sh ethlinks`) runs the matching ones.
 
+
+## Eth-seam command files (session 4, late 2026-11-17)
+All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --script-exit`.
+- `seamtest.cmd` (layout seamtest): idle bring-up and 60 s soak, no cycle.
+- `seamcycle.cmd` (seamtest): ~90 s with SuperCycles; counters via `seams`.
+- `seamlong.cmd` (seamtest): ~5 min so atoms reach the seam; then
+  `scripts/cachecensus/cachecensus.py RUNDIR` (the `.ac` marks).
+- `seamns.cmd` (layout seamns, chips 0 and 2, N/S links x=3,4,12,13): slice 3a;
+  check with `cachecensus.py RUNDIR --seam 0:S:2`.
+Start with /CLAUDE.md for the formatting rules and the document map.

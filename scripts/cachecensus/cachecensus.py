@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """cachecensus -- per-neighbor cache occupancy of the hubs in a run.
 
+See also /CLAUDE.md, srcs/host/tools/ERISC_SEAM_DESIGN.md, scripts/ptrace/README.txt.
+
 usage: cachecensus.py RUNDIR [--seam CHIPA:DIR:CHIPB ...]
 
 Reads the '.ac' marks (hub image, end of events: cache atoms per neighbor
