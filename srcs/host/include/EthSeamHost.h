@@ -120,6 +120,10 @@ namespace MFM {
     /// one line per link
     std::string status() ;
 
+    /** The E1 channel numbers a live link carries (same on both ends),
+        empty if there is no such link.  Use with channelStat. */
+    std::vector<u32> channelsOf(u32 chip, u32 ethx) ;
+
     bool health(u32 chip,
                 u32 ethx,
                 EthHealth & h,
@@ -136,6 +140,7 @@ namespace MFM {
       u32 a;
       u32 b;
       u32 ethx;
+      std::vector<u32> chans;   //< channel numbers set up on this link
       std::unique_ptr<EthLink> link;
     };
 

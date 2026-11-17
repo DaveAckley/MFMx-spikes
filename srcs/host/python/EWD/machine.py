@@ -482,6 +482,33 @@ class Machine:
                             f"  bh{chip} eth{x}: port={r['port']} hb={r['heartbeat']} "
                             f"retrain={r['retrain']} fec corrected={r['fecCorrected']} "
                             f"uncorrected={r['fecUncorrected']}")
+        lines.append(self.seam_counters())
+        return "\n".join(lines)
+
+    # E1 channel-block stat words (shared/include/EthSeam.h ChannelWord)
+    SEAM_STATS = (("out", 8), ("in", 9), ("noc", 20),
+                  ("txfail", 11), ("nocfail", 21), ("partial", 22))
+
+    def seam_counters(self):
+        """Per-channel E1 counters of every live link end.
+        out = cars sent over the link, in = new cars seen from the link,
+        noc = cars NoC-written into the local T6, plus the failure counts."""
+        h = self.M.EthSeamHost.get()
+        lines = ["channel counters (cars): out=sent to link  in=seen from link  "
+                 "noc=written to local T6"]
+        total = dict.fromkeys((n for n, _w in self.SEAM_STATS), 0)
+        for a, _d, b, xs in self.seams:
+            for x in xs:
+                for chip in (a, b):
+                    for ch in h.channelsOf(chip, x):
+                        vals = {n: h.channelStat(chip, x, ch, w)
+                                for n, w in self.SEAM_STATS}
+                        if any(v > 0 for v in vals.values()):
+                            lines.append(f"  bh{chip} eth{x} ch{ch}: " + " ".join(
+                                f"{n}={v}" for n, v in vals.items()))
+                        for n, v in vals.items():
+                            total[n] += max(v, 0)
+        lines.append("  total: " + " ".join(f"{n}={v}" for n, v in total.items()))
         return "\n".join(lines)
 
     def close(self):

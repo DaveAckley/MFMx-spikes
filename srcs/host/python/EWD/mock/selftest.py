@@ -168,6 +168,26 @@ def scenario_ethseams_layout_option():
           "unknown layout 'nope'" in out and "seamtest" in out, out[-500:])
 
 
+def scenario_ethseams_counters():
+    d = tempfile.mkdtemp(prefix="seamcyc-")
+    f = os.path.join(d, "cyc.cmd")
+    with open(f, "w") as fh:
+        fh.write(FAST + "dwell 0.2 0.3\nstart\nseams\ncycle start\nwait 4\nseams\n"
+                 "cycle stop\nwait 2\nstop\nquit close\n")
+    rc, out = run("quit\n", api="fire",
+                  extra_args=("--layout", "seamtest", "--boot", "-s", f, "--script-exit"),
+                  timeout=150)
+    check("counters: script exits 0", rc == 0, f"rc={rc}\n{out[-600:]}")
+    check("counters: 'seams' prints the counter table",
+          "channel counters" in out and "total: out=" in out, out[-900:])
+    tot = [int(l.split("out=")[1].split()[0]) for l in out.splitlines()
+           if l.strip().startswith("total: out=")]
+    check("counters: first dump has two totals recorded", len(tot) >= 2, str(tot))
+    check("counters: totals move between dumps", len(tot) >= 2 and tot[-1] > tot[0], str(tot))
+    check("counters: per-channel line names chip, tile and channel",
+          "bh0 eth6 ch0: out=" in out and "bh1 eth11 ch2: out=" in out, out[-900:])
+
+
 def scenario_ethseams_parse():
     sys.path.insert(0, EWD)
     import machine

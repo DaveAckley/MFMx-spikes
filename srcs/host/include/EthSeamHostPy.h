@@ -29,6 +29,7 @@
 
       h.status()
       h.health(chip, ethx)
+      h.channelsOf(chip, ethx)          # channel numbers on that link
       h.channelStat(chip, ethx, channel, wordIndex)
       h.tearDownLink(chipA, chipB, ethx)
       h.tearDownAll()
@@ -240,6 +241,12 @@ namespace MFM {
             py::call_guard<py::gil_scoped_release>());
       c.def("health",
             &healthMap,
+            py::call_guard<py::gil_scoped_release>());
+
+      c.def("channelsOf",
+            &EthSeamHost::channelsOf,
+            py::arg("chip"),
+            py::arg("ethx"),
             py::call_guard<py::gil_scoped_release>());
 
       c.def("channelStat",

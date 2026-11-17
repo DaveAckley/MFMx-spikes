@@ -337,6 +337,19 @@ class EthSeamHost:
             return "no eth-seam links"
         return "".join(f"link bh{a} <-> bh{b} eth{x} UP\n" for a, b, x in self.up)
 
+    def channelsOf(self, chip, ethx):
+        if not any(chip in (a, b) and ethx == x for a, b, x in self.up):
+            return []
+        return [0, 1, 2]
+
+    def channelStat(self, chip, ethx, channel, word):
+        """Fake counters that grow with each call, so tests can see them move:
+        out/in/noc (words 8, 9, 20) count up, the failure words stay 0."""
+        if not self.channelsOf(chip, ethx):
+            return -1
+        self.stat_calls = getattr(self, "stat_calls", 0) + 1
+        return (10 * self.stat_calls + channel) if word in (8, 9, 20) else 0
+
     def health(self, chip, ethx):
         if not any(chip in (a, b) and ethx == x for a, b, x in self.up):
             return {"ok": 0}

@@ -313,6 +313,26 @@ int main() {
                          2, 4, false, true).empty());
     CHECK(h.status().find("eth11 UP") != std::string::npos);
 
+    // channelsOf: the planned channel numbers, same on both ends, and
+    // empty for a tile or chip that is not on a live link
+    EthChannelSetup pa;
+    EthChannelSetup pb;
+    CHECK(h.planLink(0, 1, 7, 2, 4, pa, pb).empty());
+    std::vector<u32> want;
+    for (const EthChannel & c : pa.channels) want.push_back(c.channel);
+    CHECK(!want.empty());
+    CHECK(h.channelsOf(0, 7) == want);
+    CHECK(h.channelsOf(1, 7) == want);
+    CHECK(h.channelsOf(0, 8).empty());
+    CHECK(h.channelsOf(2, 7).empty());
+    {
+      // and a counter the E1 would publish can be read back through it
+      u32 v = 0;
+      std::string e;
+      f.put(1, 7, channelBlockAddr(want[0]) + 4 * CW_S_INSEEN, 42);
+      CHECK(h.channelStat(1, 7, want[0], CW_S_INSEEN, v, e) && v == 42);
+    }
+
     EthSeam::SeamTable west;
     EthSeam::SeamTable east;
     EthSeam::decodeSeamMask(h.seamMaskFor(0), west);

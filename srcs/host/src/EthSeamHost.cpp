@@ -163,6 +163,9 @@ namespace MFM {
       std::string why = rec.link->lastError();
       return why.empty() ? "bring-up failed" : why;
     }
+    for (const EthChannel & ch : setupA.channels) {
+      rec.chans.push_back(ch.channel);
+    }
     mLinks.push_back(std::move(rec));
     return "";
   }
@@ -397,6 +400,13 @@ namespace MFM {
         + "\n";
     }
     return s;
+  }
+
+  std::vector<u32> EthSeamHost::channelsOf(u32 chip, u32 ethx) {
+    std::lock_guard<std::mutex> g(mMutex);
+    EthLinkEnd * end = nullptr;
+    Rec * r = findEnd(chip, ethx, end);
+    return r ? r->chans : std::vector<u32>();
   }
 
   bool EthSeamHost::health(u32 chip,

@@ -262,3 +262,13 @@ exercised on hardware before; links 7, 10 and 11 are validated at bring-up
 fails, edit the layout's list down (two links are the minimum for this E1
 image), e.g. ethseams = [ "0:E:1:6,7" ].
 
+Cross-card traffic (slice 1, Dir4 only): `config/seamcycle.cmd` runs the
+seamtest layout with SuperCycles:
+
+    python mfmxctl.py --layout seamtest --boot -s config/seamcycle.cmd --script-exit
+
+`seams` now also prints the per-channel E1 counters (out = sent to the link,
+in = seen from the link, noc = written into the local T6, plus failure
+counts).  Corner caches across the seam are stale until the diagonal
+crossings are wired (ERISC_SEAM_DESIGN.md section 16).
+
