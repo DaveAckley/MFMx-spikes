@@ -2,6 +2,8 @@
 #include "Debug.h"
 #include "InterHub.h"
 #include "HubLiveB.h"  // for fB
+#include "EthSeam.h"
+#include "DemoGlobal.h"
 
 namespace MFM {
   CacheLoaders theL1CacheLoaders;
@@ -41,6 +43,10 @@ namespace MFM {
       LOGPTAG(oCT,ourCT6C);
       LOGPTAG(oRC,ourREGC);
     }
+
+    EthSeam::SeamTable seams;
+    EthSeam::decodeSeamMask(hb.getEthSeamMask(), seams);
+
     for (u32 i = D8_NT; i <= D8_NE; ++i) {
       Dir8 d8 = (Dir8) i;
 
@@ -52,28 +58,38 @@ namespace MFM {
       /*  /-CT6C-\=  /-CT6C---\  + /-CT6V-\  */
       S8C d8nCT6C = S8C(ourCT6C) + d8nCT6V;
 
+      // Does that neighbor hub exist?  On this chip, yes.  Off this chip
+      // it exists only across a live eth-seam in a Dir4 direction (the
+      // diagonal seam crossings are not wired yet, so those loaders stay
+      // unused and the caches they would fill stay stale).
       U8C ud8nCT6C;
-      if (!d8nCT6C.toU8C(ud8nCT6C)) continue; // off chip N or W
-      //LOGPTAG(REPHud8nCT6C,ud8nCT6C);
+      bool onChip = d8nCT6C.toU8C(ud8nCT6C) &&
+        U8C::makeNoC0CoordFromCT6Coord(ud8nCT6C) != U8C::UxC_MAX_VAL;
+      if (!onChip) {
+        if ((d8 & 1u) != 0u) continue;          // diagonal: not wired yet
+        EthSeam::DestDir4 dest;
+        bool seamHere = EthSeam::destDir4(seams,
+                                          dir8ToDir4CW(d8),
+                                          ourCT6C.x,
+                                          ourCT6C.y,
+                                          EthSeam::CELL_C2X2,
+                                          dest);
+        if (!seamHere) continue;                // off chip, no seam
+        LOGPTAG(SEAMLDR,dir8ToByteString(d8));
+      }
 
-      U8C d8nNoC0C = U8C::makeNoC0CoordFromCT6Coord(ud8nCT6C);
-      if (d8nNoC0C == U8C::UxC_MAX_VAL) continue; // off chip E or S
-      //LOGPTAG(REPHd8nNoC0C,d8nNoC0C);
-
-      U8C d8nREGC = ud8nCT6C / uct6_per_ureg; //< their position in region space
+      // Their place in its 2x2 supercell, counting hubs GLOBALLY across
+      // chips (DemoGlobal.h): a neighbor on another chip is just the next
+      // hub over.
+      U8C d8nREGV_of_SCLC =
+        DG::getHubSuperCellCoord(hb.mChipNum,
+                                 (s32) ourREGC.x + d8nREGV.x,
+                                 (s32) ourREGC.y + d8nREGV.y);
+      bool d8IsLeader = (d8nREGV_of_SCLC == ldrREGV_of_SCLC);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-      U8C d8nSCLC = d8nREGC / ureg_per_uscl; //< their position in supercell space
-      U8C d8nSCLC_in_REGC = d8nSCLC * ureg_per_uscl; //< UL of their supercell in region space
-      U8C d8nSCLC_in_CT6 = d8nSCLC_in_REGC * uct6_per_ureg; //< " in CT6 coords
-      U8C d8nSCLC_in_NoC0C = U8C::makeNoC0CoordFromCT6Coord(d8nSCLC_in_CT6); //< " in NoC0 coords
 
-      U8C d8nREGV_of_SCLC = d8nREGC % ureg_per_uscl;   //< d8n UREG offset in supercell theirSCLC
-
-      //LOGPTAG(REPHd8nREGV_of_SCLC,d8nREGV_of_SCLC);
-      bool d8IsLeader = (d8nREGV_of_SCLC == ldrREGV_of_SCLC);
-      
       if (true) {
         //LOGPTAG(REPHd8nNoC0C,d8nNoC0C);
 
@@ -98,7 +114,6 @@ namespace MFM {
 
 #pragma GCC diagnostic pop
 
-        u32 theirTLBI = U16C::makeTLBIFromNoCCoord(U16C(d8nNoC0C.x,d8nNoC0C.y)); 
         if (d8IsLeader) {
           MFM_API_ASSERT(!iAmLeader,ILLEGAL_STATE);
           LOGPTAG(ULDR,dir8ToByteString(d8));

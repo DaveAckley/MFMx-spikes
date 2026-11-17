@@ -65,8 +65,12 @@ namespace MFM {
     U8C c = U8C::makeCT6CoordFromTLBI(tlbi);
     U8C tt(2,2);
     
-    mHubInGridCoord = c / tt;
-    mSuperCellCoord = mHubInGridCoord % tt;
+    mHubInGridCoord = c / tt;       // hub position within THIS chip
+    // but supercells are counted over hubs globally, across chips, the
+    // same way the T6 side does it (DemoGlobal.h)
+    mSuperCellCoord = DG::getHubSuperCellCoord(chipnum,
+                                               mHubInGridCoord.x,
+                                               mHubInGridCoord.y);
     Eprintf("\n %s HUBVALUE tlbi%u -> ct6 (%u,%u) -> hig (%u,%u) + supercell (%u,%u)\n",
             BHTag::t6adt(chipnum,tlbi).c_str(),
             tlbi,

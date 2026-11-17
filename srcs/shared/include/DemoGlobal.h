@@ -175,6 +175,36 @@ namespace MFM::DG {
     return getChipPositionInArray(chipnumber) * getChipSites();
   }
 
+  /* HUBS ARE GLOBALLY CONTIGUOUS.  A chip is 7 x 5 hubs of 138 x 108
+     sites, and chip origins are multiples of that, so hub columns and
+     rows simply continue from one chip to the next.  The hub grid is
+     divided into 2x2 supercells, and each hub's place in its supercell
+     must be counted in GLOBAL hub coordinates.  Counting per chip is
+     wrong whenever a chip has an odd number of hubs along an axis
+     (7 and 5 here): the first hub column of chip 1 would then have the
+     same parity as the last of chip 0, and two adjacent hubs could both
+     be supercell leader. */
+
+  /// Global hub coordinates of a chip's first hub (hub 0,0 of that chip)
+  static constexpr U8C getChipHubOrigin(u32 chipnumber) {
+    return U8C((u8) (getChipPositionInArray(chipnumber).x
+                     * BLACKHOLE_ACTIVE_HUB_WIDTH),
+               (u8) (getChipPositionInArray(chipnumber).y
+                     * BLACKHOLE_ACTIVE_HUB_HEIGHT));
+  }
+
+  /** Position (0..1, 0..1) within its 2x2 supercell of the hub at hub
+      coordinates (hubx, huby) of the chip 'chipnumber'.  The hub
+      coordinates are relative to that chip and may lie outside it
+      (negative, or past its last hub) to name a neighbor on another
+      chip. */
+  static constexpr U8C getHubSuperCellCoord(u32 chipnumber,
+                                            s32 hubx,
+                                            s32 huby) {
+    return U8C((u8) ((((s32) getChipHubOrigin(chipnumber).x) + hubx) & 1),
+               (u8) ((((s32) getChipHubOrigin(chipnumber).y) + huby) & 1));
+  }
+
   static U16C getTLBIOrigin(u32 tlbi,U8C cellstride) {
     U8C ct6c = U8C::makeCT6CoordFromTLBI(tlbi)/cellstride;
     return U16C(ct6c.x,ct6c.y)*getSingleT6GridBaseSize();

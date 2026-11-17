@@ -3,6 +3,7 @@
 #include "Grid.h"
 #include "T6Grid.h"
 #include "EwpBlock.h"
+#include "DemoGlobal.h"
 
 namespace MFM {
 
@@ -23,9 +24,13 @@ namespace MFM {
     u32 tlbi = hb.mTLBI;
     U8C ct6 = U8C::makeCT6CoordFromTLBI(tlbi);
     U8C tt(2,2);
-    
-    U8C hubInGridCoord = ct6 / tt;
-    U8C supercellc = hubInGridCoord % tt;
+
+    // Hubs are counted GLOBALLY across chips (see DemoGlobal.h), so
+    // that hubs that touch across a chip seam are never both leader.
+    U8C hubInChipCoord = ct6 / tt;
+    U8C supercellc = DG::getHubSuperCellCoord(hb.mChipNum,
+                                              hubInChipCoord.x,
+                                              hubInChipCoord.y);
     mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
     
     // INIT SELECT AUTOSEEDING

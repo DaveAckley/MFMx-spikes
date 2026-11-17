@@ -344,3 +344,45 @@ NOT done, on purpose:
   grid logic above the InterHub EPs does not yet know about the other card.
 - HAS_ETH_SEAM_UP: the order is declareSeam, deploy T6 images, bringUpLink
   for each live link, then release T6s.
+
+## 16. Slice 1 of cross-card traffic (2026-11-17): Dir4 cache loaders, global parity
+
+Hardware status before this slice (c942e6f): wiring proven, T6s idle, no
+traffic, because every card was an island: a hub's cache loaders skipped any
+neighbor off the card.  Slice 1 lets the Dir4 loaders (NT/WT/ST/ET) work
+across a live seam.  NOT yet run on hardware.
+
+1. Supercell parity is now GLOBAL.  Hubs are contiguous across chips (a chip is
+   7 x 5 hubs, chip origins are multiples of that), the 2x2 supercell grid runs
+   over all of them, and 7 and 5 are odd.  Counting per chip would put the
+   first hub column of chip 1 in the same parity as the last of chip 0, so two
+   touching hubs could both lead.  `DG::getChipHubOrigin(chip)` and
+   `DG::getHubSuperCellCoord(chip, hubx, huby)` (DemoGlobal.h) count globally;
+   hub coordinates may be negative or past the chip to name a neighbor on
+   another chip.  Used by `GridManager::init` and `configureCacheLoaders` (T6)
+   and `CodeManager::HubValue::init` (host; only the #if 0 host path reads it).
+   Chip 0 is unchanged; chips 1-3 relabel which member of a supercell is
+   which, which is harmless on their own.
+   Test: `host/tools/hubparity_test.cpp` (no two Moore-adjacent hubs are both
+   leader on 1, 2 or 4 chips for every leader code; the old per-chip rule fails
+   it on 2 and 4 chips; exactly one leader per 2x2 hub block).
+2. `CacheLoaders::configureCacheLoaders`: a neighbor off the chip exists iff
+   the direction is Dir4 and `EthSeam::destDir4` says this hub has live seam
+   links that way (the same test that creates the InterHub endpoint).
+   Diagonal loaders across a seam stay UNUSED (they would need the CHUB
+   forwarder seam variant; an unwired loader would never get its cars and
+   stall the phase).  Consequence, deliberate and temporary: corner caches
+   across the seam stay stale, so the physics is wrong in the 10 x 10 corner
+   regions next to the seam, while Dir4 caches are exchanged.
+3. `seams` prints the E1 channel counters of every live link end
+   (`EthSeamHost.channelsOf`, `channelStat`): out = cars sent over the link,
+   in = new cars seen from the link, noc = cars written into the local T6,
+   plus txfail / nocfail / partial.
+4. `config/seamcycle.cmd` runs the seamtest layout with SuperCycles.  Success:
+   HOLD_AT_BIRTH / NEW_LEADER / RUN_EVENTS reach CONSENSUS on both chips, the
+   out / in / noc counters move, and retrain and FEC uncorrected stay 0.  A
+   bolt TIMEOUT means a loader is waiting for a car that did not come.
+
+Next: slice 2, the diagonal seam crossings (corner-hub first hop and CHUB
+forwarder second hop, SLOT_DIAG channels, planner support), then slice 3, the
+N/S seam and the 2x2 chip array.
