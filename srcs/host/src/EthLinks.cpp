@@ -138,7 +138,10 @@ namespace MFM {
         return (volatile u32 *) (w.ptr + off);
       }
     }
-    if (mWins.size() >= MAX_WINDOWS) return nullptr;
+    if (mWins.size() >= MAX_WINDOWS) {
+      logf("ETH window limit (%u) reached", (u32) MAX_WINDOWS);
+      return nullptr;
+    }
 
     struct tenstorrent_allocate_tlb at;
     memset(&at, 0, sizeof at);
@@ -322,7 +325,11 @@ namespace MFM {
 
   bool EthLinkEnd::validate(bool force) {
     mValidated = false;
-    u32 ep = R(NIU0 + NOC_ENDPOINT_ID_OFF);
+    u32 ep = 0;
+    if (!R(NIU0 + NOC_ENDPOINT_ID_OFF, ep)) {
+      return fail("cannot read the ETH tile (no TLB window?"
+                  " see the EthLinks log)");
+    }
     u32 cfg = R(NIU0 + NIU_CFG_0_OFF);
     if ((u16) (ep >> 8) != 0x0200u) {
       char b[80];

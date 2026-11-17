@@ -90,7 +90,9 @@ namespace MFM {
       volatile u8 * ptr;
     };
     volatile u32 * map(u32 ethx, u32 addr) ;
-    static constexpr u32 MAX_WINDOWS = 8u;
+    // Two windows per ETH tile (its L1 and its register page), and a
+    // chip in the 2x2 array has up to eight links: 16, plus margin.
+    static constexpr u32 MAX_WINDOWS = 24u;
     int mFD;
     std::vector<Win> mWins;
   };

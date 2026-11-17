@@ -507,7 +507,13 @@ MFMX_AUTOSEED_CHIPS that machine.py derives from the layout; unset = every chip
 seeds), `config/seam4.cmd` (10-minute soak), native 4-chip planner test (16
 links, both nibbles per chip, all diagonals), mock selftest ethseams_four,
 cachecensus judges every seam hub except the centre corner cache.  Hardware run
-pending.  Expected: stale centre corners, no hang.
+FIRST RUN (seam4.out, run 20261117-115630): bring-up failed at bh0:eth3, the
+fifth tile of chip 0 -- KmdEthPort allowed only 8 TLB windows and uses two per
+ETH tile (L1 and register page), so a chip with 8 links needs 16.  The
+T6s were (correctly) not released, so the whole run idled: bolt #1
+HOLD_AT_BIRTH TIMEOUT, all lamers.  NOT a seeding or seam-logic problem.  Fixed:
+MAX_WINDOWS 24, clearer messages.  Rerun pending.  Expected: stale centre
+corners, no hang.
 - Chip-level work: tt-smi resets and fd/TLB bring-up for four cards (more of
   the same), hc/log volumes up 2x, slowscan slower.
 
