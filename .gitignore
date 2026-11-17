@@ -41,3 +41,13 @@ codelog.txt
 
 # Leave out unofficially '-held' files
 *-hold
+
+# eth-seam tool build outputs (e1fwd/build.sh, t6pp/build.sh, g++ in srcs/host/tools)
+srcs/host/tools/e1fwd/*.bin
+srcs/host/tools/e1fwd/*.elf
+srcs/host/tools/e1fwd/*.dis
+srcs/host/tools/t6pp/*.bin
+srcs/host/tools/t6pp/*.elf
+srcs/host/tools/t6pp/*.dis
+srcs/host/tools/ethfwd[0-9]*
+!srcs/host/tools/ethfwd[0-9]*.cpp
