@@ -11,6 +11,7 @@ import cv2
 
 import socket
 import errno
+import threading
 
 # 'overlay_transparent'
 # Source - https://stackoverflow.com/a
@@ -174,6 +175,7 @@ class RTMPFeed:
         self.localStreamPath = "/data/ackley/AV/MFMX-STREAMS"
         self.ffmpegCommandBaseParms = [
             'ffmpeg', '-y',
+            '-hide_banner', '-nostats', '-loglevel', 'warning',
             #'-re',
             '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
             '-s', "{}x{}".format(self.width, self.height),
@@ -197,6 +199,21 @@ class RTMPFeed:
         self.ewd.logkt(self.key,f"RUN {self.ffmpegCommandBaseParms}")
 
         self.ewd.logkt(self.key,f"GORMO")
+        # Frame pacing.  ffmpeg stamps raw input frames by COUNT at
+        # -framerate, not by arrival time, so a stall in the (single
+        # threaded) shell makes the stream run dry and the viewer
+        # rebuffers.  A keepalive thread repeats the last frame whenever
+        # the next real one is late.  Stats go to the FEEDSTAT log.
+        self.writeLock = threading.Lock()
+        self.lastBytes = None          #< last real frame, raw BGR bytes
+        self.lastWriteT = 0.0          #< monotonic time of last write
+        self.lastRealT = 0.0           #< ... of last real frame
+        self.keepThread = None
+        self.statFrames = 0
+        self.statDups = 0
+        self.statMaxGap = 0.0          #< longest wait between real frames
+        self.statMaxWrite = 0.0        #< slowest pipe write
+        self.statNextReport = time.monotonic() + 30.0
         self.subproc_started = 0
         self.restartSubProc();
         self.ewd.logkt(self.key,f"SLORG")
@@ -243,11 +260,94 @@ class RTMPFeed:
         #print(f"SLOTRHOP STARTING {ffmpegCmd}")
         self.subproc = subprocess.Popen(ffmpegCmd,
                                         stdin=subprocess.PIPE,
-                                        stdout=subprocess.DEVNULL, 
-                                        stderr=subprocess.STDOUT)
+                                        stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.PIPE)
+        threading.Thread(target=self.drainStderr,
+                         args=(self.subproc, self.subproc_started + 1),
+                         daemon=True).start()
         self.subproc_started += 1
         self.ewd.logkt(self.key,f"SUBPROC #{self.subproc_started} IS {self.subproc}")
         self.ewd.logkt(self.key,f"CLAMS! @{localFile}")
+
+    def drainStderr(self, proc, num):
+        """Copy ffmpeg's stderr (password masked) into the FFMPEG log."""
+        buf = b""
+        try:
+            while True:
+                data = proc.stderr.read1(4096)
+                if not data:
+                    break
+                buf += data
+                parts = buf.replace(b"\r", b"\n").split(b"\n")
+                buf = parts.pop()
+                for ln in parts:
+                    if ln.strip():
+                        self.logFF(num, ln.decode("utf-8", "replace"))
+        except Exception as e:
+            self.logFF(num, f"stderr reader died: {e}")
+        if buf.strip():
+            self.logFF(num, buf.decode("utf-8", "replace"))
+        self.logFF(num, f"ffmpeg exited, returncode {proc.wait()}")
+
+    def logFF(self, num, text):
+        self.ewd.logkt("FFMPEG", f"#{num} {self.redact(text)}")
+
+    def writeFrame(self, data, real):
+        """Write one raw frame (bytes) to ffmpeg.  Also used by the
+        keepalive thread, hence the lock."""
+        with self.writeLock:
+            t0 = time.monotonic()
+            try:
+                mv = memoryview(data)
+                blockSize = 1 << 20
+                for i in range(0, len(mv), blockSize):
+                    chunk = mv[i : i + blockSize]
+                    self.subproc.stdin.write(chunk)
+                    self.bytesWritten += len(chunk)
+            except (BrokenPipeError, socket.error) as e:
+                if e.errno != errno.EPIPE:
+                    raise
+                self.ewd.logkt(
+                    self.key, f"BORKEN PIPE {e} AFTER {self.bytesWritten}")
+                self.restartSubProc()
+                return
+            t1 = time.monotonic()
+            self.lastWriteT = t1
+            self.statMaxWrite = max(self.statMaxWrite, t1 - t0)
+            if real:
+                if self.lastRealT:
+                    self.statMaxGap = max(
+                        self.statMaxGap, t1 - self.lastRealT)
+                self.lastRealT = t1
+                self.statFrames += 1
+            else:
+                self.statDups += 1
+            if t1 >= self.statNextReport:
+                self.statNextReport = t1 + 30.0
+                self.ewd.logkt(
+                    "FEEDSTAT",
+                    f"30s: real {self.statFrames} dup {self.statDups} "
+                    f"maxgap {self.statMaxGap:.2f}s "
+                    f"maxwrite {self.statMaxWrite:.2f}s")
+                self.statFrames = 0
+                self.statDups = 0
+                self.statMaxGap = 0.0
+                self.statMaxWrite = 0.0
+
+    def keepAlive(self):
+        """Repeat the last frame whenever the next one is late."""
+        late = 1.3 / self.fps
+        while True:
+            time.sleep(0.5 / self.fps)
+            data = self.lastBytes
+            if data is None:
+                continue
+            if time.monotonic() - self.lastWriteT > late:
+                try:
+                    self.writeFrame(data, False)
+                except Exception as e:
+                    self.ewd.logkt("FEEDSTAT", f"keepalive: {e}")
+                    time.sleep(1.0)
 
     def drawTextOnImage(self,img,atext,xy,cachedfont):
         bfbox = cachedfont.renderBox
@@ -402,18 +502,11 @@ class RTMPFeed:
 
 
         self.framesSentThisSubproc += 1
-        try:
-            #self.ewd.logkt(self.key,f"TRYWRITE({timg.shape})")
-            towrite = bgrimage
-            blockSize = 1<<20
-            for i in range(0, len(towrite), blockSize):
-                chunk = towrite[i : i + blockSize]
-                self.subproc.stdin.write(chunk)
-                self.bytesWritten += len(chunk)
-            #self.subproc.stdin.flush()
-        except socket.error as e:
-            if e.errno != errno.EPIPE:
-                raise
-            self.ewd.logkt(self.key,f"BORKEN PIPE {e} AFTER {self.bytesWritten}")
-            self.restartSubProc()
+        data = np.ascontiguousarray(bgrimage).tobytes()
+        self.lastBytes = data
+        self.writeFrame(data, True)
+        if self.keepThread is None:
+            self.keepThread = threading.Thread(target=self.keepAlive,
+                                               daemon=True)
+            self.keepThread.start()
             
