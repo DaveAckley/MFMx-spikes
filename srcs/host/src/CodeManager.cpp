@@ -136,6 +136,13 @@ namespace MFM {
     if (!autoseedsOnChip(mChipNum)) {
       hb->mHostFlags |= HostFlags::HBF_NO_AUTOSEED;
     }
+    {
+      const char * sc = getenv("MFMX_AUTOSEED_CHIPS");
+      Eprintf("\nchip %u autoseed %s (MFMX_AUTOSEED_CHIPS=%s)\n",
+              (u32) mChipNum,
+              autoseedsOnChip(mChipNum) ? "ON" : "OFF",
+              sc ? sc : "<unset: all chips>");
+    }
     hb->mHostFlags |= HostFlags::HBF_ASSERT_STOP_LOG; // XXX TRY STOP LOGGING
     hb->mHostFlags |= HostFlags::HBF_NO_UTAG; // XXX STOP RANDOM TAG LOGGING
     hb->mHostFlags |= HostFlags::HBF_STAG_PTRACE; // XXX TRY TO INCLUDE PACKET TRACE LOGGING
