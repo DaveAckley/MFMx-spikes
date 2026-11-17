@@ -12,6 +12,9 @@
 # two centre-extra channels of every seam (with 4 links: E/W eth7 ch3 and
 # eth10 ch3; N/S eth13 ch4 and eth3 ch5) moving cars in ONE direction only,
 # with txfail 0.
+# slowscan reads every hub's hostblock over PCIe (4 chips: seconds per pass)
+# and starves the frame tick, so a production run turns it off
+tick slowscan off
 dwell 4 8
 start
 seams

@@ -56,7 +56,12 @@ def parse_args(argv):
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
     ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
     ap.add_argument("--t6s-per-chip", type=int, default=140)
-    ap.add_argument("--slowscan-period", type=float, default=2.0)
+    ap.add_argument("--slowscan-period", type=float, default=2.0,
+                    help="seconds between slowscans; 0 turns the tick off")
+    ap.add_argument("--no-slowscan", action="store_true",
+                    help="no periodic slowscan (it reads every hub's hostblock "
+                         "and starves the frame tick); 'scan' and the "
+                         "after-timeout diagnosis still work")
     ap.add_argument("--slowscan-gap", type=float, default=0.2,
                     help="sleep before each chip's scan (nu1011 used 0.2)")
     ap.add_argument("--dwell", type=float, nargs="+", default=[3.0], metavar="SECS",
@@ -386,7 +391,9 @@ def main(argv=None):
 
     sh.add_tick("bolts", 0.2, m.tick_bolts, True, "poll the pending bolt's acks")
     sh.add_tick("cycle", 0.1, cyc.tick, True, "advance the SuperCycle state machine")
-    sh.add_tick("slowscan", args.slowscan_period, m.tick_slowscan, True,
+    noscan = args.no_slowscan or args.slowscan_period <= 0
+    sh.add_tick("slowscan", args.slowscan_period if args.slowscan_period > 0 else 2.0,
+                m.tick_slowscan, not noscan,
                 "hostblock log monitoring (no-op until booted)")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
