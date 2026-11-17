@@ -456,6 +456,22 @@ namespace MFM {
     }
   }
 
+  void QuietBox::_stopInterHubHackThread() {
+    std::unique_ptr<std::thread> thread;
+    {
+      AtomicScopeLock guard(mInterHubHackThreadMutex);
+      mQuitInterHubHackThread.store(true);
+      thread = std::move(mInterHubHackThreadPtr);
+    }
+    // Join outside the lock.  The thread checks the quit flag between
+    // loops (it sleeps 1s per loop while suspended).
+    if (thread && thread->joinable()) {
+      Eprintf("QB::IHHThread stop requested, joining\n");
+      thread->join();
+      Eprintf("QB::IHHThread joined\n");
+    }
+  }
+
   void QuietBox::setupInterHubHackThread() {
     Eprintf("QB::IHHThread - setup\n");
 

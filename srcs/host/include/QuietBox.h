@@ -45,7 +45,13 @@ namespace MFM {
     static QuietBox & get() ;   // MAX_QUIETBOX = 1
 
     QuietBox() ;
-    ~QuietBox() { /* we do not own the BHs */ }
+    // We do not own the BHs, but we do own the InterHub hack thread, and
+    // destroying a joinable std::thread calls std::terminate.
+    ~QuietBox() { _stopInterHubHackThread(); }
+
+    /** Stop and join the InterHub hack thread.  Safe to call more than
+        once; init() can start a new one afterwards. */
+    void shutdown() { _stopInterHubHackThread(); }
 
     void init() {
       initSimGrid();
@@ -166,6 +172,7 @@ namespace MFM {
       qb.def("__repr__",&QuietBox::to_repr);
       qb.def_readwrite("mDrawGrid",&QuietBox::mDrawGrid);
       qb.def("init",&QuietBox::init);
+      qb.def("shutdown",&QuietBox::shutdown,py::call_guard<py::gil_scoped_release>());
       qb.def("suspendIHH",&QuietBox::suspendInterHubHacks);
       qb.def("shootPHASER",&QuietBox::shootPHASER);
       qb.def("firePHASER",&QuietBox::firePHASER);
