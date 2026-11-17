@@ -529,6 +529,210 @@ static void check_diag() {
   CHECK(r.recvIndex == D8_SW);
 }
 
+// ---- PART 6: centre diagonals, on the 2x2 global hub grid ----
+//
+// Four chips, chip n at array position (n % 2, n / 2), each 7 x 5 hubs, so
+// the global grid is 14 x 10.  The oracle is the same two-hop arithmetic as
+// above.  Every diagonal between chips that are diagonal neighbors (0-3 and
+// 1-2, both ways) crosses a seam on BOTH hops, so there must be exactly 8
+// boundary crossings, and the T6 lookups (diagSend for hop 1, diagForward-
+// Dest for hop 2) and the host receive plan (recvCentre) must agree with
+// them for every live-link count.
+
+static Dir4 chipStep(int dx, int dy) {
+  if (dx == 1 && dy == 0) return D4_E;
+  if (dx == -1 && dy == 0) return D4_W;
+  if (dx == 0 && dy == 1) return D4_S;
+  CHECK(dx == 0 && dy == -1);
+  return D4_N;
+}
+
+static void makeTable(u32 chip, u32 L, SeamTable & t) {
+  memset(&t, 0, sizeof(t));
+  u32 px = chip % 2u;
+  u32 py = chip / 2u;
+  Dir4 live[2];
+  live[0] = px ? D4_W : D4_E;
+  live[1] = py ? D4_N : D4_S;
+  for (Dir4 d : live) {
+    const SeamLinks & cab = cablingFor(d);
+    t.n[d] = (u8) L;
+    for (u32 i = 0; i < L; ++i) t.ethX[d][i] = cab.ethX[i];
+  }
+}
+
+static void check_centre_L(u32 L) {
+  const CellShape & c = CELL_C2X2;
+  const int HW = 7;
+  const int HH = 5;
+  SeamTable tab[4];
+  for (u32 n = 0; n < 4; ++n) makeTable(n, L, tab[n]);
+
+  auto chipOf = [&](int gx, int gy) { return gx / HW + 2 * (gy / HH); };
+  auto ct6x = [&](int gx) { return (u32) ((gx % HW) * c.cw + c.hox); };
+  auto ct6y = [&](int gy) { return (u32) ((gy % HH) * c.ch + c.hoy); };
+
+  u32 crossings = 0;
+  for (int gy = 0; gy < 2 * HH; ++gy) {
+    for (int gx = 0; gx < 2 * HW; ++gx) {
+      for (u32 k = 1; k < 8; k += 2) {
+        Dir8 corner = (Dir8) k;
+        int dx, dy;
+        vec8(corner, dx, dy);
+        int fx = gx + dx;
+        int fy = gy + dy;
+        Dir8 first = dir8CornerToCCWDir8Edge(corner);
+        vec8(first, dx, dy);
+        int px = gx + dx;
+        int py = gy + dy;
+        if (fx < 0 || fy < 0 || fx >= 2 * HW || fy >= 2 * HH) continue;
+        if (px < 0 || py < 0 || px >= 2 * HW || py >= 2 * HH) continue;
+        int cs = chipOf(gx, gy);
+        int cp = chipOf(px, py);
+        int cf = chipOf(fx, fy);
+        bool centre =
+          (cs % 2 != cf % 2) && (cs / 2 != cf / 2);
+        if (!centre) continue;
+        // both hops cross a seam
+        CHECK(cp != cs);
+        CHECK(cf != cp);
+        crossings += 2;
+
+        Dir4 block = dir8ToDir4CW(first);
+        Dir4 d1 = chipStep(cp % 2 - cs % 2, cp / 2 - cs / 2);
+        Dir4 d2 = chipStep(cf % 2 - cp % 2, cf / 2 - cp / 2);
+        CHECK(d2 == nextCWDir4(block));
+        CHECK(d2 == nextCWDir4(d1));
+        CHECK(sendsCentre(tab[cs], d1));
+        CHECK(recvsCentre(tab[cp], oppositeDir4(d1)));
+        CHECK(sendsCentre(tab[cp], d2));
+        CHECK(recvsCentre(tab[cf], oppositeDir4(d2)));
+
+        // hop 1: the source hub's own endpoint writes to the E1
+        u32 E1 = edgeHubCount(d1, c);
+        Assign a1 = { 0, 0 };
+        CHECK(assignCentre(E1, L, CENTRE_FIRST, a1));
+        DiagSend ds;
+        CHECK(diagSend(tab[cs], corner, ct6x(gx), ct6y(gy), c, ds));
+        CHECK(ds.hop == DIAG_FIRST_HOP);
+        CHECK(ds.seam == d1);
+        CHECK(ds.ethx == tab[cs].ethX[d1][a1.link]);
+        CHECK(ds.channel == a1.channel);
+        RecvDiag rd = { 0, 0, RECV_IHUB, 0 };
+        CHECK(recvCentre(tab[cs], d1, a1.link, a1.channel, c, rd));
+        CHECK(rd.recvCT6x == ct6x(px));
+        CHECK(rd.recvCT6y == ct6y(py));
+        CHECK(rd.recvBlock == RECV_CHUB);
+        CHECK(rd.recvIndex == (u32) block);
+
+        // hop 2: P's forwarder for 'block' writes to the E1
+        u32 E2 = edgeHubCount(d2, c);
+        Assign a2 = { 0, 0 };
+        CHECK(assignCentre(E2, L, CENTRE_SECOND, a2));
+        DestDir4 fd = { 0, 0 };
+        CHECK(diagForwardDest(tab[cp], block, ct6x(px), ct6y(py), c, fd));
+        CHECK(fd.ethx == tab[cp].ethX[d2][a2.link]);
+        CHECK(fd.channel == a2.channel);
+        CHECK(recvCentre(tab[cp], d2, a2.link, a2.channel, c, rd));
+        CHECK(rd.recvCT6x == ct6x(fx));
+        CHECK(rd.recvCT6y == ct6y(fy));
+        CHECK(rd.recvBlock == RECV_IHUB);
+        CHECK(rd.recvIndex ==
+              (u32) dir8ToCWDir8(dir4ToDir8(oppositeDir4(block))));
+      }
+    }
+  }
+  CHECK(crossings == 8);
+
+  // per chip: exactly one corner answers diagSend at a card-corner hub
+  // (the centre first hop) and exactly one block of one hub answers
+  // diagForwardDest as the centre second hop, and the two are the same hub
+  for (u32 n = 0; n < 4; ++n) {
+    u32 first = 0;
+    u32 second = 0;
+    for (u32 y = 0; y < BOARD_CT6_H; ++y) {
+      for (u32 x = 0; x < BOARD_CT6_W; ++x) {
+        for (u32 k = 1; k < 8; k += 2) {
+          Dir8 corner = (Dir8) k;
+          Dir4 a = dir8ToDir4CW((Dir8) ((k + 7u) & 7u));
+          Dir4 b = dir8ToDir4CW((Dir8) ((k + 1u) & 7u));
+          bool corner2 = hubOnEdge(a, x, y, c) && hubOnEdge(b, x, y, c);
+          DiagSend ds;
+          if (diagSend(tab[n], corner, x, y, c, ds) && corner2) {
+            ++first;
+          }
+        }
+        if (!hubOnEdge(D4_N, x, y, c) && !hubOnEdge(D4_S, x, y, c)) {
+          continue;
+        }
+        for (u32 b = 0; b < 4; ++b) {
+          Dir4 seam = nextCWDir4((Dir4) b);
+          DestDir4 fd;
+          if (!diagForwardDest(tab[n], (Dir4) b, x, y, c, fd)) continue;
+          u32 E = edgeHubCount(seam, c);
+          u32 e = hubEdgeIndex(seam, x, y, c);
+          u32 eSrc = 0;
+          Slot s = SLOT_DIR4;
+          if (!diagForwarderSlot(seam, E, e, (Dir4) b, eSrc, s)) {
+            ++second;
+            CHECK(e == centreEdge(seam, E));
+          }
+        }
+      }
+    }
+    CHECK(first == 1);
+    CHECK(second == 1);
+  }
+
+  // the dealing of one seam with extras: all 3E storages land on distinct
+  // (link, channel) pairs, the extras invert, the ordinary ones do not
+  for (Dir4 d : { D4_E, D4_S }) {
+    u32 E = edgeHubCount(d, c);
+    CHECK(channelsWithCentre(E) == channelsFullRing(E));
+    bool used[MAX_LINKS][NCH_MAX + 4];
+    memset(used, 0, sizeof(used));
+    u32 total = 0;
+    for (u32 e = 0; e < E; ++e) {
+      for (u32 k = 0; k < 3; ++k) {
+        Assign as;
+        if (!assign(E, L, e, (Slot) k, as)) continue;
+        CHECK(!used[as.link][as.channel]);
+        used[as.link][as.channel] = true;
+        ++total;
+        CentreWhich w;
+        CHECK(!invertCentre(E, L, as.link, as.channel, w));
+      }
+    }
+    for (CentreWhich w : { CENTRE_FIRST, CENTRE_SECOND }) {
+      Assign as;
+      CHECK(assignCentre(E, L, w, as));
+      CHECK(!used[as.link][as.channel]);
+      used[as.link][as.channel] = true;
+      ++total;
+      CentreWhich back = CENTRE_FIRST;
+      CHECK(invertCentre(E, L, as.link, as.channel, back));
+      CHECK(back == w);
+    }
+    CHECK(total == channelsWithCentre(E));
+  }
+
+  // not a sender: a chip with only ONE live seam has no centre route
+  SeamTable one;
+  memset(&one, 0, sizeof(one));
+  one.n[D4_E] = (u8) L;
+  for (u32 i = 0; i < L; ++i) one.ethX[D4_E][i] = SEAM_LINKS_EW.ethX[i];
+  DiagSend ds;
+  DestDir4 fd;
+  CHECK(!diagSend(one, D8_SE, 13, 9, c, ds));
+  CHECK(!diagForwardDest(one, D4_N, 13, 9, c, fd));
+  CHECK(!sendsCentre(one, D4_E));
+  CHECK(!recvsCentre(one, D4_E));
+}
+
+static void check_centre() {
+  for (u32 L = 1; L <= MAX_LINKS; ++L) check_centre_L(L);
+}
+
 int main() {
   struct Geo {
     const char * name;
@@ -583,6 +787,7 @@ int main() {
   check_dir4();
   check_mask();
   check_diag();
+  check_centre();
   printf("%s\n", fails ? "SOME CHECKS FAILED" : "all ok");
   return fails != 0;
 }

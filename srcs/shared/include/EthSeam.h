@@ -694,6 +694,197 @@ namespace MFM {
       return true;
     }
 
+    /// result of diagSend (see its comment below)
+    struct DiagSend {
+      DiagHop hop;
+      Dir4 seam;                //< which card edge is crossed
+      u8 ethx;                  //< ETH tile NoC0 x of the link
+      u8 channel;               //< E1 channel on that link
+    };
+
+    //// PART 6: centre diagonals /////////////////////////////////////
+    //
+    // In a closed square of four cards the two cards that are diagonal
+    // neighbors have no seam between them: their corner hubs meet at the
+    // CENTRE of the array.  InterHub always picks P, the hub counter-
+    // clockwise of the corner, as the middle hop, so all four centre
+    // diagonals go CLOCKWISE round the array and each seam carries two
+    // extra directed storages in ONE direction only:
+    //
+    //   CENTRE_FIRST   hop 1: the corner hub's own endpoint writes to the
+    //                  E1; lands in the CHUB block (index = seam Dir4) of
+    //                  the far card's corner hub.
+    //   CENTRE_SECOND  hop 2: the forwarder at the corner hub (CHUB block
+    //                  prevCW(seam)) writes to the E1; lands in the far
+    //                  corner hub's InterHub storage.
+    //
+    // The corner hub is the hub on BOTH seam d and seam nextCW(d); the far
+    // hub is at the same edge index.  A card SENDS the extras on seam d
+    // iff seam nextCW(d) is live, and RECEIVES them on seam d iff seam
+    // prevCW(d) is live; both ends compute this from their own seam
+    // tables.  The extras are appended after the ordinary ordinals:
+    // ordinals 3E-2 (CENTRE_FIRST) and 3E-1 (CENTRE_SECOND).
+
+    enum CentreWhich : u8 {
+      CENTRE_FIRST = 0,
+      CENTRE_SECOND = 1
+    };
+
+    inline constexpr u32 channelsWithCentre(u32 E) {
+      return E == 0u ? 0u : 3u * E;
+    }
+
+    /// Dir4 of the neighbor that comes before d4 going clockwise
+    inline constexpr Dir4 prevCWDir4(const Dir4 d4) {
+      return nextCCWDir4(d4);
+    }
+
+    inline bool sendsCentre(const SeamTable & t, Dir4 d4) {
+      return d4 <= 3u && t.n[d4] != 0u && t.n[nextCWDir4(d4)] != 0u;
+    }
+
+    inline bool recvsCentre(const SeamTable & t, Dir4 d4) {
+      return d4 <= 3u && t.n[d4] != 0u && t.n[prevCWDir4(d4)] != 0u;
+    }
+
+    /** Assign for a centre extra on a seam with E edge hubs and L live
+        links (same dealing as assign()). */
+    inline bool assignCentre(u32 E, u32 L, CentreWhich w, Assign & out) {
+      if (L == 0u || L > MAX_LINKS || E == 0u) return false;
+      u32 ord = 3u * E - 2u + (u32) w;
+      out.link = (u8) (ord % L);
+      out.channel = (u8) (ord / L);
+      return true;
+    }
+
+    /** Inverse of assignCentre: does (link, channel) carry a centre
+        extra?  False for the ordinary ordinals and unused channels. */
+    inline bool invertCentre(u32 E,
+                             u32 L,
+                             u32 link,
+                             u32 channel,
+                             CentreWhich & w) {
+      if (L == 0u || L > MAX_LINKS || link >= L || E == 0u) return false;
+      u32 ord = channel * L + link;
+      if (ord == 3u * E - 2u) {
+        w = CENTRE_FIRST;
+        return true;
+      }
+      if (ord == 3u * E - 1u) {
+        w = CENTRE_SECOND;
+        return true;
+      }
+      return false;
+    }
+
+    /** Edge index, on both cards, of the corner hub for seam d4: E-1 on
+        the E and N seams, 0 on the S and W seams. */
+    inline constexpr u32 centreEdge(Dir4 d4, u32 E) {
+      return (d4 == D4_E || d4 == D4_N) ? E - 1u : 0u;
+    }
+
+    struct CentreRoute {
+      DiagHop hop;              //< FIRST: the corner hub's endpoint crosses
+      u8 crossEdge;             //< edge index, this card, of the writer
+      u8 recvEdge;              //< edge index, far card, of the receiver
+      RecvBlock recvBlock;
+      u8 recvIndex;             //< Dir4 (CHUB) or Dir8 (IHUB), as RecvDiag
+    };
+
+    /** Route of centre extra w sent on seam d4.  Same shape as
+        diagRoute, for the host receive plan. */
+    inline bool centreRoute(Dir4 d4,
+                            u32 E,
+                            CentreWhich w,
+                            CentreRoute & out) {
+      if (d4 > 3u || E == 0u) return false;
+      u32 e = centreEdge(d4, E);
+      out.crossEdge = (u8) e;
+      out.recvEdge = (u8) e;
+      if (w == CENTRE_FIRST) {
+        out.hop = DIAG_FIRST_HOP;
+        out.recvBlock = RECV_CHUB;
+        out.recvIndex = (u8) dir8ToDir4CW(dir4ToDir8(d4));
+        return true;
+      }
+      Dir4 block = prevCWDir4(d4);
+      out.hop = DIAG_SECOND_HOP;
+      out.recvBlock = RECV_IHUB;
+      out.recvIndex =
+        (u8) dir8ToCWDir8(dir4ToDir8(oppositeDir4(block)));
+      return true;
+    }
+
+    /** Host side: like recvDiag, for a centre extra.  'sender' is the
+        sending card's table; the receiver is the far card's corner hub. */
+    inline bool recvCentre(const SeamTable & sender,
+                           Dir4 d4,
+                           u32 link,
+                           u32 channel,
+                           const CellShape & c,
+                           RecvDiag & out) {
+      if (d4 > 3u || !sendsCentre(sender, d4)) return false;
+      u32 E = edgeHubCount(d4, c);
+      CentreWhich w = CENTRE_FIRST;
+      if (!invertCentre(E, sender.n[d4], link, channel, w)) return false;
+      CentreRoute r;
+      if (!centreRoute(d4, E, w, r)) return false;
+      u32 x = 0u;
+      u32 y = 0u;
+      if (!edgeHubCT6(oppositeDir4(d4), r.recvEdge, c, x, y)) {
+        return false;
+      }
+      out.recvCT6x = (u8) x;
+      out.recvCT6y = (u8) y;
+      out.recvBlock = r.recvBlock;
+      out.recvIndex = r.recvIndex;
+      return true;
+    }
+
+    /** T6 side, the hub on a card corner (on both edges a and b of the
+        corner Dir8): the centre first hop, if this corner's first hop
+        crosses a seam that sendsCentre. */
+    inline bool centreSend(const SeamTable & t,
+                           Dir8 corner,
+                           Dir4 a,
+                           Dir4 b,
+                           const CellShape & c,
+                           DiagSend & out) {
+      Dir4 seam = dir8ToDir4CW(dir8CornerToCCWDir8Edge(corner));
+      Dir4 other = (seam == a) ? b : a;
+      if (seam != a && seam != b) return false;
+      if (!sendsCentre(t, seam) || nextCWDir4(seam) != other) {
+        return false;
+      }
+      u32 E = edgeHubCount(seam, c);
+      Assign as;
+      if (!assignCentre(E, t.n[seam], CENTRE_FIRST, as)) return false;
+      out.hop = DIAG_FIRST_HOP;
+      out.seam = seam;
+      out.ethx = t.ethX[seam][as.link];
+      out.channel = as.channel;
+      return true;
+    }
+
+    /** T6 side, the forwarder at a card-corner hub: block 'block' ships
+        across seam nextCW(block) as the centre second hop. */
+    inline bool centreForwardDest(const SeamTable & t,
+                                  Dir4 block,
+                                  u32 x,
+                                  u32 y,
+                                  const CellShape & c,
+                                  DestDir4 & out) {
+      Dir4 seam = nextCWDir4(block);
+      if (!sendsCentre(t, seam)) return false;
+      if (!hubOnEdge(oppositeDir4(block), x, y, c)) return false;
+      u32 E = edgeHubCount(seam, c);
+      Assign as;
+      if (!assignCentre(E, t.n[seam], CENTRE_SECOND, as)) return false;
+      out.ethx = t.ethX[seam][as.link];
+      out.channel = as.channel;
+      return true;
+    }
+
     /** T6 side, the SOURCE hub: where does the hub at CT6 (x, y)
         send its corner Dir8 'corner' when the final hub is across a
         seam?  False if no live seam applies (the corner leads
@@ -703,12 +894,6 @@ namespace MFM {
         E1 at (ethx, channel); DIAG_SECOND_HOP, this endpoint ships
         to its on-card neighbor as usual and THAT hub's forwarder
         writes to the E1 (diagForwardDest finds the same channel). */
-    struct DiagSend {
-      DiagHop hop;
-      Dir4 seam;                //< which card edge is crossed
-      u8 ethx;                  //< ETH tile NoC0 x of the link
-      u8 channel;               //< E1 channel on that link
-    };
     inline bool diagSend(const SeamTable & t,
                          Dir8 corner,
                          u32 x,
@@ -720,7 +905,8 @@ namespace MFM {
       Dir4 b = dir8ToDir4CW((Dir8) ((corner + 1u) & 7u));
       bool onA = hubOnEdge(a, x, y, c);
       bool onB = hubOnEdge(b, x, y, c);
-      if (onA == onB) return false;     // interior, or a card corner
+      if (onA && onB) return centreSend(t, corner, a, b, c, out);
+      if (onA == onB) return false;     // interior
       Dir4 seam = onA ? a : b;
       Dir4 along = onA ? b : a;
       if (seam > 3u || t.n[seam] == 0u) return false;
@@ -756,7 +942,11 @@ namespace MFM {
       u32 eP = hubEdgeIndex(seam, x, y, c);
       u32 eSrc = 0u;
       Slot s = SLOT_DIR4;
-      if (!diagForwarderSlot(seam, E, eP, block, eSrc, s)) return false;
+      if (!diagForwarderSlot(seam, E, eP, block, eSrc, s)) {
+        // The corner hub of a card whose two live seams meet here: the
+        // second hop of a centre diagonal (PART 6).
+        return centreForwardDest(t, block, x, y, c, out);
+      }
       Assign as;
       if (!assign(E, t.n[seam], eSrc, s, as)) return false;
       out.ethx = t.ethX[seam][as.link];
