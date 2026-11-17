@@ -445,3 +445,106 @@ To wire it (in this order; each step checked natively before the next):
 
 Open question to settle first: both hops crossing at a card corner shared by two
 seams (the 2x2 array, slice 3); diagRoute returns false there by design.
+
+## 18. Slice 3 scope: the N/S seam and the 2x2 array (2026-11-17)
+
+State at the start: E/W seam (chips 0-1) works on hardware, Dir4 and
+diagonals, caches filled across the seam (runs seamcycle11/12, seamlong10).
+The planner, EthSeam.h helpers, InterHub.cpp and CacheLoader.cpp were written
+for all four seam directions and the oracle test covers N and S, but only the
+E/W case has run on hardware.
+
+Cabling (section 4): N/S seams are cards 0-2 and 1-3 on ETH x = 3,4,12,13;
+E/W are 0-1 and 2-3 on x = 6,7,10,11.  Only x=3 (N/S) has ever been exercised.
+The two axes use disjoint tiles, so a chip with both seams runs up to eight E1s.
+Chip n sits at array position (n%2, n/2): 0 top-left, 1 top-right, 2
+bottom-left, 3 bottom-right.
+
+### 18a. N/S seam alone (chips 0 and 2)   -- config + hardware only
+No new design: the seam is the E/W code with D4_S/D4_N (weAreIn for S, 7 edge
+hubs, 3E-2 = 19 channels, see section 4).  Work:
+- layout `seamns` in nu1012.dtoml: bhchips [0,2], ethseams
+  "0:S:2:3,4,12,13"; a command file `seamcyclens.cmd` (the seamcycle.cmd with
+  the layout changed) and the usual counters.
+- Channels per link with 4 live links: ceil(19/4) = 5; with 3: 7; 2 would need
+  10 > NCH_MAX 8 and is refused with the existing NCH_MAX message.
+- Unknowns that only hardware answers: do links 4, 12, 13 train and pass
+  smoke; the parity of the vertical hub grid (5 hubs per chip, odd) -- the
+  global supercell counting (DG::getHubSuperCellCoord) is tested for chips
+  0..3 in hubparity_test, so a bolt TIMEOUT here would be a surprise.
+- Verify with cachecensus.py: chip 0 bottom-row hubs (ct6 y=9) and chip 2
+  top-row hubs (y=1) need ST/SW/SE and NT/NW/NE nonzero (the script's SEAM tag
+  assumes E/W; extend it with a --seam option first).
+
+### 18b. 2x2 array, centre diagonals still off   -- layout + host validation
+Chips 0-3, four seams.  Every chip has one E/W and one N/S seam, so its
+HostBlock mask has two nonzero nibbles; each seam is independent, the T6 code
+already reads one nibble per direction.  What is new:
+- layout `seam4` (bhchips [0,1,2,3], ethseams "0:E:1:6,7,10,11",
+  "2:E:3:6,7,10,11", "0:S:2:3,4,12,13", "1:S:3:3,4,12,13").  The planner
+  already loops over declarations; check bringUpSeams with 16 links, the mock
+  fabric test with four chips, and mfmxctl's `seams` report layout.
+- At a card corner shared by two seams, diagSend / diagForwardDest return
+  false (onA == onB, or the virtual source slot does not exist), so the four
+  centre diagonals and their caches are simply unused: stale caches at the four
+  centre corner hubs (the same as the E/W seam before slice 2), no hang.
+  Need to CONFIRM that: the corner loaders are skipped on both ends (the
+  census must show 0 in the centre corner caches only) and bolts reach
+  CONSENSUS.
+- Chip-level work: tt-smi resets and fd/TLB bring-up for four cards (more of
+  the same), hc/log volumes up 2x, slowscan slower.
+
+### 18c. Centre diagonals (a corner hub of a 2x2 array)   -- the real design work
+The corner hub H of chip 0 (SE) and the corner hub F of chip 3 (NW) are
+diagonal neighbors across the array centre.  The two-hop route (section 17)
+now crosses BOTH hops, each on a DIFFERENT seam, through the middle chip:
+  hop 1  H -> P = hub E of H = chip 1's SW corner hub, CHUB block E (E/W seam
+         0-1, direction 0 -> 1, written by H's own endpoint);
+  hop 2  P's forwarder block E -> F = the hub S of P = chip 3's NW corner hub
+         (N/S seam 1-3, direction 1 -> 3, written by P).
+The four directed diagonals, 8 hop-channels in all:
+  0 SE -> 3 NW   hop 1 on E/W seam 0-1 (0->1),  hop 2 on N/S seam 1-3 (1->3)
+  3 NW -> 0 SE   hop 1 on E/W seam 2-3 (3->2),  hop 2 on N/S seam 0-2 (2->0)
+  1 SW -> 2 NE   hop 1 on N/S seam 1-3 (1->3),  hop 2 on E/W seam 2-3 (3->2)
+  2 NE -> 1 SW   hop 1 on N/S seam 0-2 (2->0),  hop 2 on E/W seam 0-1 (0->1)
+So every seam gets exactly TWO extra directed storages (and they are the
+virtual source slots the current dealing lacks: slot HI of the last hub and
+slot LO of "hub E" on the corner that touches the centre; diagForwarderSlot
+returns false there today because eSrc is out of range).
+Design decisions to make:
+1. Dealing.  Append the extras AFTER the existing ordinals (ordinal >= 3E-2),
+   so every existing assignment is unchanged when the extras are absent:
+   channelsTwoCards(E) = 3E-2 (+2 when the seam has centre diagonals).  E/W:
+   15 channels, 4 links -> 4 each, 2 links -> 8 (exactly NCH_MAX), 1 link
+   refused.  N/S: 21, 4 links -> 6, 3 -> 7, 2 refused.  Each extra costs a
+   channel on both ends even though it is one-way (the E1 channel carries both
+   rings); accepted.
+2. Who knows a centre diagonal exists?  The HostBlock mask has no spare bit
+   (16 bits = 4 directions x 4 links, and the HostBlock stays frozen).  Rule:
+   a chip with BOTH an E/W and an N/S seam live assumes the centre diagonal
+   at that corner, and the host REFUSES (declareSeam / bringUpSeams) any
+   layout where a chip has two perpendicular seams but the four seams do not
+   close the square.  This keeps the T6 side free of topology guesses.  An
+   L-shape (three chips) is rejected with a clear message; it would otherwise
+   hang (H sends hop 1, P has no live forwarder).
+3. Routing code.  diagRoute / diagSend / diagForwardDest gain the card-corner
+   case: crossEdge, recvEdge and recvIndex as in the hop table above, the
+   forwarder slot named by a virtual (eSrc = E or -1) hub.  The oracle test
+   (check_diag_seam) is extended from "two chips side by side" to the 2x2
+   global grid and must find exactly these 8 boundary crossings (plus the
+   2(E-1) per seam of section 17), for every live-link count.
+4. The T6 forwarder at P (a card-corner hub) chains a car that arrived
+   through an E1 into the OTHER axis's E1: the forwarder already reads from its
+   CHUB storage and writes to an E1 (slice 2), so the only change is the
+   channel lookup; no new data path.
+5. Cache loaders at the four centre corners are then enabled through the same
+   diagSend answer.  Check with .ac (the NE/SE/SW/NW cache at each centre
+   corner hub).
+
+### Order and what I need from you
+a. 18a first (cheap, config only, exercises the untested N/S links and the
+   parity), then 18b (the full array without centre diagonals, a real test of
+   16 links and of "stale corners do not hang"), then 18c (design above).
+b. Hardware questions: are the N/S and the chip 2-3 E/W cables all installed
+   (the cabling table above says so, but only x=3 N/S was ever exercised)?
+   Is it fine to run four cards under the 16-link bring-up (a longer boot)?
