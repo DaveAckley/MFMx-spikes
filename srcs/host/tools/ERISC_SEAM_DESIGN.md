@@ -282,3 +282,45 @@ and an explicit python call between "images deployed" and "startMachine" does th
 the image-block table once the T6-side wiring exists; until then the caller passes (channel, legs, t6x, t6y, t6base) explicitly).
 Known limits: queue 2's RX buffer (L1 0x7E000) lies in the base-firmware reserved region (empirically free, unnamed in the map); KmdEthPort allocates up to 8 2-MiB TLB windows
 per chip (two per ETH tile: L1 and registers), out of the budget left after OurTLBs' 144; the E1 dies with the fd, so the process owning the chip must outlive the links.
+
+## 15. T6-side wiring for CARDINAL crossings (2026-11-16)
+
+What exists now (builds with the sfpi toolchain; NOT run on hardware):
+
+1. Seam table.  The host declares seams BEFORE deploying T6 images:
+   `EthSeamHost.get().declareSeam(chipA, dir4, chipB, [ethx...])`
+   (dir4: N=0 W=1 S=2 E=3, chipB lies that way from chipA; both directions
+   are recorded).  `CodeManager::deployRISCVCodeFromImage` copies
+   `seamTableFor(chip)` into `HostBlock::mEthSeam` (20 bytes: live link
+   count and ETH x list per direction).  No declaration = zeros = no seam.
+2. Hub (InterHub.cpp).  When a cardinal neighbor hub is off this card and
+   the table has links that way, `configureSeamInterHubEP` calls
+   `EthSeam::cardinalDest` (balanced dealing: link and channel from the hub's
+   edge index) and then `configureDest(ournoc0, ethNoC0, {BC_INTERHUB,
+   channel})`.  `T6EP::configureDest`'s ETH branch now sets
+   `mDestBlockAddr = EthSeam::outRingAddr(channel)`; the channel rides in
+   `mBlockCodeIndex`.
+3. In/out.  `cardinalWeAreIn(d4)`: the end whose neighbor is E or S starts
+   'in', the W/N end 'out', so the two ends always disagree.
+4. Receive side (host).  `EthSeam::cardinalRecv(senderTable, d4, link,
+   channel, cell, out)` gives, for one channel of one sending E1, the CT6 of
+   the receiving hub on the facing edge and the Dir8 index of its InterHub
+   storage (2 * opposite Dir4).  The host turns CT6 into NoC0 and looks up
+   that hub's BC_INTERHUB base to fill `EthChannel.t6x/t6y/t6Base`
+   (t6Base = IBA base + recvDir8 * storage size).  Not yet wired into a
+   Python/host helper: the lookup needs the deployed image blocks.
+5. Tests: `ethseam_test.cpp` (sender dest, host plan and far hub's own dest
+   agree for every edge hub, every link count 1..4), `ethlinks_test.cpp`
+   (declareSeam).
+
+NOT done, on purpose:
+- Diagonals (CHUB first hop, CHUB forwarder second hop) are still skipped
+  at a card edge.
+- The hub code still assumes 2x2 cells; CELL_C2X2 is passed explicitly.
+- Cache loaders, leader/follower choice and supercell parity are still
+  per-card (HubValue::init in CodeManager.cpp computes the supercell
+  position from the chip-local hub coordinate; the 7-hub row width is odd,
+  so a second card needs a global offset).  Cars will cross, but the
+  grid logic above the InterHub EPs does not yet know about the other card.
+- HAS_ETH_SEAM_UP: the order is declareSeam, deploy T6 images, bringUpLink
+  for each live link, then release T6s.

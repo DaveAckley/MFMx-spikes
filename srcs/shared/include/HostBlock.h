@@ -6,6 +6,7 @@
 #include "RingBuffer.h"
 #include "UxC.h" // for U8C
 #include "SimConstants.h" // for HOST_RAM_PER_BH
+#include "EthSeam.h" // for EthSeam::SeamTable
 
 namespace MFM {
   static constexpr u8 HOST_COMMS_MAP_CHUNK_SIZE = 64u;
@@ -39,6 +40,10 @@ namespace MFM {
 
     u16 mPerHartFailFileID[5];  
     u16 mPerHartFailFileLine[5];
+
+    // Live eth-seam links per neighbor-card direction, written by the
+    // host at deploy (zeros = no seams).  See shared/EthSeam.h.
+    EthSeam::SeamTable mEthSeam;
 
     u32 mHBCigam;         // MUST BE LAST u32
 

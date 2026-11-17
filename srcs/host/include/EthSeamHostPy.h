@@ -9,6 +9,8 @@
                           channelsA=[(channel, legs, t6x, t6y, t6base), ...], channelsB=[...],
                           flags=2, ringCars=4, force=False, smoke=True)       # "" on success, else the error text
       h.status();  h.health(chip, ethx);  h.channelStat(chip, ethx, channel, wordIndex)
+      h.declareSeam(chipA, dir4, chipB, [ethx, ...])  # BEFORE deploy;
+                                  # dir4: N=0 W=1 S=2 E=3, chipB is that way
       h.tearDownLink(chipA, chipB, ethx);  h.tearDownAll()
     legs: 1 = OUT (T6 -> link), 2 = IN_NOC (link -> local T6 at t6x,t6y @ t6base), 4 = IN_COUNT.  flags: 1 fence, 2 CSR (default), 8 VC_STATIC, 16 TXQFIX,
     32 NoC1.  Call it after both chips' T6 images are deployed and before the T6s are released; Blackhole::closeChip tears the links down automatically. */
@@ -70,6 +72,17 @@ namespace MFM {
       }, py::arg("chipA"), py::arg("chipB"), py::arg("ethx"), py::arg("image"), py::arg("channelsA"), py::arg("channelsB"),
          py::arg("flags") = (u32) EthSeam::E1F_CSR, py::arg("ringCars") = (u32) EthSeam::RING_CARS, py::arg("force") = false, py::arg("smoke") = true,
          py::call_guard<py::gil_scoped_release>());
+      c.def("declareSeam", [](EthSeamHost & h,
+                              u32 chipA,
+                              u32 dir4,
+                              u32 chipB,
+                              const std::vector<u32> & ethx) -> std::string {
+        std::vector<u8> x;
+        for (u32 v : ethx) x.push_back((u8) v);
+        return h.declareSeam(chipA, dir4, chipB, x);
+      }, py::arg("chipA"), py::arg("dir4"), py::arg("chipB"),
+         py::arg("ethx"));
+      c.def("clearSeams", &EthSeamHost::clearSeams);
       c.def("tearDownLink", &EthSeamHost::tearDownLink, py::call_guard<py::gil_scoped_release>());
       c.def("tearDownAll", &EthSeamHost::tearDownAll, py::call_guard<py::gil_scoped_release>());
       c.def("status", &EthSeamHost::status, py::call_guard<py::gil_scoped_release>());

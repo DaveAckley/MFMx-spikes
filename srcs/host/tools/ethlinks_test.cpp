@@ -221,6 +221,28 @@ int main() {
     CHECK(h.status() == "no eth-seam links" && f.get(1, X, 0xFFB121B0u) == 0x47000u);
   }
 
+  {
+    // seam declaration: both directions, validation
+    EthSeamHost & h = EthSeamHost::get();
+    h.clearSeams();
+    CHECK(h.declareSeam(0, DIR4_E, 1, { 6, 7, 10, 11 }).empty());
+    EthSeam::SeamTable t0 = h.seamTableFor(0);
+    EthSeam::SeamTable t1 = h.seamTableFor(1);
+    CHECK(t0.n[DIR4_E] == 4 && t1.n[DIR4_W] == 4);
+    CHECK(t0.ethX[DIR4_E][2] == 10 && t1.ethX[DIR4_W][2] == 10);
+    CHECK(t0.n[DIR4_W] == 0 && t1.n[DIR4_E] == 0);
+    CHECK(h.seamTableFor(7).n[DIR4_E] == 0);                 // unknown chip
+    CHECK(!h.declareSeam(0, DIR4_E, 2, { 6 }).empty());      // already used
+    CHECK(!h.declareSeam(0, DIR4_S, 0, { 6 }).empty());      // same chip
+    CHECK(!h.declareSeam(0, DIR4_S, 2, { }).empty());        // no links
+    CHECK(!h.declareSeam(0, DIR4_S, 2, { 1, 2, 3, 4, 5 }).empty());
+    CHECK(!h.declareSeam(0, 4, 2, { 6 }).empty());           // bad dir
+    CHECK(h.declareSeam(0, DIR4_S, 2, { 3, 4 }).empty());
+    CHECK(h.seamTableFor(2).n[DIR4_N] == 2);
+    h.clearSeams();
+    CHECK(h.seamTableFor(0).n[DIR4_E] == 0);
+  }
+
   printf("%zu log lines; %s\n", logs.size(), fails ? "SOME CHECKS FAILED" : "all ok");
   return fails != 0;
 }

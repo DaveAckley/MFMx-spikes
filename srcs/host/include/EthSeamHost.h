@@ -24,6 +24,19 @@ namespace MFM {
 
     static EthSeamHost & get() ;
 
+    /** Declare, BEFORE the T6 images are deployed, that chipB lies
+        across direction dir4 (EthSeam::DIR4_*) of chipA, joined by
+        links at these ETH x coordinates (the same x on both cards,
+        1 to MAX_LINKS of them, in link order).  Both directions are
+        recorded.  CodeManager copies seamTableFor(chip) into each T6's
+        HostBlock at deploy.  Returns "" or an error text. */
+    std::string declareSeam(u32 chipA,
+                            u32 dir4,
+                            u32 chipB,
+                            const std::vector<u8> & ethx) ;
+    void clearSeams() ;
+    EthSeam::SeamTable seamTableFor(u32 chip) ;                       //< zeros if none
+
     /** How to make the EthPort of a chip (the glue installs a KmdEthPort over the Blackhole's fd). */
     void setPortFactory(PortFactory f) ;
 
@@ -49,6 +62,7 @@ namespace MFM {
     PortFactory mFactory;
     std::map<u32, std::unique_ptr<EthPort>> mPorts;
     std::vector<Rec> mLinks;
+    std::map<u32, EthSeam::SeamTable> mSeams;
   };
 
 } // namespace MFM

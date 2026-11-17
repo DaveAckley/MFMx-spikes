@@ -5,9 +5,69 @@
 #include "Debug.h"
 #include "FastLocal.h" // for fAll
 #include "BlockCode.h" // for STORAGE_COUNT_BC_CORNERHUB
+#include "EthSeam.h"
 
 namespace MFM {
   FAST_LOCAL_ARRAY(InterHubEP,8,myInterHubEP,n);
+
+  // EthSeam.h numbers Dir4 the way MDist.h does
+  static_assert(D4_N == EthSeam::DIR4_N, "Dir4 numbering");
+  static_assert(D4_W == EthSeam::DIR4_W, "Dir4 numbering");
+  static_assert(D4_S == EthSeam::DIR4_S, "Dir4 numbering");
+  static_assert(D4_E == EthSeam::DIR4_E, "Dir4 numbering");
+  static_assert(STORAGE_SIZE_BC_INTERHUB == EthSeam::RING_BYTES,
+                "an E1 ring must be one InterHub storage");
+
+  /* Init the EP for Dir8 d8 and all of its cars.  Shared by the
+     on-card and the seam setups. */
+  static void initInterHubEPAndCars(Dir8 d8, bool weAreIn) {
+    InterHubEP & ihep = myInterHubEP[d8];
+    /* srcEPA is IHUB and d8 no matter what */
+    ihep.initInterHubEP({ BC_INTERHUB, d8 },
+                        weAreIn,
+                        theInterHubL1Data);
+    InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[d8];
+    HBPTAG(8IHEP-srcD8,dir8ToByteString(d8));
+    for (u32 c = 0; c < ihstg.getCarCount(); ++c) {
+      InterHubBlock & ihb = ihstg.getTC(c);
+      ihb.init();
+      HBPTAG(8IHEP-car,c);
+      HBPX(weAreIn);
+      HBPTAG(IHST,getCarStateName(ihb.getTCState()));
+    }
+  }
+
+  /* Cardinal Dir8 d8 whose neighbor hub is on another card: if the
+     host declared a live seam that way (HostBlock mEthSeam), aim the
+     EP at the E1 channel that carries this hub's storage.  Returns
+     true iff the EP was set up.  Diagonals are not wired yet. */
+  static bool configureSeamInterHubEP(Dir8 d8,
+                                      U8C ournoc0,
+                                      U8C ourct6) {
+    if (d8 & 1u) return false;
+    u32 d4 = (u32) dir8ToDir4CW(d8);
+    EthSeam::CardinalDest dest;
+    bool found = EthSeam::cardinalDest(theHostBlock.mEthSeam,
+                                       d4,
+                                       ourct6.x,
+                                       ourct6.y,
+                                       EthSeam::CELL_C2X2,
+                                       dest);
+    if (!found) return false;
+
+    U8C ethnoc0(dest.ethx, EthSeam::ETH_NOC0_Y);
+    bool weAreIn = EthSeam::cardinalWeAreIn(d4);
+    HBPTAG(SEAMd8,dir8ToByteString(d8));
+    HBPTAG(SEAMeth,ethnoc0);
+    HBPTAG(SEAMch,dest.channel);
+    HBPX(weAreIn);
+
+    initInterHubEPAndCars(d8, weAreIn);
+    myInterHubEP[d8].configureDest(ournoc0,
+                                   ethnoc0,
+                                   { BC_INTERHUB, dest.channel });
+    return true;
+  }
 
   static RCFlag manageInterHubNC(HTOpCode htoc) {
     RCFlag ret = RCFlag::RC_ZERO;
@@ -68,7 +128,11 @@ namespace MFM {
         HBPX(finalDestREGV);
         HBPX(finalDestRegionCT6C);
         HBPX(finalDestHubCT6C);
-        if (!S8C::onBoardCT6Coord(finalDestHubCT6C)) continue; // no final dest
+        if (!S8C::onBoardCT6Coord(finalDestHubCT6C)) {
+          // Off this card.  Maybe a seam crosses here.
+          configureSeamInterHubEP(finalDestDir8, ournoc0, ourct6);
+          continue;
+        }
 
         bool goForCHUB = (d&1); // Dir8 corners are all odd
         HBPX(goForCHUB);
@@ -138,18 +202,7 @@ namespace MFM {
             InterHubEP & ihep = myInterHubEP[finalDestDir8];
             HBPTAG(d8Now,dir8ToByteString(firstDestDir8));
             HBPTAG(8IHEP-WEIN,weAreIn);
-            /* srcEPA is IHUB and finalDestDir8 no matter what
-               vvvvvvvvvvv  vvvvvv */
-            ihep.initInterHubEP({ BC_INTERHUB, finalDestDir8 }, weAreIn, theInterHubL1Data);
-            InterHubStorage & ihstg = theInterHubL1Data.mTheTCStorages[finalDestDir8];
-            HBPTAG(8IHEP-srcD8,dir8ToByteString(finalDestDir8));
-            for (u32 c = 0; c < ihstg.getCarCount(); ++c) {
-              InterHubBlock & ihb = ihstg.getTC(c);
-              ihb.init();
-              HBPTAG(8IHEP-car,c);
-              HBPX(weAreIn);
-              HBPTAG(IHST,getCarStateName(ihb.getTCState()));
-            }
+            initInterHubEPAndCars(finalDestDir8, weAreIn);
 
             ihep.configureDest(ournoc0, firstDestHubNoC0C, { blockCode, firstDestBlockIndex });
             HBPX(firstDestBlockIndex);

@@ -6,7 +6,10 @@
 #include "EthSeam.h"
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 using namespace MFM::EthSeam;
+using MFM::u8;
+using MFM::u32;
 using MFM::u32;
 
 // ---- layout must equal the tools' copies (ethfwd14..20 / e1fwd13..16) ----
@@ -53,6 +56,75 @@ static void check_seam(u32 E) {
   { Assign z; CHECK(!assign(E, 0, 0, SLOT_CARDINAL, z)); CHECK(!assign(E, MAX_LINKS + 1, 0, SLOT_CARDINAL, z)); }   // L == 0 or > MAX_LINKS rejected
 }
 
+// Cardinal seam wiring (PART 4): the sending hub's dest, the host's
+// receive plan and the far hub's own dest must all agree.
+static void check_cardinal() {
+  const CellShape c = CELL_C2X2;
+  for (u32 L = 1; L <= MAX_LINKS; ++L) {
+    SeamTable a;
+    SeamTable b;
+    memset(&a, 0, sizeof(a));
+    memset(&b, 0, sizeof(b));
+    for (u32 d4 = 0; d4 < 4; ++d4) {
+      u32 back = oppositeDir4Num(d4);
+      a.n[d4] = (u8) L;
+      b.n[back] = (u8) L;
+      for (u32 i = 0; i < L; ++i) {
+        a.ethX[d4][i] = (u8) (3 + i);
+        b.ethX[back][i] = (u8) (3 + i);
+      }
+    }
+    for (u32 d4 = 0; d4 < 4; ++d4) {
+      u32 back = oppositeDir4Num(d4);
+      u32 E = edgeHubCount(d4, c);
+      u32 hubs = 0;
+      CHECK(cardinalWeAreIn(d4) != cardinalWeAreIn(back));
+      for (u32 y = 0; y < BOARD_CT6_H; ++y) {
+        for (u32 x = 0; x < BOARD_CT6_W; ++x) {
+          // only hubs: hub offset in the cell
+          bool hub = (x % c.cw == c.hox) && (y % c.ch == c.hoy);
+          CardinalDest da = { 0, 0 };
+          bool got = cardinalDest(a, d4, x, y, c, da);
+          CHECK(got == (hub && hubOnEdge(d4, x, y, c)));
+          if (!got) continue;
+          ++hubs;
+          // host plan for that (link, channel)
+          u32 link = 99;
+          for (u32 i = 0; i < L; ++i) {
+            if (a.ethX[d4][i] == da.ethx) link = i;
+          }
+          CHECK(link < L);
+          CardinalRecv r = { 0, 0, 0 };
+          CHECK(cardinalRecv(a, d4, link, da.channel, c, r));
+          // the receiving hub is on the facing edge, same edge index
+          CHECK(hubOnEdge(back, r.recvCT6x, r.recvCT6y, c));
+          CHECK(hubEdgeIndex(back, r.recvCT6x, r.recvCT6y, c) ==
+                hubEdgeIndex(d4, x, y, c));
+          CHECK(r.recvDir8 == cardinalDir8Of(back));
+          // and its own dest toward us uses the same ETH tile + channel
+          CardinalDest db = { 0, 0 };
+          CHECK(cardinalDest(b, back, r.recvCT6x, r.recvCT6y, c, db));
+          CHECK(db.ethx == da.ethx);
+          CHECK(db.channel == da.channel);
+        }
+      }
+      CHECK(hubs == E);
+    }
+  }
+  // hubs not on an edge, and seams with no links, give nothing
+  SeamTable none;
+  memset(&none, 0, sizeof(none));
+  CardinalDest d = { 0, 0 };
+  CHECK(!cardinalDest(none, DIR4_E, 13, 1, c, d));
+  SeamTable one = none;
+  one.n[DIR4_E] = 1;
+  one.ethX[DIR4_E][0] = 6;
+  CHECK(!cardinalDest(one, DIR4_E, 11, 1, c, d));     // not on the E edge
+  CHECK(cardinalDest(one, DIR4_E, 13, 9, c, d));
+  CHECK(d.ethx == 6);
+  CHECK(sizeof(SeamTable) == 20);
+}
+
 int main() {
   struct G { const char* name; u32 cw, ch; } geos[] = { {"2x2 (C2X2_EWP_HUB)", 2, 2}, {"2x1 (C2X1_EWP_HUB)", 2, 1}, {"1x2 (C1X2_EWP_HUB)", 1, 2}, {"1x1 (C1X1_ONE)", 1, 1} };
   printf("NCH_MAX (channels per E1 tile in the images built so far) = %u\n", NCH_MAX);
@@ -66,6 +138,7 @@ int main() {
            fits(R, 4) ? "yes (even full ring)" : (fits(N, 4) ? "yes (two cards), NO for the full ring" : "NO: needs a larger NCH_MAX (and CTL window)"));
   }
   Assign a; CHECK(assign(5, 4, 2, SLOT_DIAG_HI, a)); CHECK(a.link == (ordinalOf(2, SLOT_DIAG_HI) % 4));
+  check_cardinal();
   printf("%s\n", fails ? "SOME CHECKS FAILED" : "all ok");
   return fails != 0;
 }

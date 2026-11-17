@@ -139,5 +139,180 @@ namespace MFM {
     enum E1Leg : u8 { LEG_OUT = 1, LEG_IN_NOC = 2, LEG_IN_COUNT = 4 };
     static constexpr u32 E1_IMAGE_ID_MIN = 0xE1F00013u, E1_IMAGE_ID_MAX = 0xE1F00016u;   //< e1fwd13..16 (e1fwd16 is the current image)
 
+    //// PART 4: seam table and hub-edge geometry //////////////////////////
+    //
+    // What a hub (T6) and the host need to wire CARDINAL crossings
+    // (ihub -> ihub across a card edge).  Diagonal storages
+    // (SLOT_DIAG_LO / SLOT_DIAG_HI) are NOT wired yet.
+    //
+    // Dir4 numbering is MDist.h's: N=0, W=1, S=2, E=3.  InterHub.cpp
+    // static-asserts that it matches.
+
+    static constexpr u32 DIR4_N = 0u;
+    static constexpr u32 DIR4_W = 1u;
+    static constexpr u32 DIR4_S = 2u;
+    static constexpr u32 DIR4_E = 3u;
+
+    inline constexpr u32 oppositeDir4Num(u32 d4) {
+      return (d4 + 2u) & 3u;
+    }
+
+    /** Dir8 index (MDist.h numbering) of the InterHub storage a hub
+        uses for the cardinal neighbor in direction d4: 2 * d4. */
+    inline constexpr u32 cardinalDir8Of(u32 d4) {
+      return 2u * d4;
+    }
+
+    /** Live links per direction, as written by the host into each
+        T6's HostBlock.  Index is the Dir4 of the neighbor CARD as seen
+        from this card.  ethX is in link order; both cards of a seam
+        list the same x values in the same order. */
+    struct SeamTable {
+      u8 n[4];
+      u8 ethX[4][MAX_LINKS];
+    };
+
+    /** Cell shape: cw x ch T6s, with the hub at (hox, hoy) in the
+        cell.  C2X2_EWP_HUB is (2, 2, 1, 1). */
+    struct CellShape {
+      u8 cw;
+      u8 ch;
+      u8 hox;
+      u8 hoy;
+    };
+    static constexpr CellShape CELL_C2X2 = { 2u, 2u, 1u, 1u };
+
+    /** Edge hubs along the card edge that faces d4. */
+    inline constexpr u32 edgeHubCount(u32 d4, const CellShape & c) {
+      return (d4 == DIR4_E || d4 == DIR4_W)
+        ? edgeHubsEW(c.ch)
+        : edgeHubsNS(c.cw);
+    }
+
+    /** Is the T6 at CT6 (x, y) the hub of its cell? */
+    inline constexpr bool isHubCT6(u32 x, u32 y, const CellShape & c) {
+      return (x % c.cw) == c.hox && (y % c.ch) == c.hoy;
+    }
+
+    /** Is the hub at CT6 (x, y) on the card edge facing d4? */
+    inline constexpr bool hubOnEdge(u32 d4,
+                                    u32 x,
+                                    u32 y,
+                                    const CellShape & c) {
+      return
+        (d4 == DIR4_W && x < c.cw) ||
+        (d4 == DIR4_E && x >= BOARD_CT6_W - c.cw) ||
+        (d4 == DIR4_N && y < c.ch) ||
+        (d4 == DIR4_S && y >= BOARD_CT6_H - c.ch);
+    }
+
+    /** Edge index of that hub along the edge facing d4. */
+    inline constexpr u32 hubEdgeIndex(u32 d4,
+                                      u32 x,
+                                      u32 y,
+                                      const CellShape & c) {
+      return (d4 == DIR4_E || d4 == DIR4_W)
+        ? edgeIndex(y, c.ch)
+        : edgeIndex(x, c.cw);
+    }
+
+    /** CT6 coordinates of the hub with edge index e on the edge
+        facing d4.  False if e is out of range. */
+    inline bool edgeHubCT6(u32 d4,
+                           u32 e,
+                           const CellShape & c,
+                           u32 & x,
+                           u32 & y) {
+      if (e >= edgeHubCount(d4, c)) return false;
+      switch (d4) {
+      case DIR4_N:
+        x = e * c.cw + c.hox;
+        y = c.hoy;
+        return true;
+      case DIR4_S:
+        x = e * c.cw + c.hox;
+        y = BOARD_CT6_H - c.ch + c.hoy;
+        return true;
+      case DIR4_W:
+        x = c.hox;
+        y = e * c.ch + c.hoy;
+        return true;
+      case DIR4_E:
+        x = BOARD_CT6_W - c.cw + c.hox;
+        y = e * c.ch + c.hoy;
+        return true;
+      default:
+        return false;
+      }
+    }
+
+    /** Which end of a seam starts out 'in' (T6EP isin).  Both ends
+        must choose opposite values: the end whose neighbor is E or S
+        is 'in', the end whose neighbor is W or N is 'out'. */
+    inline constexpr bool cardinalWeAreIn(u32 d4) {
+      return d4 == DIR4_E || d4 == DIR4_S;
+    }
+
+    /** T6 side: where does the hub at CT6 (x, y) send its cardinal
+        storage toward neighbor card d4?  False if that hub is not on
+        that edge, the seam has no live links, or the table is bad.
+        ethx is the ETH tile's NoC0 x (y is ETH_NOC0_Y); the cars go to
+        outCarAddr(channel, i) in that tile's L1. */
+    struct CardinalDest {
+      u8 ethx;
+      u8 channel;
+    };
+    inline bool cardinalDest(const SeamTable & t,
+                             u32 d4,
+                             u32 x,
+                             u32 y,
+                             const CellShape & c,
+                             CardinalDest & out) {
+      if (d4 > 3u || t.n[d4] == 0u) return false;
+      if (!isHubCT6(x, y, c)) return false;
+      if (!hubOnEdge(d4, x, y, c)) return false;
+      Assign a;
+      u32 E = edgeHubCount(d4, c);
+      u32 e = hubEdgeIndex(d4, x, y, c);
+      if (!assign(E, t.n[d4], e, SLOT_CARDINAL, a)) return false;
+      out.ethx = t.ethX[d4][a.link];
+      out.channel = a.channel;
+      return true;
+    }
+
+    /** Host side: for the E1 of link 'link' on the card whose
+        neighbor lies in direction d4 (the SENDING card), channel
+        'channel' carries cars from a hub on this card to a hub on the
+        neighbor card.  Where do they land on the neighbor?  The E1
+        there needs the receiving hub's NoC0 (from recvCT6) and
+        recvDir8: the index of that hub's InterHub storage.  False if
+        the channel is unused or carries a diagonal. */
+    struct CardinalRecv {
+      u8 recvCT6x;
+      u8 recvCT6y;
+      u8 recvDir8;
+    };
+    inline bool cardinalRecv(const SeamTable & sender,
+                             u32 d4,
+                             u32 link,
+                             u32 channel,
+                             const CellShape & c,
+                             CardinalRecv & out) {
+      if (d4 > 3u) return false;
+      u32 e = 0u;
+      Slot s = SLOT_CARDINAL;
+      u32 E = edgeHubCount(d4, c);
+      if (!invert(E, sender.n[d4], link, channel, e, s)) return false;
+      if (s != SLOT_CARDINAL) return false;
+      u32 back = oppositeDir4Num(d4);
+      u32 x = 0u;
+      u32 y = 0u;
+      if (!edgeHubCT6(back, e, c, x, y)) return false;
+      out.recvCT6x = (u8) x;
+      out.recvCT6y = (u8) y;
+      out.recvDir8 = (u8) cardinalDir8Of(back);
+      return true;
+    }
+
   } // namespace EthSeam
 } // namespace MFM

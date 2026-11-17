@@ -210,3 +210,9 @@ t6x, t6y, t6base), ...], channelsB=[...])` for each live link ("" = success) -> 
 `sh srcs/host/tools/e1fwd/build.sh e1fwd16` (sfpi gcc only).  Channel numbers and link/ETH-tile choice come from shared/include/EthSeam.h (balanced dealing); until the
 T6-side wiring exists the t6x/t6y/t6base values must be supplied by the caller.  First thing to do with the new build: `python -c "from mfmx import MFMx; print(MFMx.EthSeamHost.get().status())"`
 (compile/import check of the glue, which was written without pybind11 available).
+
+Declaring seams (T6 side, cardinal crossings only): before deploying images,
+`h.declareSeam(chipA, dir4, chipB, [6, 7, 10, 11])` (dir4 N=0 W=1 S=2 E=3,
+chipB lies that way from chipA).  The hubs on the facing edges then aim
+their cardinal InterHub EPs at the E1 channel from EthSeam.h instead of
+skipping the off-card neighbor.  See ERISC_SEAM_DESIGN.md section 15.

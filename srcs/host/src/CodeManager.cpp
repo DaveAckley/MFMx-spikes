@@ -9,6 +9,7 @@
 
 #include "FATAL.h"
 #include "HostBlock.h"
+#include "EthSeamHost.h"
 #include "FailStrings.h"
 #include "Constants.h"
 #include "HostUtils.h"
@@ -106,6 +107,7 @@ namespace MFM {
     hb->mHostBaseAddrHi = (u32) ((hostBufferBase>>32) & 0xffffffff);
     hb->mAIClockFrequency = (u32) 800'000'000u; // XXX ASSUME 'IDLE' CLOCK SPEED FOR NOW
     hb->mChipNum = mChipNum < U8_MAX ? mChipNum : U8_MAX;
+    hb->mEthSeam = EthSeamHost::get().seamTableFor(mChipNum);
     hb->mHostFlags |= HostFlags::HBF_ASSERT_STOP_LOG; // XXX TRY STOP LOGGING
     hb->mHostFlags |= HostFlags::HBF_NO_UTAG; // XXX STOP RANDOM TAG LOGGING
     hb->mHostFlags |= HostFlags::HBF_STAG_PTRACE; // XXX TRY TO INCLUDE PACKET TRACE LOGGING

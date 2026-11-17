@@ -1,10 +1,53 @@
 #include "EthSeamHost.h"
 
+#include <cstring>
+
 namespace MFM {
 
   EthSeamHost & EthSeamHost::get() {
     static EthSeamHost theHost;
     return theHost;
+  }
+
+  std::string EthSeamHost::declareSeam(u32 chipA,
+                                       u32 dir4,
+                                       u32 chipB,
+                                       const std::vector<u8> & ethx) {
+    if (dir4 > 3u) return "bad direction";
+    if (chipA == chipB) return "a seam needs two different chips";
+    if (ethx.empty() || ethx.size() > EthSeam::MAX_LINKS) {
+      return "a seam needs 1 to "
+        + std::to_string(EthSeam::MAX_LINKS)
+        + " links";
+    }
+    u32 back = EthSeam::oppositeDir4Num(dir4);
+    std::lock_guard<std::mutex> lock(mMutex);
+    EthSeam::SeamTable & a = mSeams[chipA];
+    EthSeam::SeamTable & b = mSeams[chipB];
+    if (a.n[dir4] != 0u || b.n[back] != 0u) {
+      return "seam already declared that way";
+    }
+    a.n[dir4] = (u8) ethx.size();
+    b.n[back] = (u8) ethx.size();
+    for (size_t i = 0; i < ethx.size(); ++i) {
+      a.ethX[dir4][i] = ethx[i];
+      b.ethX[back][i] = ethx[i];
+    }
+    return "";
+  }
+
+  void EthSeamHost::clearSeams() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mSeams.clear();
+  }
+
+  EthSeam::SeamTable EthSeamHost::seamTableFor(u32 chip) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    EthSeam::SeamTable t;
+    memset(&t, 0, sizeof(t));
+    auto it = mSeams.find(chip);
+    if (it != mSeams.end()) t = it->second;
+    return t;
   }
 
   void EthSeamHost::setPortFactory(PortFactory f) {

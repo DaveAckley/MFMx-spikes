@@ -5,6 +5,7 @@
 #include "HostBlock.h"
 #include "ImageBlock.h"
 #include "nanoprintf.h"
+#include "EthSeam.h"
 
 namespace MFM {
   extern HostBlock theHostBlock;
@@ -53,10 +54,16 @@ namespace MFM {
       //HBPTAG(oNoC0,ournoc0);
       HBXTAG(tlbi,ourtlbi);
     } else if (U8C::isNoC0CoordAnETH(destnoc0)) {
-      // eth-seam: dest is an ETH tile (E1 router OUT ring). The T6-style lookup below reads a remote T6's image block and
-      // cannot work here; mDestBlockAddr must come from the seam table (ERISC_SEAM_DESIGN.md sec 5/7), which does not exist
-      // yet. Fail loudly instead of reading garbage from an ETH tile.
-      FAIL(INCOMPLETE_CODE);
+      // eth-seam: the dest is an ETH tile, the OUT ring of an E1
+      // channel.  There is no ImageBlockHeader to read there, so the
+      // channel number rides in destEPA.mBlockCodeIndex and the
+      // address comes straight from the shared layout (EthSeam.h).
+      u8 channel = destblockindex;
+      HBASSERT_LT((u32) channel, (u32) EthSeam::NCH_MAX);
+      HBASSERT_EQ((u32) getStorageSizeFromBlockCode(destbc),
+                  (u32) EthSeam::RING_BYTES);
+      mDestBlockAddr = EthSeam::outRingAddr(channel);
+      LOGPTAG(ethCh,channel);
     } else {
       // dest is T6
       bool ret = NRI3::findBlockCodeInNoC0(ournoc0, destnoc0, destbc, iba);
