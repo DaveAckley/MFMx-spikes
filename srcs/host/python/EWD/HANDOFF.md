@@ -289,4 +289,7 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   `scripts/cachecensus/cachecensus.py RUNDIR` (the `.ac` marks).
 - `seamns.cmd` (layout seamns, chips 0 and 2, N/S links x=3,4,12,13): slice 3a;
   check with `cachecensus.py RUNDIR --seam 0:S:2`.
+- `seam4.cmd` (layout seam4, all four chips, ~10 min): slice 3b; layout key
+  `seedchips = [0]` limits autoseeding to those chips (CodeManager reads
+  MFMX_AUTOSEED_CHIPS, which machine.py sets from the layout).
 Start with /CLAUDE.md for the formatting rules and the document map.

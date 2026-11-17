@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <cstdlib>
 #include <memory>
 
 #include "FATAL.h"
@@ -19,6 +20,26 @@
 #include "HostRandom.h" // for hostPRNG
 
 namespace MFM {
+
+  /* Which chips autoseed their grid: all of them, unless the environment
+     variable MFMX_AUTOSEED_CHIPS names a comma-separated list (mfmxctl
+     sets it from a layout's seedchips key).  Used to check that atoms
+     really cross the eth-seams. */
+  static bool autoseedsOnChip(u32 chip) {
+    const char * list = getenv("MFMX_AUTOSEED_CHIPS");
+    if (!list) return true;
+    std::string s(list);
+    size_t pos = 0;
+    while (pos <= s.size()) {
+      size_t comma = s.find(',', pos);
+      if (comma == std::string::npos) comma = s.size();
+      std::string item = s.substr(pos, comma - pos);
+      if (!item.empty() && (u32) atoi(item.c_str()) == chip) return true;
+      pos = comma + 1;
+    }
+    return false;
+  }
+
   void CodeManager::dumpT6Image(const T6Image & image, u8 fromTLBI) {
     u32 rvsize = image.getBinFileSize();
     u8 * bytes = extractRISCVCodeFromTLBI(0, rvsize, fromTLBI);
@@ -112,6 +133,9 @@ namespace MFM {
     hb->mAIClockFrequency = (u32) 800'000'000u; // XXX ASSUME 'IDLE' CLOCK SPEED FOR NOW
     hb->mChipNum = mChipNum < U8_MAX ? mChipNum : U8_MAX;
     hb->setEthSeamMask(EthSeamHost::get().seamMaskFor(mChipNum));
+    if (!autoseedsOnChip(mChipNum)) {
+      hb->mHostFlags |= HostFlags::HBF_NO_AUTOSEED;
+    }
     hb->mHostFlags |= HostFlags::HBF_ASSERT_STOP_LOG; // XXX TRY STOP LOGGING
     hb->mHostFlags |= HostFlags::HBF_NO_UTAG; // XXX STOP RANDOM TAG LOGGING
     hb->mHostFlags |= HostFlags::HBF_STAG_PTRACE; // XXX TRY TO INCLUDE PACKET TRACE LOGGING

@@ -483,6 +483,9 @@ with --rtmp), cachecensus.py `--seam CHIPA:DIR:CHIPB` verdicts, native planner
 test for the S seam (Dir4 + 12 diagonals, 2-link refusal), mock selftest
 scenario ethseams_ns.  Hardware run pending.
 
+STATUS 18a: RAN ON HARDWARE (run 20261117-110545): 4 links up, 53 bolts, cars in==out
+(4096), retrain/FEC uncorrected 0, all 14 seam hubs `ok` in cachecensus.
+
 ### 18b. 2x2 array, centre diagonals still off   -- layout + host validation
 Chips 0-3, four seams.  Every chip has one E/W and one N/S seam, so its
 HostBlock mask has two nonzero nibbles; each seam is independent, the T6 code
@@ -498,6 +501,13 @@ already reads one nibble per direction.  What is new:
   Need to CONFIRM that: the corner loaders are skipped on both ends (the
   census must show 0 in the centre corner caches only) and bolts reach
   CONSENSUS.
+STATUS 18b (2026-11-17): layout `seam4` (seedchips = [0]: only chip 0 autoseeds, via
+HBF_NO_AUTOSEED in the HostFlags byte, set by CodeManager from the env var
+MFMX_AUTOSEED_CHIPS that machine.py derives from the layout; unset = every chip
+seeds), `config/seam4.cmd` (10-minute soak), native 4-chip planner test (16
+links, both nibbles per chip, all diagonals), mock selftest ethseams_four,
+cachecensus judges every seam hub except the centre corner cache.  Hardware run
+pending.  Expected: stale centre corners, no hang.
 - Chip-level work: tt-smi resets and fd/TLB bring-up for four cards (more of
   the same), hc/log volumes up 2x, slowscan slower.
 

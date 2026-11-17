@@ -184,6 +184,27 @@ def scenario_ethseams_ns():
     check("ns: stop tears down", "eth-seams down" in out and "bh2 eth13: no link" in out, out[-600:])
 
 
+def scenario_ethseams_four():
+    d = tempfile.mkdtemp(prefix="seam4-")
+    f = os.path.join(d, "four.cmd")
+    with open(f, "w") as fh:
+        fh.write(FAST + "dwell 0.2 0.3\nstart\nseams\ncycle start\nwait 4\nseams\n"
+                 "cycle stop\nwait 2\nstop\nseams\nquit close\n")
+    rc, out = run("quit\n", api="fire",
+                  extra_args=("--layout", "seam4", "--boot", "-s", f, "--script-exit"),
+                  timeout=200)
+    check("four: script exits 0", rc == 0, f"rc={rc}\n{out[-600:]}")
+    check("four: layout seam4 uses all four chips", "layout 'seam4', chips [0, 1, 2, 3]" in out, out[:700])
+    check("four: declares all four seams",
+          all(t in out for t in ("bh0-E->bh1 eth6,7,10,11", "bh2-E->bh3 eth6,7,10,11",
+                                 "bh0-S->bh2 eth3,4,12,13", "bh1-S->bh3 eth3,4,12,13")), out[-900:])
+    check("four: 16 links come up",
+          all(f"link bh{a} <-> bh{b} eth{x} UP" in out
+              for a, b, xs in ((0, 1, (6, 7, 10, 11)), (2, 3, (6, 7, 10, 11)),
+                               (0, 2, (3, 4, 12, 13)), (1, 3, (3, 4, 12, 13))) for x in xs), out[-1200:])
+    check("four: stop tears down", "eth-seams down" in out and "bh3 eth13: no link" in out, out[-600:])
+
+
 def scenario_ethseams_counters():
     d = tempfile.mkdtemp(prefix="seamcyc-")
     f = os.path.join(d, "cyc.cmd")

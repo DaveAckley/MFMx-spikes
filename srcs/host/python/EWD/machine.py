@@ -84,6 +84,7 @@ class NullFeed:
 # A layout may carry
 #   ethseams = [ "0:E:1:6,7,10,11", "0:S:2:3,4,12,13" ]
 #   e1image  = "e1fwd16.bin"                                    (optional)
+#   seedchips = [0]       only these chips autoseed (default: all)   (optional)
 # Each ethseams string is "chipA:DIR:chipB:x,x,..": chipB lies DIR (N, W, S or
 # E, or 0-3) of chipA, joined by the ETH tiles at those NoC0 x coordinates.
 # The x values must come from the cabling lists in shared/include/EthSeam.h
@@ -236,6 +237,7 @@ class Machine:
         im.setActiveLayout(act)
         chips = im.getActiveLayout().getActiveBHChips()
         self.seams = parse_ethseams(layouts[act].get("ethseams"), list(chips))
+        self._set_seed_chips(layouts[act].get("seedchips"), list(chips))
         self.e1image = self.find_e1image(layouts[act].get("e1image", DEFAULT_E1IMAGE))
         self.bhs = [M.Blackhole(i) for i in chips]
         for bh in self.bhs:                  # far enough to configure modules
@@ -245,6 +247,20 @@ class Machine:
                 bh.addCommsModule(im.getCommsModule(hmname))
         self.configured = True
         return f"layout '{act}', chips {list(chips)}, images {keys}, modules {modules}"
+
+    @staticmethod
+    def _set_seed_chips(seedchips, chips):
+        """A layout's seedchips = [0] limits autoseeding to those chips (read by
+        CodeManager from MFMX_AUTOSEED_CHIPS at deploy); absent = every chip
+        seeds, the old behavior."""
+        if seedchips is None:
+            os.environ.pop("MFMX_AUTOSEED_CHIPS", None)
+            return
+        sc = [int(c) for c in seedchips]
+        for c in sc:
+            if c not in chips:
+                raise ValueError(f"seedchips: chip {c} is not in the layout's bhchips {chips}")
+        os.environ["MFMX_AUTOSEED_CHIPS"] = ",".join(str(c) for c in sc)
 
     def find_e1image(self, name):
         """Resolve the E1 image: a path as given, or a bare name searched in

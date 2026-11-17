@@ -33,9 +33,11 @@ namespace MFM {
                                               hubInChipCoord.y);
     mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
     
-    // INIT SELECT AUTOSEEDING
+    // INIT SELECT AUTOSEEDING (the host can switch a whole chip off,
+    // HBF_NO_AUTOSEED, to check that atoms really cross the seams)
     if (ct6.x >= 5 && ct6.y >= 5 &&
-        ct6.x <= 6 && ct6.y <= 6)
+        ct6.x <= 6 && ct6.y <= 6 &&
+        (hb.mHostFlags & HostFlags::HBF_NO_AUTOSEED) == 0)
       mAutoseedWaitCount = U32_MAX;
     else
       mAutoseedWaitCount = 0; // no soup for you

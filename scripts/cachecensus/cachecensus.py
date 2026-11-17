@@ -12,7 +12,8 @@ sample.  A cache that stays 0 while its neighbors are alive is stale.
 
 --seam marks the hubs on both sides of a seam (CHIPB lies DIR of CHIPA, DIR
 one of N W S E; default 0:E:1, repeatable) and checks that their three
-caches FACING the seam are nonzero: east edge NE/ET/SE, west edge NW/WT/SW,
+caches FACING the seam are nonzero (the centre corner cache of a hub on two
+seam edges is shown but not judged): east edge NE/ET/SE, west edge NW/WT/SW,
 south edge SW/ST/SE, north edge NW/NT/NE.  The CT6 grid is 14 x 10.
 """
 import re, sys
@@ -79,18 +80,26 @@ def main(argv):
         seamdirs = [dr for dr in faces.get(chip, ()) if on_edge(dr, x, y)]
         note = ''
         if seamdirs:
+            # a hub on two seam edges (a card corner of the 2x2 array) has
+            # one CENTRE corner cache (e.g. SE for E+S): the diagonal across
+            # the array centre, not wired until slice 3c, so not judged
+            centre = set()
+            if len(seamdirs) == 2:
+                centre = set(FACING[seamdirs[0]]) & set(FACING[seamdirs[1]])
             if v is None:
                 note = '  SEAM (no atoms yet)'
                 unseen += 1
             else:
                 missing = [c for dr in seamdirs for c in FACING[dr]
-                           if v[NAMES.index(c)] == 0]
+                           if v[NAMES.index(c)] == 0 and c not in centre]
                 if missing:
                     note = '  SEAM STALE: ' + ','.join(missing)
                     bad += 1
                 else:
                     note = '  SEAM ok'
                     good += 1
+                for c in sorted(centre):
+                    note += ' (centre %s=%d)' % (c, v[NAMES.index(c)])
         vs = ' '.join('%5d' % q for q in v) if v else '   (all zero)'
         print('%-5d (%2d,%d)    %3d  %s%s' % (chip, x, y, n, vs, note))
     print('seam hubs: %d ok, %d stale, %d without atoms yet'

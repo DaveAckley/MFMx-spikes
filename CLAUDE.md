@@ -63,7 +63,7 @@ source, comments, docs and commit messages).
   (~/.claude/projects/.../memory/); this file and the docs above are the
   durable record.
 
-## 4. WHERE THINGS STAND (2026-11-17, bundle head 8758b01)
+## 4. WHERE THINGS STAND (2026-11-17)
 
 PROVEN ON HARDWARE (chips 0,1; links eth 6,7,10,11): E1 bring-up and
 teardown, Dir4 crossings, diagonal crossings (slice 2), cache loaders across
@@ -73,15 +73,21 @@ clean exit.  Corner caches of all seam hubs are full (seamlong10 / run
 20261117-102406, cachecensus ok).  Not yet checked: atom CONTENTS match across
 the seam.
 
-BUILT, NOT YET RUN: slice 3a (N/S seam, chips 0 and 2):
-  python mfmxctl.py --layout seamns --boot --rtmp -s config/seamns.cmd --script-exit
-  scripts/cachecensus/cachecensus.py MFMX-<date>-<time> --seam 0:S:2
-Expect 4 links UP (x=3,4,12,13; 4,12,13 never tried), ~5 channels per link,
-bolts CONSENSUS, every SEAM hub "ok".
+PROVEN (cont.): slice 3a, the N/S seam (chips 0 and 2, links x=3,4,12,13):
+run 20261117-110545, 53 bolts, cars in==out, 14 seam hubs ok.
 
-NEXT: slice 3b (2x2 array, four seams, centre diagonals still off) then 3c
-(centre diagonals through the middle chip, 2 extra channels per seam,
-host refuses non-closed squares) -- see ERISC_SEAM_DESIGN.md section 18.
+BUILT, NOT YET RUN: slice 3b, the 2x2 array (layout seam4, 16 links, only chip 0
+autoseeds via layout key seedchips -> MFMX_AUTOSEED_CHIPS -> HBF_NO_AUTOSEED):
+  python mfmxctl.py --layout seam4 --boot --rtmp -s config/seam4.cmd --script-exit
+  scripts/cachecensus/cachecensus.py MFMX-<date>-<time> \
+    --seam 0:E:1 --seam 2:E:3 --seam 0:S:2 --seam 1:S:3
+Expect 16 links UP, bolts CONSENSUS (a TIMEOUT would mean the stale centre
+corners hang a phase), atoms reaching chips 1, 2 and finally 3 only through
+the cables, every seam hub ok except the centre corner cache (shown, not
+judged).
+
+NEXT: slice 3c (centre diagonals through the middle chip, 2 extra channels per
+seam, host refuses non-closed squares) -- ERISC_SEAM_DESIGN.md section 18.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan

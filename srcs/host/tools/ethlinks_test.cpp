@@ -51,11 +51,12 @@ struct MockPort : EthPort {
 /** Both cards' tile memories, keyed by (chip, ETH x, address). */
 struct Fab {
   std::map<u64, u32> m;
+  std::map<u32, int> peerXorOfTile;     //< ETH x -> cable partner xor
   int writes = 0;
   bool cleanupArmed = false;
   u32 cleanupAddr = 0;
   u32 cleanupData = 0;
-  u32 cleanupDataByChip[2] = { 0, 0 };
+  u32 cleanupDataByChip[4] = { 0, 0, 0, 0 };
   u32 imageId = 0xE1F00016u;            //< what a fake E1 reports
 
   static u64 key(int c, u32 x, u32 a) {
@@ -71,9 +72,11 @@ struct Fab {
     m[key(c, x, a)] = v;
   }
 
-  /** Make tile x of both chips a healthy, linked-up, pristine ETH tile. */
-  void init(u32 x) {
-    for (int c = 0; c < 2; ++c) {
+  /** Make tile x of the chips a healthy, linked-up, pristine ETH tile;
+      chip c's cable partner is chip (c ^ peerXor). */
+  void init(u32 x, int peerXor = 1, int chips = 2) {
+    peerXorOfTile[x] = peerXor;
+    for (int c = 0; c < chips; ++c) {
       put(c, x, NIU0_ENDPOINT, 0x00020000u | 10u);
       put(c, x, BOOT_RESULTS + 4, 1);               // port status Up
 
@@ -84,7 +87,7 @@ struct Fab {
 
       u32 peer = BOOT_RESULTS + 4 * 248;            // peer chip-info record
       put(c, x, peer + 12, 0x208c47);
-      put(c, x, peer + 16, 0x100000u * ((c ^ 1) + 1) + x);
+      put(c, x, peer + 16, 0x100000u * ((c ^ peerXor) + 1) + x);
       put(c, x, peer + 28, 1);
 
       put(c, x, SOFT_RESET, SR_DEFAULT);
@@ -120,7 +123,8 @@ bool MockPort::wr32(u32 x, u32 a, u32 v) {
     u32 src = f.get(chip, x, TXQ2 + 0x14);
     u32 n = f.get(chip, x, TXQ2 + 0x18);
     u32 dst = f.get(chip, x, TXQ2 + 0x1c);
-    int p = chip ^ 1;
+    auto px = f.peerXorOfTile.find(x);
+    int p = chip ^ (px == f.peerXorOfTile.end() ? 1 : px->second);
     bool txOn = f.get(chip, x, TXQ2) & 1;
     bool rxRaw = f.get(p, x, RXQ2) & 2;
     bool unicast = ((f.get(chip, x, TXQ2 + 0x80) >> 8) & 15) == 1;
@@ -185,7 +189,7 @@ static bool mockHub(u32 chip,
                     u32 y,
                     EthSeamHost::SeamHub & hub,
                     std::string & err) {
-  if (chip > 1) {
+  if (chip > 3) {
     err = "no such chip";
     return false;
   }
@@ -553,10 +557,11 @@ static void test_declare_seam() {
 static void check_one_diag_way(Fab & f,
                                const EthSeam::SeamTable & sender,
                                Dir4 d4,
-                               u32 sendChip) {
+                               u32 sendChip,
+                               u32 recvChip) {
   const CellShape & cell = CELL_C2X2;
   u32 E = edgeHubCount(d4, cell);
-  u32 recvChip = 1u - sendChip;
+  (void) sendChip;
   u32 seen = 0;
   for (u32 e = 0; e < E; ++e) {
     for (Slot s : { SLOT_DIAG_LO, SLOT_DIAG_HI }) {
@@ -587,8 +592,8 @@ static void check_one_diag_way(Fab & f,
 static void check_planned_diagonals(Fab & f,
                                     const EthSeam::SeamTable & west,
                                     const EthSeam::SeamTable & east) {
-  check_one_diag_way(f, west, D4_E, 0);
-  check_one_diag_way(f, east, D4_W, 1);
+  check_one_diag_way(f, west, D4_E, 0, 1);
+  check_one_diag_way(f, east, D4_W, 1, 0);
 }
 
 static void test_planner() {
@@ -750,8 +755,8 @@ static void test_planner_ns() {
     CHECK(back.ethx == d.ethx);
     CHECK(back.channel == d.channel);
   }
-  check_one_diag_way(f, top, D4_S, 0);
-  check_one_diag_way(f, bottom, D4_N, 1);
+  check_one_diag_way(f, top, D4_S, 0, 1);
+  check_one_diag_way(f, bottom, D4_N, 1, 0);
   h.tearDownAll();
 
   // two links would need 10 channels: refused, nothing left up
@@ -763,6 +768,58 @@ static void test_planner_ns() {
   h.clearSeams();
   h.chipClosing(0);
   h.chipClosing(1);
+  h.setPortFactory(nullptr);
+}
+
+// The whole 2x2 array (chips 0 1 / 2 3): four seams, 16 links, brought up
+// together.  Every chip's HostBlock mask carries one E/W and one N/S nibble,
+// every seam's Dir4 and diagonal channels land on the right far hub, and a
+// seam with too few links is still refused.
+static void test_planner_four() {
+  Fab f;
+  for (u32 x : { 6u, 7u, 10u, 11u }) f.init(x, 1, 4);     // 0-1 and 2-3
+  for (u32 x : { 3u, 4u, 12u, 13u }) f.init(x, 2, 4);     // 0-2 and 1-3
+  EthSeamHost & h = EthSeamHost::get();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.clearSeams();
+  h.setPortFactory([&f](u32 chip, std::string &)
+                   -> std::unique_ptr<EthPort> {
+    return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+  });
+  h.setHubLookup(mockHub);
+  CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
+  CHECK(h.declareSeam(2, D4_E, 3, { 6, 7, 10, 11 }).empty());
+  CHECK(h.declareSeam(0, D4_S, 2, { 3, 4, 12, 13 }).empty());
+  CHECK(h.declareSeam(1, D4_S, 3, { 3, 4, 12, 13 }).empty());
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).empty());
+  u32 up = 0;
+  for (u32 x : { 6u, 7u, 10u, 11u, 3u, 4u, 12u, 13u }) {
+    if (h.status().find("eth" + std::to_string(x) + " UP")
+        != std::string::npos) ++up;
+  }
+  CHECK(up == 8);
+
+  // each chip has an E/W and an N/S seam: its mask has both nibbles
+  const Dir4 ewOf[4] = { D4_E, D4_W, D4_E, D4_W };
+  const Dir4 nsOf[4] = { D4_S, D4_S, D4_N, D4_N };
+  const u32 ewPeer[4] = { 1, 0, 3, 2 };
+  const u32 nsPeer[4] = { 2, 3, 0, 1 };
+  EthSeam::SeamTable t[4];
+  for (u32 c = 0; c < 4; ++c) {
+    EthSeam::decodeSeamMask(h.seamMaskFor(c), t[c]);
+    CHECK(t[c].n[ewOf[c]] == 4);
+    CHECK(t[c].n[nsOf[c]] == 4);
+    CHECK(t[c].n[oppositeDir4(ewOf[c])] == 0);
+    CHECK(t[c].n[oppositeDir4(nsOf[c])] == 0);
+  }
+  for (u32 c = 0; c < 4; ++c) {
+    check_one_diag_way(f, t[c], ewOf[c], c, ewPeer[c]);
+    check_one_diag_way(f, t[c], nsOf[c], c, nsPeer[c]);
+  }
+  h.tearDownAll();
+  CHECK(h.status() == "no eth-seam links");
+  h.clearSeams();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
   h.setPortFactory(nullptr);
 }
 
@@ -778,6 +835,7 @@ int main() {
   test_declare_seam();
   test_planner();
   test_planner_ns();
+  test_planner_four();
 
   printf("%zu log lines; %s\n",
          logs.size(),
