@@ -38,7 +38,7 @@ namespace MFM {
     static EthSeamHost & get() ;
 
     /** Declare, BEFORE the T6 images are deployed, that chipB lies
-        across direction dir4 (EthSeam::DIR4_*) of chipA, joined by
+        across direction dir4 (a Dir4: N=0 W=1 S=2 E=3) of chipA, joined by
         links at these ETH x coordinates (the same x on both cards).
         Each x must be in the cabling list for that axis
         (EthSeam::SEAM_LINKS_EW / NS); the order given does not

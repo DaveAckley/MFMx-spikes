@@ -1,5 +1,5 @@
 // ethseam_test.cpp -- host-side checks of shared/include/EthSeam.h.
-// Build/run (from srcs/host/tools):  g++ -std=c++17 -O2 -Wall -Wextra -Werror -I../../shared/include ethseam_test.cpp -o /tmp/ethseam_test && /tmp/ethseam_test
+// Build/run (from srcs/host/tools):  g++ -std=c++17 -O2 -Wall -Wextra -Werror -Wno-unused-function -I../../shared/include -I../include ethseam_test.cpp -o /tmp/ethseam_test && /tmp/ethseam_test
 // Checks: layout constants equal what the E1 images and ethfwd14..20 use; for every cell geometry (2x2, 2x1, 1x2, 1x1), seam kind and live link
 // count 1..4: the ordinals are a bijection, assign/invert round-trip, links are dealt in balance (counts differ by <= 1), and it prints the
 // channels-per-link table with the fits-in-NCH_MAX verdicts used in ERISC_SEAM_DESIGN.md section 13.
@@ -7,11 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+using namespace MFM;
 using namespace MFM::EthSeam;
-using MFM::u8;
-using MFM::u16;
-using MFM::u32;
-using MFM::u32;
 
 // ---- layout must equal the tools' copies (ethfwd14..20 / e1fwd13..16) ----
 static_assert(NCH_MAX == 8 && CAR_BYTES == 0x1040 && RING_CARS == 4 && RING_BYTES == 0x4100 && CHUNK_BYTES == 1456, "ring geometry");
@@ -66,8 +63,9 @@ static void check_cardinal() {
     SeamTable b;
     memset(&a, 0, sizeof(a));
     memset(&b, 0, sizeof(b));
-    for (u32 d4 = 0; d4 < 4; ++d4) {
-      u32 back = oppositeDir4Num(d4);
+    for (u32 i4 = 0; i4 < 4; ++i4) {
+      Dir4 d4 = (Dir4) i4;
+      Dir4 back = oppositeDir4(d4);
       a.n[d4] = (u8) L;
       b.n[back] = (u8) L;
       for (u32 i = 0; i < L; ++i) {
@@ -75,8 +73,9 @@ static void check_cardinal() {
         b.ethX[back][i] = (u8) (3 + i);
       }
     }
-    for (u32 d4 = 0; d4 < 4; ++d4) {
-      u32 back = oppositeDir4Num(d4);
+    for (u32 i4 = 0; i4 < 4; ++i4) {
+      Dir4 d4 = (Dir4) i4;
+      Dir4 back = oppositeDir4(d4);
       u32 E = edgeHubCount(d4, c);
       u32 hubs = 0;
       CHECK(cardinalWeAreIn(d4) != cardinalWeAreIn(back));
@@ -101,7 +100,7 @@ static void check_cardinal() {
           CHECK(hubOnEdge(back, r.recvCT6x, r.recvCT6y, c));
           CHECK(hubEdgeIndex(back, r.recvCT6x, r.recvCT6y, c) ==
                 hubEdgeIndex(d4, x, y, c));
-          CHECK(r.recvDir8 == cardinalDir8Of(back));
+          CHECK(r.recvDir8 == dir4ToDir8(back));
           // and its own dest toward us uses the same ETH tile + channel
           CardinalDest db = { 0, 0 };
           CHECK(cardinalDest(b, back, r.recvCT6x, r.recvCT6y, c, db));
@@ -116,12 +115,12 @@ static void check_cardinal() {
   SeamTable none;
   memset(&none, 0, sizeof(none));
   CardinalDest d = { 0, 0 };
-  CHECK(!cardinalDest(none, DIR4_E, 13, 1, c, d));
+  CHECK(!cardinalDest(none, D4_E, 13, 1, c, d));
   SeamTable one = none;
-  one.n[DIR4_E] = 1;
-  one.ethX[DIR4_E][0] = 6;
-  CHECK(!cardinalDest(one, DIR4_E, 11, 1, c, d));     // not on the E edge
-  CHECK(cardinalDest(one, DIR4_E, 13, 9, c, d));
+  one.n[D4_E] = 1;
+  one.ethX[D4_E][0] = 6;
+  CHECK(!cardinalDest(one, D4_E, 11, 1, c, d));     // not on the E edge
+  CHECK(cardinalDest(one, D4_E, 13, 9, c, d));
   CHECK(d.ethx == 6);
 }
 
@@ -129,24 +128,24 @@ static void check_cardinal() {
 static void check_mask() {
   u8 ew[2] = { 10, 6 };
   u32 nib = 0;
-  CHECK(linkNibble(DIR4_E, ew, 2, nib) && nib == 0x5);
+  CHECK(linkNibble(D4_E, ew, 2, nib) && nib == 0x5);
   u8 bad[1] = { 3 };
-  CHECK(!linkNibble(DIR4_E, bad, 1, nib));         // N/S tile, E/W seam
+  CHECK(!linkNibble(D4_E, bad, 1, nib));         // N/S tile, E/W seam
   u8 dup[2] = { 6, 6 };
-  CHECK(!linkNibble(DIR4_E, dup, 2, nib));
-  CHECK(!linkNibble(DIR4_E, ew, 0, nib));
+  CHECK(!linkNibble(D4_E, dup, 2, nib));
+  CHECK(!linkNibble(D4_E, ew, 0, nib));
   u16 mask = 0;
-  mask = packSeamMask(DIR4_E, 0x5, mask);
-  mask = packSeamMask(DIR4_N, 0xf, mask);
-  mask = packSeamMask(DIR4_E, 0x5, mask);           // idempotent
+  mask = packSeamMask(D4_E, 0x5, mask);
+  mask = packSeamMask(D4_N, 0xf, mask);
+  mask = packSeamMask(D4_E, 0x5, mask);           // idempotent
   CHECK(mask == (u16) ((0x5u << 12) | 0xfu));
   SeamTable t;
   decodeSeamMask(mask, t);
-  CHECK(t.n[DIR4_E] == 2);
-  CHECK(t.ethX[DIR4_E][0] == 6 && t.ethX[DIR4_E][1] == 10);
-  CHECK(t.n[DIR4_N] == 4);
-  CHECK(t.ethX[DIR4_N][3] == 13);
-  CHECK(t.n[DIR4_W] == 0 && t.n[DIR4_S] == 0);
+  CHECK(t.n[D4_E] == 2);
+  CHECK(t.ethX[D4_E][0] == 6 && t.ethX[D4_E][1] == 10);
+  CHECK(t.n[D4_N] == 4);
+  CHECK(t.ethX[D4_N][3] == 13);
+  CHECK(t.n[D4_W] == 0 && t.n[D4_S] == 0);
   // every possible mask decodes to link counts = popcount
   for (u32 m = 0; m < 0x10000; ++m) {
     decodeSeamMask((u16) m, t);

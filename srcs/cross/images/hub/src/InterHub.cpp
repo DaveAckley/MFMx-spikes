@@ -11,20 +11,15 @@
 namespace MFM {
   FAST_LOCAL_ARRAY(InterHubEP,8,myInterHubEP,n);
 
-  // EthSeam.h numbers Dir4 the way MDist.h does
-  static_assert(D4_N == EthSeam::DIR4_N, "Dir4 numbering");
-  static_assert(D4_W == EthSeam::DIR4_W, "Dir4 numbering");
-  static_assert(D4_S == EthSeam::DIR4_S, "Dir4 numbering");
-  static_assert(D4_E == EthSeam::DIR4_E, "Dir4 numbering");
-  static_assert(STORAGE_SIZE_BC_INTERHUB == EthSeam::RING_BYTES,
-                "an E1 ring must be one InterHub storage");
-
   // The eth-seam mask lives in the old RSV2/RSV3 bytes: the layout
   // _BUD.S and the host rely on must not have moved.
   static_assert(offsetof(HostBlock, mChipNum) == 28, "HostBlock layout");
   static_assert(offsetof(HostBlock, mEthSeamLo) == 30, "HostBlock layout");
   static_assert(offsetof(HostBlock, mEthSeamHi) == 31, "HostBlock layout");
   static_assert(offsetof(HostBlock, mCommonArgs) == 32, "HostBlock layout");
+
+  static_assert(STORAGE_SIZE_BC_INTERHUB == EthSeam::RING_BYTES,
+                "an E1 ring must be one InterHub storage");
 
   /* Init the EP for Dir8 d8 and all of its cars.  Shared by the
      on-card and the seam setups. */
@@ -54,7 +49,7 @@ namespace MFM {
                                       U8C ournoc0,
                                       U8C ourct6) {
     if (d8 & 1u) return false;
-    u32 d4 = (u32) dir8ToDir4CW(d8);
+    Dir4 d4 = dir8ToDir4CW(d8);
     EthSeam::SeamTable seams;
     EthSeam::decodeSeamMask(theHostBlock.getEthSeamMask(), seams);
     EthSeam::CardinalDest dest;

@@ -2,7 +2,7 @@
 /** EthSeam.h -- ONE copy of the eth-seam layout and channel-assignment
     rule, shared by the T6 images, the E1 image and the host tools
     (srcs/host/tools/ERISC_SEAM_DESIGN.md sections 4-7, 13, 15).
-    Header-only, no libc, no dynamic memory.
+    Header-only, no dynamic memory.  Directions are MDist.h's Dir4.
 
     PART 1  E1 / ring layout.  These numbers are what e1fwd13..16 and
             ethfwd14..20 use TODAY (the tools still carry their own
@@ -39,6 +39,7 @@
     numbers (A.OUT[c] -> B.IN[c], B.OUT[c] -> A.IN[c]). */
 
 #include "itype.h"
+#include "MDist.h"    // Dir4, Dir8 and their helpers
 
 namespace MFM {
   namespace EthSeam {
@@ -335,28 +336,10 @@ namespace MFM {
     // (ihub -> ihub across a card edge).  Diagonal storages
     // (SLOT_DIAG_LO / SLOT_DIAG_HI) are NOT wired yet.
     //
-    // Dir4 numbering is MDist.h's: N=0, W=1, S=2, E=3.  InterHub.cpp
-    // static-asserts that it matches.
-
-    static constexpr u32 DIR4_N = 0u;
-    static constexpr u32 DIR4_W = 1u;
-    static constexpr u32 DIR4_S = 2u;
-    static constexpr u32 DIR4_E = 3u;
-
-    inline constexpr u32 oppositeDir4Num(u32 d4) {
-      return (d4 + 2u) & 3u;
-    }
-
-    /** Dir8 index (MDist.h numbering) of the InterHub storage a hub
-        uses for the cardinal neighbor in direction d4: 2 * d4. */
-    inline constexpr u32 cardinalDir8Of(u32 d4) {
-      return 2u * d4;
-    }
-
     /** The cabling list for the seam toward neighbor card d4:
         E/W and N/S seams use different ETH tiles. */
-    inline constexpr const SeamLinks & cablingFor(u32 d4) {
-      return (d4 == DIR4_E || d4 == DIR4_W)
+    inline constexpr const SeamLinks & cablingFor(Dir4 d4) {
+      return (d4 == D4_E || d4 == D4_W)
         ? SEAM_LINKS_EW
         : SEAM_LINKS_NS;
     }
@@ -375,7 +358,7 @@ namespace MFM {
         toward d4 whose live links are ethx[0..count-1], in any
         order.  False if an x is not in the cabling list, is listed
         twice, or count is 0 or too big. */
-    inline bool linkNibble(u32 d4,
+    inline bool linkNibble(Dir4 d4,
                            const u8 * ethx,
                            u32 count,
                            u32 & nibble) {
@@ -397,14 +380,15 @@ namespace MFM {
 
     /** The 16-bit HostBlock word: Dir4 d's nibble is at bits
         4d..4d+3. */
-    inline constexpr u16 packSeamMask(u32 d4, u32 nibble, u16 mask) {
+    inline constexpr u16 packSeamMask(Dir4 d4, u32 nibble, u16 mask) {
       return (u16) ((mask & ~(0xfu << (4u * d4)))
                     | ((nibble & 0xfu) << (4u * d4)));
     }
 
     /** Decode the HostBlock word into a SeamTable. */
     inline void decodeSeamMask(u16 mask, SeamTable & out) {
-      for (u32 d4 = 0u; d4 < 4u; ++d4) {
+      for (u32 i4 = 0u; i4 < 4u; ++i4) {
+        Dir4 d4 = (Dir4) i4;
         const SeamLinks & cab = cablingFor(d4);
         u32 nibble = (mask >> (4u * d4)) & 0xfu;
         u32 n = 0u;
@@ -427,8 +411,8 @@ namespace MFM {
     static constexpr CellShape CELL_C2X2 = { 2u, 2u, 1u, 1u };
 
     /** Edge hubs along the card edge that faces d4. */
-    inline constexpr u32 edgeHubCount(u32 d4, const CellShape & c) {
-      return (d4 == DIR4_E || d4 == DIR4_W)
+    inline constexpr u32 edgeHubCount(Dir4 d4, const CellShape & c) {
+      return (d4 == D4_E || d4 == D4_W)
         ? edgeHubsEW(c.ch)
         : edgeHubsNS(c.cw);
     }
@@ -439,49 +423,49 @@ namespace MFM {
     }
 
     /** Is the hub at CT6 (x, y) on the card edge facing d4? */
-    inline constexpr bool hubOnEdge(u32 d4,
+    inline constexpr bool hubOnEdge(Dir4 d4,
                                     u32 x,
                                     u32 y,
                                     const CellShape & c) {
       return
-        (d4 == DIR4_W && x < c.cw) ||
-        (d4 == DIR4_E && x >= BOARD_CT6_W - c.cw) ||
-        (d4 == DIR4_N && y < c.ch) ||
-        (d4 == DIR4_S && y >= BOARD_CT6_H - c.ch);
+        (d4 == D4_W && x < c.cw) ||
+        (d4 == D4_E && x >= BOARD_CT6_W - c.cw) ||
+        (d4 == D4_N && y < c.ch) ||
+        (d4 == D4_S && y >= BOARD_CT6_H - c.ch);
     }
 
     /** Edge index of that hub along the edge facing d4. */
-    inline constexpr u32 hubEdgeIndex(u32 d4,
+    inline constexpr u32 hubEdgeIndex(Dir4 d4,
                                       u32 x,
                                       u32 y,
                                       const CellShape & c) {
-      return (d4 == DIR4_E || d4 == DIR4_W)
+      return (d4 == D4_E || d4 == D4_W)
         ? edgeIndex(y, c.ch)
         : edgeIndex(x, c.cw);
     }
 
     /** CT6 coordinates of the hub with edge index e on the edge
         facing d4.  False if e is out of range. */
-    inline bool edgeHubCT6(u32 d4,
+    inline bool edgeHubCT6(Dir4 d4,
                            u32 e,
                            const CellShape & c,
                            u32 & x,
                            u32 & y) {
       if (e >= edgeHubCount(d4, c)) return false;
       switch (d4) {
-      case DIR4_N:
+      case D4_N:
         x = e * c.cw + c.hox;
         y = c.hoy;
         return true;
-      case DIR4_S:
+      case D4_S:
         x = e * c.cw + c.hox;
         y = BOARD_CT6_H - c.ch + c.hoy;
         return true;
-      case DIR4_W:
+      case D4_W:
         x = c.hox;
         y = e * c.ch + c.hoy;
         return true;
-      case DIR4_E:
+      case D4_E:
         x = BOARD_CT6_W - c.cw + c.hox;
         y = e * c.ch + c.hoy;
         return true;
@@ -493,8 +477,8 @@ namespace MFM {
     /** Which end of a seam starts out 'in' (T6EP isin).  Both ends
         must choose opposite values: the end whose neighbor is E or S
         is 'in', the end whose neighbor is W or N is 'out'. */
-    inline constexpr bool cardinalWeAreIn(u32 d4) {
-      return d4 == DIR4_E || d4 == DIR4_S;
+    inline constexpr bool cardinalWeAreIn(Dir4 d4) {
+      return d4 == D4_E || d4 == D4_S;
     }
 
     /** T6 side: where does the hub at CT6 (x, y) send its cardinal
@@ -507,7 +491,7 @@ namespace MFM {
       u8 channel;
     };
     inline bool cardinalDest(const SeamTable & t,
-                             u32 d4,
+                             Dir4 d4,
                              u32 x,
                              u32 y,
                              const CellShape & c,
@@ -537,7 +521,7 @@ namespace MFM {
       u8 recvDir8;
     };
     inline bool cardinalRecv(const SeamTable & sender,
-                             u32 d4,
+                             Dir4 d4,
                              u32 link,
                              u32 channel,
                              const CellShape & c,
@@ -548,13 +532,13 @@ namespace MFM {
       u32 E = edgeHubCount(d4, c);
       if (!invert(E, sender.n[d4], link, channel, e, s)) return false;
       if (s != SLOT_CARDINAL) return false;
-      u32 back = oppositeDir4Num(d4);
+      Dir4 back = oppositeDir4(d4);
       u32 x = 0u;
       u32 y = 0u;
       if (!edgeHubCT6(back, e, c, x, y)) return false;
       out.recvCT6x = (u8) x;
       out.recvCT6y = (u8) y;
-      out.recvDir8 = (u8) cardinalDir8Of(back);
+      out.recvDir8 = (u8) dir4ToDir8(back);
       return true;
     }
 

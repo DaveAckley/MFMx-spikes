@@ -1,6 +1,9 @@
 // ethlinks_test.cpp -- native tests of srcs/host/src/EthLinks.cpp against a MOCK pair of cards (no hardware, no pybind).
 // Build/run (from srcs/host/tools):
-//   g++ -std=c++17 -O2 -Wall -Wextra -Werror -I../include -I../../shared/include ethlinks_test.cpp ../src/EthLinks.cpp ../src/EthSeamHost.cpp -o /tmp/ethlinks_test && /tmp/ethlinks_test
+//   FLAGS="-std=c++17 -O2 -Wall -Wextra -Werror -Wno-unused-function"
+//   g++ $FLAGS -I../include -I../../shared/include ethlinks_test.cpp
+//     ../src/EthLinks.cpp ../src/EthSeamHost.cpp ../src/FATAL.cpp
+//     -o /tmp/ethlinks_test && /tmp/ethlinks_test  (one command)
 // The mock models just enough of an ETH tile: boot-result words, MACs, soft-reset/PC/END registers, the E1 coming up (ready word + image id) when its
 // soft-reset bit is cleared, the E1 acknowledging stop, queue-2 packets copying L1 to the peer with the RX sequence counter, and tt-kmd NOC_CLEANUP.
 // It proves THIS LIBRARY'S LOGIC (sequence, allowlist, validation, restore); it says nothing about real E1 behaviour.
@@ -225,30 +228,30 @@ int main() {
     // seam declaration: masks, both directions, validation
     EthSeamHost & h = EthSeamHost::get();
     h.clearSeams();
-    CHECK(h.declareSeam(0, DIR4_E, 1, { 6, 7, 10, 11 }).empty());
+    CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
     u16 m0 = h.seamMaskFor(0);
     u16 m1 = h.seamMaskFor(1);
-    CHECK(((m0 >> (4 * DIR4_E)) & 0xf) == 0xf);
-    CHECK(((m1 >> (4 * DIR4_W)) & 0xf) == 0xf);
-    CHECK(((m0 >> (4 * DIR4_W)) & 0xf) == 0);
-    CHECK(((m1 >> (4 * DIR4_E)) & 0xf) == 0);
+    CHECK(((m0 >> (4 * D4_E)) & 0xf) == 0xf);
+    CHECK(((m1 >> (4 * D4_W)) & 0xf) == 0xf);
+    CHECK(((m0 >> (4 * D4_W)) & 0xf) == 0);
+    CHECK(((m1 >> (4 * D4_E)) & 0xf) == 0);
     CHECK(h.seamMaskFor(7) == 0);                    // unknown chip
     // already used; same chip; no links; too many; bad dir
-    CHECK(!h.declareSeam(0, DIR4_E, 2, { 6 }).empty());
-    CHECK(!h.declareSeam(0, DIR4_S, 0, { 3 }).empty());
-    CHECK(!h.declareSeam(0, DIR4_S, 2, { }).empty());
-    CHECK(!h.declareSeam(0, DIR4_S, 2, { 3, 4, 12, 13, 3 }).empty());
+    CHECK(!h.declareSeam(0, D4_E, 2, { 6 }).empty());
+    CHECK(!h.declareSeam(0, D4_S, 0, { 3 }).empty());
+    CHECK(!h.declareSeam(0, D4_S, 2, { }).empty());
+    CHECK(!h.declareSeam(0, D4_S, 2, { 3, 4, 12, 13, 3 }).empty());
     CHECK(!h.declareSeam(0, 4, 2, { 3 }).empty());
     // not in the cabling list for that axis, or listed twice
-    CHECK(!h.declareSeam(0, DIR4_S, 2, { 6 }).empty());
-    CHECK(!h.declareSeam(0, DIR4_S, 2, { 3, 3 }).empty());
+    CHECK(!h.declareSeam(0, D4_S, 2, { 6 }).empty());
+    CHECK(!h.declareSeam(0, D4_S, 2, { 3, 3 }).empty());
     CHECK(h.seamMaskFor(2) == 0);                    // failures leave no trace
     // subset, any order: link order is still the cabling order
-    CHECK(h.declareSeam(0, DIR4_S, 2, { 12, 3 }).empty());
+    CHECK(h.declareSeam(0, D4_S, 2, { 12, 3 }).empty());
     EthSeam::SeamTable t2;
     EthSeam::decodeSeamMask(h.seamMaskFor(2), t2);
-    CHECK(t2.n[DIR4_N] == 2 && t2.ethX[DIR4_N][0] == 3);
-    CHECK(t2.ethX[DIR4_N][1] == 12);
+    CHECK(t2.n[D4_N] == 2 && t2.ethX[D4_N][0] == 3);
+    CHECK(t2.ethX[D4_N][1] == 12);
     h.clearSeams();
     CHECK(h.seamMaskFor(0) == 0);
   }

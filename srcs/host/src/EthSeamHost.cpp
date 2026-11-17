@@ -11,7 +11,8 @@ namespace MFM {
                                        u32 dir4,
                                        u32 chipB,
                                        const std::vector<u8> & ethx) {
-    if (dir4 > 3u) return "bad direction";
+    if (dir4 > (u32) D4_E) return "bad direction";
+    Dir4 d4 = (Dir4) dir4;
     if (chipA == chipB) return "a seam needs two different chips";
     if (ethx.empty() || ethx.size() > EthSeam::MAX_LINKS) {
       return "a seam needs 1 to "
@@ -19,19 +20,19 @@ namespace MFM {
         + " links";
     }
     u32 nibble = 0;
-    if (!EthSeam::linkNibble(dir4, ethx.data(), ethx.size(), nibble)) {
+    if (!EthSeam::linkNibble(d4, ethx.data(), ethx.size(), nibble)) {
       return "a link is not in the cabling list for that direction"
         " (EthSeam::SEAM_LINKS_EW / NS), or is listed twice";
     }
-    u32 back = EthSeam::oppositeDir4Num(dir4);
+    Dir4 back = oppositeDir4(d4);
     std::lock_guard<std::mutex> lock(mMutex);
     u16 & a = mSeams[chipA];
     u16 & b = mSeams[chipB];
-    if (((a >> (4u * dir4)) & 0xfu) != 0u ||
+    if (((a >> (4u * d4)) & 0xfu) != 0u ||
         ((b >> (4u * back)) & 0xfu) != 0u) {
       return "seam already declared that way";
     }
-    a = EthSeam::packSeamMask(dir4, nibble, a);
+    a = EthSeam::packSeamMask(d4, nibble, a);
     b = EthSeam::packSeamMask(back, nibble, b);
     return "";
   }
