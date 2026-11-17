@@ -527,3 +527,23 @@ printed every delta with the wrong sign (before - after) because its 'after' cal
 dynamic NoC counters" is only the tt-metal header's name for them; no conclusion about base-FW NoC activity from them.
 Soaks (60 s each): reflect K=4 2 ch 576 B 7.947 M hops/s, identical to the 1 s run, ~238 M hops per channel, txfail 0; T6 ping-pong K=4 2 ch 576 B 1.157 M round trips/s
 (69.4 M round trips), identical to the short run, 0 bad / 0 noc-fail.  No degradation, retrain or uncorrectable errors.
+
+### 9.14 mfmxctl eth-seam runs (2026-11-17): the T6-side wiring runs on hardware, T6s idle
+
+Five runs of `mfmxctl.py --layout seamtest --boot -s config/seamtest.cmd` (chips 0 and 1, chip 1 east of chip 0, links at eth x = 6, 7, 10, 11, T6s idle across the
+seam, 60 s soak with `seams` three times, then stop and `quit close`).  Each run: tt-smi -r, start (declare seams, deploy both chips, bring up all four links, release
+the T6s, 140/140 T6 acks on both chips), soak, stop (links torn down), close.  Run 1 aborted inside 'stop' (bug 1 below), before teardown; runs 2-5 tore
+the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 4 and 5 (5 = the slice 1 build) exit clean.
+- Bring-up: all four links passed every stage on every run: validate (link Up, queue 2 pristine), queue-2 smoke test both ways (64 B each way), E1 deploy with the image
+  id check, channel setup from the planner, go.  Links 7, 10 and 11 had never been used before this; they behave like 6.
+- Health, 8 link ends x 3 samples x 5 runs: port 1, retrain 0, FEC uncorrected 0, heartbeat words keep changing (0xABCD0000 | a wrapping 16-bit counter).  FEC corrected
+  per second, steady between samples and between runs: eth6 ~243 k (card 0) / ~332 k (card 1); eth7 ~447 k / ~680 k; eth10 ~611 k / ~437 k; eth11 ~945 k / ~375 k.  So the
+  other links correct 2-4x more than eth6 (card 0's eth11 is ~4x eth6).  Normal for a FEC link and uncorrected stays 0, but eth11 is the one to watch in a longer soak.
+- Hub side: the hub log shows the seam endpoint configured at the top-row edge hubs of both cards: chip 0 hub NoC (16,3) Dir8 ET8 and chip 1 hub (2,3) WT8, both on ETH tile
+  (6,1) channel 0, weAreIn 1 / 0 (opposite, as required).  Only those two of the ten edge hubs appear: mfmxctl's log collection (slowscan) reaches few tiles in a short
+  run and HB / LOG output is gappy, so the other eight are unobserved, not failing.  No FAIL / ASSERT lines anywhere.
+- Bugs this found, none in the seam code: (1) CodeManager::newFails() began with FAIL(INCOMPLETE_CODE) although its body is #if 0, and Blackhole::stepRetreat calls it on
+  every retreat, so any 'stop' or 'close' aborted (fixed 192a548); (2) QuietBox exited with its InterHub hack thread joinable (~QuietBox empty, _stopInterHubHackThread never
+  defined; fixed a4e7c41, qb.shutdown is now bound); (3) every hub's ZHostDecompressor thread was never stopped (fixed c942e6f).
+- Not shown: cars crossing.  config/seamtest.cmd never starts a SuperCycle, and the cache loaders only run on NEW_LEADER, so the global supercell parity and the Dir4
+  cache loaders of slice 1 (ERISC_SEAM_DESIGN.md section 16) were not exercised.  The `seams` channel counters were 0 throughout, as expected.

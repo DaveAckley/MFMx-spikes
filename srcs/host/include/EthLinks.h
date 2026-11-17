@@ -98,36 +98,18 @@ namespace MFM {
   /** Where cars arrive for one channel and what the E1 does with
       them (see e1fwd13.c header). */
   struct EthChannel {
-    /// channel number on this E1 (0..EthSeam::NCH_MAX-1)
-    u8 channel;
-
-    /// EthSeam::LEG_OUT | LEG_IN_NOC | LEG_IN_COUNT
-    u8 legs;
-
-    /// NoC0 coordinates of the LOCAL T6 whose L1 receives this
-    /// channel's cars (LEG_IN_NOC)
-    u8 t6x;
-    u8 t6y;
-
-    /// L1 address of that T6's receive storage
-    /// (slot i at t6Base + i*CAR_BYTES)
-    u32 t6Base;
+    u8 channel;     //< channel number on this E1 (0..NCH_MAX-1)
+    u8 legs;        //< EthSeam::LEG_OUT | LEG_IN_NOC | LEG_IN_COUNT
+    u8 t6x;         //< NoC0 x of the LOCAL T6 receiving this channel
+    u8 t6y;         //< NoC0 y of that T6 (used by LEG_IN_NOC)
+    u32 t6Base;     //< its receive storage: slot i at t6Base + i*CAR_BYTES
   };
 
   struct EthChannelSetup {
     u8 mode = EthSeam::E1_MODE_ROUTER;
-
-    /// L0 data cache off via CSR 0x7c0 (proven on E1 and the
-    /// default for all runs)
-    u8 flags = EthSeam::E1F_CSR;
-
-    /// E1 ring depth (1..4); must equal the cars in flight per
-    /// channel
-    u8 ringCars = EthSeam::RING_CARS;
-
-    /// NIU command buffer for the E1's NoC writes (0 = image
-    /// default 3)
-    u8 niuBuf = 0;
+    u8 flags = EthSeam::E1F_CSR;      //< L0 data cache off (CSR 0x7c0)
+    u8 ringCars = EthSeam::RING_CARS; //< ring depth 1..4 = cars in flight
+    u8 niuBuf = 0;                    //< NIU cmd buffer (0 = default 3)
 
     std::vector<EthChannel> channels;
   };

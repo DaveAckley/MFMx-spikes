@@ -272,3 +272,9 @@ in = seen from the link, noc = written into the local T6, plus failure
 counts).  Corner caches across the seam are stale until the diagonal
 crossings are wired (ERISC_SEAM_DESIGN.md section 16).
 
+Native tests (no hardware, no pybind): `srcs/host/tools/run_native_tests.sh`
+builds and runs all of them (seam layout / routing, hub parity, the EthLinks
+mock fabric, and the E1 and T6 ping-pong harnesses) and prints one PASS/FAIL
+line each; `ASAN=1` runs the C++ ones under ASan/UBSan, and a name argument
+(`run_native_tests.sh ethlinks`) runs the matching ones.
+
