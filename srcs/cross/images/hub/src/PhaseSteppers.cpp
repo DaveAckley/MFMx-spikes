@@ -23,6 +23,7 @@ namespace MFM {
     struct GridCensus {
       u32 total, interior, band, cache;
       u32 type2, type4, type5, other;
+      u32 cacheDir[8];          //< cache atoms per neighbor Dir8 (corners too)
       u32 dllen;                //< DLGridList backlog (changes not yet shipped to host)
       u32 cxor, csum;           //< xor / wrapped sum of a fold of ALL state bits of every non-empty atom (liveness)
     };
@@ -49,7 +50,20 @@ namespace MFM {
           const bool self =
             x >= T6Grid::SELF_ORIGIN.x && x < T6Grid::SELF_MAX.x &&
             y >= T6Grid::SELF_ORIGIN.y && y < T6Grid::SELF_MAX.y;
-          if (!self) ++gc.cache;
+          if (!self) {
+            ++gc.cache;
+            // which of the eight caches: x side, y side (-1, 0, +1)
+            const int sx = (x < T6Grid::SELF_ORIGIN.x) ? -1
+              : (x >= T6Grid::SELF_MAX.x) ? 1 : 0;
+            const int sy = (y < T6Grid::SELF_ORIGIN.y) ? -1
+              : (y >= T6Grid::SELF_MAX.y) ? 1 : 0;
+            static const u8 D8OF[3][3] = {  // [sy+1][sx+1]
+              { D8_NW, D8_NT, D8_NE },
+              { D8_WT, D8_NT, D8_ET },      // [1][1] is self: unused
+              { D8_SW, D8_ST, D8_SE }
+            };
+            ++gc.cacheDir[D8OF[sy + 1][sx + 1]];
+          }
           else if (x >= inLo && x < inHi && y >= jnLo && y < jnHi) ++gc.interior;
           else ++gc.band;
           switch (a.getType()) {
@@ -67,6 +81,14 @@ namespace MFM {
     static const char * fmtCensusCounts(Buf32 & b, const GridCensus & gc) {
       snprintf(b.buf,b.SIZE,"%x:%x:%x:%x",gc.total,gc.interior,gc.band,gc.cache);
       return b.buf;
+    }
+
+    // .ac: cache atoms per neighbor, NT:NW:WT:SW:ST:SE:ET:NE (hex)
+    static const char * fmtCensusCache(char (&b)[64], const GridCensus & gc) {
+      snprintf(b,sizeof(b),"%x:%x:%x:%x:%x:%x:%x:%x",
+               gc.cacheDir[0],gc.cacheDir[1],gc.cacheDir[2],gc.cacheDir[3],
+               gc.cacheDir[4],gc.cacheDir[5],gc.cacheDir[6],gc.cacheDir[7]);
+      return b;
     }
 
     static const char * fmtCensusLive(Buf32 & b, const GridCensus & gc) {
@@ -152,6 +174,8 @@ namespace MFM {
           GridCensus gc; Buf32 b1;
           takeCensus(gc);
           LOGPTAG(.ae,fmtCensusCounts(b1,gc));
+          char b4[64];
+          LOGPTAG(.ac,fmtCensusCache(b4,gc));
         }
         theL1CacheLoaders.restartIterators();
         HBPTAG(BOLTR_done_wOxREB,(u32) arg);
