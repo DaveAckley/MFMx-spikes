@@ -208,5 +208,5 @@ x/y seam stage (3c): chips opened and T6 images DEPLOYED -> `h = MFMx.EthSeamHos
 t6x, t6y, t6base), ...], channelsB=[...])` for each live link ("" = success) -> THEN startMachine.  `h.status()`, `h.health(chip, ethx)`, `h.channelStat(chip, ethx, ch, word)`,
 `h.tearDownLink(a, b, ethx)`, `h.tearDownAll()`.  Closing a chip (Blackhole.close / step retreat) tears its links down automatically.  Build the image with
 `sh srcs/host/tools/e1fwd/build.sh e1fwd16` (sfpi gcc only).  Channel numbers and link/ETH-tile choice come from shared/include/EthSeam.h (balanced dealing); until the
-T6-side wiring exists the t6x/t6y/t6base values must be supplied by the caller.  First thing to do with the new build: `python -c "import MFMx; print(MFMx.EthSeamHost.get().status())"`
+T6-side wiring exists the t6x/t6y/t6base values must be supplied by the caller.  First thing to do with the new build: `python -c "from mfmx import MFMx; print(MFMx.EthSeamHost.get().status())"`
 (compile/import check of the glue, which was written without pybind11 available).
