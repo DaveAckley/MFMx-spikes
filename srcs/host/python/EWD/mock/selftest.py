@@ -98,6 +98,75 @@ def scenario_guards_and_errors():
     check("guards: bad int arg reported, shell survives", "error: ValueError" in out and rc == 0)
 
 
+def seam_config(ethseams):
+    """A copy of nu1012.dtoml with the seamtest layout active and its
+    ethseams replaced by 'ethseams' (a TOML array text)."""
+    src = open(os.path.join(EWD, "config", "nu1012.dtoml")).read()
+    src = src.replace("activeLayout=ewpandhub", "activeLayout=seamtest")
+    src = re.sub(r'ethseams = \[.*\]', "ethseams = " + ethseams, src)
+    f = os.path.join(tempfile.mkdtemp(prefix="seamcfg-"), "seams.dtoml")
+    with open(f, "w") as fh:
+        fh.write(src)
+    return f
+
+
+def scenario_ethseams():
+    cfg = seam_config('[ "0:E:1:6,7,10,11" ]')
+    rc, out = run("boot\nstart\nseams\nstatus\nstop\nseams\nquit\n",
+                  api="fire", extra_args=("--config", cfg))
+    check("seams: exit 0", rc == 0, f"rc={rc}\n{out[-800:]}")
+    check("seams: declared from the layout",
+          "eth-seams declared: bh0-E->bh1 eth6,7,10,11" in out, out[-800:])
+    check("seams: all four links up",
+          all(f"link bh0 <-> bh1 eth{x} UP" in out for x in (6, 7, 10, 11)), out[-800:])
+    # order: declare, then both chips deployed, then links up, then T6 release
+    i = [out.find(t) for t in ("eth-seams declared", "bh1 -> HAS_T6_CODE_DEPLOYED",
+                               "eth-seams up:", "-> HAS_T6_EVENT_WINDOWS")]
+    check("seams: declare < deploy < bring-up < release",
+          all(x >= 0 for x in i) and i == sorted(i), str(i))
+    check("seams: 'seams' command reports health",
+          "bh1 eth11: port=1" in out and "fec corrected=12345" in out, out[-800:])
+    check("seams: status line lists the seams", "eth-seams: bh0-E->bh1" in out)
+    check("seams: stop tears the links down", "eth-seams down" in out)
+    check("seams: no link left after stop", "bh0 eth6: no link" in out, out[-500:])
+
+    cfg = seam_config('[ "0:E:1:6" ]')
+    rc, out = run("boot\nstart\nstatus\nstop\nquit\n",
+                  api="fire", extra_args=("--config", cfg))
+    check("seams-fail: bring-up failure is reported",
+          "eth-seam bring-up failed" in out and "NCH_MAX" in out, out[-800:])
+    check("seams-fail: T6s not released", "HAS_T6_EVENT_WINDOWS" not in out
+          and "bh0=HAS_T6_CODE_DEPLOYED" in out, out[-800:])
+    check("seams-fail: stop still leaves everything down", "eth-seams down" in out, out[-500:])
+
+    cfg = seam_config('[ "0:E:1:6,7,10,11" ]')
+    rc, out = run("boot\nstart\nquit\n", api="async", extra_args=("--config", cfg))
+    check("seams-nofire: refused without firePHASER", "need the firePHASER start path" in out, out[-500:])
+
+    # a layout without ethseams is untouched: no seam output at all
+    rc, out = run("boot\nstart\nseams\nquit\n", api="fire")
+    check("seams-none: layout without ethseams unchanged",
+          "no ethseams in the active layout" in out and "eth-seams" not in out.replace(
+              "no ethseams in the active layout", ""), out[-500:])
+
+
+def scenario_ethseams_parse():
+    sys.path.insert(0, EWD)
+    import machine
+    ok = machine.parse_ethseams(["0:E:1:6,7", "0:s:2:3,4", "1:1:0:6"], [0, 1, 2])
+    check("seam parse: valid specs", ok == [(0, 3, 1, [6, 7]), (0, 2, 2, [3, 4]), (1, 1, 0, [6])], str(ok))
+    check("seam parse: none given", machine.parse_ethseams(None, [0]) == [])
+    for bad, why in (("0:E:1", "too few fields"), ("0:X:1:6", "bad direction letter"),
+                     ("0:E:1:", "no links"), ("0:E:9:6", "chip not in layout"),
+                     ("a:E:1:6", "bad chip number"), ("0:7:1:6", "direction out of range"),
+                     ("0:E:1:6,x", "bad link number")):
+        try:
+            machine.parse_ethseams([bad], [0, 1])
+            check(f"seam parse: rejects {why}", False)
+        except ValueError:
+            check(f"seam parse: rejects {why}", True)
+
+
 def scenario_sigterm():
     env = dict(os.environ, MFMX_MOCK_API="async", MFMX_MOCK_SIMDIR=tempfile.mkdtemp(prefix="selftest-"))
     p = subprocess.Popen([sys.executable, CTL, "--mock"], stdin=subprocess.PIPE,

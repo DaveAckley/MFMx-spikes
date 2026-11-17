@@ -43,6 +43,18 @@
   cell.all = C2X2_EWP_HUB
   hostModules = [ AcceptLogging, AcceptACache, AcceptPHASER ]
 
+# Two cards joined by their east/west eth-seam (stage 3c): chip 1 lies EAST of
+# chip 0, linked by the ETH tiles at NoC0 x = 6,7,10,11 (the QuietBox cabling
+# in shared/include/EthSeam.h).  The T6s are idle across the seam until the
+# cache loaders learn about it; this checks the wiring and the links.
+# Select with  activeLayout=seamtest  in [Config].
+[layout.seamtest]
+  bhchips = [0,1]
+  defaultImage = EWP
+  cell.all = C2X2_EWP_HUB
+  hostModules = [ AcceptLogging, AcceptACache, AcceptPHASER ]
+  ethseams = [ "0:E:1:6,7,10,11" ]
+
 [cell.C1X1_ONE]
   size = [1,1]
   image.all.all = HUB

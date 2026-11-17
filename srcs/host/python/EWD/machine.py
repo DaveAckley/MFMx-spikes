@@ -79,6 +79,45 @@ class NullFeed:
         return _Idle()
 
 
+
+# ---- eth-seam layout keys ----------------------------------------------------
+# A layout may carry
+#   ethseams = [ "0:E:1:6,7,10,11", "0:S:2:3,4,12,13" ]
+#   e1image  = "$script_dir/../../tools/e1fwd/e1fwd16.bin"      (optional)
+# Each ethseams string is "chipA:DIR:chipB:x,x,..": chipB lies DIR (N, W, S or
+# E, or 0-3) of chipA, joined by the ETH tiles at those NoC0 x coordinates.
+# The x values must come from the cabling lists in shared/include/EthSeam.h
+# (SEAM_LINKS_EW / SEAM_LINKS_NS); EthSeamHost.declareSeam enforces that.
+ETH_DIRS = {"N": 0, "W": 1, "S": 2, "E": 3}
+DEFAULT_E1IMAGE = "$script_dir/../../tools/e1fwd/e1fwd16.bin"
+
+
+def parse_ethseams(specs, chips):
+    """Parse a layout's ethseams strings into (chipA, dir4, chipB, [x..]).
+    Raises ValueError on bad syntax or on a chip not in 'chips'."""
+    seams = []
+    for spec in specs or []:
+        parts = str(spec).split(":")
+        if len(parts) != 4:
+            raise ValueError(f"ethseams '{spec}': want chipA:DIR:chipB:x,x,..")
+        try:
+            a, b = int(parts[0]), int(parts[2])
+            d = parts[1].strip()
+            d4 = ETH_DIRS[d.upper()] if d.upper() in ETH_DIRS else int(d)
+            xs = [int(x) for x in parts[3].split(",") if x.strip()]
+        except ValueError:
+            raise ValueError(f"ethseams '{spec}': bad number or direction")
+        if not 0 <= d4 <= 3:
+            raise ValueError(f"ethseams '{spec}': direction must be N, W, S, E or 0-3")
+        if not xs:
+            raise ValueError(f"ethseams '{spec}': no links listed")
+        for c in (a, b):
+            if c not in chips:
+                raise ValueError(f"ethseams '{spec}': chip {c} is not in the layout's bhchips {list(chips)}")
+        seams.append((a, d4, b, xs))
+    return seams
+
+
 class Machine:
     def __init__(self, mfmx, config, say, *, script_dir, logprefix="mfmxctl",
                  t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
@@ -98,6 +137,8 @@ class Machine:
         self.simDir = mfmx.getSimDir()
         self.mfmxVersion = mfmx.getVersion()
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
+        self.seams = []                      # parsed ethseams of the active layout
+        self.e1image = ""                    # E1 router image for the seams
         self.configured = self.inited = False
         self.async_api = False
         self.has_fire_phaser = False   # True when qb.firePHASER() is available
@@ -185,6 +226,9 @@ class Machine:
         modules = layouts[act].get("hostModules", [])
         im.setActiveLayout(act)
         chips = im.getActiveLayout().getActiveBHChips()
+        self.seams = parse_ethseams(layouts[act].get("ethseams"), list(chips))
+        e1 = layouts[act].get("e1image", DEFAULT_E1IMAGE)
+        self.e1image = os.path.abspath(e1.replace("$script_dir", self.scriptDir, 1))
         self.bhs = [M.Blackhole(i) for i in chips]
         for bh in self.bhs:                  # far enough to configure modules
             bh.setStep(M.Step.HAS_ALLOCATED_TLBS)
@@ -246,6 +290,8 @@ class Machine:
         self.need_booted()
         self.hold_settled = False
         out = []
+        if self.seams:
+            out.append(self._declare_seams())
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))
@@ -260,6 +306,9 @@ class Machine:
                 bh.startEWProcessing()
             out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
                        f"({time.monotonic() - t:.1f}s)")
+        if self.seams:
+            # every chip is deployed, no T6 is released yet
+            out.append(self._bring_up_seams())
         if self.has_fire_phaser:
             # T6 cores are in reset: safe to write HOLD_AT_BIRTH to L1 now.
             # T6s will see it the moment they're released by startEWProcessing.
@@ -350,7 +399,66 @@ class Machine:
             else:
                 out.append(f"bh{bh.getChipNumber()} not at event windows "
                            f"({self.pname(bh.getStep())}); left alone")
+        if self.seams:
+            out.append(self._down_seams())
         return "\n".join(out)
+
+    # ---- eth-seams (see host/tools/ERISC_SEAM_DESIGN.md section 15) -------------
+    def _seam_text(self):
+        names = {v: k for k, v in ETH_DIRS.items()}
+        return ", ".join(f"bh{a}-{names[d]}->bh{b} eth{','.join(map(str, xs))}"
+                         for a, d, b, xs in self.seams)
+
+    def _declare_seams(self):
+        """Before ANY chip deploys its T6 images: CodeManager copies each
+        chip's seam mask into the HostBlocks at deploy."""
+        if not self.has_fire_phaser:
+            raise RuntimeError(
+                "ethseams need the firePHASER start path (the E1 links must come up "
+                "between T6 code deploy and T6 release); this MFMx build lacks it")
+        h = self.M.EthSeamHost.get()
+        h.clearSeams()
+        for a, d4, b, xs in self.seams:
+            err = h.declareSeam(a, d4, b, xs)
+            if err:
+                raise RuntimeError(f"ethseam bh{a}->bh{b}: {err}")
+        return f"eth-seams declared: {self._seam_text()}"
+
+    def _bring_up_seams(self):
+        """After every chip is deployed, before any T6 is released."""
+        err = self.M.EthSeamHost.get().bringUpSeams(self.e1image)
+        if err:
+            raise RuntimeError(
+                f"eth-seam bring-up failed ({err}); T6s were NOT released and no "
+                f"link is left up; use 'stop'/'close' to leave the chips cleanly")
+        return "eth-seams up:\n" + self.M.EthSeamHost.get().status().rstrip()
+
+    def _down_seams(self):
+        """After the T6s are stopped.  Harmless when nothing is up."""
+        h = self.M.EthSeamHost.get()
+        h.tearDownAll()
+        return "eth-seams down"
+
+    def seams_report(self):
+        """Declared seams, link status, and per-link-end health counters."""
+        if not self.seams:
+            return "no ethseams in the active layout"
+        h = self.M.EthSeamHost.get()
+        lines = [f"declared: {self._seam_text()}",
+                 f"e1image: {self.e1image}",
+                 h.status().rstrip()]
+        for a, _d, b, xs in self.seams:
+            for x in xs:
+                for chip in (a, b):
+                    r = h.health(chip, x)
+                    if not r.get("ok"):
+                        lines.append(f"  bh{chip} eth{x}: no link")
+                    else:
+                        lines.append(
+                            f"  bh{chip} eth{x}: port={r['port']} hb={r['heartbeat']} "
+                            f"retrain={r['retrain']} fec corrected={r['fecCorrected']} "
+                            f"uncorrected={r['fecUncorrected']}")
+        return "\n".join(lines)
 
     def close(self):
         """Full retreat of every chip (resets fleet, joins transport thread, ...)."""
@@ -545,6 +653,8 @@ class Machine:
         lines.append("bolt timeouts: " + " ".join(f"{k}={v:g}s" for k, v in self.timeouts.items())
                      + f"  diagnose-on-timeout={self.diagnose}")
         lines.append(f"slowscans run: {self.scan_count}  last: {self.last_scan}")
+        if self.seams:
+            lines.append(f"eth-seams: {self._seam_text()}")
         if self.feed is not None:
             lines.append(f"feed: {type(self.feed).__name__}  frames sent: "
                          f"{self.frames_real} sim, {self.frames_idle} placeholder")

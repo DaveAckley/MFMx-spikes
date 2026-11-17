@@ -3,7 +3,8 @@
 Purpose: develop and test the Python side (REPL, bolt sequencing, timeouts)
 with no Blackhole hardware and no tt-kmd.  Nothing here touches a device.
 
-Two QuietBox flavours, chosen at import time by env var MFMX_MOCK_API:
+QuietBox flavours (async, legacy, and fire = async + firePHASER), chosen at
+import time by env var MFMX_MOCK_API:
 
   async  (default)  PROPOSED interface:
                       shootPHASER(cmd, args) -> nonce     (returns immediately)
@@ -88,8 +89,8 @@ class _Mock:
 
 _mock = _Mock()
 API = os.environ.get("MFMX_MOCK_API", "async").lower()
-if API not in ("async", "legacy"):
-    raise RuntimeError(f"MFMX_MOCK_API must be async or legacy, not {API!r}")
+if API not in ("async", "legacy", "fire"):
+    raise RuntimeError(f"MFMX_MOCK_API must be async, legacy or fire, not {API!r}")
 
 
 # ---------------------------------------------------------------- module funcs
@@ -257,6 +258,92 @@ class ImageManager:
         return _IM.layouts[_IM.active]
 
 
+# ------------------------------------------------------------------ eth seams
+class EthSeamHost:
+    """Mock of the host-process eth-seam owner (host/include/EthSeamHost.h).
+    Models only what machine.py relies on: declare before deploy, bring up
+    between T6 code deploy and T6 release, tear down.  Knob:
+    MFMx._mock.ethseam_fail = "text" makes bringUpSeams fail with that text."""
+    _inst = None
+    CABLING_EW = (6, 7, 10, 11)
+    CABLING_NS = (3, 4, 12, 13)
+
+    @staticmethod
+    def get():
+        if EthSeamHost._inst is None:
+            EthSeamHost._inst = EthSeamHost()
+        return EthSeamHost._inst
+
+    def __init__(self):
+        self.decls = []             # (chipA, dir4, chipB, [x])
+        self.up = []                # (chipA, chipB, x)
+        self.events = []            # call log, for the tests
+
+    def clearSeams(self):
+        self.events.append("clearSeams")
+        self.decls = []
+
+    def declareSeam(self, chipA, dir4, chipB, ethx):
+        self.events.append(f"declare {chipA} {dir4} {chipB} {list(ethx)}")
+        if not 0 <= dir4 <= 3:
+            return "bad direction"
+        if chipA == chipB:
+            return "a seam needs two different chips"
+        cab = self.CABLING_EW if dir4 in (1, 3) else self.CABLING_NS
+        if not ethx or len(ethx) > 4 or len(set(ethx)) != len(ethx) \
+           or any(x not in cab for x in ethx):
+            return "a link is not in the cabling list for that direction"
+        for a, d, b, _x in self.decls:
+            if {a, b} == {chipA, chipB}:
+                return "seam already declared that way"
+        # a chip must not be deployed yet: CodeManager reads the mask at deploy
+        for c in (chipA, chipB):
+            bh = _QB.chips.get(c)
+            if bh is not None and bh.step >= Step.HAS_T6_CODE_DEPLOYED:
+                return f"MOCK: chip {c} already deployed; declare before deploy"
+        self.decls.append((chipA, dir4, chipB, list(ethx)))
+        return ""
+
+    def bringUpSeams(self, image, flags=2, ringCars=4, force=False, smoke=True):
+        self.events.append(f"bringUp {image}")
+        if not self.decls:
+            return "no seams declared"
+        fail = getattr(_mock, "ethseam_fail", "")
+        if fail:
+            return fail
+        if not os.path.isfile(image):
+            return f"cannot open E1 image {image}"
+        for a, _d, b, xs in self.decls:
+            for c in (a, b):
+                bh = _QB.chips.get(c)
+                if bh is None or bh.step < Step.HAS_T6_CODE_DEPLOYED:
+                    return f"MOCK: chip {c} T6 images not deployed yet"
+                if bh.step >= Step.HAS_T6_CODE_RUNNING:
+                    return f"MOCK: chip {c} T6s already released"
+            if len(xs) < 2:      # what the real planner/E1 does: > NCH_MAX channels
+                return "bh%d:eth%d: channel number 11 >= NCH_MAX" % (a, xs[0])
+        self.up = [(a, b, x) for a, _d, b, xs in self.decls for x in xs]
+        return ""
+
+    def tearDownAll(self):
+        self.events.append("tearDownAll")
+        self.up = []
+
+    def chipClosing(self, chip):
+        self.up = [u for u in self.up if chip not in (u[0], u[1])]
+
+    def status(self):
+        if not self.up:
+            return "no eth-seam links"
+        return "".join(f"link bh{a} <-> bh{b} eth{x} UP\n" for a, b, x in self.up)
+
+    def health(self, chip, ethx):
+        if not any(chip in (a, b) and ethx == x for a, b, x in self.up):
+            return {"ok": 0}
+        return {"ok": 1, "port": 1, "heartbeat": 1000 + chip, "retrain": 0,
+                "fecCorrected": 12345, "fecUncorrected": 0}
+
+
 # --------------------------------------------------------------------- phases
 class Step(enum.IntEnum):
     UNINITTED = 0
@@ -325,6 +412,7 @@ class Blackhole:
         self._change(Step.HAS_T6_CODE_RUNNING)
 
     def close(self):
+        EthSeamHost.get().chipClosing(self.chip)
         self._change(Step.HAS_CHIP_NUM)
 
     def monitorFleet(self):
@@ -456,6 +544,14 @@ class _QBAsync(_QBCore):
         self._closed = True
 
 
+class _QBFire(_QBAsync):
+    """The async API plus the non-blocking firePHASER the real QuietBox has;
+    machine.start() then takes its deploy / fire / release path (the one the
+    eth-seam hooks need)."""
+    def firePHASER(self, cmd, args=()):
+        return self.shootPHASER(cmd, args)
+
+
 class _QBLegacy(_QBCore):
     def shootPHASER(self, cmd, args=()):
         self._check_args(cmd, args)
@@ -469,7 +565,7 @@ class _QBLegacy(_QBCore):
         return None
 
 
-_QB = _QBAsync() if API == "async" else _QBLegacy()
+_QB = {"async": _QBAsync, "fire": _QBFire, "legacy": _QBLegacy}[API]()
 
 
 class QuietBox:

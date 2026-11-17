@@ -354,6 +354,8 @@ def main(argv=None):
     sh.command("chipreset", lambda a: m.reset_chips(), "chipreset: run 'tt-smi -r'")
     sh.command("init", lambda a: m.init_box(), "init: QuietBox.init() (starts the IHH/SuperCycle thread suspended)")
     sh.command("start", lambda a: m.start(), "start: startEWProcessing on every chip (walks all phases; can be slow)")
+    sh.command("seams", lambda a: m.seams_report(),
+               "seams: eth-seam declarations, link status and health counters")
     sh.command("stop", lambda a: m.stop(), "stop: stopEWProcessing (only on chips at event windows)")
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
     sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
