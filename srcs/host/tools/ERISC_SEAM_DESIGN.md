@@ -671,6 +671,29 @@ would show as a stuck channel with txfail or partial counts rising on ONE
 seam only; a wrong ordinal on one end would mis-land cars silently, which the
 native oracle (step 2) is there to prevent.
 
+STATUS 18c (2026-11-17): steps 1-5 IMPLEMENTED and native-tested, NOT yet run
+on hardware.  What was built (differs from the work list only in names):
+  - EthSeam.h PART 6: CentreWhich (CENTRE_FIRST, CENTRE_SECOND), channelsWith-
+    Centre(E) = 3E, sendsCentre / recvsCentre, prevCWDir4, assignCentre /
+    invertCentre (separate from assign / invert, which are unchanged),
+    centreEdge, centreRoute, recvCentre, centreSend (used by diagSend at a
+    card-corner hub) and centreForwardDest (the fallback of diagForwardDest).
+  - EthSeamHost.cpp: planChannel gives a centre channel LEG_OUT at the sending
+    end and LEG_IN_NOC at the receiving end only; planLinkLocked sizes the
+    channel list with the extras and refuses > NCH_MAX with a clear message;
+    closureErrorLocked refuses a layout whose seams do not close a square
+    ("seams do not close a square at chip N ...").
+  - Tests: ethseam_test.cpp check_centre (2x2 global grid oracle, exactly 8
+    boundary crossings, per-chip single sender corner and single forwarder,
+    all live-link counts 1..4); ethlinks_test.cpp check_centre_way (legs,
+    receiving node and storage) and test_planner_lshape (refusals).
+  - T6 images (hub, ewp) cross-build clean; no T6 .cpp changed.
+  - Not done: the content check (option (a)/(b)); census still cannot prove
+    a centre corner loaded, so the hardware verdict rests on the 'seams'
+    counters of the two extra channels per seam (one direction each).
+  With 4 links the extras sit at: E/W eth7 ch3 and eth10 ch3; N/S eth13 ch4
+  and eth3 ch5.
+
 ### Order and what I need from you
 a. 18a first (cheap, config only, exercises the untested N/S links and the
    parity), then 18b (the full array without centre diagonals, a real test of

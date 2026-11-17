@@ -179,6 +179,7 @@ namespace MFM {
                      std::string & err) ;
     std::string tearDownLinkLocked(u32 chipA, u32 chipB, u32 ethx) ;
     EthSeam::SeamTable tableLocked(u32 chip) ;
+    std::string closureErrorLocked() ;
 
     /// creates on first use; mMutex held
     EthPort * portFor(u32 chip, std::string & err) ;

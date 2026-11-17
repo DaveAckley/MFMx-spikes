@@ -775,6 +775,41 @@ static void test_planner_ns() {
 // together.  Every chip's HostBlock mask carries one E/W and one N/S nibble,
 // every seam's Dir4 and diagonal channels land on the right far hub, and a
 // seam with too few links is still refused.
+// The centre-diagonal extras of one seam, as planned: the sending end has
+// only LEG_OUT, the receiving end only LEG_IN_NOC, and the receiver was told
+// the far corner hub's NoC node and storage.
+static void check_centre_way(Fab & f,
+                             const EthSeam::SeamTable & sender,
+                             Dir4 d4,
+                             u32 sendChip,
+                             u32 recvChip) {
+  const CellShape & cell = CELL_C2X2;
+  u32 E = edgeHubCount(d4, cell);
+  CHECK(sendsCentre(sender, d4));
+  for (CentreWhich w : { CENTRE_FIRST, CENTRE_SECOND }) {
+    Assign a = { 0, 0 };
+    CHECK(assignCentre(E, sender.n[d4], w, a));
+    u32 ethx = sender.ethX[d4][a.link];
+    u32 cb = channelBlockAddr(a.channel);
+    CentreRoute r = { DIAG_FIRST_HOP, 0, 0, RECV_IHUB, 0 };
+    CHECK(centreRoute(d4, E, w, r));
+
+    u32 rx = 0;
+    u32 ry = 0;
+    CHECK(edgeHubCT6(oppositeDir4(d4), r.recvEdge, cell, rx, ry));
+    EthSeamHost::SeamHub hub;
+    std::string err;
+    CHECK(mockHub(recvChip, rx, ry, hub, err));
+    u32 node = ((u32) hub.noc0y << 6) | hub.noc0x;
+    u32 base = (r.recvBlock == RECV_CHUB ? hub.chubBase : hub.ihubBase)
+      + r.recvIndex * RING_BYTES;
+    CHECK(f.get(sendChip, ethx, cb + 4 * CW_LEGS) == LEG_OUT);
+    CHECK(f.get(recvChip, ethx, cb + 4 * CW_LEGS) == LEG_IN_NOC);
+    CHECK(f.get(recvChip, ethx, cb + 4 * CW_T6NODE) == node);
+    CHECK(f.get(recvChip, ethx, cb + 4 * CW_T6BASE) == base);
+  }
+}
+
 static void test_planner_four() {
   Fab f;
   for (u32 x : { 6u, 7u, 10u, 11u }) f.init(x, 1, 4);     // 0-1 and 2-3
@@ -816,8 +851,59 @@ static void test_planner_four() {
     check_one_diag_way(f, t[c], ewOf[c], c, ewPeer[c]);
     check_one_diag_way(f, t[c], nsOf[c], c, nsPeer[c]);
   }
+  // centre extras: chip c sends on whichever of its two seams has the other
+  // one clockwise of it, and exactly one of its seams does
+  for (u32 c = 0; c < 4; ++c) {
+    bool sendEW = sendsCentre(t[c], ewOf[c]);
+    bool sendNS = sendsCentre(t[c], nsOf[c]);
+    CHECK(sendEW != sendNS);
+    if (sendEW) check_centre_way(f, t[c], ewOf[c], c, ewPeer[c]);
+    if (sendNS) check_centre_way(f, t[c], nsOf[c], c, nsPeer[c]);
+  }
+  // 0 -> 1 east, 1 -> 3 south, 3 -> 2 west, 2 -> 0 north
+  CHECK(sendsCentre(t[0], D4_E));
+  CHECK(sendsCentre(t[1], D4_S));
+  CHECK(sendsCentre(t[3], D4_W));
+  CHECK(sendsCentre(t[2], D4_N));
   h.tearDownAll();
   CHECK(h.status() == "no eth-seam links");
+  h.clearSeams();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.setPortFactory(nullptr);
+}
+
+// An L of three chips (0-1 east, 0-2 south, no 1-3 or 2-3) must be REFUSED:
+// chip 0's corner car would make its first hop and then have nowhere to go.
+static void test_planner_lshape() {
+  Fab f;
+  for (u32 x : { 6u, 7u, 10u, 11u }) f.init(x, 1, 4);
+  for (u32 x : { 3u, 4u, 12u, 13u }) f.init(x, 2, 4);
+  EthSeamHost & h = EthSeamHost::get();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.clearSeams();
+  h.setPortFactory([&f](u32 chip, std::string &)
+                   -> std::unique_ptr<EthPort> {
+    return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+  });
+  h.setHubLookup(mockHub);
+  CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
+  CHECK(h.declareSeam(0, D4_S, 2, { 3, 4, 12, 13 }).empty());
+  std::string why = h.bringUpSeams(IMAGE, 2, 4, false, true);
+  CHECK(why.find("close a square at chip 0") != std::string::npos);
+  CHECK(h.status() == "no eth-seam links");
+  // closing the square makes it acceptable
+  CHECK(h.declareSeam(1, D4_S, 3, { 3, 4, 12, 13 }).empty());
+  CHECK(h.declareSeam(2, D4_E, 3, { 6, 7, 10, 11 }).empty());
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).empty());
+  h.tearDownAll();
+  // a mis-closed square: 3 sits east of 2 but 1's south neighbor is 2
+  h.clearSeams();
+  CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
+  CHECK(h.declareSeam(0, D4_S, 2, { 3, 4, 12, 13 }).empty());
+  CHECK(h.declareSeam(1, D4_S, 3, { 3, 4, 12, 13 }).empty());
+  CHECK(h.declareSeam(3, D4_E, 2, { 6, 7, 10, 11 }).empty());
+  why = h.bringUpSeams(IMAGE, 2, 4, false, true);
+  CHECK(why.find("close a square") != std::string::npos);
   h.clearSeams();
   for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
   h.setPortFactory(nullptr);
@@ -836,6 +922,7 @@ int main() {
   test_planner();
   test_planner_ns();
   test_planner_four();
+  test_planner_lshape();
 
   printf("%zu log lines; %s\n",
          logs.size(),

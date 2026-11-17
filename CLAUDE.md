@@ -86,10 +86,13 @@ no TIMEOUT (stale centre corners do not hang), cars out == in == noc.
 (Never kill a run with -9: a hung mfmxctl blocks tt-smi and can leave a link
 untrained.  Use `quit`, or SIGTERM from another terminal.)
 
-NEXT: slice 3c (centre diagonals through the middle chip).  SCOPED, not
-started (waiting for a go-ahead): ERISC_SEAM_DESIGN.md section 18c SCOPE v2
-(one-way clockwise extras, 2 extra channels per seam, header-only T6 change,
-host refuses non-closed squares, one verification decision pending).
+PROVEN-IN-NATIVE-TESTS, NOT YET ON HARDWARE: slice 3c (centre diagonals
+through the middle chip): EthSeam.h PART 6, EthSeamHost one-way centre
+channels and the closed-square check (ERISC_SEAM_DESIGN.md section 18c).  The
+T6 images need a rebuild (header only).  Next: run seam4.cmd on the QB; expect
+everything of the 3b run plus the two extra channels per seam moving cars one
+way each (see the header of config/seam4.cmd).  Later: a content-hash slice
+to prove atom contents match across seams and through the centre.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan

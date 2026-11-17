@@ -276,31 +276,97 @@ namespace MFM {
       err = "internal: seam ends disagree (diagonal)";
       return false;
     }
-    if (!dB) return false;
-    SeamHub hubA;
-    SeamHub hubB;
-    if (!mHubLookup(a, atA.recvCT6x, atA.recvCT6y, hubA, err)) {
-      return false;
+    if (!dB) {
+      // Not an ordinary storage: a centre-diagonal extra?  Those run
+      // in ONE direction only, so each end gets only the leg it uses
+      // (EthSeam.h PART 6).
+      dB = EthSeam::recvCentre(ta, dirAB, link, c, cell, atB);
+      dA = EthSeam::recvCentre(tb, dirBA, link, c, cell, atA);
+      if (dA == dB) {
+        if (dA) err = "internal: centre channel runs both ways";
+        return false;
+      }
+      ca.legs = dA ? EthSeam::LEG_IN_NOC : EthSeam::LEG_OUT;
+      cb.legs = dB ? EthSeam::LEG_IN_NOC : EthSeam::LEG_OUT;
     }
-    if (!mHubLookup(b, atB.recvCT6x, atB.recvCT6y, hubB, err)) {
-      return false;
-    }
-    auto base = [&](const SeamHub & h, const EthSeam::RecvDiag & r) {
-      return r.recvBlock == EthSeam::RECV_CHUB ? h.chubBase : h.ihubBase;
+    // The end that receives needs its hub; the sending end of a
+    // one-way channel has no T6 target.
+    bool recvA = dA && (ca.legs & EthSeam::LEG_IN_NOC);
+    bool recvB = dB && (cb.legs & EthSeam::LEG_IN_NOC);
+    auto fill = [&](u32 chip,
+                    const EthSeam::RecvDiag & r,
+                    EthChannel & ch) {
+      SeamHub hub;
+      if (!mHubLookup(chip, r.recvCT6x, r.recvCT6y, hub, err)) {
+        return false;
+      }
+      u32 base =
+        r.recvBlock == EthSeam::RECV_CHUB ? hub.chubBase : hub.ihubBase;
+      if (base == 0u) {
+        err = "hub image has no BC_CORNERHUB block (diagonal channel)";
+        return false;
+      }
+      ch.t6x = hub.noc0x;
+      ch.t6y = hub.noc0y;
+      ch.t6Base = base + r.recvIndex * EthSeam::RING_BYTES;
+      return true;
     };
-    u32 baseA = base(hubA, atA);
-    u32 baseB = base(hubB, atB);
-    if (baseA == 0u || baseB == 0u) {
-      err = "hub image has no BC_CORNERHUB block (diagonal channel)";
-      return false;
-    }
-    ca.t6x = hubA.noc0x;
-    ca.t6y = hubA.noc0y;
-    ca.t6Base = baseA + atA.recvIndex * EthSeam::RING_BYTES;
-    cb.t6x = hubB.noc0x;
-    cb.t6y = hubB.noc0y;
-    cb.t6Base = baseB + atB.recvIndex * EthSeam::RING_BYTES;
+    if (recvA && !fill(a, atA, ca)) return false;
+    if (recvB && !fill(b, atB, cb)) return false;
     return true;
+  }
+
+  /** The centre diagonals need a CLOSED square: if chip X has a seam
+      to Y and a perpendicular seam to Z, then Y must have the matching
+      perpendicular seam to some W and Z the matching seam to that same
+      W.  Otherwise a corner car makes its first hop and the hub there
+      has nowhere to forward it, and the phase hangs.  Uses only the
+      declarations.  "" if fine, else a message naming the chip. */
+  std::string EthSeamHost::closureErrorLocked() {
+    auto nb = [&](u32 chip, Dir4 d, u32 & out) {
+      for (const Decl & x : mDecls) {
+        if (x.chipA == chip && x.dir4 == (u32) d) {
+          out = x.chipB;
+          return true;
+        }
+        if (x.chipB == chip && oppositeDir4((Dir4) x.dir4) == d) {
+          out = x.chipA;
+          return true;
+        }
+      }
+      return false;
+    };
+    for (const Decl & x : mDecls) {
+      u32 chips[2] = { x.chipA, x.chipB };
+      for (u32 chip : chips) {
+        for (Dir4 h : { D4_E, D4_W }) {
+          for (Dir4 v : { D4_N, D4_S }) {
+            u32 y = 0;
+            u32 z = 0;
+            if (!nb(chip, h, y) || !nb(chip, v, z)) continue;
+            u32 w1 = 0;
+            u32 w2 = 0;
+            bool have1 = nb(y, v, w1);
+            bool have2 = nb(z, h, w2);
+            if (!have1 || !have2 || w1 != w2) {
+              return "seams do not close a square at chip "
+                + std::to_string(chip)
+                + " (it has a "
+                + std::string(dir4ToByteString(h))
+                + " seam to chip " + std::to_string(y)
+                + " and a "
+                + std::string(dir4ToByteString(v))
+                + " seam to chip " + std::to_string(z)
+                + ", but chips " + std::to_string(y)
+                + " and " + std::to_string(z)
+                + " do not meet at a fourth chip): declare the"
+                  " missing seams or remove one of these";
+            }
+          }
+        }
+      }
+    }
+    return "";
   }
 
   std::string EthSeamHost::planLinkLocked(u32 chipA,
@@ -329,6 +395,8 @@ namespace MFM {
       }
     }
     if (!decl) return "no seam declared between those chips";
+    std::string open = closureErrorLocked();
+    if (!open.empty()) return open;
 
     Dir4 dirAB = (Dir4) decl->dir4;
     EthSeam::SeamTable ta = tableLocked(a);
@@ -355,8 +423,19 @@ namespace MFM {
 
     const EthSeam::CellShape & cell = EthSeam::CELL_C2X2;
     u32 E = EthSeam::edgeHubCount(dirAB, cell);
+    bool centre =
+      EthSeam::sendsCentre(ta, dirAB) ||
+      EthSeam::sendsCentre(tb, oppositeDir4(dirAB));
     u32 nch = EthSeam::maxChannelsPerLink(
-        EthSeam::channelsTwoCards(E), links);
+        centre ? EthSeam::channelsWithCentre(E)
+               : EthSeam::channelsTwoCards(E),
+        links);
+    if (nch > EthSeam::NCH_MAX) {
+      return "too many channels per link for this E1 ("
+        + std::to_string(nch) + " > NCH_MAX "
+        + std::to_string(EthSeam::NCH_MAX)
+        + "): use more links on this seam";
+    }
     for (u32 c = 0; c < nch; ++c) {
       EthChannel ca;
       EthChannel cb;

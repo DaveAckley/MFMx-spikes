@@ -82,7 +82,10 @@ def main(argv):
         if seamdirs:
             # a hub on two seam edges (a card corner of the 2x2 array) has
             # one CENTRE corner cache (e.g. SE for E+S): the diagonal across
-            # the array centre, not wired until slice 3c, so not judged
+            # the array centre (wired since slice 3c).  NOT judged: caches
+            # facing off the array are non-empty too, so a nonzero count
+            # cannot prove the centre diagonal delivered anything; the
+            # 'seams' channel counters (the two extra channels per seam) do
             centre = set()
             if len(seamdirs) == 2:
                 centre = set(FACING[seamdirs[0]]) & set(FACING[seamdirs[1]])
