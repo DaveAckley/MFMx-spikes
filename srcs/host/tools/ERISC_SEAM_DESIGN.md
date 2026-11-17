@@ -386,3 +386,56 @@ across a live seam.  NOT yet run on hardware.
 Next: slice 2, the diagonal seam crossings (corner-hub first hop and CHUB
 forwarder second hop, SLOT_DIAG channels, planner support), then slice 3, the
 N/S seam and the 2x2 chip array.
+
+## 17. Slice 2 plan: the diagonal crossings (2026-11-17)
+
+Status: the ROUTING is done and tested (EthSeam.h PART 5: diagRoute,
+diagForwarderSlot, alongEdge, cornerOf; checked in ethseam_test.cpp against an
+oracle that runs InterHub.cpp's own two-hop arithmetic over a global hub grid
+and records every hop that crosses the chip boundary, for all four seam
+directions).  Nothing below is wired in the T6 images or the host yet.
+
+What the oracle established.  A corner car makes two hops (hop 1: the source hub
+H's endpoint ships to the CHUB block `b` of hub P, the hub CCW of the corner; hop
+2: P's forwarder ships to the final hub F).  At a seam exactly one hop crosses:
+- DIAG_FIRST_HOP (P is across): H's own endpoint writes to the E1; it lands in
+  P's BC_CORNERHUB block, index = the seam direction as a Dir4.  East seam: the
+  SE corner (slot HI).  West seam: NW (LO).  South seam: SW (LO).  North seam:
+  NE (HI).
+- DIAG_SECOND_HOP (P is the next hub along the edge): P's forwarder writes to the
+  E1; it lands in F's InterHub storage at the corner index
+  dir8ToCWDir8(dir4ToDir8(opposite(b))).  East seam: NE (LO), West: SW (HI),
+  South: SE (HI), North: NW (LO).
+- 2(E-1) diagonals per direction: 8 on the 5-hub E/W seam, 12 on the 7-hub N/S
+  seam, as the section 4 table says.  Each is named by the SOURCE hub's edge
+  index and slot, so PART 2's dealing applies unchanged; the forwarder finds its
+  channel through diagForwarderSlot (exactly one of a hub's four CHUB blocks ships
+  across a given seam).
+
+To wire it (in this order; each step checked natively before the next):
+1. Planner (host): HubLookup also returns the hub's BC_CORNERHUB base; planLink
+   adds a channel per diagonal slot: first-hop channels land in a CHUB block
+   (base + recvIndex * storage size), second-hop channels in an IHUB corner
+   storage.  Extend ethlinks_test.cpp's mock fabric check the same way as for
+   Dir4.  Channel counts with Dir4 + diagonals, balanced over L links: E/W (13
+   storages) L=4: 4 channels per link, L=2: 7, L=1: 13 (> NCH_MAX 8, refused);
+   N/S (19 storages) L=4: 5, L=3: 7, L=2: 10 (> 8, refused unless the E1 image is
+   rebuilt with ETHSEAM_NCH_MAX >= 10).  So the N/S seam needs three or more live
+   links with the current image.
+2. InterHub.cpp, endpoint setup: a corner whose FINAL hub is off the card is
+   skipped today by the "final dest exists" test.  Make that test seam-aware (the
+   same diagRoute): first-hop crossings configure the endpoint toward the E1
+   (configureDest ETH branch, dest EPA {BC_CORNERHUB, recvIndex}; the storage
+   sizes are equal, so its RING_BYTES assert holds); second-hop crossings keep
+   the normal on-card first hop to P's CHUB.
+3. InterHub.cpp, manageCornerHubNC: the forwarder's open() fails off the card.
+   Add the seam variant: when diagForwarderSlot says this block ships across,
+   write to outCarAddr(channel, carindex) with NRI3::initiateWriteToEthL1 instead
+   of the on-card IHUB address (CornerHubStateNC gets the ETH tile and channel).
+4. configureCacheLoaders: enable the corner loaders across the seam where
+   diagRoute exists (today only Dir4; diagonals `continue`).
+5. Hardware: seamcycle.cmd again; corner caches next to the seam should now fill
+   (atom census .an/.ae), counters on the diagonal channels move.
+
+Open question to settle first: both hops crossing at a card corner shared by two
+seams (the 2x2 array, slice 3); diagRoute returns false there by design.

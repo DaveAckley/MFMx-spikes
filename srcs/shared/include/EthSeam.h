@@ -53,23 +53,18 @@ namespace MFM {
     static constexpr u32 NCH_MAX = 8u;
 #endif
 
-    /// one car (InterHubBlock) 4160 B
-    static constexpr u32 CAR_BYTES = 0x1040u;
+    static constexpr u32 CAR_BYTES = 0x1040u; //< one car (InterHubBlock)
 
-    /// cars per ring (InterHubStorage)
-    static constexpr u32 RING_CARS = 4u;
+    static constexpr u32 RING_CARS = 4u;      //< cars per ring
 
-    /// 0x4100
-    static constexpr u32 RING_BYTES = RING_CARS * CAR_BYTES;
+    static constexpr u32 RING_BYTES = RING_CARS * CAR_BYTES; //< 0x4100
 
-    /// bytes per TT-link packet (E1 splits cars into these)
+    // bytes per TT-link packet (E1 splits cars into these)
     static constexpr u32 CHUNK_BYTES = 1456u;
 
-    /// E1 image load address in ETH L1
-    static constexpr u32 E1_CODE = 0x4000u;
+    static constexpr u32 E1_CODE = 0x4000u;  //< E1 image address, ETH L1
 
-    /// E1 control block
-    static constexpr u32 CTL_BASE = 0x8000u;
+    static constexpr u32 CTL_BASE = 0x8000u; //< E1 control block
 
     static constexpr u32 CHANNEL_BLOCK0 = CTL_BASE + 0x100u;
     static constexpr u32 CHANNEL_BLOCK_STRIDE = 0x80u;
@@ -122,8 +117,7 @@ namespace MFM {
       SLOT_DIAG_HI = 2
     };
 
-    /// live links per seam (QuietBox: 4)
-    static constexpr u32 MAX_LINKS = 4u;
+    static constexpr u32 MAX_LINKS = 4u;     //< live links per seam
 
     /** Board size in compact T6 coordinates and the edge-hub counts
         per cell size.  A cell is cw x ch T6s with ONE hub in it (the
@@ -182,11 +176,8 @@ namespace MFM {
     }
 
     struct Assign {
-      /// link index into the seam's live list (0..L-1)
-      u8 link;
-
-      /// channel number on that link's E1
-      u8 channel;
+      u8 link;                  //< index into the seam's live list (0..L-1)
+      u8 channel;               //< channel number on that link's E1
     };
 
     /** BALANCED DEALING: deal the canonical ordinals round-robin
@@ -543,6 +534,127 @@ namespace MFM {
       out.recvCT6y = (u8) y;
       out.recvDir8 = (u8) dir4ToDir8(back);
       return true;
+    }
+
+    //// PART 5: diagonal crossings ////////////////////////////////////
+    //
+    // A car for a diagonal neighbor (a corner Dir8) travels in two hops
+    // (InterHub.cpp, manageInterHubNC and manageCornerHubNC):
+    //
+    //   hop 1: the source hub H's endpoint ships to the BC_CORNERHUB
+    //          block 'b' of hub P, the hub next to H in the Dir4
+    //          direction counter-clockwise of the corner;
+    //   hop 2: P's corner-hub forwarder for block b ships to the final
+    //          hub F, the hub diagonal to H, into F's InterHub storage
+    //          with a corner index.
+    //
+    // At a seam, exactly one of the two hops crosses:
+    //   DIAG_FIRST_HOP   P is across the seam: H's own endpoint writes to
+    //                    the E1, which lands in P's CHUB block.
+    //   DIAG_SECOND_HOP  P is the next hub along the edge on this card
+    //                    and F is across: P's forwarder writes to the E1,
+    //                    which lands in F's InterHub storage.
+    // (Both can cross only at a card corner shared by two seams; that
+    // case is not handled here.)
+    //
+    // Each such crossing is one directed storage and needs one channel.
+    // It is named by the SOURCE hub's edge index e and slot (SLOT_DIAG_LO
+    // is the corner toward edge index e-1, SLOT_DIAG_HI toward e+1), so
+    // the dealing in PART 2 applies unchanged; the T6 that physically
+    // writes to the E1 (H, or P for the second hop) finds its channel
+    // through diagForwarderSlot or its own slot.  Which of LO / HI is
+    // the first hop depends on the seam direction: on an east seam LO is
+    // the second hop and HI the first, on a west seam the reverse.
+
+    enum DiagHop : u8 {
+      DIAG_FIRST_HOP = 0,       //< the source hub's own endpoint crosses
+      DIAG_SECOND_HOP = 1       //< the neighbor hub's forwarder crosses
+    };
+
+    enum RecvBlock : u8 {
+      RECV_IHUB = 0,            //< lands in a hub's InterHub storage
+      RECV_CHUB = 1             //< lands in a hub's corner-hub block
+    };
+
+    struct DiagRoute {
+      DiagHop hop;
+      u8 srcDir8;               //< the source endpoint: a corner Dir8
+      u8 crossEdge;             //< edge index, this card, of the hub whose
+                                //  T6 writes to the E1
+      u8 recvEdge;              //< edge index, far card, of the receiver
+      RecvBlock recvBlock;
+      u8 recvIndex;             //< storage index: Dir4 for CHUB blocks,
+                                //  Dir8 for InterHub storages
+    };
+
+    /// The Dir4 along the card edge that SLOT_DIAG_LO / HI points toward
+    inline Dir4 alongEdge(Dir4 seam, Slot s) {
+      bool eastWest = (seam == D4_E || seam == D4_W);
+      if (s == SLOT_DIAG_LO) return eastWest ? D4_N : D4_W;
+      return eastWest ? D4_S : D4_E;
+    }
+
+    /// The corner Dir8 between two orthogonal Dir4 directions
+    inline Dir8 cornerOf(Dir4 a, Dir4 b) {
+      u32 da = (u32) dir4ToDir8(a);
+      u32 db = (u32) dir4ToDir8(b);
+      u32 sum = da + db;
+      u32 diff = da > db ? da - db : db - da;
+      return (Dir8) ((diff == 6u ? (sum + 8u) / 2u : sum / 2u) & 7u);
+    }
+
+    /** The route of the diagonal crossing named by (seam direction, edge
+        index e, slot) on a seam with E edge hubs.  False for SLOT_DIR4
+        or a slot that does not exist. */
+    inline bool diagRoute(Dir4 seam,
+                          u32 E,
+                          u32 e,
+                          Slot s,
+                          DiagRoute & out) {
+      if (s == SLOT_DIR4 || !slotExists(E, e, s)) return false;
+      Dir4 along = alongEdge(seam, s);
+      Dir8 corner = cornerOf(seam, along);
+      Dir8 first = dir8CornerToCCWDir8Edge(corner);
+      u32 eNext = (s == SLOT_DIAG_LO) ? e - 1u : e + 1u;
+
+      out.srcDir8 = (u8) corner;
+      if (first == dir4ToDir8(seam)) {
+        // P is across the seam: the source endpoint crosses
+        out.hop = DIAG_FIRST_HOP;
+        out.crossEdge = (u8) e;
+        out.recvEdge = (u8) e;
+        out.recvBlock = RECV_CHUB;
+        out.recvIndex = (u8) dir8ToDir4CW(first);
+        return true;
+      }
+      // P is the next hub along the edge: its forwarder crosses
+      Dir4 block = dir8ToDir4CW(first);
+      if (nextCWDir4(block) != seam) return false;
+      out.hop = DIAG_SECOND_HOP;
+      out.crossEdge = (u8) eNext;
+      out.recvEdge = (u8) eNext;
+      out.recvBlock = RECV_IHUB;
+      out.recvIndex =
+        (u8) dir8ToCWDir8(dir4ToDir8(oppositeDir4(block)));
+      return true;
+    }
+
+    /** For the corner-hub forwarder of block 'block' at the hub with edge
+        index eP: if it ships across the seam toward 'seam', the source
+        hub's edge index and slot, which name its channel.  False if that
+        forwarder does not ship across this seam. */
+    inline bool diagForwarderSlot(Dir4 seam,
+                                  u32 E,
+                                  u32 eP,
+                                  Dir4 block,
+                                  u32 & eSrc,
+                                  Slot & s) {
+      if (nextCWDir4(block) != seam) return false;
+      bool lowSide = (block == D4_N || block == D4_W);
+      s = lowSide ? SLOT_DIAG_LO : SLOT_DIAG_HI;
+      eSrc = lowSide ? eP + 1u : eP - 1u;
+      if (!lowSide && eP == 0u) return false;
+      return slotExists(E, eSrc, s);
     }
 
   } // namespace EthSeam
