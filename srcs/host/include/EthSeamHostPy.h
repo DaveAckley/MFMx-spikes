@@ -134,6 +134,9 @@ namespace MFM {
       hub.noc0x = noc0.x;
       hub.noc0y = noc0.y;
       hub.ihubBase = iba->getBlockAddr();
+      ImageBlockAddr * cba =
+        img->getImageBlockAddrForBlockCodeIfAny(BC_CORNERHUB);
+      hub.chubBase = cba ? cba->getBlockAddr() : 0u;
       return true;
     }
 

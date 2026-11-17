@@ -40,6 +40,8 @@ namespace MFM {
       u8 noc0x;                 //< hub T6 NoC0 x
       u8 noc0y;                 //< hub T6 NoC0 y
       u32 ihubBase;             //< L1 address of its BC_INTERHUB blocks
+      u32 chubBase = 0;         //< L1 address of its BC_CORNERHUB blocks
+                                //  (0 if the image has none)
     };
 
     /** Find the hub at CT6 (ct6x, ct6y) of a chip: its NoC0 and the
@@ -165,6 +167,16 @@ namespace MFM {
                                u32 ringCars,
                                EthChannelSetup & setupA,
                                EthChannelSetup & setupB) ;
+    bool planChannel(u32 a,
+                     u32 b,
+                     const EthSeam::SeamTable & ta,
+                     const EthSeam::SeamTable & tb,
+                     Dir4 dirAB,
+                     u32 link,
+                     u32 c,
+                     EthChannel & ca,
+                     EthChannel & cb,
+                     std::string & err) ;
     std::string tearDownLinkLocked(u32 chipA, u32 chipB, u32 ethx) ;
     EthSeam::SeamTable tableLocked(u32 chip) ;
 

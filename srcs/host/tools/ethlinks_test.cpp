@@ -194,6 +194,7 @@ static bool mockHub(u32 chip,
   hub.noc0x = noc0.x;
   hub.noc0y = noc0.y;
   hub.ihubBase = 0x40000u + 0x10u * (x + 16u * y) + 0x1000u * chip;
+  hub.chubBase = hub.ihubBase + 0x8000u;
   return true;
 }
 
@@ -546,6 +547,50 @@ static void test_declare_seam() {
 
 // ---- 8. planner: one real E/W seam, 4 links, chips 0 (west) and 1 ----
 
+// Every diagonal crossing of the E/W seam, both ways: the E1 on the
+// RECEIVING card must have been told the receiving hub's NoC node and
+// the right storage (a corner-hub block, or an InterHub corner index).
+static void check_one_diag_way(Fab & f,
+                               const EthSeam::SeamTable & sender,
+                               Dir4 d4,
+                               u32 sendChip) {
+  const CellShape & cell = CELL_C2X2;
+  u32 E = edgeHubCount(d4, cell);
+  u32 recvChip = 1u - sendChip;
+  u32 seen = 0;
+  for (u32 e = 0; e < E; ++e) {
+    for (Slot s : { SLOT_DIAG_LO, SLOT_DIAG_HI }) {
+      DiagRoute r;
+      if (!diagRoute(d4, E, e, s, r)) continue;
+      Assign a = { 0, 0 };
+      CHECK(assign(E, sender.n[d4], e, s, a));
+      u32 ethx = sender.ethX[d4][a.link];
+      u32 cb = channelBlockAddr(a.channel);
+
+      u32 rx = 0;
+      u32 ry = 0;
+      CHECK(edgeHubCT6(oppositeDir4(d4), r.recvEdge, cell, rx, ry));
+      EthSeamHost::SeamHub hub;
+      std::string err;
+      CHECK(mockHub(recvChip, rx, ry, hub, err));
+      u32 node = ((u32) hub.noc0y << 6) | hub.noc0x;
+      u32 base = (r.recvBlock == RECV_CHUB ? hub.chubBase : hub.ihubBase)
+        + r.recvIndex * RING_BYTES;
+      CHECK(f.get(recvChip, ethx, cb + 4 * CW_T6NODE) == node);
+      CHECK(f.get(recvChip, ethx, cb + 4 * CW_T6BASE) == base);
+      ++seen;
+    }
+  }
+  CHECK(seen == 2 * (E - 1));
+}
+
+static void check_planned_diagonals(Fab & f,
+                                    const EthSeam::SeamTable & west,
+                                    const EthSeam::SeamTable & east) {
+  check_one_diag_way(f, west, D4_E, 0);
+  check_one_diag_way(f, east, D4_W, 1);
+}
+
 static void test_planner() {
   Fab f;
   const u32 xs[4] = { 6, 7, 10, 11 };
@@ -640,6 +685,7 @@ static void test_planner() {
     CHECK(back.ethx == d.ethx);
     CHECK(back.channel == d.channel);
   }
+  check_planned_diagonals(f, west, east);
   h.tearDownAll();
   CHECK(h.status() == "no eth-seam links");
 

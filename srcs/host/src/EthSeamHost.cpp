@@ -223,6 +223,86 @@ namespace MFM {
                           setupB);
   }
 
+  /** One channel of one link, both ends: ca describes where cars
+      arriving at card a land (sent from b), cb the reverse.  False
+      with empty err if the channel is unused. */
+  bool EthSeamHost::planChannel(u32 a,
+                                u32 b,
+                                const EthSeam::SeamTable & ta,
+                                const EthSeam::SeamTable & tb,
+                                Dir4 dirAB,
+                                u32 link,
+                                u32 c,
+                                EthChannel & ca,
+                                EthChannel & cb,
+                                std::string & err) {
+    const EthSeam::CellShape & cell = EthSeam::CELL_C2X2;
+    Dir4 dirBA = oppositeDir4(dirAB);
+    ca.channel = (u8) c;
+    ca.legs = EthSeam::LEG_OUT | EthSeam::LEG_IN_NOC;
+    cb = ca;
+
+    EthSeam::RecvDir4 atB4;
+    EthSeam::RecvDir4 atA4;
+    bool toB = EthSeam::recvDir4(ta, dirAB, link, c, cell, atB4);
+    bool toA = EthSeam::recvDir4(tb, dirBA, link, c, cell, atA4);
+    if (toB != toA) {
+      err = "internal: seam ends disagree";
+      return false;
+    }
+    if (toB) {
+      SeamHub hubA;
+      SeamHub hubB;
+      if (!mHubLookup(a, atA4.recvCT6x, atA4.recvCT6y, hubA, err)) {
+        return false;
+      }
+      if (!mHubLookup(b, atB4.recvCT6x, atB4.recvCT6y, hubB, err)) {
+        return false;
+      }
+      ca.t6x = hubA.noc0x;
+      ca.t6y = hubA.noc0y;
+      ca.t6Base = hubA.ihubBase + atA4.recvDir8 * EthSeam::RING_BYTES;
+      cb.t6x = hubB.noc0x;
+      cb.t6y = hubB.noc0y;
+      cb.t6Base = hubB.ihubBase + atB4.recvDir8 * EthSeam::RING_BYTES;
+      return true;
+    }
+
+    EthSeam::RecvDiag atB;
+    EthSeam::RecvDiag atA;
+    bool dB = EthSeam::recvDiag(ta, dirAB, link, c, cell, atB);
+    bool dA = EthSeam::recvDiag(tb, dirBA, link, c, cell, atA);
+    if (dB != dA) {
+      err = "internal: seam ends disagree (diagonal)";
+      return false;
+    }
+    if (!dB) return false;
+    SeamHub hubA;
+    SeamHub hubB;
+    if (!mHubLookup(a, atA.recvCT6x, atA.recvCT6y, hubA, err)) {
+      return false;
+    }
+    if (!mHubLookup(b, atB.recvCT6x, atB.recvCT6y, hubB, err)) {
+      return false;
+    }
+    auto base = [&](const SeamHub & h, const EthSeam::RecvDiag & r) {
+      return r.recvBlock == EthSeam::RECV_CHUB ? h.chubBase : h.ihubBase;
+    };
+    u32 baseA = base(hubA, atA);
+    u32 baseB = base(hubB, atB);
+    if (baseA == 0u || baseB == 0u) {
+      err = "hub image has no BC_CORNERHUB block (diagonal channel)";
+      return false;
+    }
+    ca.t6x = hubA.noc0x;
+    ca.t6y = hubA.noc0y;
+    ca.t6Base = baseA + atA.recvIndex * EthSeam::RING_BYTES;
+    cb.t6x = hubB.noc0x;
+    cb.t6y = hubB.noc0y;
+    cb.t6Base = baseB + atB.recvIndex * EthSeam::RING_BYTES;
+    return true;
+  }
+
   std::string EthSeamHost::planLinkLocked(u32 chipA,
                                           u32 chipB,
                                           u32 ethx,
@@ -251,7 +331,6 @@ namespace MFM {
     if (!decl) return "no seam declared between those chips";
 
     Dir4 dirAB = (Dir4) decl->dir4;
-    Dir4 dirBA = oppositeDir4(dirAB);
     EthSeam::SeamTable ta = tableLocked(a);
     EthSeam::SeamTable tb = tableLocked(b);
     u32 links = ta.n[dirAB];
@@ -279,36 +358,17 @@ namespace MFM {
     u32 nch = EthSeam::maxChannelsPerLink(
         EthSeam::channelsTwoCards(E), links);
     for (u32 c = 0; c < nch; ++c) {
-      EthSeam::RecvDir4 atB;
-      EthSeam::RecvDir4 atA;
-      bool toB = EthSeam::recvDir4(ta, dirAB, link, c, cell, atB);
-      bool toA = EthSeam::recvDir4(tb, dirBA, link, c, cell, atA);
-      if (toB != toA) return "internal: seam ends disagree";
-      if (!toB) continue;
-
-      std::string err;
-      SeamHub hubA;
-      SeamHub hubB;
-      if (!mHubLookup(a, atA.recvCT6x, atA.recvCT6y, hubA, err)) {
-        return err;
-      }
-      if (!mHubLookup(b, atB.recvCT6x, atB.recvCT6y, hubB, err)) {
-        return err;
-      }
       EthChannel ca;
-      ca.channel = (u8) c;
-      ca.legs = EthSeam::LEG_OUT | EthSeam::LEG_IN_NOC;
-      ca.t6x = hubA.noc0x;
-      ca.t6y = hubA.noc0y;
-      ca.t6Base = hubA.ihubBase + atA.recvDir8 * EthSeam::RING_BYTES;
-      EthChannel cb = ca;
-      cb.t6x = hubB.noc0x;
-      cb.t6y = hubB.noc0y;
-      cb.t6Base = hubB.ihubBase + atB.recvDir8 * EthSeam::RING_BYTES;
+      EthChannel cb;
+      std::string err;
+      if (!planChannel(a, b, ta, tb, dirAB, link, c, ca, cb, err)) {
+        if (!err.empty()) return err;
+        continue;               // channel unused
+      }
       sa.channels.push_back(ca);
       sb.channels.push_back(cb);
     }
-    if (sa.channels.empty()) return "no Dir4 channel on that link";
+    if (sa.channels.empty()) return "no channel on that link";
 
     // Hand back in the caller's order.
     if (a == chipA) {

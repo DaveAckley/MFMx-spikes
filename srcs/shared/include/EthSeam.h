@@ -657,5 +657,42 @@ namespace MFM {
       return slotExists(E, eSrc, s);
     }
 
+    /** Host side: like recvDir4, for a channel that carries a diagonal
+        crossing.  The receiving hub is on the far card at edge index
+        route.recvEdge; recvBlock says whether the E1 there writes into
+        its InterHub storage (recvIndex = Dir8 index) or into its
+        BC_CORNERHUB block (recvIndex = Dir4 index).  False if the
+        channel is unused or carries a Dir4. */
+    struct RecvDiag {
+      u8 recvCT6x;              //< receiving hub, CT6 x
+      u8 recvCT6y;              //< receiving hub, CT6 y
+      RecvBlock recvBlock;      //< which block type receives
+      u8 recvIndex;             //< Dir8 (IHUB) or Dir4 (CHUB) index
+    };
+    inline bool recvDiag(const SeamTable & sender,
+                         Dir4 d4,
+                         u32 link,
+                         u32 channel,
+                         const CellShape & c,
+                         RecvDiag & out) {
+      if (d4 > 3u) return false;
+      u32 e = 0u;
+      Slot s = SLOT_DIR4;
+      u32 E = edgeHubCount(d4, c);
+      if (!invert(E, sender.n[d4], link, channel, e, s)) return false;
+      DiagRoute r;
+      if (!diagRoute(d4, E, e, s, r)) return false;
+      u32 x = 0u;
+      u32 y = 0u;
+      if (!edgeHubCT6(oppositeDir4(d4), r.recvEdge, c, x, y)) {
+        return false;
+      }
+      out.recvCT6x = (u8) x;
+      out.recvCT6y = (u8) y;
+      out.recvBlock = r.recvBlock;
+      out.recvIndex = r.recvIndex;
+      return true;
+    }
+
   } // namespace EthSeam
 } // namespace MFM
