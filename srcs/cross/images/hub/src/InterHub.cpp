@@ -75,6 +75,56 @@ namespace MFM {
     return true;
   }
 
+  /* Odd Dir8 (a corner) whose FINAL hub is on another card.  If a
+     live seam leads there (diagSend), the corner's cars cross it:
+
+     DIAG_FIRST_HOP   this hub's own endpoint writes to the E1, into
+                      the corner-hub block of the hub across the seam;
+                      configured here, returns DIAG_FIRST_HOP.
+     DIAG_SECOND_HOP  this endpoint ships to its on-card neighbor's
+                      corner-hub block as usual (the caller carries on)
+                      and THAT hub's forwarder writes to the E1;
+                      returns DIAG_SECOND_HOP.
+
+     The two ends of a diagonal pair are corners opposite each other,
+     so 'in' is chosen by the corner (cornerIn), not by comparing tlbis
+     that live on different cards.  Returns false if no seam applies. */
+  static bool cornerIn(Dir8 corner) {
+    return corner < D8_ST;              // NW, SW in; SE, NE out
+  }
+
+  static bool configureSeamCornerEP(Dir8 corner,
+                                    U8C ournoc0,
+                                    U8C ourct6,
+                                    EthSeam::DiagHop & hop) {
+    EthSeam::SeamTable seams;
+    EthSeam::decodeSeamMask(theHostBlock.getEthSeamMask(), seams);
+    EthSeam::DiagSend ds;
+    if (!EthSeam::diagSend(seams,
+                           corner,
+                           ourct6.x,
+                           ourct6.y,
+                           EthSeam::CELL_C2X2,
+                           ds)) {
+      return false;
+    }
+    hop = ds.hop;
+    HBPTAG(SEAMc8,dir8ToByteString(corner));
+    HBPTAG(SEAMhop,(u32) ds.hop);
+    HBPTAG(SEAMeth,ds.ethx);
+    HBPTAG(SEAMch,ds.channel);
+    if (ds.hop == EthSeam::DIAG_SECOND_HOP) return true;
+
+    U8C ethnoc0(ds.ethx, EthSeam::ETH_NOC0_Y);
+    initInterHubEPAndCars(corner, cornerIn(corner));
+    // the dest block is the far hub's corner-hub block; the E1 channel
+    // rides in the block index (T6EP::configureDest, ETH branch)
+    myInterHubEP[corner].configureDest(ournoc0,
+                                       ethnoc0,
+                                       { BC_CORNERHUB, ds.channel });
+    return true;
+  }
+
   static RCFlag manageInterHubNC(HTOpCode htoc) {
     RCFlag ret = RCFlag::RC_ZERO;
 
@@ -134,10 +184,23 @@ namespace MFM {
         HBPX(finalDestREGV);
         HBPX(finalDestRegionCT6C);
         HBPX(finalDestHubCT6C);
-        if (!S8C::onBoardCT6Coord(finalDestHubCT6C)) {
+        bool finalOnCard = S8C::onBoardCT6Coord(finalDestHubCT6C);
+        bool seamSecondHop = false;
+        if (!finalOnCard) {
           // Off this card.  Maybe a seam crosses here.
-          configureSeamInterHubEP(finalDestDir8, ournoc0, ourct6);
-          continue;
+          if (!(d & 1u)) {
+            configureSeamInterHubEP(finalDestDir8, ournoc0, ourct6);
+            continue;
+          }
+          EthSeam::DiagHop hop;
+          if (!configureSeamCornerEP(finalDestDir8,
+                                     ournoc0,
+                                     ourct6,
+                                     hop)) {
+            continue;
+          }
+          if (hop == EthSeam::DIAG_FIRST_HOP) continue; // configured
+          seamSecondHop = true;   // first hop is on-card: carry on
         }
 
         bool goForCHUB = (d&1); // Dir8 corners are all odd
@@ -178,8 +241,12 @@ namespace MFM {
         MFM_API_ASSERT(sane,ILLEGAL_STATE);
 
         U8C finalDestHubUCT6;
-        sane = finalDestHubCT6C.toU8C(finalDestHubUCT6);
-        MFM_API_ASSERT(sane,ILLEGAL_STATE);
+        if (finalOnCard) {
+          sane = finalDestHubCT6C.toU8C(finalDestHubUCT6);
+          MFM_API_ASSERT(sane,ILLEGAL_STATE);
+        } else {
+          finalDestHubUCT6 = firstDestHubUCT6; // unused: see seamSecondHop
+        }
 
         HBPX(usREGC);
         HBPX(finalDestREGV);
@@ -192,7 +259,8 @@ namespace MFM {
         U8C finalDestHubNoC0C = U8C::makeNoC0CoordFromCT6Coord(finalDestHubUCT6);
         HBPX(firstDestHubNoC0C);
         {
-          S8C ngbct6off = finalDestHubCT6C-ourct6;
+          S8C ngbct6off =
+            (finalOnCard ? finalDestHubCT6C : firstDestHubCT6C) - ourct6;
 
           T6Neighbor ngb;
           if (ngb.init(ournoc0,ngbct6off)) {
@@ -201,6 +269,7 @@ namespace MFM {
             u32 theirtlbi = U8C::makeTLBIFromNoCCoord(firstDestHubNoC0C);
             u32 finaltlbi = U8C::makeTLBIFromNoCCoord(finalDestHubNoC0C);
             bool weAreIn = goForCHUB ? ourtlbi < finaltlbi : ourtlbi < theirtlbi;
+            if (seamSecondHop) weAreIn = cornerIn(finalDestDir8);
             HBPX(goForCHUB);
             HBPX(theirtlbi);
             HBPX(finaltlbi);
@@ -274,13 +343,16 @@ namespace MFM {
 
   struct CornerHubStateNC {
     u32 mCWDir4IHUBBaseAddress;
+    u8 mSeamEthX;               //< seam variant: ETH tile NoC0 x
+    u8 mSeamChannel;            //< seam variant: E1 channel
+    bool mSeam;                 //< ships across a seam, not on-card
     u8 mLastCHUBNonceSeen[IHUB_CARS_PER_CHUB];
     u8 mLastNonceInitted[IHUB_CARS_PER_CHUB];
     void init() {
       memset_s(this,'\0',sizeof(*this));
     }
     bool isValid() const {
-      return mCWDir4IHUBBaseAddress!=0;
+      return mSeam || mCWDir4IHUBBaseAddress!=0;
     }
     bool open(S8C ngbct6offset) { //< true if baseaddress set up
       T6Neighbor ngb;
@@ -338,6 +410,29 @@ namespace MFM {
         S8C offct6 = S8C::makeS8CFromDir4(ngbd4)*2;
         CornerHubStateNC & chs = fastCornerHubStateNC[i];
         bool found = chs.open(offct6);
+        if (!found) {
+          // The neighbor hub is across a seam?  Then this block's
+          // forwarder writes to the E1 instead.
+          EthSeam::SeamTable seams;
+          EthSeam::decodeSeamMask(theHostBlock.getEthSeamMask(), seams);
+          U8C ourct6 =
+            U8C::makeCT6CoordFromNoC0Coord(theHostBlock.mNoC0);
+          EthSeam::DestDir4 dest;
+          if (EthSeam::diagForwardDest(seams,
+                                       axisd4,
+                                       ourct6.x,
+                                       ourct6.y,
+                                       EthSeam::CELL_C2X2,
+                                       dest)) {
+            chs.mSeam = true;
+            chs.mSeamEthX = dest.ethx;
+            chs.mSeamChannel = dest.channel;
+            HBPTAG(CHUBSEAM,dir4ToByteString(axisd4));
+            HBPTAG(CHUBeth,dest.ethx);
+            HBPTAG(CHUBch,dest.channel);
+            continue;
+          }
+        }
         if (found) {
           HBPTAG(CHUBUS4,dir4ToByteString(axisd4));
           HBPTAG(CHUBNG4,dir4ToByteString(ngbd4));
@@ -368,6 +463,21 @@ namespace MFM {
           u8 carnonce = chbcar.getHeader().getPacketNonce();
           if (!chs.updateSavedNonce(c,carnonce)) continue;
           /// WITH A NONCE DIFFERENT FROM BEFORE
+          if (chs.mSeam) {
+            // Across a seam: the car goes to the E1 channel's OUT ring,
+            // same car index; the far E1 lands it in the final hub.
+            U8C seamnoc0 = theHostBlock.mNoC0;
+            U8C ethnoc0(chs.mSeamEthX, EthSeam::ETH_NOC0_Y);
+            u32 ethaddr = EthSeam::outCarAddr(chs.mSeamChannel, c);
+            u32 words = chbcar.getHeader().getPacketWords();
+            s32 st = NRI3::initiateWriteToEthL1(seamnoc0,
+                                                (u32*) &chbcar,
+                                                words,
+                                                ethnoc0,
+                                                ethaddr);
+            MFM_API_ASSERT(st > 0,ILLEGAL_STATE);
+            continue;
+          }
           LOGPTAG(.pcr,
                   formatT6RecvBuf32(b32,
                                     &chbcar,chbcar.currentTCSize(),

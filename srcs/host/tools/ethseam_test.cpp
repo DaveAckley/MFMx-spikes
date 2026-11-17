@@ -416,11 +416,100 @@ static void check_diag_seam(Dir4 seam) {
   CHECK(!diagRoute(seam, E, 1, SLOT_DIR4, dr));
 }
 
+// The T6-side lookups (diagSend for the source hub, diagForwardDest for the
+// forwarder) against the planner's own dealing: for every live-link count,
+// every hub and every corner of a chip, exactly the 2(E-1) diagonal crossings
+// answer, and the forwarder's channel is the one the source hub names.
+static void check_diag_t6(Dir4 seam) {
+  const CellShape & c = CELL_C2X2;
+  const SeamLinks & cab = cablingFor(seam);
+  const u32 E = edgeHubCount(seam, c);
+  for (u32 L = 1; L <= cab.n; ++L) {
+    SeamTable t;
+    memset(&t, 0, sizeof(t));
+    t.n[seam] = (u8) L;
+    for (u32 i = 0; i < L; ++i) t.ethX[seam][i] = cab.ethX[i];
+
+    u32 answers = 0;
+    for (u32 y = 0; y < BOARD_CT6_H; ++y) {
+      for (u32 x = 0; x < BOARD_CT6_W; ++x) {
+        for (u32 d = 1; d < 8; d += 2) {
+          DiagSend ds;
+          if (!diagSend(t, (Dir8) d, x, y, c, ds)) continue;
+          ++answers;
+          CHECK(hubOnEdge(seam, x, y, c));
+          CHECK(ds.seam == seam);
+          // the same channel the planner deals to (edge index, slot)
+          u32 e = hubEdgeIndex(seam, x, y, c);
+          Dir4 a = dir8ToDir4CW((Dir8) ((d + 7u) & 7u));
+          Dir4 along = (a == seam) ? dir8ToDir4CW((Dir8) ((d + 1u) & 7u)) : a;
+          Slot s = (alongEdge(seam, SLOT_DIAG_LO) == along)
+            ? SLOT_DIAG_LO : SLOT_DIAG_HI;
+          Assign as = { 0, 0 };
+          CHECK(assign(E, L, e, s, as));
+          CHECK(ds.ethx == t.ethX[seam][as.link]);
+          CHECK(ds.channel == as.channel);
+          DiagRoute r = { DIAG_FIRST_HOP, 0, 0, 0, RECV_IHUB, 0 };
+          CHECK(diagRoute(seam, E, e, s, r));
+          CHECK(ds.hop == r.hop);
+          CHECK(r.srcDir8 == d);
+          if (r.hop == DIAG_SECOND_HOP) {
+            // the forwarder is the hub at crossEdge, block = direction
+            // from this hub to it
+            Dir8 first = dir8CornerToCCWDir8Edge((Dir8) d);
+            Dir4 block = dir8ToDir4CW(first);
+            u32 px = 0;
+            u32 py = 0;
+            CHECK(edgeHubCT6(seam, r.crossEdge, c, px, py));
+            DestDir4 fd = { 0, 0 };
+            CHECK(diagForwardDest(t, block, px, py, c, fd));
+            CHECK(fd.ethx == ds.ethx);
+            CHECK(fd.channel == ds.channel);
+          }
+        }
+      }
+    }
+    CHECK(answers == 2 * (E - 1));
+
+    // a forwarder answers only for its one block on edge hubs, and exactly
+    // as many times as there are second-hop crossings
+    u32 fwd = 0;
+    u32 second = 0;
+    for (u32 e = 0; e < E; ++e) {
+      u32 x = 0;
+      u32 y = 0;
+      CHECK(edgeHubCT6(seam, e, c, x, y));
+      for (u32 b = 0; b < 4; ++b) {
+        DestDir4 fd;
+        if (diagForwardDest(t, (Dir4) b, x, y, c, fd)) ++fwd;
+      }
+      for (Slot s : { SLOT_DIAG_LO, SLOT_DIAG_HI }) {
+        DiagRoute r = { DIAG_FIRST_HOP, 0, 0, 0, RECV_IHUB, 0 };
+        if (diagRoute(seam, E, e, s, r) && r.hop == DIAG_SECOND_HOP) {
+          ++second;
+        }
+      }
+    }
+    CHECK(fwd == second);
+    // not live: nothing
+    SeamTable none;
+    memset(&none, 0, sizeof(none));
+    DiagSend ds;
+    DestDir4 fd;
+    CHECK(!diagSend(none, D8_SE, 13, 1, c, ds));
+    CHECK(!diagForwardDest(none, D4_E, 13, 1, c, fd));
+  }
+}
+
 static void check_diag() {
   check_diag_seam(D4_E);
   check_diag_seam(D4_W);
   check_diag_seam(D4_S);
   check_diag_seam(D4_N);
+  check_diag_t6(D4_E);
+  check_diag_t6(D4_W);
+  check_diag_t6(D4_S);
+  check_diag_t6(D4_N);
 
   // spot checks of the two directions on an east seam, written out
   DiagRoute r;

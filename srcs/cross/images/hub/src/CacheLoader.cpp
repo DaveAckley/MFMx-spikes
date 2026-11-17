@@ -59,21 +59,31 @@ namespace MFM {
       S8C d8nCT6C = S8C(ourCT6C) + d8nCT6V;
 
       // Does that neighbor hub exist?  On this chip, yes.  Off this chip
-      // it exists only across a live eth-seam in a Dir4 direction (the
-      // diagonal seam crossings are not wired yet, so those loaders stay
-      // unused and the caches they would fill stay stale).
+      // it exists only across a live eth-seam: in a Dir4 direction, or
+      // diagonally through the two-hop corner crossing (InterHub.cpp,
+      // EthSeam.h PART 5).  Anywhere else its loader stays unused.
       U8C ud8nCT6C;
       bool onChip = d8nCT6C.toU8C(ud8nCT6C) &&
         U8C::makeNoC0CoordFromCT6Coord(ud8nCT6C) != U8C::UxC_MAX_VAL;
       if (!onChip) {
-        if ((d8 & 1u) != 0u) continue;          // diagonal: not wired yet
-        EthSeam::DestDir4 dest;
-        bool seamHere = EthSeam::destDir4(seams,
-                                          dir8ToDir4CW(d8),
-                                          ourCT6C.x,
-                                          ourCT6C.y,
-                                          EthSeam::CELL_C2X2,
-                                          dest);
+        bool seamHere;
+        if ((d8 & 1u) != 0u) {
+          EthSeam::DiagSend ds;
+          seamHere = EthSeam::diagSend(seams,
+                                       d8,
+                                       ourCT6C.x,
+                                       ourCT6C.y,
+                                       EthSeam::CELL_C2X2,
+                                       ds);
+        } else {
+          EthSeam::DestDir4 dest;
+          seamHere = EthSeam::destDir4(seams,
+                                       dir8ToDir4CW(d8),
+                                       ourCT6C.x,
+                                       ourCT6C.y,
+                                       EthSeam::CELL_C2X2,
+                                       dest);
+        }
         if (!seamHere) continue;                // off chip, no seam
         LOGPTAG(SEAMLDR,dir8ToByteString(d8));
       }

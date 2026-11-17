@@ -393,7 +393,13 @@ Status: the ROUTING is done and tested (EthSeam.h PART 5: diagRoute,
 diagForwarderSlot, alongEdge, cornerOf; checked in ethseam_test.cpp against an
 oracle that runs InterHub.cpp's own two-hop arithmetic over a global hub grid
 and records every hop that crosses the chip boundary, for all four seam
-directions).  Nothing below is wired in the T6 images or the host yet.
+directions).  WIRED (steps 1-4, untested on hardware): planner (recvDiag,
+HubLookup.chubBase), T6 lookups diagSend / diagForwardDest in EthSeam.h
+(checked natively against the planner's dealing), InterHub.cpp
+configureSeamCornerEP + the forwarder's seam variant (CornerHubStateNC
+mSeam), CacheLoader corner loaders across the seam.  In/out for a diagonal
+pair is by corner (cornerIn: NW, SW in), since tlbis on two cards are not
+comparable.  Step 5, the hardware run, is next.
 
 What the oracle established.  A corner car makes two hops (hop 1: the source hub
 H's endpoint ships to the CHUB block `b` of hub P, the hub CCW of the corner; hop

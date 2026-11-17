@@ -694,5 +694,75 @@ namespace MFM {
       return true;
     }
 
+    /** T6 side, the SOURCE hub: where does the hub at CT6 (x, y)
+        send its corner Dir8 'corner' when the final hub is across a
+        seam?  False if no live seam applies (the corner leads
+        on-card, the hub is not on the edge, both neighbors are off
+        card = a card corner, the slot does not exist).  hop says who
+        crosses: DIAG_FIRST_HOP, this hub's own endpoint writes to the
+        E1 at (ethx, channel); DIAG_SECOND_HOP, this endpoint ships
+        to its on-card neighbor as usual and THAT hub's forwarder
+        writes to the E1 (diagForwardDest finds the same channel). */
+    struct DiagSend {
+      DiagHop hop;
+      Dir4 seam;                //< which card edge is crossed
+      u8 ethx;                  //< ETH tile NoC0 x of the link
+      u8 channel;               //< E1 channel on that link
+    };
+    inline bool diagSend(const SeamTable & t,
+                         Dir8 corner,
+                         u32 x,
+                         u32 y,
+                         const CellShape & c,
+                         DiagSend & out) {
+      if (!(corner & 1u) || !isHubCT6(x, y, c)) return false;
+      Dir4 a = dir8ToDir4CW((Dir8) ((corner + 7u) & 7u));
+      Dir4 b = dir8ToDir4CW((Dir8) ((corner + 1u) & 7u));
+      bool onA = hubOnEdge(a, x, y, c);
+      bool onB = hubOnEdge(b, x, y, c);
+      if (onA == onB) return false;     // interior, or a card corner
+      Dir4 seam = onA ? a : b;
+      Dir4 along = onA ? b : a;
+      if (seam > 3u || t.n[seam] == 0u) return false;
+      Slot s = (alongEdge(seam, SLOT_DIAG_LO) == along)
+        ? SLOT_DIAG_LO : SLOT_DIAG_HI;
+      u32 E = edgeHubCount(seam, c);
+      u32 e = hubEdgeIndex(seam, x, y, c);
+      DiagRoute r;
+      if (!diagRoute(seam, E, e, s, r)) return false;
+      Assign as;
+      if (!assign(E, t.n[seam], e, s, as)) return false;
+      out.hop = r.hop;
+      out.seam = seam;
+      out.ethx = t.ethX[seam][as.link];
+      out.channel = as.channel;
+      return true;
+    }
+
+    /** T6 side, the FORWARDER: the hub at CT6 (x, y) forwards corner
+        block 'block' (a Dir4, as in InterHub.cpp's corner-hub
+        manager).  If that ships across a live seam, which E1 channel
+        carries it?  Same answer as diagSend gave the source hub. */
+    inline bool diagForwardDest(const SeamTable & t,
+                                Dir4 block,
+                                u32 x,
+                                u32 y,
+                                const CellShape & c,
+                                DestDir4 & out) {
+      if (block > 3u || !isHubCT6(x, y, c)) return false;
+      Dir4 seam = nextCWDir4(block);
+      if (t.n[seam] == 0u || !hubOnEdge(seam, x, y, c)) return false;
+      u32 E = edgeHubCount(seam, c);
+      u32 eP = hubEdgeIndex(seam, x, y, c);
+      u32 eSrc = 0u;
+      Slot s = SLOT_DIR4;
+      if (!diagForwarderSlot(seam, E, eP, block, eSrc, s)) return false;
+      Assign as;
+      if (!assign(E, t.n[seam], eSrc, s, as)) return false;
+      out.ethx = t.ethX[seam][as.link];
+      out.channel = as.channel;
+      return true;
+    }
+
   } // namespace EthSeam
 } // namespace MFM
