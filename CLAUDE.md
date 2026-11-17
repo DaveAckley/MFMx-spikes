@@ -86,13 +86,19 @@ no TIMEOUT (stale centre corners do not hang), cars out == in == noc.
 (Never kill a run with -9: a hung mfmxctl blocks tt-smi and can leave a link
 untrained.  Use `quit`, or SIGTERM from another terminal.)
 
-PROVEN-IN-NATIVE-TESTS, NOT YET ON HARDWARE: slice 3c (centre diagonals
-through the middle chip): EthSeam.h PART 6, EthSeamHost one-way centre
-channels and the closed-square check (ERISC_SEAM_DESIGN.md section 18c).  The
-T6 images need a rebuild (header only).  Next: run seam4.cmd on the QB; expect
-everything of the 3b run plus the two extra channels per seam moving cars one
-way each (see the header of config/seam4.cmd).  Later: a content-hash slice
-to prove atom contents match across seams and through the centre.
+PROVEN (cont.): slice 3c, the centre diagonals (EthSeam.h PART 6, one-way
+centre channels, closed-square check; ERISC_SEAM_DESIGN.md 18c): run
+20261117-163033 (10cb99a): 16 links up, retrain 0, uncorrected FEC 0, 17908
+cars out == in == noc, txfail 0 on all 144 channel rows, 34+34 bolts CONSENSUS,
+no TIMEOUT.  The 8 extra channels (E/W eth7 ch3 and eth10 ch3; N/S eth13 ch4
+and eth3 ch5) each moved cars in ONE direction only: 0->1, 3->2, 2->0, 1->3.
+The four centre corner caches read 100 (a full corner), up from about 90 with
+the diagonals unwired.  That is consistent with loaded but NOT proof of atom
+contents; a content-hash slice is still open.
+Performance note: with 4 chips bolts take about 5.6 s to consensus (2 chips:
+about 2-3 s) and the frame tick runs once per 5-6 s, both while the periodic
+slowscan was on.  mfmxctl now has --no-slowscan and seam4.cmd turns it off;
+the next run shows whether that was the cause.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
