@@ -242,7 +242,10 @@ namespace MFM {
   }
 
   u32 CodeManager::newFails(T6FailCallback cb) {
-    FAIL(INCOMPLETE_CODE);
+    // The scan below is disabled (#if 0), so there is nothing to report.
+    // This used to FAIL(INCOMPLETE_CODE), but Blackhole::stepRetreat calls
+    // monitorFleet() -> newFails() on EVERY retreat from a step at or past
+    // HAS_T6_CODE_DEPLOYED, so 'stop' and 'close' aborted the process.
     u32 ret = 0u;
 #if 0
 XXX    u32 hostblockaddr = mRVCodeSiez - sizeof(HostBlock);
