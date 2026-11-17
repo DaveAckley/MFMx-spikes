@@ -55,6 +55,14 @@
   hostModules = [ AcceptLogging, AcceptACache, AcceptPHASER ]
   ethseams = [ "0:E:1:6,7,10,11" ]
 
+# N/S seam alone (cards 0 above 2): slice 3a.  Links on ETH x = 3,4,12,13.
+[layout.seamns]
+  bhchips = [0,2]
+  defaultImage = EWP
+  cell.all = C2X2_EWP_HUB
+  hostModules = [ AcceptLogging, AcceptACache, AcceptPHASER ]
+  ethseams = [ "0:S:2:3,4,12,13" ]
+
 [cell.C1X1_ONE]
   size = [1,1]
   image.all.all = HUB

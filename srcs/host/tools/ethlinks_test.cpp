@@ -705,6 +705,67 @@ static void test_planner() {
   h.setPortFactory(nullptr);
 }
 
+// The N/S seam through the same planner (cards 0 above 1 in the mock; the
+// real pair is chips 0 and 2): every Dir4 and diagonal channel of each end is
+// told the receiving hub across the seam.
+static void test_planner_ns() {
+  Fab f;
+  for (u32 x : { 3u, 4u, 12u, 13u }) f.init(x);
+  EthSeamHost & h = EthSeamHost::get();
+  h.chipClosing(0);
+  h.chipClosing(1);
+  h.clearSeams();
+  h.setPortFactory([&f](u32 chip, std::string &)
+                   -> std::unique_ptr<EthPort> {
+    return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+  });
+  h.setHubLookup(mockHub);
+  CHECK(h.declareSeam(0, D4_S, 1, { 3, 4, 12, 13 }).empty());
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).empty());
+  CHECK(h.status().find("eth13 UP") != std::string::npos);
+
+  EthSeam::SeamTable top;
+  EthSeam::SeamTable bottom;
+  EthSeam::decodeSeamMask(h.seamMaskFor(0), top);
+  EthSeam::decodeSeamMask(h.seamMaskFor(1), bottom);
+  const CellShape & cell = CELL_C2X2;
+  const u32 E = edgeHubCount(D4_S, cell);
+  CHECK(E == 7);
+  for (u32 e = 0; e < E; ++e) {
+    u32 x = 0;
+    u32 y = 0;
+    CHECK(edgeHubCT6(D4_S, e, cell, x, y));
+    DestDir4 d = { 0, 0 };
+    CHECK(destDir4(top, D4_S, x, y, cell, d));
+    u32 cb = channelBlockAddr(d.channel);
+    EthSeamHost::SeamHub hubB;
+    std::string err;
+    CHECK(mockHub(1, x, 1, hubB, err));       // bottom card's top-row hub
+    u32 node = ((u32) hubB.noc0y << 6) | hubB.noc0x;
+    u32 base = hubB.ihubBase + dir4ToDir8(D4_N) * RING_BYTES;
+    CHECK(f.get(1, d.ethx, cb + 4 * CW_T6NODE) == node);
+    CHECK(f.get(1, d.ethx, cb + 4 * CW_T6BASE) == base);
+    DestDir4 back = { 0, 0 };
+    CHECK(destDir4(bottom, D4_N, x, 1, cell, back));
+    CHECK(back.ethx == d.ethx);
+    CHECK(back.channel == d.channel);
+  }
+  check_one_diag_way(f, top, D4_S, 0);
+  check_one_diag_way(f, bottom, D4_N, 1);
+  h.tearDownAll();
+
+  // two links would need 10 channels: refused, nothing left up
+  h.clearSeams();
+  CHECK(h.declareSeam(0, D4_S, 1, { 3, 4 }).empty());
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).find("NCH_MAX")
+        != std::string::npos);
+  CHECK(h.status() == "no eth-seam links");
+  h.clearSeams();
+  h.chipClosing(0);
+  h.chipClosing(1);
+  h.setPortFactory(nullptr);
+}
+
 int main() {
   ethLinksSetLogger([](const std::string & s) { logs.push_back(s); });
 
@@ -716,6 +777,7 @@ int main() {
   test_host_registry();
   test_declare_seam();
   test_planner();
+  test_planner_ns();
 
   printf("%zu log lines; %s\n",
          logs.size(),

@@ -168,6 +168,22 @@ def scenario_ethseams_layout_option():
           "unknown layout 'nope'" in out and "seamtest" in out, out[-500:])
 
 
+def scenario_ethseams_ns():
+    d = tempfile.mkdtemp(prefix="seamns-")
+    f = os.path.join(d, "ns.cmd")
+    with open(f, "w") as fh:
+        fh.write(FAST + "dwell 0.2 0.3\nstart\nseams\ncycle start\nwait 4\nseams\n"
+                 "cycle stop\nwait 2\nstop\nseams\nquit close\n")
+    rc, out = run("quit\n", api="fire",
+                  extra_args=("--layout", "seamns", "--boot", "-s", f, "--script-exit"),
+                  timeout=150)
+    check("ns: script exits 0", rc == 0, f"rc={rc}\n{out[-600:]}")
+    check("ns: layout seamns uses chips 0 and 2", "layout 'seamns', chips [0, 2]" in out, out[:600])
+    check("ns: declares the N/S cabling", "declared: bh0-S->bh2 eth3,4,12,13" in out, out[-900:])
+    check("ns: all four links come up", all(f"link bh0 <-> bh2 eth{x} UP" in out for x in (3, 4, 12, 13)), out[-900:])
+    check("ns: stop tears down", "eth-seams down" in out and "bh2 eth13: no link" in out, out[-600:])
+
+
 def scenario_ethseams_counters():
     d = tempfile.mkdtemp(prefix="seamcyc-")
     f = os.path.join(d, "cyc.cmd")

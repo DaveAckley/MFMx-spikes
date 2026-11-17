@@ -1,22 +1,50 @@
 #!/usr/bin/env python3
 """cachecensus -- per-neighbor cache occupancy of the hubs in a run.
 
-usage: cachecensus.py RUNDIR [--seam-x CT6X0 CT6X1]
+usage: cachecensus.py RUNDIR [--seam CHIPA:DIR:CHIPB ...]
 
 Reads the '.ac' marks (hub image, end of events: cache atoms per neighbor
 NT:NW:WT:SW:ST:SE:ET:NE, hex) from RUNDIR/tiles/*.mfmk, maps tiles to chip
 and CT6 through misc/PKTS.txt, and prints for each hub the LAST nonzero
-sample.  A cache that stays 0 while its neighbors are alive is stale: for a
-seam hub that means the cross-seam loader (Dir4 or diagonal) is not filling
-it.  Hubs on the card edges facing a seam are marked (default: chip 0 east
-edge ct6 x=13, chip 1 west edge x=1; CT6 grid is 14 x 10).
+sample.  A cache that stays 0 while its neighbors are alive is stale.
+
+--seam marks the hubs on both sides of a seam (CHIPB lies DIR of CHIPA, DIR
+one of N W S E; default 0:E:1, repeatable) and checks that their three
+caches FACING the seam are nonzero: east edge NE/ET/SE, west edge NW/WT/SW,
+south edge SW/ST/SE, north edge NW/NT/NE.  The CT6 grid is 14 x 10.
 """
-import re, sys, collections
+import re, sys
 
 NAMES = "NT NW WT SW ST SE ET NE".split()
+W, H = 14, 10          # hubs sit at odd CT6 (1, 3 .. 13 x 1, 3 .. 9)
+FACING = {'E': ('NE', 'ET', 'SE'), 'W': ('NW', 'WT', 'SW'),
+          'S': ('SW', 'ST', 'SE'), 'N': ('NW', 'NT', 'NE')}
+OPP = {'E': 'W', 'W': 'E', 'S': 'N', 'N': 'S'}
+
+
+def on_edge(d, x, y):
+    return {'E': x == W - 1, 'W': x == 1, 'S': y == H - 1, 'N': y == 1}[d]
+
 
 def main(argv):
     d = argv[1]
+    seams = []
+    i = 2
+    while i < len(argv):
+        if argv[i] == '--seam' and i + 1 < len(argv):
+            a, dr, b = argv[i + 1].split(':')
+            seams.append((int(a), dr.upper(), int(b)))
+            i += 2
+        else:
+            sys.exit(__doc__)
+    if not seams:
+        seams = [(0, 'E', 1)]
+    # (chip, direction its seam faces)
+    faces = {}
+    for a, dr, b in seams:
+        faces.setdefault(a, set()).add(dr)
+        faces.setdefault(b, set()).add(OPP[dr])
+
     tiles = {}
     for l in open(d + '/misc/PKTS.txt'):
         m = re.match(r'TILE chip=(\d+) tlbi=(\d+) noc=\d+,\d+ tag=(\w+) '
@@ -39,17 +67,33 @@ def main(argv):
                 if sum(v):
                     last = v
         if n:
-            rows[(chip, tlbi % 14, tlbi // 14)] = (n, last)
+            rows[(chip, tlbi % W, tlbi // W)] = (n, last)
     print('hub tiles with .ac marks: %d' % len(rows))
     print('%-5s %-9s %3s  %s' % ('chip', 'ct6', 'n',
                                  ' '.join('%5s' % x for x in NAMES)))
+    good = bad = unseen = 0
     for (chip, x, y) in sorted(rows):
         n, v = rows[(chip, x, y)]
-        seam = (chip == 0 and x == 13) or (chip == 1 and x == 1)
-        edge = x in (0, 13) or y in (0, 9)
+        seamdirs = [dr for dr in faces.get(chip, ()) if on_edge(dr, x, y)]
+        note = ''
+        if seamdirs:
+            if v is None:
+                note = '  SEAM (no atoms yet)'
+                unseen += 1
+            else:
+                missing = [c for dr in seamdirs for c in FACING[dr]
+                           if v[NAMES.index(c)] == 0]
+                if missing:
+                    note = '  SEAM STALE: ' + ','.join(missing)
+                    bad += 1
+                else:
+                    note = '  SEAM ok'
+                    good += 1
         vs = ' '.join('%5d' % q for q in v) if v else '   (all zero)'
-        print('%-5d (%2d,%d)    %3d  %s%s' % (chip, x, y, n, vs,
-              '  SEAM' if seam else ('  edge' if edge else '')))
+        print('%-5d (%2d,%d)    %3d  %s%s' % (chip, x, y, n, vs, note))
+    print('seam hubs: %d ok, %d stale, %d without atoms yet'
+          % (good, bad, unseen))
+
 
 if __name__ == '__main__':
     main(sys.argv)

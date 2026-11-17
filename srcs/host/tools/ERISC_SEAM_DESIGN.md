@@ -476,6 +476,11 @@ hubs, 3E-2 = 19 channels, see section 4).  Work:
   top-row hubs (y=1) need ST/SW/SE and NT/NW/NE nonzero (the script's SEAM tag
   assumes E/W; extend it with a --seam option first).
 
+STATUS 18a (2026-11-17): layout `seamns`, `config/seamns.cmd` (5-minute soak, run
+with --rtmp), cachecensus.py `--seam CHIPA:DIR:CHIPB` verdicts, native planner
+test for the S seam (Dir4 + 12 diagonals, 2-link refusal), mock selftest
+scenario ethseams_ns.  Hardware run pending.
+
 ### 18b. 2x2 array, centre diagonals still off   -- layout + host validation
 Chips 0-3, four seams.  Every chip has one E/W and one N/S seam, so its
 HostBlock mask has two nonzero nibbles; each seam is independent, the T6 code

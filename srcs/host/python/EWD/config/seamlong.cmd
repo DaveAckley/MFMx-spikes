@@ -7,7 +7,7 @@
 #   scripts/cachecensus/cachecensus.py MFMX-<date>-<time>
 # chip 0 x=13 hubs should show NE/SE caches (and chip 1 x=1 hubs NW/SW)
 # nonzero once atoms are near; Dir4 columns ET/WT fill first.
-#   python mfmxctl.py --layout seamtest --boot -s config/seamlong.cmd --script-exit
+#   python mfmxctl.py --layout seamtest --boot --rtmp -s config/seamlong.cmd --script-exit
 dwell 4 8
 start
 seams
