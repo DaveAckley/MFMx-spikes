@@ -76,18 +76,20 @@ the seam.
 PROVEN (cont.): slice 3a, the N/S seam (chips 0 and 2, links x=3,4,12,13):
 run 20261117-110545, 53 bolts, cars in==out, 14 seam hubs ok.
 
-BUILT, NOT YET RUN: slice 3b, the 2x2 array (layout seam4, 16 links, only chip 0
+PROVEN (cont.): slice 3b, the 2x2 array (layout seam4, 16 links, only chip 0
 autoseeds via layout key seedchips -> MFMX_AUTOSEED_CHIPS -> HBF_NO_AUTOSEED):
+run 20261117-142417: all four chips full, 44 seam hubs ok, 72 bolts CONSENSUS,
+no TIMEOUT (stale centre corners do not hang), cars out == in == noc.
   python mfmxctl.py --layout seam4 --boot --rtmp -s config/seam4.cmd --script-exit
   scripts/cachecensus/cachecensus.py MFMX-<date>-<time> \
     --seam 0:E:1 --seam 2:E:3 --seam 0:S:2 --seam 1:S:3
-Expect 16 links UP, bolts CONSENSUS (a TIMEOUT would mean the stale centre
-corners hang a phase), atoms reaching chips 1, 2 and finally 3 only through
-the cables, every seam hub ok except the centre corner cache (shown, not
-judged).
+(Never kill a run with -9: a hung mfmxctl blocks tt-smi and can leave a link
+untrained.  Use `quit`, or SIGTERM from another terminal.)
 
-NEXT: slice 3c (centre diagonals through the middle chip, 2 extra channels per
-seam, host refuses non-closed squares) -- ERISC_SEAM_DESIGN.md section 18.
+NEXT: slice 3c (centre diagonals through the middle chip).  SCOPED, not
+started (waiting for a go-ahead): ERISC_SEAM_DESIGN.md section 18c SCOPE v2
+(one-way clockwise extras, 2 extra channels per seam, header-only T6 change,
+host refuses non-closed squares, one verification decision pending).
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan

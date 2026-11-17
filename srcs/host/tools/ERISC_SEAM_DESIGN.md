@@ -564,6 +564,113 @@ Design decisions to make:
    diagSend answer.  Check with .ac (the NE/SE/SW/NW cache at each centre
    corner hub).
 
+### 18c SCOPE v2 (2026-11-17, after the 3b hardware run)
+STATUS 18b: PROVEN (run 20261117-142417): 16 links up, retrain 0, uncorrected
+FEC 0, all four chips full of atoms from the single seed on chip 0 (chip 3 only
+through chips 1 or 2), 44 seam hubs ok, 72 bolts CONSENSUS, no TIMEOUT, cars
+out == in == noc == 17586, txfail 0.  Stale centre corners do NOT hang a phase.
+
+Corrections to the design above, found by tracing the code (EthSeam.h PART 5,
+InterHub.cpp):
+1. The extras are ONE-WAY and rotate.  InterHub always picks P = the hub CCW
+   of the corner, so all four centre diagonals go clockwise round the array:
+   0SE->3NW is 0->1 (E) then 1->3 (S); 3NW->0SE is 3->2 (W) then 2->0 (N);
+   1SW->2NE is 1->3 (S) then 3->2 (W); 2NE->1SW is 2->0 (N) then 0->1 (E).
+   So each seam carries its two extras in ONE direction only: 0-1 eastward,
+   1-3 southward, 3-2 westward, 2-0 northward.  Each chip sends its extras on
+   one seam and receives them on the other: chip 0 sends E / receives N, chip
+   1 sends S / receives E (its W seam), chip 3 sends W, chip 2 sends N.  Rule
+   the T6 and the host can both compute from the seam tables alone: an end
+   SENDS the extras on seam d iff its table has a live seam nextCW(d), and
+   RECEIVES them iff it has prevCW(d).
+2. Names of the extras.  In the seam's own indexing the virtual source slots are
+   (E-1, HI) and (E, LO) on the E and N seams, (0, LO) and (-1, HI) on the S
+   and W seams.  Do not use those names in code: define the two extras by what
+   they ARE, appended after the existing ordinals:
+     ordinal 3E-2  CENTRE_FIRST   hop 1: the corner hub's own endpoint
+                                  (hub at edge index E-1 on E/N seams, 0 on
+                                  S/W seams) writes to the E1; lands in the
+                                  CHUB block of the far corner hub, index =
+                                  the seam Dir4.
+     ordinal 3E-1  CENTRE_SECOND  hop 2: the forwarder at the corner hub P
+                                  (same edge index), CHUB block prevCW(seam),
+                                  writes to the E1; lands in the far corner
+                                  hub's InterHub storage, corner index as in
+                                  diagRoute's SECOND_HOP.
+   channelsFullRing(E) = 3E is already exactly this count.  Existing
+   assign() results are unchanged; only invert() and the channel count grow.
+3. The E1 needs no change.  Channel legs are per end and per channel
+   (e1fwd16.c: L_OUT / L_IN_NOC are tested separately), so an extra channel
+   gets LEG_OUT only at the sending end (no T6 target) and LEG_IN_NOC only at
+   the receiving end.  planChannel today gives every channel both legs and
+   insists both ends have a receiver (it errors "seam ends disagree"); that
+   is the one place that must learn one-way channels.
+4. The T6 change is confined to EthSeam.h (header only):
+   - diagSend: at a hub that is on TWO edges whose two seams are both live,
+     currently false.  New: the corner Dir8 whose first hop (dir8CornerTo-
+     CCWDir8Edge) is a live seam edge gives DIAG_FIRST_HOP on that seam with
+     ordinal CENTRE_FIRST; any other corner there stays false.
+   - diagForwardDest: when diagForwarderSlot fails and the hub is on both the
+     seam nextCW(block) and the edge opposite(block), both live: CENTRE_SECOND
+     on that seam.
+   - InterHub.cpp, CacheLoader.cpp: NO change expected.  configureSeamCornerEP
+     already handles a FIRST_HOP answer; the forwarder already falls back to
+     diagForwardDest when chs.open() fails off-card; the loader already asks
+     diagSend; parity already counts hubs globally in both axes (DemoGlobal.h).
+5. Host: channelsTwoCards(E) (+2 when the seam carries extras) in
+   planLinkLocked; recvCentre (host receive plan for the two ordinals) next to
+   recvDiag; planChannel one-way legs; a closure check (see 6).  The mock
+   fabric and the native planner test gain the centre channels.
+6. Closure rule, now cheap: for every chip X with an E/W seam to Y and an N/S
+   seam to Z, Y must have an N/S seam (same direction) to some W and Z an E/W
+   seam to that same W.  Otherwise declare/bringUpSeams REFUSES with a message
+   naming the chip (an L-shape would hang: H sends hop 1, P has no forwarder
+   target).  The check uses only the declarations, so it also runs in the mock.
+   Two-chip layouts (seam, seamns) have no perpendicular pair: unchanged.
+7. Channel budget with extras (NCH_MAX = 8): E/W 15 storages: L=4 -> 4 per
+   link, L=3 -> 5, L=2 -> 8 (just fits), L=1 refused.  N/S 21: L=4 -> 6,
+   L=3 -> 7, L=2 refused.  seam4 uses four links everywhere, so it fits.
+
+Verification gap that needs a decision.  The cache census counts non-empty
+atoms, and the caches that face OFF the array are non-empty too (chip 3's south
+caches show 1380 with no neighbor at all; the four centre corner caches already
+show 90 with the diagonals unwired).  So .ac cannot tell a loaded centre corner
+from a boundary fill, and 3c would "pass" the census before it works.  Options:
+  (a) a per-cache content hash in .ac plus the same hash of the SOURCE region
+      on the sending hub, compared offline at end of events (needs a T6
+      logging change and a check that the cache is quiescent then);
+  (b) a host-side check through the existing HostBlock dump path;
+  (c) accept counters only: the diagonal channels' out/in/noc counters (the
+      `seams` report) moving, which proves cars flow but not their contents.
+This is the same question as the pending "do atom CONTENTS match across a
+seam" item, so one solution should serve both.  Recommend (c) for 3c itself
+and (a) as its own slice afterwards.
+
+Work list (each step native-tested before the next; no hardware until 1-5):
+  1. EthSeam.h: CENTRE_FIRST / CENTRE_SECOND, sendsCentre/recvsCentre,
+     centreRoute, diagSend + diagForwardDest cases, invert() learns the two
+     ordinals, recvCentre.
+  2. ethseam_test.cpp: oracle on the 2x2 GLOBAL hub grid (today: two chips side
+     by side); must find exactly the 8 centre boundary crossings on top of the
+     per-seam 2(E-1); diagSend/diagForwardDest checked against the planner's
+     dealing for every live-link count 1..4.
+  3. EthSeamHost: channel count, one-way legs, closure check; ethlinks_test.cpp
+     four-chip planner test (centre channels per link, legs, receiving hubs)
+     and the L-shape refusal.
+  4. Image rebuild only (T6 headers changed): run_native_tests.sh, mock
+     selftest ethseams_four extended, config/seam4.cmd unchanged except its
+     header comment.
+  5. cachecensus: judge the centre corners too, but only as "non-empty" (see the
+     gap above), and print the diagonal channel counters.
+  6. Hardware: seam4.cmd again.  Expect everything of the 3b run plus: `seams`
+     shows the extra channels moving cars on all four seams, one direction
+     each; bolts still CONSENSUS.
+Size: about the same as slice 2 (one header, two test files, one host file);
+the T6 images only rebuild.  Main risk: a mistake in the one-way leg plumbing
+would show as a stuck channel with txfail or partial counts rising on ONE
+seam only; a wrong ordinal on one end would mis-land cars silently, which the
+native oracle (step 2) is there to prevent.
+
 ### Order and what I need from you
 a. 18a first (cheap, config only, exercises the untested N/S links and the
    parity), then 18b (the full array without centre diagonals, a real test of
