@@ -118,7 +118,11 @@ namespace MFM {
           Blackhole & bh = *bhp;
           OurTLBs & tlbs = bh.getOurTLBs();
           OurTLBs::TLBInfo & info = tlbs.getTLBInfo(mTLBI);
-          const T6Image & image = info.getDeployedImageOrDie();
+          // The chip may be retreating (image undeployed) while this
+          // thread still has atom reports queued: drop them.
+          const T6Image * imgp = info.getDeployedImageIfAny();
+          if (!imgp) return true;
+          const T6Image & image = *imgp;
           u32 ic = image.getImageCode();
           if (ic == ImageCode::IC_HUB) {
 
