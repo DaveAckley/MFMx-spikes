@@ -34,9 +34,18 @@ ERISC_NOTES.md.
     healthy hubs), so log back-pressure is not an obvious cause.
   Heartbeat added (.xw via LOGPTAG and HBPTAG, 1 s while an exchange phase is not ready: per-Dir8
   need mask, leader mask, car ring lengths); `xchg.py` prints it as STALLS.
-  NEXT hang will name who waits on whom.  Unproven on hardware.  Open: where
-  slowscan's HB marks land in the run directory (its output is Eprintf, stderr,
-  not in seam9-NN.out); xchg.py reads .xw from tiles/*.mfmk only.
+  NEXT hang will name who waits on whom.  Unproven on hardware.  Slowscan output (Eprintf) goes to all.mfmk in the run dir, not the .out.  In
+  run 125641 the after-timeout slowscan scanned only 4 tiles (the first EWP
+  per chip), none a lamer, because `tick slowscan off`; fixed: a timeout now
+  turns the tick on (sweep of every tile, about 13 min per chip pass).
+  CAVEAT: HB marks go HBPTAG -> markHostBlock -> HostBlock::packString ->
+  RingBuffer::add, which DISCARDS new input when the 8192-entry mLogBuffer is
+  full, and with `tick slowscan off` nothing drains it.  So by cycle 250 the
+  buffer is probably full of old HB marks and the HB copy of .xw is likely
+  lost; the .xw LOG copy needs a live hn.  What a post-freeze sweep reads
+  without the ring is the per-hart PC snapshots and STUCK? fail FID / stack
+  fields: that is the dependable evidence.  Open: does any .xw reach all.mfmk;
+  xchg.py reads .xw from tiles/*.mfmk only.
   Until understood, run at 1M, not 100k.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).

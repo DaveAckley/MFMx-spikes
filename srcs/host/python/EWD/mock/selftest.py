@@ -58,6 +58,13 @@ def scenario_lamers_timeout():
     check("lamers: lamer TLBIs listed compactly", "lamers 12,77-79" in out, out[-800:])
     check("lamers: auto-diagnosis ran a slowscan", "diagnosing: slowscan" in out)
     check("lamers: exit 0", rc == 0)
+    check("lamers: slowscan already on, tick not re-announced",
+          "slowscan tick turned ON" not in out, out[-800:])
+    # the freeze run (seam9) has `tick slowscan off`: a timeout must turn it on
+    rc, out = run("boot\nstart\n" + FAST + "tick slowscan off\nmock lamers 0 12 77\n"
+                  "bolt timeout RUN_EVENTS 1\nshoot RUN_EVENTS 0\nwait 1.6\ntick slowscan\nquit\n")
+    check("lamers: timeout turns the slowscan tick ON",
+          "slowscan tick turned ON" in out and "slowscan: on every" in out, out[-800:])
 
 
 def scenario_ticks_during_pending_bolt():

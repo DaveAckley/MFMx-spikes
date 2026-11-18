@@ -133,7 +133,9 @@ cause of slow frames and slow bolts.  Bolts 1.8 s (NEW_LEADER) / 2.3 s
 (RUN_EVENTS) instead of 5.6 s, 61+61 bolts in the same time, frames 153 per
 30 s (5.1 fps, max gap 0.3 s) instead of one per 5-6 s.  Only the bring-up
 (`start`, ~105 s) still produces no frames.  Slowscan stays available via
-`scan`, the after-timeout diagnosis, and `tick slowscan on`.  Centre channels
+`scan`, the after-timeout diagnosis (which now also turns the tick ON, so a
+freeze sweeps every tile; one tile per chip per tick, output goes to
+all.mfmk, not stdout), and `tick slowscan on`.  Centre channels
 again one-way, out == in == noc 31970, txfail 0, retrain 0, uncorrected 0.
 Intermittent bring-up failure "link not Up (port status 2)" seen three times
 on different tiles (bh1:eth13, bh1:eth4, bh0:eth7; also after clean runs, so

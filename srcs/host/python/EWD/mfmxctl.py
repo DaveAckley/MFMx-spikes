@@ -408,9 +408,20 @@ def main(argv=None):
     sh.add_tick("bolts", 0.2, m.tick_bolts, True, "poll the pending bolt's acks")
     sh.add_tick("cycle", 0.1, cyc.tick, True, "advance the SuperCycle state machine")
     noscan = args.no_slowscan or args.slowscan_period <= 0
-    sh.add_tick("slowscan", args.slowscan_period if args.slowscan_period > 0 else 2.0,
-                m.tick_slowscan, not noscan,
-                "hostblock log monitoring (no-op until booted)")
+    scan_tick = sh.add_tick("slowscan",
+                            args.slowscan_period if args.slowscan_period > 0 else 2.0,
+                            m.tick_slowscan, not noscan,
+                            "hostblock log monitoring (no-op until booted)")
+
+    def start_scan_ticks():
+        """After a bolt timeout: turn the slowscan tick on if it was off.
+        True only when this call changed it."""
+        if scan_tick.enabled:
+            return False
+        scan_tick.enabled = True
+        scan_tick.due = sh.clock()
+        return True
+    m.start_scan_ticks = start_scan_ticks
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
 

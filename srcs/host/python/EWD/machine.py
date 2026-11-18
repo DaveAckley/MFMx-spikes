@@ -157,6 +157,7 @@ class Machine:
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         self.timeouts = dict(DEFAULT_TIMEOUTS)
         self.diagnose = True                 # slowscan right after a bolt timeout
+        self.start_scan_ticks = None         # callback: turn the periodic slowscan on
         self.bolt = None
         self.bolt_history = collections.deque(maxlen=20)
         self.bolt_seq = 0
@@ -750,6 +751,12 @@ class Machine:
                 return
             try:
                 self.say(f"  diagnosing: slowscan -> {self.slowscan(1)}")
+                # One slowscan reads one tile per chip, round robin, so a
+                # single scan rarely reaches the lamers: keep scanning (the
+                # hostblock path still works when an hn hart is hung).
+                if self.start_scan_ticks is not None and self.start_scan_ticks():
+                    self.say("  slowscan tick turned ON to sweep every tile "
+                             "(one per chip per tick; see all.mfmk)")
             except Exception as e:
                 self.say(f"  diagnosis failed: {type(e).__name__}: {e}")
 
