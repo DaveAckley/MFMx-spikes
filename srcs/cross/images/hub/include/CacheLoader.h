@@ -34,10 +34,11 @@ namespace MFM {
     
   };
 
-  /* Busy-wait after every packet moved (was an unnamed DEBUG literal, 'give
-     hn a chance').  The value is unchanged; it is named so the exchange
-     timing can be measured and tuned (the .xb/.xe marks). */
-  static constexpr u32 PACKET_SLEEP_CYCLES = 10'000'000u;
+  /* Busy-wait after every packet moved (was an unnamed DEBUG literal of
+     10'000'000, 'give hn a chance').  Named so the exchange timing can be
+     measured and tuned (the .xb/.xe marks).  EXPERIMENT: 1'000'000 (a tenth
+     of the old value); next candidates 100'000 and 0. */
+  static constexpr u32 PACKET_SLEEP_CYCLES = 1'000'000u;
 
   struct CacheLoaders {
     static constexpr u32 CACHELOADER_COUNT = 8;

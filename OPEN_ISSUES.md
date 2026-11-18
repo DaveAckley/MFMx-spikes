@@ -86,7 +86,8 @@ Plan, in order (each step needs a go-ahead):
   1. MEASURE (SET UP, awaiting a run): hub marks .xb/.xe (PhaseSteppers.cpp
      xchgStep) give each hub's SAVE and LOAD time and packet count;
      scripts/xchg/xchg.py reports them and compares with the host bolt times.
-     Run seam6.cmd on the new hub image, then
+     Run seam6.cmd on the new hub image (sleep 1M; compare with the 6 h run
+     035205: NEW_LEADER 1.79 s, RUN_EVENTS 2.43 s, duty 74%), then
        python3 scripts/xchg/xchg.py MFMX-<date>-<time> --bolts seam4-NN.out
      See FINDING below.
   2. PROTOTYPE: quadrant cache config + event bounds in the hub image
@@ -98,8 +99,8 @@ Plan, in order (each step needs a go-ahead):
 ## Speed / measurement ideas (not started)
 
 - FINDING (read from the code, not yet measured): CacheLoader.cpp busy-waits
-  PACKET_SLEEP_CYCLES (10,000,000, a "DEBUG give hn a chance" literal, now
-  named, value unchanged) after EVERY packet loaded or unloaded, in
+  PACKET_SLEEP_CYCLES (was 10,000,000, a "DEBUG give hn a chance" literal;
+  now named and set to 1,000,000 as the first experiment, commit after 2108b5e) after EVERY packet loaded or unloaded, in
   loadPacketIfNeeded and unloadPacketIfNeeded, serially on hart B.  A packet
   carries up to 255 atoms; a leader moves about 26 packets per phase, so
   the busy-wait alone could be most of the constant 1.8 s NEW_LEADER and of
