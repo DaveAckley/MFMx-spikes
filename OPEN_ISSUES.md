@@ -105,8 +105,8 @@ Plan, in order (each step needs a go-ahead):
   1.8 s), NEW_LEADER bolt 0.28 s (was 1.79), RUN_EVENTS 0.36 s (was 2.43),
   duty 94% (was 74%), nothing lost (cars out == in == noc, BADC 0, retrain
   0, FEC uncorrected 0, no TIMEOUT).  Remaining non-running time is the
-  slowest hub's exchange, about 0.17 s save + 0.24 s load per cycle.  NEXT
-  CANDIDATES: 100,000 (and 0): another 5 percent of duty, and it makes a
+  slowest hub's exchange, about 0.17 s save + 0.24 s load per cycle.  NOW
+  RUNNING: 100,000 (3e5011e -> next commit; seam9.cmd, one hour); then 0: another 5 percent of duty, and it makes a
   much shorter `dwell` affordable.  Why the sleep existed is still unknown;
   re-check the same counters at each step.
 - Bolt poll tick 0.05 s instead of 0.2 s (about 2 percent).
