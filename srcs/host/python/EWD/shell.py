@@ -36,8 +36,10 @@ class AbbrevError(ValueError):
 class Shell:
     MAX_TICK_ERRORS = 3
 
-    def __init__(self, prompt="mfmx> ", fd=0, out=None, clock=time.monotonic):
+    def __init__(self, prompt="mfmx> ", fd=0, out=None, clock=time.monotonic,
+                 wait_prompt="mfmx-waiting> "):
         self.prompt = prompt
+        self.wait_prompt = wait_prompt     # shown while 'wait' polls input
         self.fd = fd
         self.out = out if out is not None else sys.stdout
         self.clock = clock
@@ -134,6 +136,11 @@ class Shell:
             if self._stop:
                 return
             if poll_input:
+                if not self._prompt_up:
+                    # say() or a typed command took the prompt away
+                    self.out.write(self.wait_prompt)
+                    self.out.flush()
+                    self._prompt_up = True
                 self._run_typed()
                 if self._stop:
                     return
@@ -156,6 +163,7 @@ class Shell:
                 self._prompt_up = False
                 self.out.write(line + "\n")
                 self.out.flush()
+            self._prompt_up = False     # the typed Enter moved to a new line
             self.dispatch(line)
             self._need_prompt = True
 
@@ -317,6 +325,10 @@ class Shell:
                          poll_input=self.poll_wait)
         finally:
             self._waiting = False
+            if self.poll_wait and self._prompt_up:
+                self.out.write("\n")     # leave the wait prompt behind
+                self.out.flush()
+                self._prompt_up = False
 
     def _cmd_tick(self, args):
         if not args:

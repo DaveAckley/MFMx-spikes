@@ -261,6 +261,9 @@ def scenario_wait_typed_input():
     check("wait-input: a typed wait inside a wait is refused (tty)",
           "already waiting" in out and "hi" in out and rc == 0 and dt < 20,
           f"dt={dt:.1f}\n{out[-400:]}")
+    rc, out, dt = run_pty([(1.0, "wait 3\n"), (1.0, "echo hi\n")])
+    check("wait-input: the wait prompt shows during a wait (tty)",
+          out.count("mfmx-waiting> ") >= 2 and "hi" in out, out[-400:])
     # piped input is all buffered at once: wait must NOT run the rest early
     t0 = time.monotonic()
     rc, out = run("wait 3\necho AFTER\nquit\n")
