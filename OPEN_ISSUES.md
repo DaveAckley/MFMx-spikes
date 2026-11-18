@@ -38,14 +38,11 @@ ERISC_NOTES.md.
   run 125641 the after-timeout slowscan scanned only 4 tiles (the first EWP
   per chip), none a lamer, because `tick slowscan off`; fixed: a timeout now
   turns the tick on (sweep of every tile, about 13 min per chip pass).
-  CAVEAT: HB marks go HBPTAG -> markHostBlock -> HostBlock::packString ->
-  RingBuffer::add, which DISCARDS new input when the 8192-entry mLogBuffer is
-  full, and with `tick slowscan off` nothing drains it.  So by cycle 250 the
-  buffer is probably full of old HB marks and the HB copy of .xw is likely
-  lost; the .xw LOG copy needs a live hn.  What a post-freeze sweep reads
-  without the ring is the per-hart PC snapshots and STUCK? fail FID / stack
-  fields: that is the dependable evidence.  Open: does any .xw reach all.mfmk;
-  xchg.py reads .xw from tiles/*.mfmk only.
+  HB ring: it used to discard NEW marks when full (frozen on the earliest
+  marks with the slowscan tick off).  Now HostBlock::packString drops the
+  OLDEST whole marks to keep the latest (racy against slowscan's read/reset,
+  accepted).  Unproven on hardware.  Open: xchg.py reads .xw from
+  tiles/*.mfmk only; HB marks land in all.mfmk (slowscan dump).
   Until understood, run at 1M, not 100k.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).

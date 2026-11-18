@@ -45,7 +45,8 @@ source, comments, docs and commit messages).
 - HUB DIAGNOSTIC MARKS: LOGPTAG (and friends) go to the log block, which
   the hn hart delivers, and slowscan does NOT capture them.  Only HBPTAG
   (and friends) go into the HostBlock buffer that slowscan reads, so it still
-  works when hn is sick.  When a mark must survive a hang, emit LOGPTAG and
+  works when hn is sick.  That ring keeps the LATEST
+  marks (packString drops the oldest whole marks when full).  When a mark must survive a hang, emit LOGPTAG and
   HBPTAG back to back.  Slowscan prints with Eprintf (stderr): capture
   stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):
