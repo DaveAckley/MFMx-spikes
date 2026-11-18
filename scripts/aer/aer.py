@@ -3,7 +3,8 @@
 
 See also /CLAUDE.md, scripts/cachecensus/cachecensus.py.
 
-usage: aer.py RUNDIR [--series SECS] [--window SECS ...] [--sites N] [-v]
+usage: aer.py RUNDIR [--series SECS] [--window SECS ...] [--sites N]
+              [--from-start] [-v]
 
 AER is the average number of events per grid site per second, averaged over
 the whole simulation; it is usually quoted in milli-AER (mAER).
@@ -23,6 +24,13 @@ stop (nothing commits between a stop and the next start; the first cycle
 starts at its own .es), wall time = median over hubs of
 t(ev_k) - t(ev_k-1) (the first cycle: its running time), events-running time = median of t(ev_k) - t(es_k).
 
+The averaging window starts at the AUTOSEED, when the sim first has an atom
+to run events on: the hub that seeds logs '.as:TYPE' (its start symbol type)
+with its own clock.  Cycles before the one containing that mark are left
+out, and that cycle counts only from the mark on.  (Before it nothing can
+commit.)  With no '.as' mark, or with --from-start, the window starts at the
+first '.es', i.e. when events first start running.
+
 Reported:
   wall AER        events / (sites * wall seconds)       what you get overall
   running AER     events / (sites * events-running s)   the physics speed
@@ -33,6 +41,7 @@ Reported:
   --window W      trailing windows to print (default 60 and 300 s)
   --sites N       override the site count (default: hubs * 138 * 108, the
                   sites of the hubs' own regions)
+  --from-start    start the window at the first '.es', not at the autoseed
 """
 import re
 import statistics
@@ -43,6 +52,9 @@ U32 = 1 << 32
 
 MARK = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.(es|ev):'
                   r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
+
+
+SEED = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.as:([0-9a-f]+)\}')
 
 
 def hub_tiles(rundir):
@@ -57,13 +69,18 @@ def hub_tiles(rundir):
 
 
 def load_marks(path):
-    """The list of (kind, ms, committed, returned, offered) in file order."""
+    """The list of (kind, ms, committed, returned, offered) in file order;
+    kind is 'es', 'ev', or 'as' (then committed holds the seed type)."""
     out = []
     for line in open(path, errors='replace'):
         m = MARK.search(line)
         if m:
             out.append((m.group(2), int(m.group(1)), int(m.group(3), 16),
                         int(m.group(4), 16), int(m.group(5), 16)))
+            continue
+        m = SEED.search(line)
+        if m:
+            out.append(('as', int(m.group(1)), int(m.group(2), 16), 0, 0))
     return out
 
 
@@ -74,18 +91,35 @@ def cycles_of(marks):
     for kind, ms, c, r, o in marks:
         if kind == 'es':
             es = (ms, (c, r, o))
-        elif es is not None:
+        elif kind == 'ev' and es is not None:
             out.append((es[0], ms, es[1], (c, r, o)))
             es = None
     return out
+
+
+def seed_of(marks):
+    """(cycle index, seconds into that cycle's events, seed type) of the
+    first '.as' mark, or None."""
+    k = -1
+    es_ms = None
+    for kind, ms, c, r, o in marks:
+        if kind == 'es':
+            k += 1
+            es_ms = ms
+        elif kind == 'as':
+            if es_ms is None:
+                return (0, 0.0, c)
+            return (max(k, 0), (ms - es_ms) % U32 / 1000.0, c)
+    return None
 
 
 def delta(a, b):
     return (b - a) % U32
 
 
-def analyze(per_hub):
-    """per_hub: {name: cycles_of(...)}.  Returns a dict of results."""
+def analyze(per_hub, seed=None):
+    """per_hub: {name: cycles_of(...)}.  seed: seed_of() of the seeding hub
+    (the window then starts there) or None.  Returns a dict of results."""
     counts = {n: len(c) for n, c in per_hub.items()}
     if not counts:
         raise ValueError('no hub has any .es/.ev marks (an older hub image?)')
@@ -94,24 +128,31 @@ def analyze(per_hub):
     dropped = sorted(h for h in per_hub if h not in kept)
     nh = len(kept)
     cyc = []
-    for k in range(n):
+    k0 = min(seed[0], n - 1) if seed else 0
+    for k in range(k0, n):
         ev = [0, 0, 0]
         wall, run = [], []
         for c in kept.values():
             cur = c[k]
             # events since the previous stop (nothing commits between a
             # stop and the next start); the first cycle starts at its .es
-            base = c[k - 1][3] if k else cur[2]
+            first = k == k0
+            base = cur[2] if first else c[k - 1][3]
             for i in range(3):
                 ev[i] += delta(base[i], cur[3][i])
-            wall.append(delta(c[k - 1][1] if k else cur[0], cur[1]) / 1000.0)
+            wall.append(delta(cur[0] if first else c[k - 1][1], cur[1])
+                        / 1000.0)
             run.append(delta(cur[0], cur[1]) / 1000.0)
+        if k == k0 and seed:    # the window starts at the seed, not the .es
+            off = seed[1]
+            wall = [max(w - off, 0.001) for w in wall]
+            run = [max(r - off, 0.001) for r in run]
         cyc.append({'committed': ev[0], 'returned': ev[1], 'offered': ev[2],
                     'wall': statistics.median(wall),
                     'run': statistics.median(run)})
-    per_hub_total = {h: delta(c[0][2][0], c[n - 1][3][0])
+    per_hub_total = {h: delta(c[k0][2][0], c[n - 1][3][0])
                      for h, c in kept.items()}
-    return {'hubs': nh, 'dropped': dropped, 'cycles': cyc,
+    return {'hubs': nh, 'dropped': dropped, 'cycles': cyc, 'seed': seed,
             'per_hub': per_hub_total}
 
 
@@ -148,6 +189,12 @@ def report(res, sites, windows, series, verbose, say=print):
     say('hubs %d (sites %d)  cycles %d  wall %.0f s  running %.0f s'
         % (res['hubs'], sites, len(cyc), sum(c['wall'] for c in cyc),
            sum(c['run'] for c in cyc)))
+    sd = res.get('seed')
+    if sd:
+        say('window starts at the autoseed (type %d, cycle %d, %.1f s into '
+            'its events)' % (sd[2], sd[0] + 1, sd[1]))
+    else:
+        say('window starts at the first events start (no autoseed mark)')
     if res['dropped']:
         say('left out (different number of marks): %s'
             % ' '.join(res['dropped']))
@@ -185,7 +232,7 @@ def main(argv):
     if len(argv) < 2 or argv[1] in ('-h', '--help'):
         sys.exit(__doc__)
     rundir = argv[1]
-    series, windows, sites, verbose = 0, [], None, False
+    series, windows, sites, verbose, from_start = 0, [], None, False, False
     i = 2
     while i < len(argv):
         a = argv[i]
@@ -201,10 +248,14 @@ def main(argv):
         elif a == '-v':
             verbose = True
             i += 1
+        elif a == '--from-start':
+            from_start = True
+            i += 1
         else:
             sys.exit(__doc__)
     windows = windows or [60, 300]
     per_hub = {}
+    seed = None
     for tag in hub_tiles(rundir):
         try:
             marks = load_marks('%s/tiles/%s.mfmk' % (rundir, tag))
@@ -213,7 +264,10 @@ def main(argv):
         c = cycles_of(marks)
         if c:
             per_hub[tag] = c
-    res = analyze(per_hub)
+        sd = seed_of(marks)
+        if sd and (seed is None or sd[0] < seed[0]):
+            seed = sd
+    res = analyze(per_hub, None if from_start else seed)
     report(res, sites or res['hubs'] * SITES_PER_HUB, windows, series,
            verbose)
 

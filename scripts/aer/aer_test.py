@@ -26,7 +26,7 @@ def mark(kind, ms, c, r, o):
 
 
 def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
-             obsolete=0.25, skew=0, short=()):
+             obsolete=0.25, skew=0, short=(), seed_cycle=None, seed_at=0.0):
     """Every hub commits `rate` events/s while running.  A cycle runs
     events for run_s seconds, then spends over_s seconds in bolts."""
     d = tempfile.mkdtemp(prefix='aertest-')
@@ -44,7 +44,15 @@ def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
         for k in range(cycles - (1 if i in short else 0)):
             r_start = c
             lines.append(mark('es', t, c, int(c / (1 - obsolete)), c))
-            n = int(rate * run_s)
+            if seed_cycle is not None and k < seed_cycle:
+                n = 0                 # nothing runs before the seed
+            elif seed_cycle is not None and k == seed_cycle:
+                n = int(rate * (run_s - seed_at))
+                if i == 0:            # hub 0 seeds, logging its own clock
+                    lines.append('{27:80 %d 0 2,3 hb .as:4}\n'
+                                 % (t + int(seed_at * 1000)))
+            else:
+                n = int(rate * run_s)
             c += n
             t += int(run_s * 1000)
             lines.append(mark('ev', t, c, int(c / (1 - obsolete)), c))
@@ -119,6 +127,32 @@ try:
     check('no marks -> error', False)
 except ValueError as e:
     check('no marks -> error', 'older hub image' in str(e))
+
+# the window starts at the autoseed: 10 cycles, seed 2 s into cycle 3's 6 s
+d = make_run(4, 10, 100, 6, 4, seed_cycle=3, seed_at=2.0)
+per, seed = {}, None
+for tag in aer.hub_tiles(d):
+    m = aer.load_marks('%s/tiles/%s.mfmk' % (d, tag))
+    per[tag] = aer.cycles_of(m)
+    seed = seed or aer.seed_of(m)
+check('seed found', seed == (3, 2.0, 4), str(seed))
+res = aer.analyze(per, seed)
+cy = res['cycles']
+check('seed window drops earlier cycles', len(cy) == 7, str(len(cy)))
+check('first window cycle counts only after the seed',
+      abs(cy[0]['wall'] - 4.0) < 1e-9 and abs(cy[0]['run'] - 4.0) < 1e-9
+      and cy[0]['committed'] == 4 * 100 * 4, str(cy[0]))
+w, r, duty, obs = aer.rates(cy, sites)
+ev = 4 * 100 * (4 + 6 * 6)
+wall = 4 + 6 * 10
+check('seeded wall mAER', abs(w - 1000.0 * ev / (sites * wall)) < 1e-6, str(w))
+check('seeded running mAER', abs(r - 1000.0 * ev / (sites * 40)) < 1e-6,
+      str(r))
+res0 = aer.analyze(per, None)
+check('--from-start keeps every cycle', len(res0['cycles']) == 10,
+      str(len(res0['cycles'])))
+check('no seed mark -> None', aer.seed_of(aer.load_marks(
+    '%s/tiles/at01.mfmk' % d)) is None)
 
 # the report prints without error and mentions the pieces
 d = make_run(4, 10, 100, 6, 4)

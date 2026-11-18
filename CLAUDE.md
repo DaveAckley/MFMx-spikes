@@ -58,7 +58,9 @@ source, comments, docs and commit messages).
   `.es`/`.ev` marks (cumulative committed:returned:offered event counters,
   logged when events start and stop each supercycle; GridManager::applyEWT
   counts them).  Total, running (events-only time), duty, obsolete fraction,
-  trailing windows, --series.  scripts/aer/aer_test.py is its self-test.
+  trailing windows, --series.  The window starts at the autoseed (`.as`
+  mark), or the first `.es` with --from-start.  scripts/aer/aer_test.py is
+  its self-test.
   Needs the hub image built from this commit or later.  Live display in the
   stream text area is NOT built yet (phase 2: tail the marks once a cycle).
 - scripts/cachecensus/cachecensus.py  per-neighbor cache occupancy from the
