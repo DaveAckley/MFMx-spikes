@@ -424,6 +424,11 @@ class Blackhole:
     def setStartDecayType(self, t):
         self.decay = int(t)
 
+    def getNonPhaseTLBIs(self):
+        """TLBIs that never acked the last bolt (the real one returns the
+        non-acking list); here: this chip's lamers."""
+        return sorted(_mock.lamers.get(self.chip, set()))
+
     def setStep(self, j):
         if Step.UNINITTED < j <= Step.HAS_T6_CODE_RUNNING:
             if j != self.step:

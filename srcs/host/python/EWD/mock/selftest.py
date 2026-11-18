@@ -88,7 +88,7 @@ def scenario_legacy_blocking():
 
 
 def scenario_guards_and_errors():
-    rc, out = run("shoot HOLD_AT_BIRTH 0\nboot\nstop\nphase\nshoot NOPE 1\nbogus\nshoot RUN_EVENTS x\n"
+    rc, out = run("shoot HOLD_AT_BIRTH 0\nboot\nstop\nstep\nshoot NOPE 1\nbogus\nshoot RUN_EVENTS x\n"
                   "decay 3\nquit\n")
     check("guards: shoot before boot refused", "not booted: run 'boot' first" in out)
     check("guards: stop before start leaves chip alone",
@@ -516,8 +516,8 @@ def scenario_feed_placeholder():
 
 
 def scenario_slowscan_gated():
-    rc, out = run("boot\nphase HAS_TRANSPORT_THREAD\nwait 0.8\n# PRE\nstatus\nscan\n# FORCED\nstatus\n"
-                  "phase HAS_T6_CODE_RUNNING\nwait 0.8\n# POST\nstatus\nquit\n",
+    rc, out = run("boot\nstep HAS_TRANSPORT_THREAD\nwait 0.8\n# PRE\nstatus\nscan\n# FORCED\nstatus\n"
+                  "step HAS_T6_CODE_RUNNING\nwait 0.8\n# POST\nstatus\nquit\n",
                   extra_args=("--slowscan-period", "0.1", "--slowscan-gap", "0"))
     s = sections(out)
     n = lambda k: int(re.search(r"slowscans run: (\d+)", s.get(k, "")).group(1))
@@ -526,15 +526,15 @@ def scenario_slowscan_gated():
     check("slowscan gate: automatic scans resume once released", n("POST") > 1, s.get("POST", "")[-300:])
 
 
-def scenario_phase_names():
-    rc, out = run("boot\nphase\nphase HAS_TRANSPORT_THREAD\nphase\nphase has_t6_code_running\nphase\n"
-                  "phase CODE_RUNNING\nquit\n")
-    check("phase: bare 'phase' lists every phase name", out.count("HAS_T6_EVENT_WINDOWS") >= 1
-          and "phase names, in order" in out and "UNINITTED" in out, out[:900])
-    check("phase: exact names work (any case)",
+def scenario_step_names():
+    rc, out = run("boot\nstep\nstep HAS_TRANSPORT_THREAD\nstep\nstep has_t6_code_running\nstep\n"
+                  "step CODE_RUNNING\nquit\n")
+    check("step: bare 'step' lists every step name", out.count("HAS_T6_EVENT_WINDOWS") >= 1
+          and "step names, in order" in out and "UNINITTED" in out, out[:900])
+    check("step: exact names work (any case)",
           "bh0=HAS_TRANSPORT_THREAD" in out and "bh0=HAS_T6_CODE_RUNNING" in out, out[-900:])
-    check("phase: short names are NOT accepted; error lists exact names",
-          "unknown phase 'CODE_RUNNING'" in out and "exact names are" in out, out[-900:])
+    check("step: short names are NOT accepted; error lists exact names",
+          "unknown step 'CODE_RUNNING'" in out and "exact names are" in out, out[-900:])
 
 
 def scenario_feed_command():

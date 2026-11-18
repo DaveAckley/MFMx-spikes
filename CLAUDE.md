@@ -146,6 +146,6 @@ a tty (on a pipe all input is already buffered, so polling would run the rest
 of a piped script at the first wait); a typed wait inside a wait is refused.
 Selftests for these use a pty (mock/selftest.py run_pty).
 Other open items: the user must merge the latest bundle; branch
-`backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
-selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
-gate, three phase-name checks).
+`backup-before-untrack` can be deleted with the user's say-so.  The mock
+selftest (mock/selftest.py) is fully green again (132 checks; the old 7
+failures were a mock gap plus tests still using the renamed `phase` command).
