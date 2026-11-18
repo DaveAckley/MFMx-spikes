@@ -8,6 +8,18 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- HANG at PACKET_SLEEP_CYCLES=100,000 (run 125641, seam9-10.out): cycle 250,
+  bolt #500 RUN_EVENTS TIMEOUT 10.2 s; 130/140 hubs on bh1 acked, 10 lamers
+  (TLBI 23,51,79,99,101,103,105,107,109,135 = at1c3 at1c5 at1c7 at129 at149
+  at169 at1a9 at1c9 at1e9 at1cb: a cross of column x=12 and row y=9 around
+  at1c9).  NEW_LEADER #499 had passed in 0.1 s.  Clean up to then: 246 cycles,
+  cars out==in==noc, txfail/nocfail 0, no retrain, FEC uncorrected 0, no BADC.
+  First hang ever seen; 6 h run (10M) and 1M run (about 106 cycles) never
+  hung.  Suspect a latent packet-exchange race that the 10M/1M busy-wait
+  was hiding (hn needing time to drain), not a link fault.  Not diagnosed:
+  need the hub-side state of the stuck cross (which loader, which Dir8, who is
+  waiting for whom).  Until understood, run at 1M, not 100k.
+
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
   but unused (the autoseed type follows `decay N`, default 5).
