@@ -35,6 +35,12 @@ Reported:
   wall AER        events / (sites * wall seconds)       what you get overall
   running AER     events / (sites * events-running s)   the physics speed
   duty            running / wall   (the rest is bolts, cache load and save)
+  fill, per live atom   non-empty fraction of the sites (the '.ae' census at
+                  the end of events) and events per NON-EMPTY site per second.
+                  The hubs pick only non-empty event centers, uniformly, and
+                  skip empty ones, so events per site over ALL sites reads low
+                  in a sparse sim; per live atom is the rate each site would
+                  see in a standard MFM, the figure to compare with other AERs.
   obsolete        fraction of returned events that were dropped
   trailing        the same over the last N seconds, at the end of the run
   --series S      total-so-far and trailing-S figures every S seconds
@@ -48,12 +54,15 @@ import statistics
 import sys
 
 SITES_PER_HUB = 138 * 108   # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
+SLACK = 2                   # cycles a hub may be short before it is dropped
 U32 = 1 << 32
 
 MARK = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.(es|ev):'
                   r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
 
 
+CENSUS = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.ae:([0-9a-f]+):([0-9a-f]+):'
+                    r'([0-9a-f]+):([0-9a-f]+)\}')
 SEED = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.as:([0-9a-f]+)\}')
 
 
@@ -81,18 +90,29 @@ def load_marks(path):
         m = SEED.search(line)
         if m:
             out.append(('as', int(m.group(1)), int(m.group(2), 16), 0, 0))
+            continue
+        m = CENSUS.search(line)
+        if m:               # '.ae:TOTAL:INTERIOR:BAND:CACHE': keep the hub's own
+            out.append(('ae', int(m.group(1)),
+                        int(m.group(3), 16) + int(m.group(4), 16), 0, 0))
     return out
 
 
 def cycles_of(marks):
-    """[(es_ms, ev_ms, es_counts, ev_counts)] for each es followed by ev."""
+    """[(es_ms, ev_ms, es_counts, ev_counts, live)] for each es followed by
+    ev; live = non-empty atoms in the hub's own region at the end of the
+    events (the '.ae' census), or None."""
     out = []
     es = None
+    live = None
     for kind, ms, c, r, o in marks:
         if kind == 'es':
             es = (ms, (c, r, o))
+            live = None
+        elif kind == 'ae':
+            live = c
         elif kind == 'ev' and es is not None:
-            out.append((es[0], ms, es[1], (c, r, o)))
+            out.append((es[0], ms, es[1], (c, r, o), live))
             es = None
     return out
 
@@ -123,8 +143,13 @@ def analyze(per_hub, seed=None):
     counts = {n: len(c) for n, c in per_hub.items()}
     if not counts:
         raise ValueError('no hub has any .es/.ev marks (an older hub image?)')
-    n = statistics.mode(counts.values())
-    kept = {h: c[:n] for h, c in per_hub.items() if len(c) == n}
+    # The run stops at different moments on different hubs, so the last
+    # cycle is often missing on some: use the cycles every hub has.  A hub
+    # more than SLACK cycles short lost marks somewhere: leave it out.
+    top = max(counts.values())
+    good = {h: c for h, c in per_hub.items() if len(c) >= top - SLACK}
+    n = min(len(c) for c in good.values())
+    kept = {h: c[:n] for h, c in good.items()}
     dropped = sorted(h for h in per_hub if h not in kept)
     nh = len(kept)
     cyc = []
@@ -132,8 +157,15 @@ def analyze(per_hub, seed=None):
     for k in range(k0, n):
         ev = [0, 0, 0]
         wall, run = [], []
+        live, haslive = 0.0, True
         for c in kept.values():
             cur = c[k]
+            if cur[4] is None:
+                haslive = False
+            else:               # mean over the cycle of the end census
+                prev = c[k - 1][4] if k > k0 and c[k - 1][4] is not None \
+                    else cur[4]
+                live += (prev + cur[4]) / 2.0
             # events since the previous stop (nothing commits between a
             # stop and the next start); the first cycle starts at its .es
             first = k == k0
@@ -149,7 +181,8 @@ def analyze(per_hub, seed=None):
             run = [max(r - off, 0.001) for r in run]
         cyc.append({'committed': ev[0], 'returned': ev[1], 'offered': ev[2],
                     'wall': statistics.median(wall),
-                    'run': statistics.median(run)})
+                    'run': statistics.median(run),
+                    'live': live if haslive else None})
     per_hub_total = {h: delta(c[k0][2][0], c[n - 1][3][0])
                      for h, c in kept.items()}
     return {'hubs': nh, 'dropped': dropped, 'cycles': cyc, 'seed': seed,
@@ -168,6 +201,22 @@ def rates(cyc, sites):
             run / wall, (1.0 - ev / ret) if ret else 0.0)
 
 
+def per_atom(cyc, sites):
+    """(fill fraction, running mAER per non-empty site) or None.  The hubs
+    only pick non-empty event centers (uniformly), so events/site/s over ALL
+    sites undercounts a sparse sim: an event at an empty site is a no-op
+    that the hub skips.  Events per LIVE site per second is the rate every
+    site would get in a standard MFM (the comparable AER)."""
+    if any(c['live'] is None for c in cyc):
+        return None
+    ev = sum(c['committed'] for c in cyc)
+    live_s = sum(c['live'] * c['run'] for c in cyc)       # atom-seconds
+    run = sum(c['run'] for c in cyc)
+    if live_s <= 0 or run <= 0:
+        return None
+    return (live_s / (sites * run), 1000.0 * ev / live_s)
+
+
 def trailing(cyc, secs):
     """The newest cycles that add up to at least secs of wall time."""
     out, t = [], 0.0
@@ -179,9 +228,12 @@ def trailing(cyc, secs):
     return list(reversed(out))
 
 
-def fmt(r):
-    return ('wall %8.2f mAER   running %8.2f mAER   duty %3.0f%%   '
-            'obsolete %4.1f%%' % (r[0], r[1], 100 * r[2], 100 * r[3]))
+def fmt(r, pa=None):
+    t = ('wall %8.2f mAER   running %8.2f mAER   duty %3.0f%%   '
+         'obsolete %4.1f%%' % (r[0], r[1], 100 * r[2], 100 * r[3]))
+    if pa:
+        t += '   fill %3.0f%%   per live atom %8.2f mAER' % (100 * pa[0], pa[1])
+    return t
 
 
 def report(res, sites, windows, series, verbose, say=print):
@@ -201,9 +253,10 @@ def report(res, sites, windows, series, verbose, say=print):
     if not cyc:
         say('fewer than two cycles: no rates')
         return
-    say('total          ' + fmt(rates(cyc, sites)))
+    say('total          ' + fmt(rates(cyc, sites), per_atom(cyc, sites)))
     for w in windows:
-        say('last %4d s    ' % w + fmt(rates(trailing(cyc, w), sites)))
+        tw = trailing(cyc, w)
+        say('last %4d s    ' % w + fmt(rates(tw, sites), per_atom(tw, sites)))
     if series:
         say('series every %d s of wall time (total so far | trailing):'
             % series)
@@ -212,9 +265,13 @@ def report(res, sites, windows, series, verbose, say=print):
             t += c['wall']
             if t >= mark or i == len(cyc) - 1:
                 so_far = cyc[:i + 1]
-                say('  t=%6.0f  total %8.2f / running %8.2f  |  trailing %8.2f mAER'
+                pa = per_atom(trailing(so_far, series), sites)
+                say('  t=%6.0f  total %8.2f / running %8.2f  |  trailing %8.2f '
+                    'mAER%s'
                     % (t, rates(so_far, sites)[0], rates(so_far, sites)[1],
-                       rates(trailing(so_far, series), sites)[0]))
+                       rates(trailing(so_far, series), sites)[0],
+                       '  (fill %3.0f%%, per live atom %8.2f)'
+                       % (100 * pa[0], pa[1]) if pa else ''))
                 mark += series
     ph = sorted(res['per_hub'].values())
     mean = statistics.mean(ph)

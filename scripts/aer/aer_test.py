@@ -26,7 +26,8 @@ def mark(kind, ms, c, r, o):
 
 
 def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
-             obsolete=0.25, skew=0, short=(), seed_cycle=None, seed_at=0.0):
+             obsolete=0.25, skew=0, short=(), seed_cycle=None, seed_at=0.0,
+             live=None):
     """Every hub commits `rate` events/s while running.  A cycle runs
     events for run_s seconds, then spends over_s seconds in bolts."""
     d = tempfile.mkdtemp(prefix='aertest-')
@@ -55,6 +56,9 @@ def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
                 n = int(rate * run_s)
             c += n
             t += int(run_s * 1000)
+            if live is not None:      # '.ae:TOTAL:INTERIOR:BAND:CACHE'
+                lines.append('{32:176 %d 0 2,3 hb .ae:%x:%x:%x:0}\n'
+                             % (t, live + 50, live - 100, 100))
             lines.append(mark('ev', t, c, int(c / (1 - obsolete)), c))
             t += int(over_s * 1000)
         with open(d + '/tiles/at0%d.mfmk' % i, 'w') as f:
@@ -112,10 +116,23 @@ res = analyze_dir(d)
 check('u32 wrap handled', sum(c['committed'] for c in res['cycles'])
       == 2 * 600 * 4, str([c['committed'] for c in res['cycles']]))
 
-# a hub with a missing cycle is reported and left out
+# the run ends at different moments on different hubs: one cycle short is
+# fine (everybody is cut to the common cycles); three short is a lost-marks
+# hub and is dropped
 d = make_run(4, 6, 100, 6, 4, short=(2,))
 res = analyze_dir(d)
-check('hub with fewer marks is dropped',
+check('hub one cycle short is kept, cycles cut to the common ones',
+      res['dropped'] == [] and res['hubs'] == 4 and len(res['cycles']) == 5,
+      str((res['dropped'], res['hubs'], len(res['cycles']))))
+d = make_run(4, 8, 100, 6, 4)
+p3 = '%s/tiles/at02.mfmk' % d
+lines = open(p3).read().split('\n')
+keep = [l for l in lines if not l.startswith('{') or
+        any(f' {t} ' in l for t in range(0, 1)) or True]
+body = [l for l in lines if l.startswith('{')]
+open(p3, 'w').write('---1.0---\n' + '\n'.join(body[:-6]) + '\n')   # 3 cycles
+res = analyze_dir(d)
+check('hub three cycles short is dropped',
       res['dropped'] == ['at02'] and res['hubs'] == 3, str(res['dropped']))
 
 # no marks at all: a clear error
@@ -153,6 +170,17 @@ check('--from-start keeps every cycle', len(res0['cycles']) == 10,
       str(len(res0['cycles'])))
 check('no seed mark -> None', aer.seed_of(aer.load_marks(
     '%s/tiles/at01.mfmk' % d)) is None)
+
+# per live atom: 4 hubs with 1000 live self atoms each (interior 900 + band
+# 100 + cache 50 in the TOTAL), 6 s of events at 100 events/s/hub
+d = make_run(4, 5, 100, 6, 4, live=1000)
+res = analyze_dir(d)
+pa = aer.per_atom(res['cycles'], sites)
+check('fill', pa is not None and abs(pa[0] - 4 * 1000 / sites) < 1e-9,
+      str(pa))
+check('per live atom mAER', abs(pa[1] - 1000.0 * 100 / 1000) < 1e-6, str(pa))
+check('no census -> no per-atom figure', aer.per_atom(
+    analyze_dir(make_run(4, 5, 100, 6, 4))['cycles'], sites) is None)
 
 # the report prints without error and mentions the pieces
 d = make_run(4, 10, 100, 6, 4)
