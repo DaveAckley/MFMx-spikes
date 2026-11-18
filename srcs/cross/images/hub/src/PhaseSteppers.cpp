@@ -97,15 +97,27 @@ namespace MFM {
     }
 
     /* .es/.ev: cumulative event counters of this hub's GridManager,
-       COMMITTED:RETURNED:OFFERED (hex).  .es is logged when the hub
-       starts running events, .ev when it stops, so the host can compute
-       the average event rate (AER, events per site per second) over
-       the events-running time and over wall-clock time
-       (scripts/aer/aer.py).  OBSOLETED = RETURNED - COMMITTED. */
-    static const char * fmtEventCounts(Buf32 & b, const GridManager & gm) {
-      snprintf(b.buf,b.SIZE,"%x:%x:%x",
-               gm.mEWsCommitted,gm.mEWsReturned,gm.mEWsOffered);
-      return b.buf;
+       COMMITTED:RETURNED:EMPTY (hex, up to 64 bits each).  .es is logged
+       when the hub starts running events, .ev when it stops, so the host
+       can compute the average event rate (AER: events per grid site per
+       second) over the events-running time and over wall-clock time
+       (scripts/aer/aer.py).  EMPTY counts events at empty sites, acts of
+       physics that did nothing, which count toward AER; the events that
+       happened are COMMITTED + EMPTY.  OBSOLETED = RETURNED - COMMITTED. */
+    static u32 fmtHex64(char * b, u32 siz, u64 v) {
+      const u32 hi = (u32) (v >> 32);
+      const u32 lo = (u32) v;
+      return hi ? (u32) snprintf(b,siz,"%x%08x",hi,lo)
+                : (u32) snprintf(b,siz,"%x",lo);
+    }
+
+    static const char * fmtEventCounts(char (&b)[80], const GridManager & gm) {
+      u32 n = fmtHex64(b,sizeof(b),gm.mEWsCommitted);
+      b[n++] = ':';
+      n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsReturned);
+      b[n++] = ':';
+      fmtHex64(b+n,sizeof(b)-n,gm.mEWsEmptyCenters);
+      return b;
     }
 
     static const char * fmtCensusTypes(Buf32 & b, const GridCensus & gc) {
@@ -173,7 +185,7 @@ namespace MFM {
       theL1CacheLoaders.loadCaches();
       const bool ready = theL1CacheLoaders.allReadyToAck();
       if (ready) {              // events start now
-        Buf32 b1;
+        char b1[80];
         LOGPTAG(.es,fmtEventCounts(b1,fB.mGridManager));
       }
       return ready;
@@ -193,7 +205,7 @@ namespace MFM {
           LOGPTAG(.ae,fmtCensusCounts(b1,gc));
           char b4[64];
           LOGPTAG(.ac,fmtCensusCache(b4,gc));
-          Buf32 b5;
+          char b5[80];
           LOGPTAG(.ev,fmtEventCounts(b5,fB.mGridManager));
         }
         theL1CacheLoaders.restartIterators();

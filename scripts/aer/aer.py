@@ -10,19 +10,25 @@ AER is the average number of events per grid site per second, averaged over
 the whole simulation; it is usually quoted in milli-AER (mAER).
 
 Each hub logs two marks per supercycle (hub image, PhaseSteppers.cpp):
-  .es:C:R:O   events START running   (hex, cumulative since boot)
-  .ev:C:R:O   events STOP  running
-where C = events committed (an event happened), R = events returned from
-the event windows and tried (C + obsoleted), O = non-empty events offered.
-The header of every mark carries the hub's own clock in ms, so all times
-here are DIFFERENCES within one hub (hub clocks are not synchronized).  The
-k-th cycle of every hub is lined up by mark number; a hub with a different
-number of marks than most is reported and left out.
+  .es:C:R:E   events START running   (hex, cumulative since boot, 64 bit)
+  .ev:C:R:E   events STOP  running
+where C = events committed (a non-empty center whose event happened), R =
+events returned from the event windows and tried (C + obsoleted), E = events
+at EMPTY centers: the hub draws random sites until it finds an occupied one,
+and every empty draw is an event that did nothing.  That is still an act of
+physics and counts: the events that happened are C + E, and AER is that per
+grid SITE per second, so a sparse grid has a HIGHER AER (empty events are
+cheap).  The header of every mark carries the hub's own clock in ms, so all
+times here are DIFFERENCES within one hub (hub clocks are not synchronized).
+The k-th cycle of every hub is lined up by mark number.  Hubs stop logging at
+slightly different moments, so only the cycles every hub has are used; a hub
+more than 2 cycles short (lost marks) is reported and left out.
 
-Per cycle: events = sum over hubs of C at this stop minus C at the previous
-stop (nothing commits between a stop and the next start; the first cycle
-starts at its own .es), wall time = median over hubs of
-t(ev_k) - t(ev_k-1) (the first cycle: its running time), events-running time = median of t(ev_k) - t(es_k).
+Per cycle: events = sum over hubs of (C + E) at this stop minus at the
+previous stop (nothing happens between a stop and the next start; the first
+cycle starts at its own .es), wall time = median over hubs of
+t(ev_k) - t(ev_k-1) (the first cycle: its running time), events-running time
+= median of t(ev_k) - t(es_k).
 
 The averaging window starts at the AUTOSEED, when the sim first has an atom
 to run events on: the hub that seeds logs '.as:TYPE' (its start symbol type)
@@ -32,17 +38,13 @@ commit.)  With no '.as' mark, or with --from-start, the window starts at the
 first '.es', i.e. when events first start running.
 
 Reported:
-  wall AER        events / (sites * wall seconds)       what you get overall
-  running AER     events / (sites * events-running s)   the physics speed
+  wall AER        (C+E) / (sites * wall seconds)        what you get overall
+  running AER     (C+E) / (sites * events-running s)    the physics speed
   duty            running / wall   (the rest is bolts, cache load and save)
-  fill, per live atom   DIAGNOSTICS, not the AER: the non-empty fraction of
-                  the sites (the '.ae' census at the end of events) and events
-                  per NON-EMPTY site per second.  AER is per grid SITE, so the
-                  occupancy of the grid counts and is accepted: a half-empty
-                  grid has a lower AER.  The hubs only pick non-empty event
-                  centers (and skip empty ones), so the wall and running
-                  figures rise as a seed fills the grid; per live atom shows
-                  the machine's own event rate with the fill taken out.
+  diag            the non-empty-center events alone (C only) as mAER, and the
+                  fill (non-empty fraction of the sites, from the '.ae' census
+                  at the end of events): what the AER would be if empty
+                  events did not count.
   trailing        the same over the last N seconds, at the end of the run
   --series S      total-so-far and trailing-S figures every S seconds
   --window W      trailing windows to print (default 60 and 300 s)
@@ -56,6 +58,7 @@ import sys
 
 SITES_PER_HUB = 138 * 108   # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 SLACK = 2                   # cycles a hub may be short before it is dropped
+U64 = 1 << 64
 U32 = 1 << 32
 
 MARK = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.(es|ev):'
@@ -135,7 +138,7 @@ def seed_of(marks):
 
 
 def delta(a, b):
-    return (b - a) % U32
+    return (b - a) % U64
 
 
 def analyze(per_hub, seed=None):
@@ -180,39 +183,43 @@ def analyze(per_hub, seed=None):
             off = seed[1]
             wall = [max(w - off, 0.001) for w in wall]
             run = [max(r - off, 0.001) for r in run]
-        cyc.append({'committed': ev[0], 'returned': ev[1], 'offered': ev[2],
+        cyc.append({'committed': ev[0], 'returned': ev[1], 'empties': ev[2],
                     'wall': statistics.median(wall),
                     'run': statistics.median(run),
                     'live': live if haslive else None})
     per_hub_total = {h: delta(c[k0][2][0], c[n - 1][3][0])
+                     + delta(c[k0][2][2], c[n - 1][3][2])
                      for h, c in kept.items()}
     return {'hubs': nh, 'dropped': dropped, 'cycles': cyc, 'seed': seed,
             'per_hub': per_hub_total}
 
 
 def rates(cyc, sites):
-    """(wall mAER, running mAER, duty, obsolete fraction) of a cycle list."""
-    ev = sum(c['committed'] for c in cyc)
+    """(wall mAER, running mAER, duty, obsolete fraction) of a cycle list.
+    Events are C + E: committed plus events at empty centers."""
+    ev = sum(c['committed'] + c['empties'] for c in cyc)
+    com = sum(c['committed'] for c in cyc)
     ret = sum(c['returned'] for c in cyc)
     wall = sum(c['wall'] for c in cyc)
     run = sum(c['run'] for c in cyc)
     if wall <= 0 or run <= 0:
         return (0.0, 0.0, 0.0, 0.0)
     return (1000.0 * ev / (sites * wall), 1000.0 * ev / (sites * run),
-            run / wall, (1.0 - ev / ret) if ret else 0.0)
+            run / wall, (1.0 - com / ret) if ret else 0.0)
 
 
-def per_atom(cyc, sites):
-    """(fill fraction, running mAER per non-empty site) or None: a
-    diagnostic, NOT the AER (AER is per grid site, occupancy included)."""
-    if any(c['live'] is None for c in cyc):
-        return None
-    ev = sum(c['committed'] for c in cyc)
-    live_s = sum(c['live'] * c['run'] for c in cyc)       # atom-seconds
+def diag(cyc, sites):
+    """(fill fraction or None, running mAER of the committed non-empty
+    events alone): a diagnostic, NOT the AER."""
+    com = sum(c['committed'] for c in cyc)
     run = sum(c['run'] for c in cyc)
-    if live_s <= 0 or run <= 0:
+    if run <= 0:
         return None
-    return (live_s / (sites * run), 1000.0 * ev / live_s)
+    nonempty = 1000.0 * com / (sites * run)
+    if any(c['live'] is None for c in cyc):
+        return (None, nonempty)
+    live_s = sum(c['live'] * c['run'] for c in cyc)       # atom-seconds
+    return (live_s / (sites * run), nonempty)
 
 
 def trailing(cyc, secs):
@@ -230,7 +237,9 @@ def fmt(r, pa=None):
     t = ('wall %8.2f mAER   running %8.2f mAER   duty %3.0f%%   '
          'obsolete %4.1f%%' % (r[0], r[1], 100 * r[2], 100 * r[3]))
     if pa:
-        t += '   | diag: fill %3.0f%%  per live atom %8.2f mAER' % (100 * pa[0], pa[1])
+        t += '   | diag: non-empty-only %8.2f mAER' % pa[1]
+        if pa[0] is not None:
+            t += '  fill %3.0f%%' % (100 * pa[0])
     return t
 
 
@@ -251,10 +260,10 @@ def report(res, sites, windows, series, verbose, say=print):
     if not cyc:
         say('fewer than two cycles: no rates')
         return
-    say('total          ' + fmt(rates(cyc, sites), per_atom(cyc, sites)))
+    say('total          ' + fmt(rates(cyc, sites), diag(cyc, sites)))
     for w in windows:
         tw = trailing(cyc, w)
-        say('last %4d s    ' % w + fmt(rates(tw, sites), per_atom(tw, sites)))
+        say('last %4d s    ' % w + fmt(rates(tw, sites), diag(tw, sites)))
     if series:
         say('series every %d s of wall time (total so far | trailing):'
             % series)
@@ -263,13 +272,14 @@ def report(res, sites, windows, series, verbose, say=print):
             t += c['wall']
             if t >= mark or i == len(cyc) - 1:
                 so_far = cyc[:i + 1]
-                pa = per_atom(trailing(so_far, series), sites)
+                pa = diag(trailing(so_far, series), sites)
                 say('  t=%6.0f  total %8.2f / running %8.2f  |  trailing %8.2f '
                     'mAER%s'
                     % (t, rates(so_far, sites)[0], rates(so_far, sites)[1],
                        rates(trailing(so_far, series), sites)[0],
-                       '  (fill %3.0f%%, per live atom %8.2f)'
-                       % (100 * pa[0], pa[1]) if pa else ''))
+                       '  (non-empty-only %.2f%s)'
+                       % (pa[1], '' if pa[0] is None
+                          else ', fill %.0f%%' % (100 * pa[0])) if pa else ''))
                 mark += series
     ph = sorted(res['per_hub'].values())
     mean = statistics.mean(ph)

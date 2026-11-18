@@ -314,12 +314,18 @@ namespace MFM {
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;
     u32 mAutoseedWaitCount;
-    u32 mEWsOffered;
     u32 mEWsEmptiesShipped;
-    u32 mEWsReturned;
-    u32 mEWsCommitted;
-    u32 mEWsObsoleted;
     u32 mTotalAtomicChanges;
+    /* Event counters, 64 bits: they only grow (AER, scripts/aer/aer.py).
+       Every random site the hub draws is an event: one at an empty site
+       is "an act of physics" that does nothing (mEWsEmptyCenters), one
+       at an occupied site is shipped to an EWP (mEWsOffered) and comes
+       back (mEWsReturned) to be committed or found obsolete. */
+    u64 mEWsOffered;
+    u64 mEWsReturned;
+    u64 mEWsCommitted;
+    u64 mEWsObsoleted;
+    u64 mEWsEmptyCenters;
     u8 mEmptiesRun[MAX_NGBS];
     u8 mSuperCellLeaderCode;  //< if there is a SCL, it's us if it's this
   };

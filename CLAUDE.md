@@ -55,14 +55,18 @@ source, comments, docs and commit messages).
   seamcycle, seamlong, seamns), selftest, ptrace and eth-seam sections.
 - scripts/ptrace/README.txt  packet-trace analyzer (reads RUNDIR/tiles).
 - scripts/aer/aer.py  average event rate (AER, mAER) of a run from the hub
-  `.es`/`.ev` marks (cumulative committed:returned:offered event counters,
-  logged when events start and stop each supercycle; GridManager::applyEWT
-  counts them).  Total, running (events-only time), duty, obsolete fraction,
-  trailing windows, --series.  The window starts at the autoseed (`.as`
-  mark), or the first `.es` with --from-start.  scripts/aer/aer_test.py is
-  its self-test.
-  Needs the hub image built from this commit or later.  Live display in the
-  stream text area is NOT built yet (phase 2: tail the marks once a cycle).
+  `.es`/`.ev` marks: cumulative (64-bit) committed:returned:empty event
+  counters, logged when events start and stop each supercycle.  AER is per
+  grid SITE per second and counts EVERY event, including the ones at empty
+  centers (the hubs draw random sites until one is occupied; each empty draw
+  is an act of physics that did nothing and counts), so a sparse grid has a
+  HIGHER AER.  Events = committed + empty (GridManager::mEWsCommitted,
+  mEWsEmptyCenters in Grid.cpp).  Reports wall and running AER, duty, obsolete
+  fraction, trailing windows, --series, and a diag (non-empty-only mAER, fill
+  from the `.ae` census).  The window starts at the autoseed (`.as`), or the
+  first `.es` with --from-start.  scripts/aer/aer_test.py is its self-test.
+  Needs the hub image from this commit or later.  Live display in the stream
+  text area is NOT built yet (phase 2: tail the marks once a cycle).
 - scripts/cachecensus/cachecensus.py  per-neighbor cache occupancy from the
   `.ac` marks; `--seam CHIPA:DIR:CHIPB` checks seam hubs.
 - srcs/host/tools/run_native_tests.sh  all native tests (ASAN=1, name filter).
@@ -162,17 +166,15 @@ Then all healthy: 111130 cars (15.6k..16.2k per 5 min), out == in == noc,
 txfail 0, retrain 0, uncorrected FEC 0, 419 bolts (median 1.8 s, max 3.3 s),
 10664 frames, `.as:4`.  This hub image predates the AER marks, so aer.py had
 nothing to read; the AER run needs the hub from b948755 or later.
-FIRST AER (run 20261118-030230, 435e0e4, seam6, 12 min, 140 hubs):
-`python3 scripts/aer/aer.py MFMX-20261118-030230 --series 300`.  Window starts
-at the autoseed.  Duty 74% (events running 74% of wall time), obsolete 0.8%.
-AER is per grid SITE (all sites, so grid occupancy counts and is accepted):
-it rose 92 -> 346 -> 413 mAER (trailing) while the FB1 seed filled the grid
-(fill 8% -> 39% -> 49%), so judge a steady AER only once the fill has levelled
-off.  The hubs pick only NON-EMPTY event centers (Grid.cpp
-seekRandomNonEmptySite).  aer.py also prints a DIAGNOSTIC, events per live
-(non-empty) site per second, with the fill taken out: steady ~1.4-1.6 AER
-(1400-1600 mAER, running time) all run.  The hub `.ae` census supplies the
-live-atom count.  Per-hub spread 92% is the fill front still spreading.
+FIRST AER MEASUREMENT (run 20261118-030230, 435e0e4, seam6, 12 min): duty 74%
+(events running 74% of wall time), obsolete 0.8%.  That hub image counted only
+COMMITTED (non-empty-center) events, which UNDERCOUNTS true AER: empty-center
+events count too.  Its numbers (252 mAER total, 413 trailing, rising while the
+FB1 seed filled the grid, fill 8% -> 49%) are the non-empty-only figure, not
+AER; ignore them (the old C:R:O marks are not readable by the current
+aer.py).  Redo with the hub from the empty-center commit.  Counters are now
+u64 (a sparse grid draws many empty events: at 20 draws per event the u32
+empties counter could wrap in days).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 Other open items: the user must merge the latest bundle.  The mock
 selftest (mock/selftest.py) is fully green again (132 checks; the old 7

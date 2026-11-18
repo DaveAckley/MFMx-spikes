@@ -121,11 +121,13 @@ namespace MFM {
       U16C s = selectRandomSite(ewbounds);
       P4Atom a = mT6GridPtr->getAtom(s);
       if (!a.isEmpty()) {
+        mEWsEmptyCenters += i;  // i draws hit empty sites: events that did nothing
         found = s;
         SNAP(10,HBPTAG(SEEKT,s));
         return true;
       }
     }
+    mEWsEmptyCenters += MAX_TRIES; // all of them did nothing
     return false;
   }
 

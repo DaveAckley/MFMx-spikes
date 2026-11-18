@@ -21,14 +21,15 @@ def check(name, cond, detail=''):
         fails += 1
 
 
-def mark(kind, ms, c, r, o):
-    return '{32:178 %d 0 2,3 hb .%s:%x:%x:%x}\n' % (ms, kind, c, r, o)
+def mark(kind, ms, c, r, e):
+    return '{32:178 %d 0 2,3 hb .%s:%x:%x:%x}\n' % (ms, kind, c, r, e)
 
 
 def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
              obsolete=0.25, skew=0, short=(), seed_cycle=None, seed_at=0.0,
-             live=None):
-    """Every hub commits `rate` events/s while running.  A cycle runs
+             live=None, empties=0):
+    """Every hub commits `rate` events/s (and does `empties` events/s at
+    empty centers) while running.  A cycle runs
     events for run_s seconds, then spends over_s seconds in bolts."""
     d = tempfile.mkdtemp(prefix='aertest-')
     os.mkdir(d + '/misc')
@@ -41,25 +42,30 @@ def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
     for i in range(hubs):
         t = start_ms + i * skew       # unsynchronized hub clocks
         c = 77 * (i + 1)              # arbitrary starting counters
+        e = 5 * (i + 1)
         lines = []
         for k in range(cycles - (1 if i in short else 0)):
             r_start = c
-            lines.append(mark('es', t, c, int(c / (1 - obsolete)), c))
+            lines.append(mark('es', t, c, int(c / (1 - obsolete)), e))
             if seed_cycle is not None and k < seed_cycle:
                 n = 0                 # nothing runs before the seed
+                ne = 0
             elif seed_cycle is not None and k == seed_cycle:
                 n = int(rate * (run_s - seed_at))
+                ne = int(empties * (run_s - seed_at))
                 if i == 0:            # hub 0 seeds, logging its own clock
                     lines.append('{27:80 %d 0 2,3 hb .as:4}\n'
                                  % (t + int(seed_at * 1000)))
             else:
                 n = int(rate * run_s)
+                ne = int(empties * run_s)
             c += n
+            e += ne
             t += int(run_s * 1000)
             if live is not None:      # '.ae:TOTAL:INTERIOR:BAND:CACHE'
                 lines.append('{32:176 %d 0 2,3 hb .ae:%x:%x:%x:0}\n'
                              % (t, live + 50, live - 100, 100))
-            lines.append(mark('ev', t, c, int(c / (1 - obsolete)), c))
+            lines.append(mark('ev', t, c, int(c / (1 - obsolete)), e))
             t += int(over_s * 1000)
         with open(d + '/tiles/at0%d.mfmk' % i, 'w') as f:
             f.write('---1.0---\n' + ''.join(lines))
@@ -108,12 +114,14 @@ for i in range(2):
         m = aer.MARK.search(line)
         if m:
             c, rr, o = (int(m.group(g), 16) for g in (3, 4, 5))
-            c = (c + 0xFFFFFF00) % (1 << 32)
+            c = (c + 0xFFFFFFFFFFFFFF00) % (1 << 64)
+            rr = (rr + 0xFFFFFFFFFFFFFF00) % (1 << 64)
+            o = (o + 0xFFFFFFFFFFFFFF00) % (1 << 64)
             line = mark(m.group(2), int(m.group(1)), c, rr, o).rstrip()
         out.append(line)
     open(p, 'w').write('\n'.join(out) + '\n')
 res = analyze_dir(d)
-check('u32 wrap handled', sum(c['committed'] for c in res['cycles'])
+check('u64 wrap handled', sum(c['committed'] for c in res['cycles'])
       == 2 * 600 * 4, str([c['committed'] for c in res['cycles']]))
 
 # the run ends at different moments on different hubs: one cycle short is
@@ -171,16 +179,57 @@ check('--from-start keeps every cycle', len(res0['cycles']) == 10,
 check('no seed mark -> None', aer.seed_of(aer.load_marks(
     '%s/tiles/at01.mfmk' % d)) is None)
 
-# per live atom: 4 hubs with 1000 live self atoms each (interior 900 + band
+# fill: 4 hubs with 1000 live self atoms each (interior 900 + band
 # 100 + cache 50 in the TOTAL), 6 s of events at 100 events/s/hub
 d = make_run(4, 5, 100, 6, 4, live=1000)
 res = analyze_dir(d)
-pa = aer.per_atom(res['cycles'], sites)
-check('fill', pa is not None and abs(pa[0] - 4 * 1000 / sites) < 1e-9,
+pa = aer.diag(res['cycles'], sites)
+check('fill', pa[0] is not None and abs(pa[0] - 4 * 1000 / sites) < 1e-9,
       str(pa))
-check('per live atom mAER', abs(pa[1] - 1000.0 * 100 / 1000) < 1e-6, str(pa))
-check('no census -> no per-atom figure', aer.per_atom(
-    analyze_dir(make_run(4, 5, 100, 6, 4))['cycles'], sites) is None)
+check('no census -> no fill figure', aer.diag(
+    analyze_dir(make_run(4, 5, 100, 6, 4))['cycles'], sites)[0] is None)
+
+# empty-center events count toward AER: 4 hubs, 100 committed + 400 empty
+# events/s/hub, 6 s running + 4 s overhead per cycle, 10 cycles
+d = make_run(4, 10, 100, 6, 4, empties=400)
+res = analyze_dir(d)
+w, r, duty, obs = aer.rates(res['cycles'], sites)
+ev = 4 * (100 + 400) * 6 * 10
+wall = 9 * 10 + 6
+check('AER counts C + E (wall)', abs(w - 1000.0 * ev / (sites * wall)) < 1e-6,
+      str(w))
+check('AER counts C + E (running)', abs(r - 1000.0 * ev / (sites * 60)) < 1e-6,
+      str(r))
+dg = aer.diag(res['cycles'], sites)
+check('diag: non-empty-only AER is C alone',
+      abs(dg[1] - 1000.0 * (4 * 100 * 60) / (sites * 60)) < 1e-6
+      and dg[0] is None, str(dg))
+check('per-hub events include empties', all(
+    v == (100 + 400) * 6 * 10 for v in res['per_hub'].values()),
+    str(res['per_hub']))
+check('obsolete fraction ignores empties', abs(obs - 0.25) < 0.01, str(obs))
+
+# counters past 2**32 (a 64-bit hex mark parses and subtracts correctly)
+big = 3 * (1 << 32) + 12345
+check('64-bit hex mark', aer.MARK.search(
+    '{32:178 100 0 2,3 hb .ev:%x:%x:%x}' % (big, big, big)).group(3)
+    == '%x' % big)
+d = make_run(2, 4, 100, 6, 4)
+for i in range(2):
+    pth = '%s/tiles/at0%d.mfmk' % (d, i)
+    out = []
+    for line in open(pth).read().split('\n'):
+        m = aer.MARK.search(line)
+        if m:
+            c, rr, o = (int(m.group(g), 16) for g in (3, 4, 5))
+            line = mark(m.group(2), int(m.group(1)), c + (1 << 40),
+                        rr + (1 << 40), o + (5 << 40)).rstrip()
+        out.append(line)
+    open(pth, 'w').write('\n'.join(out) + '\n')
+res = analyze_dir(d)
+check('counters past 2**32 are not truncated',
+      sum(c['committed'] for c in res['cycles']) == 2 * 600 * 4, str(
+          [c['committed'] for c in res['cycles']]))
 
 # the report prints without error and mentions the pieces
 d = make_run(4, 10, 100, 6, 4)
