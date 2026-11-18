@@ -154,6 +154,14 @@ run, exit 1, orderly shutdown.  `wait` now runs lines typed meanwhile, ONLY on
 a tty (on a pipe all input is already buffered, so polling would run the rest
 of a piped script at the first wait); a typed wait inside a wait is refused.
 Selftests for these use a pty (mock/selftest.py run_pty).
+Run 20261118-020111 (bac7d62, seam5 35 min, --abort-on-error, preflight 12 s
+x 5): preflight needed 3 extra resets, 44 s in all (rounds showed port 0, not
+2, for a different set of ends each time: bh1/bh3 eth4+eth13, then bh0/bh1
+eth10 + bh1/bh3 eth4, then bh0/bh2 eth12; 4th round all Up within ~8 s).
+Then all healthy: 111130 cars (15.6k..16.2k per 5 min), out == in == noc,
+txfail 0, retrain 0, uncorrected FEC 0, 419 bolts (median 1.8 s, max 3.3 s),
+10664 frames, `.as:4`.  This hub image predates the AER marks, so aer.py had
+nothing to read; the AER run needs the hub from b948755 or later.
 Other open items: the user must merge the latest bundle.  The mock
 selftest (mock/selftest.py) is fully green again (132 checks; the old 7
 failures were a mock gap plus tests still using the renamed `phase` command).
