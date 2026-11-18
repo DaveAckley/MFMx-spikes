@@ -95,10 +95,13 @@ and eth3 ch5) each moved cars in ONE direction only: 0->1, 3->2, 2->0, 1->3.
 The four centre corner caches read 100 (a full corner), up from about 90 with
 the diagonals unwired.  That is consistent with loaded but NOT proof of atom
 contents; a content-hash slice is still open.
-Performance note: with 4 chips bolts take about 5.6 s to consensus (2 chips:
-about 2-3 s) and the frame tick runs once per 5-6 s, both while the periodic
-slowscan was on.  mfmxctl now has --no-slowscan and seam4.cmd turns it off;
-the next run shows whether that was the cause.
+Performance (run 20261117-165203, slowscan off): the periodic slowscan WAS the
+cause of slow frames and slow bolts.  Bolts 1.8 s (NEW_LEADER) / 2.3 s
+(RUN_EVENTS) instead of 5.6 s, 61+61 bolts in the same time, frames 153 per
+30 s (5.1 fps, max gap 0.3 s) instead of one per 5-6 s.  Only the bring-up
+(`start`, ~105 s) still produces no frames.  Slowscan stays available via
+`scan`, the after-timeout diagnosis, and `tick slowscan on`.  Centre channels
+again one-way, out == in == noc 31970, txfail 0, retrain 0, uncorrected 0.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
