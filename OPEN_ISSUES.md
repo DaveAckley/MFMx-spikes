@@ -25,6 +25,77 @@ ERISC_NOTES.md.
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
   beyond one clean run.
 
+## Design proposal: four-corners cache exchange (replaces leader/follower)
+
+STATUS: discussed 2026-11-18, not started, no go-ahead yet.  Hub image only
+(T6 side); no HostBlock change; no host/sequencer change needed for step 2.
+
+Today: per 2x2 supercell one hub LEADS (random code 0-3 per supercycle).  The
+leader loads all 8 neighbour bands (4 edges + 4 corners) and runs events over
+its whole 158x128 area; followers avoid their own 10-wide edge bands.  Costs:
+the leader moves 8 bands and a follower 2-4, so the busiest hub sets the
+NEW_LEADER / RUN_EVENTS (load) time; per-site event rate depends on role
+(a leader spreads the same compute over a larger area); a band site gets
+events only about half the cycles, hidden sites every cycle.
+
+Proposal: reinterpret the NEW_LEADER argument (already 0-3, asserted < 4) as a
+QUADRANT: NW, NE, SW or SE.  In a NW cycle EVERY hub
+  - receives (loads) its W band, its N band and its NW corner cache;
+  - sends (saves back) the matching E band, S band and SE corner to the hubs
+    that borrow them;
+  - runs events over its own 138x108 area shifted by (-10,-10), i.e. including
+    the three borrowed caches and excluding the three lent bands.
+Event areas tile the plane as same-size rectangles that slide by +-10 in x and
+y each cycle.  The other three quadrants are mirrors.
+
+Expected effects:
+  1. Constant traffic: every interior hub moves exactly one long band
+     (138x10), one short band (10x108) and one 10x10 corner, in and out, every
+     cycle.  About a third of a leader's volume today, and no lopsidedness:
+     less hub-to-hub variance, so shorter and tighter consensus times, and a
+     higher duty (now about 74%).  loadPacket ships empty sites too, so the
+     volume is occupancy independent (possibly why NEW_LEADER sits at 1.8 s).
+     UNMEASURED: NoC or seam-link contention could dominate.
+  2. Every hub runs events every cycle over the same size area: uniform
+     per-site rate (no leader dilution), smaller visible-vs-hidden difference.
+  3. Hub boundaries (CHUBs as usual) lie inside an event area in all 4 cycles,
+     instead of about half of them: more interhub events per unit time.
+  4. Total events per second does NOT rise by itself (hubs are already busy);
+     any AER gain comes from shorter exchange (duty).
+  5. No macroscopic flow or "sloshing": the physics is symmetric, so the
+     lender/borrower choice does not bias atom motion.
+
+Dead strips (not a new cost): where two event areas meet (the ownership
+handoff, 10 sites inside the lending hub) no centre within 4 of the line can
+run (8 wide, twice the window radius 4).  Today's scheme has the same strips
+(follower starts 14 in, leader stops 6 in).  Here they sit at +-10 from each
+hub boundary, alternate sides with the quadrant, and are dead about 2 of 4
+cycles; the crossing of an x strip and a y strip is covered 1 of 4.
+
+Dir4-only variant (one band per hub, W/E/N/S) is cheaper still but leaves a
+dead zone at every hub corner (needs the diagonal hub's data in no cycle), so
+it only works mixed with the diagonal quadrants (8 codes; host change, since
+arg < 4 is asserted).  Not recommended first.
+
+Risks / checks:
+  - One-way centre diagonals across chips: all four quadrants must work in the
+    directions that exist (today all leader codes exercise them; verify).
+  - Seam hubs and array-edge hubs have fewer neighbours: less traffic, but the
+    code must skip missing bands (configureCacheLoaders already does for chips).
+  - Consistency: a lent band must not be touched by its owner during the cycle
+    (owner avoids it: centres stop 4 before it).
+  - Marks and tools that talk about "leader": .es/.ev unaffected; aer.py and
+    docs need no change except wording; HubValue parity code becomes unused.
+
+Plan, in order (each step needs a go-ahead):
+  1. MEASURE: exchange time against band volume (check the 1.8 s constant;
+     per-T6 ack timestamps, last acker per bolt).  Confirms the duty win.
+  2. PROTOTYPE: quadrant cache config + event bounds in the hub image
+     (configureCacheLoaders, seekRandomNonEmptySite bounds).  Same host.
+  3. RUN: seam6.cmd style 12 minute run; compare duty, bolt times, AER and
+     cars out == in == noc against the leader baseline (run 030230 etc.).
+  4. Later: 8 codes (Dir4 mixed in) if the exchange is still the limit.
+
 ## Speed / measurement ideas (not started)
 
 - Find the constant 1.8 s in NEW_LEADER: timestamp each T6 ack, log the last
