@@ -205,6 +205,18 @@ draws (131M-2.5G; low on central chip 0 hubs near the seed, which fill first).
 Since the hub image after 76b9426 seekRandomNonEmptySite gives up after 100
 empty draws (was 5000): AER numbers from before and after are NOT comparable
 on sparse grids (the empty events of the first half hour shrink a lot).
+EXCHANGE SPEED-UP (run 20261118-123006, 3e5011e, seam6 12 min, preflight all
+Up in 5.5 s): PACKET_SLEEP_CYCLES 1,000,000 instead of 10,000,000.  xchg.py:
+6.4 ms per packet (about 64 ms before); slowest hub 0.17 s SAVE / 0.24 s
+LOAD; host bolts NEW_LEADER 0.28 s (was 1.79), RUN_EVENTS 0.36 s (was 2.43);
+duty 94% (was 74%).  At equal grid fill the committed (non-empty) running
+rate is unchanged (441 mAER at 20-40% fill both runs, about 690 at 40-55%),
+so wall AER is up by duty: 414 vs 329 wall at 20-40% fill, 656 vs 505 at
+40-55%.  Cars out == in == noc, txfail 0, nocfail 0, retrain 0, FEC
+uncorrected 0, BADC 0, no TIMEOUT.  The 100-draw cap changed the empty
+share little (empties per committed event 1140 vs 1225 at 0-20% fill): the
+total mAER while the grid fills is driven by sparse hubs, so compare AER at
+equal fill or in steady state (full 6 h run at 73% fill: 1166 wall).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam7.cmd: 6 hour unattended version of seam5/seam6 (36 blocks of
 wait 600 / seams / status); edit the number of blocks to change the length.
