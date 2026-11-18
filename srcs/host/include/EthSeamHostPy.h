@@ -167,6 +167,22 @@ namespace MFM {
       return r;
     }
 
+    // {"ok": 0|1, "port": status}; ok 0 if the chip cannot be read
+    inline std::map<std::string, u32> portStatusMap(EthSeamHost & h,
+                                                    u32 chip,
+                                                    u32 ethx) {
+      std::map<std::string, u32> r;
+      u32 port = 0;
+      std::string err;
+      if (!h.portStatus(chip, ethx, port, err)) {
+        r["ok"] = 0;
+        return r;
+      }
+      r["ok"] = 1;
+      r["port"] = port;
+      return r;
+    }
+
     inline void pybindings(py::module & m) {
       install();
       py::class_<EthSeamHost> c(m, "EthSeamHost");
@@ -244,6 +260,16 @@ namespace MFM {
             py::call_guard<py::gil_scoped_release>());
       c.def("health",
             &healthMap,
+            py::call_guard<py::gil_scoped_release>());
+
+      c.def("portStatus",
+            &portStatusMap,
+            py::arg("chip"),
+            py::arg("ethx"),
+            py::call_guard<py::gil_scoped_release>());
+
+      c.def("releaseIdlePorts",
+            &EthSeamHost::releaseIdlePorts,
             py::call_guard<py::gil_scoped_release>());
 
       c.def("channelsOf",

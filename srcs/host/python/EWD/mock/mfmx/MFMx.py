@@ -350,6 +350,23 @@ class EthSeamHost:
         self.stat_calls = getattr(self, "stat_calls", 0) + 1
         return (10 * self.stat_calls + channel) if word in (8, 9, 20) else 0
 
+    def portStatus(self, chip, ethx):
+        """Preflight read.  Knob: the env var MFMX_MOCK_LINK_DOWN_POLLS=N
+        makes the first N reads report port 2 (not Up)."""
+        self.events.append(f"portStatus {chip} {ethx}")
+        left = getattr(self, "down_polls", None)
+        if left is None:
+            left = int(os.environ.get("MFMX_MOCK_LINK_DOWN_POLLS", "0"))
+        if left > 0:
+            self.down_polls = left - 1
+            return {"ok": 1, "port": 2}
+        self.down_polls = 0
+        return {"ok": 1, "port": 1}
+
+    def releaseIdlePorts(self):
+        self.events.append("releaseIdlePorts")
+        return not self.up
+
     def health(self, chip, ethx):
         if not any(chip in (a, b) and ethx == x for a, b, x in self.up):
             return {"ok": 0}

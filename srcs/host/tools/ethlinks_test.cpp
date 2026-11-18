@@ -389,6 +389,50 @@ static void test_verify_after_bringup() {
   h.setPortFactory(nullptr);
 }
 
+/** portStatus reads the port of a tile with no link up (the boot
+    preflight); releaseIdlePorts drops the ports only when no link is
+    up. */
+static void test_port_status() {
+  Fab f;
+  for (u32 x : { 6u, 7u }) f.init(x, 1, 2);
+  EthSeamHost & h = EthSeamHost::get();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.clearSeams();
+  h.setHubLookup(mockHub);
+  std::string err;
+  u32 port = 99;
+  // no factory yet: an error, not a crash
+  CHECK(!h.portStatus(0, 6, port, err));
+  CHECK(!err.empty());
+  int made = 0;
+  h.setPortFactory([&f, &made](u32 chip, std::string &)
+                   -> std::unique_ptr<EthPort> {
+    ++made;
+    return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+  });
+  err.clear();
+  CHECK(h.portStatus(0, 6, port, err));
+  CHECK(port == 1);
+  f.put(1, 7, BOOT_RESULTS + 4, 2);       // a link that did not train
+  CHECK(h.portStatus(1, 7, port, err));
+  CHECK(port == 2);
+  CHECK(h.portStatus(0, 7, port, err));
+  CHECK(port == 1);
+  CHECK(made == 2);                       // one port per chip, cached
+  CHECK(h.releaseIdlePorts());
+  CHECK(h.portStatus(0, 6, port, err));
+  CHECK(made == 3);                       // rebuilt after the release
+  // with a link up the ports must stay
+  f.put(1, 7, BOOT_RESULTS + 4, 1);
+  CHECK(h.declareSeam(0, D4_E, 1, { 6, 7 }).empty());
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).empty());
+  CHECK(!h.releaseIdlePorts());
+  h.tearDownAll();
+  h.clearSeams();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.setPortFactory(nullptr);
+}
+
 static void test_refusals() {
   const RefusalCase cases[] = {
     { "queue 2 already in use",
@@ -1010,6 +1054,7 @@ int main() {
   test_happy_path();
   test_up_wait();
   test_verify_after_bringup();
+  test_port_status();
   test_refusals();
   test_force();
   test_channel_validation();

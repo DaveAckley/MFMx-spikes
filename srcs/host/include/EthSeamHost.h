@@ -126,6 +126,20 @@ namespace MFM {
         empty if there is no such link.  Use with channelStat. */
     std::vector<u32> channelsOf(u32 chip, u32 ethx) ;
 
+    /** Read-only preflight: the port status of tile (ethx, 1) of one
+        chip, whether or not a link is up (1 = Up).  Used by mfmxctl
+        after a chip reset to wait for the base firmware to train every
+        declared link before any E1 is touched. */
+    bool portStatus(u32 chip,
+                    u32 ethx,
+                    u32 & port,
+                    std::string & err) ;
+
+    /** Drop the cached ports (and so their TLB windows) when no link is
+        up.  Call before a chip reset so no window outlives it.  False
+        (and nothing dropped) if a link is up. */
+    bool releaseIdlePorts() ;
+
     bool health(u32 chip,
                 u32 ethx,
                 EthHealth & h,

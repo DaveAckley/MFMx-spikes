@@ -154,6 +154,56 @@ def scenario_ethseams():
           out[-500:])
 
 
+def scenario_link_preflight():
+    cfg = seam_config('[ "0:E:1:6,7" ]')
+    base = ("--config", cfg, "--link-wait", "0.3")
+
+    rc, out = run("boot\nquit\n", api="fire", extra_args=base)
+    check("preflight: all Up passes quietly",
+          "link preflight: all 4 link ends Up" in out
+          and "chip reset 1" not in out, out[-600:])
+
+    # fake tt-smi so the mock really "resets"; 8 down reads = 2 rounds
+    # of 4 ends, so the third round (after 2 resets) succeeds
+    env = dict(os.environ, MFMX_MOCK_LINK_DOWN_POLLS="8")
+    os.environ.update(env)
+    try:
+        rc, out = run("boot\nquit\n", api="fire",
+                      extra_args=base + ("--tt-smi", "/bin/true"))
+    finally:
+        os.environ.pop("MFMX_MOCK_LINK_DOWN_POLLS")
+    check("preflight: resets until the links come up",
+          "chip reset 1 of 3" in out and "all 4 link ends Up" in out
+          and "extra reset(s)" in out, out[-900:])
+    check("preflight: names the links that were down",
+          "bh0:eth6(port 2)" in out, out[-900:])
+
+    os.environ["MFMX_MOCK_LINK_DOWN_POLLS"] = "100000"
+    try:
+        rc, out = run("boot\nquit\n", api="fire",
+                      extra_args=base + ("--tt-smi", "/bin/true",
+                                         "--link-resets", "2"))
+    finally:
+        os.environ.pop("MFMX_MOCK_LINK_DOWN_POLLS")
+    check("preflight: gives up after link-resets, naming the links",
+          "chip reset 2 of 2" in out and "chip reset 3" not in out
+          and "still not Up after 2 extra chip reset(s)" in out
+          and "bh1:eth7(port 2)" in out, out[-900:])
+
+    os.environ["MFMX_MOCK_LINK_DOWN_POLLS"] = "100000"
+    try:
+        rc, out = run("boot\nquit\n", api="fire", extra_args=base)
+    finally:
+        os.environ.pop("MFMX_MOCK_LINK_DOWN_POLLS")
+    check("preflight: no reset available -> waits once then fails",
+          "chip reset 1" not in out and "still not Up after 0 extra" in out,
+          out[-900:])
+
+    rc, out = run("boot\nquit\n", api="fire")
+    check("preflight: layouts without seams do not preflight",
+          "link preflight" not in out, out[-400:])
+
+
 def scenario_ethseams_layout_option():
     rc, out = run("quit\n", api="fire",
                   extra_args=("--layout", "seamtest", "--boot", "-s",

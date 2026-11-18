@@ -126,7 +126,8 @@ class Machine:
     def __init__(self, mfmx, config, say, *, script_dir, logprefix="mfmxctl",
                  t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
-                 extra_bindirs=(), slowscan_gap=0.2, layout=None):
+                 extra_bindirs=(), slowscan_gap=0.2, layout=None,
+                 link_wait=60.0, link_resets=3):
         self.M = mfmx
         self.config = config
         self.say = say
@@ -139,6 +140,9 @@ class Machine:
         self.extra_bindirs = list(extra_bindirs)
         self.slowscan_gap = slowscan_gap
         self.layout = layout                 # overrides [Config] activeLayout
+        self.link_wait = link_wait           # preflight: secs to wait for Up
+        self.link_resets = link_resets       # preflight: extra tt-smi -r tries
+        self.link_poll = 0.5                 # preflight: secs between polls
         self.simDir = mfmx.getSimDir()
         self.mfmxVersion = mfmx.getVersion()
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
@@ -284,6 +288,57 @@ class Machine:
         r = subprocess.run([self.tt_smi, "-r"])
         return f"tt-smi -r exit {r.returncode}"
 
+    def _seam_ends(self):
+        """Every (chip, ethx) end of every declared seam link, sorted."""
+        return sorted({(c, x) for a, _d, b, xs in self.seams
+                       for x in xs for c in (a, b)})
+
+    def _links_down(self, h, ends):
+        """The ends whose port status is not 1 (Up), as (chip, ethx, port);
+        port is None if the chip could not be read."""
+        down = []
+        for chip, x in ends:
+            r = h.portStatus(chip, x)
+            if not r.get("ok"):
+                down.append((chip, x, None))
+            elif r["port"] != 1:
+                down.append((chip, x, r["port"]))
+        return down
+
+    def preflight_links(self):
+        """After a chip reset the base firmware trains every Ethernet link
+        in the background, and some links come up late or not at all (the
+        intermittent 'link not Up (port status 2)').  Before any E1 is
+        touched, wait up to link_wait seconds for every declared link end
+        to report Up; if some do not, run 'tt-smi -r' again, up to
+        link_resets times, then give up naming the links.  Read-only."""
+        h = self.M.EthSeamHost.get()
+        ends = self._seam_ends()
+        resets = 0
+        t0 = time.monotonic()
+        while True:
+            deadline = time.monotonic() + self.link_wait
+            while True:
+                down = self._links_down(h, ends)
+                if not down or time.monotonic() >= deadline:
+                    break
+                time.sleep(self.link_poll)
+            h.releaseIdlePorts()    # no TLB window may outlive a reset
+            if not down:
+                note = f", after {resets} extra reset(s)" if resets else ""
+                return (f"link preflight: all {len(ends)} link ends Up "
+                        f"({time.monotonic() - t0:.1f}s{note})")
+            names = " ".join(f"bh{c}:eth{x}(port {p})" for c, x, p in down)
+            if resets >= self.link_resets or not self.do_reset:
+                raise RuntimeError(
+                    f"link preflight: {len(down)} of {len(ends)} link ends "
+                    f"still not Up after {resets} extra chip reset(s) and "
+                    f"{self.link_wait:.0f}s each: {names}")
+            resets += 1
+            self.say(f"link preflight: not Up after {self.link_wait:.0f}s: "
+                     f"{names}; chip reset {resets} of {self.link_resets}")
+            self.reset_chips()
+
     def init_box(self):
         M = self.M
         self.im = M.ImageManager()
@@ -306,7 +361,10 @@ class Machine:
                     "until consensus or the C++ timeout")
 
     def boot(self):
-        out = [self.configure(), self.reset_chips(), self.init_box()]
+        out = [self.configure(), self.reset_chips()]
+        if self.seams:
+            out.append(self.preflight_links())
+        out.append(self.init_box())
         return "\n".join(out)
 
     def need_booted(self):

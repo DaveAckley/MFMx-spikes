@@ -24,6 +24,7 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+TT_SMI_DEFAULT = "/opt/tenstorrent/pipx/bin/tt-smi"
 
 
 def _git_version():
@@ -52,9 +53,15 @@ def parse_args(argv):
                     help="configure, reset chips, and init QuietBox at startup")
     ap.add_argument("--rtmp", action="store_true", help="enable the RTMP video feed")
     ap.add_argument("--no-chip-reset", action="store_true", help="skip 'tt-smi -r' during boot")
-    ap.add_argument("--tt-smi", default="/opt/tenstorrent/pipx/bin/tt-smi")
+    ap.add_argument("--tt-smi", default=TT_SMI_DEFAULT)
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
     ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
+    ap.add_argument("--link-wait", type=float, default=60.0,
+                    help="boot preflight: seconds to wait for every declared "
+                         "eth-seam link to report Up after a chip reset")
+    ap.add_argument("--link-resets", type=int, default=3,
+                    help="boot preflight: extra 'tt-smi -r' tries if links "
+                         "are still not Up (0 = wait only)")
     ap.add_argument("--t6s-per-chip", type=int, default=140)
     ap.add_argument("--slowscan-period", type=float, default=2.0,
                     help="seconds between slowscans; 0 turns the tick off")
@@ -126,9 +133,13 @@ def main(argv=None):
     m = Machine(MFMx, cfg, sh.say, script_dir=HERE, logprefix=args.log_prefix,
                 t6s_per_chip=args.t6s_per_chip, verbose=args.verbose,
                 decay=args.decay, alt_decay=args.alt_decay, tt_smi=args.tt_smi,
-                reset_chips=not (args.no_chip_reset or args.mock),
+                # --mock skips the real reset unless a fake --tt-smi is given
+                # (the selftests use /bin/true to exercise the preflight)
+                reset_chips=not (args.no_chip_reset or
+                                 (args.mock and args.tt_smi == TT_SMI_DEFAULT)),
                 extra_bindirs=extra_bindirs, slowscan_gap=args.slowscan_gap,
-                layout=args.layout)
+                layout=args.layout, link_wait=args.link_wait,
+                link_resets=args.link_resets)
     dw = args.dwell if len(args.dwell) > 1 else args.dwell * 2
     cyc = SuperCycle(m, sh.say, dwell=tuple(dw[:2]), first_leader=args.first_leader)
     state = {"close": False}

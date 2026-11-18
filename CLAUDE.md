@@ -119,6 +119,16 @@ hub Grid.cpp (seekRandomNonEmptySite) hard-coded makeAtom(5) and never read
 it (only Physics.cpp START_TYPE does).  Fixed: Grid.cpp now seeds
 mCommonArgs[1] when set (default stays 5); `.as` logs the real type.  Needs a
 QB rebuild; check the `.as` mark / AUTOSEEDOMATIC value to confirm type 4.
+Run 20261117-201302 (b450021): the 60 s wait did NOT help.  bh1:eth13
+(the 16th link) stayed port status 2 for 60 s, its peer bh3:eth13 also read 2,
+heartbeats live, retrain 0: the base firmware never trained it after
+tt-smi -r (stuck, not slow; bh1:eth13 has now failed twice, bh1:eth4 and
+bh0:eth7 once each).  Response: mfmxctl `boot` now runs a link PREFLIGHT after
+tt-smi -r (machine.py preflight_links): read-only port-status polls
+(EthSeamHost::portStatus) of every declared link end for --link-wait secs
+(60), then up to --link-resets (3) more tt-smi -r, then boot fails naming the
+links.  releaseIdlePorts drops the cached TLB windows before each reset.
+If it keeps failing on the same link, reseat that cable.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan

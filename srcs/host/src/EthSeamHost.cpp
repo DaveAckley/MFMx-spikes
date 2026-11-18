@@ -582,6 +582,25 @@ namespace MFM {
     return r ? r->chans : std::vector<u32>();
   }
 
+  bool EthSeamHost::portStatus(u32 chip,
+                               u32 ethx,
+                               u32 & port,
+                               std::string & err) {
+    std::lock_guard<std::mutex> g(mMutex);
+    EthPort * p = portFor(chip, err);
+    if (!p) return false;
+    EthLinkEnd end(*p, chip, ethx);
+    port = end.health().port;
+    return true;
+  }
+
+  bool EthSeamHost::releaseIdlePorts() {
+    std::lock_guard<std::mutex> g(mMutex);
+    if (!mLinks.empty()) return false;
+    mPorts.clear();
+    return true;
+  }
+
   bool EthSeamHost::health(u32 chip,
                            u32 ethx,
                            EthHealth & h,
