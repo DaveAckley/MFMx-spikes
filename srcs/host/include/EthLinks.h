@@ -128,6 +128,14 @@ namespace MFM {
       at BHLog. */
   void ethLinksSetLogger(std::function<void(const std::string &)> sink) ;
 
+  /** How long validate() waits for a link to report Up (port status 1)
+      before giving up, in milliseconds.  After a chip reset the base
+      firmware retrains each link in the background, and one that is a
+      little late used to fail the whole bring-up.  Default 60000;
+      native tests set it small. */
+  void ethLinksSetUpWaitMs(u32 ms) ;
+  u32 ethLinksUpWaitMs() ;
+
   /** One end of a link: the ETH tile (ethx, 1) of one card. */
   class EthLinkEnd {
   public:
@@ -137,8 +145,14 @@ namespace MFM {
         mEthX(ethx)
     { }
 
-    /// read-only; fills MACs; checks pristine unless force
-    bool validate(bool force) ;
+    /** read-only; fills MACs; checks pristine unless force.  waitMs < 0
+        uses ethLinksUpWaitMs(); the link must report Up within that
+        time (polled every 100 ms). */
+    bool validate(bool force, int waitMs = -1) ;
+
+    /** Poll the port status until it is 1 (Up) or waitMs ran out.  port
+        is the last status read, waited the milliseconds spent. */
+    bool waitPortUp(u32 waitMs, u32 & port, u32 & waited) ;
 
     /// needs validate()
     bool configureQueue2() ;

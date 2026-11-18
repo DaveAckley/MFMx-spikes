@@ -102,6 +102,12 @@ cause of slow frames and slow bolts.  Bolts 1.8 s (NEW_LEADER) / 2.3 s
 (`start`, ~105 s) still produces no frames.  Slowscan stays available via
 `scan`, the after-timeout diagnosis, and `tick slowscan on`.  Centre channels
 again one-way, out == in == noc 31970, txfail 0, retrain 0, uncorrected 0.
+Intermittent bring-up failure "link not Up (port status 2)" seen three times
+on different tiles (bh1:eth13, bh1:eth4, bh0:eth7; also after clean runs, so
+not only after a kill).  validate() now polls up to 60 s for Up (logs how long
+it took), reports both ends, and bringUpSeams re-verifies every end (Up, no
+retrain) before succeeding.  If it still fails after the wait, the link is
+stuck, not slow: note which tile (EthLinks lines in host/hc000.mfmk).
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan

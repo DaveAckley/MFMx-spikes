@@ -58,6 +58,11 @@ struct Fab {
   u32 cleanupData = 0;
   u32 cleanupDataByChip[4] = { 0, 0, 0, 0 };
   u32 imageId = 0xE1F00016u;            //< what a fake E1 reports
+  // (chip, x) -> number of port-status reads that still say 2 (training)
+  std::map<u64, int> slowUp;
+  // ETH x whose port drops to 2 as soon as its E1 is released (a link that
+  // fails after it was brought up); 0 = none
+  u32 dropPortAtE1 = 0;
 
   static u64 key(int c, u32 x, u32 a) {
     return ((u64) c << 48) | ((u64) x << 40) | a;
@@ -100,6 +105,13 @@ struct Fab {
 
 bool MockPort::rd32(u32 x, u32 a, u32 & v) {
   v = f.get(chip, x, a);
+  if (a == BOOT_RESULTS + 4) {
+    auto it = f.slowUp.find(Fab::key(chip, x, 0));
+    if (it != f.slowUp.end() && it->second > 0) {
+      --it->second;
+      v = 2;
+    }
+  }
   return true;
 }
 
@@ -109,6 +121,7 @@ bool MockPort::wr32(u32 x, u32 a, u32 v) {
 
   // releasing the E1's soft reset: the fake E1 comes up
   if (a == SOFT_RESET && !(v & SR_E1)) {
+    if (f.dropPortAtE1 == x) f.put(chip, x, BOOT_RESULTS + 4, 2);
     f.put(chip, x, CTL_BASE + CTL_READY, E1_READY_WORD);
     f.put(chip, x, CTL_BASE + CTL_IMAGE_ID, f.imageId);
   }
@@ -294,6 +307,87 @@ struct RefusalCase {
   u32 chip1ResetAfter;      //< chip 1's soft-reset register afterwards
   bool errorMayBeEmpty;
 };
+
+// ---- 1b. links that are slow to train, stuck, or drop later ----
+
+static void test_up_wait() {
+  const u32 saved = ethLinksUpWaitMs();
+
+  // slow to train: Up after a few polls, within the wait
+  ethLinksSetUpWaitMs(3000);
+  {
+    Fab f;
+    f.init(X);
+    f.slowUp[Fab::key(0, X, 0)] = 5;
+    f.slowUp[Fab::key(1, X, 0)] = 3;
+    MockPort pa(f, 0);
+    MockPort pb(f, 1);
+    EthLink L(pa, 0, pb, 1, X);
+    CHECK(L.bringUp(fakeImage(), setup(1, 2), setup(2, 3)));
+    CHECK(L.isUp());
+    L.tearDown();
+  }
+
+  // stuck at 2: fails after the wait, and the error says what BOTH ends saw
+  ethLinksSetUpWaitMs(300);
+  {
+    Fab f;
+    f.init(X);
+    f.put(0, X, BOOT_RESULTS + 4, 2);
+    f.put(1, X, BOOT_RESULTS + 4, 2);
+    MockPort pa(f, 0);
+    MockPort pb(f, 1);
+    EthLink L(pa, 0, pb, 1, X);
+    CHECK(!L.bringUp(fakeImage(), setup(1, 2), setup(2, 3)));
+    const std::string & e = L.lastError();
+    CHECK(e.find("link not Up (port status 2) after waiting") !=
+          std::string::npos);
+    CHECK(e.find("peer: ") != std::string::npos);
+    CHECK(e.find("heartbeat") != std::string::npos);
+    CHECK(!L.isUp());
+  }
+
+  // only the second end is down: the error names the first and the peer
+  {
+    Fab f;
+    f.init(X);
+    f.put(0, X, BOOT_RESULTS + 4, 2);
+    MockPort pa(f, 0);
+    MockPort pb(f, 1);
+    EthLink L(pa, 0, pb, 1, X);
+    CHECK(!L.bringUp(fakeImage(), setup(1, 2), setup(2, 3)));
+    CHECK(L.lastError().find("peer bh1:eth") != std::string::npos);
+  }
+  ethLinksSetUpWaitMs(saved);
+}
+
+// A link that comes up and then drops while the others come up fails the
+// whole bring-up at the final check, with everything torn down.
+static void test_verify_after_bringup() {
+  Fab f;
+  for (u32 x : { 6u, 7u, 10u, 11u }) f.init(x, 1, 2);
+  EthSeamHost & h = EthSeamHost::get();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.clearSeams();
+  h.setPortFactory([&f](u32 chip, std::string &)
+                   -> std::unique_ptr<EthPort> {
+    return std::unique_ptr<EthPort>(new MockPort(f, (int) chip));
+  });
+  h.setHubLookup(mockHub);
+  CHECK(h.declareSeam(0, D4_E, 1, { 6, 7, 10, 11 }).empty());
+  f.dropPortAtE1 = 7;
+  std::string err = h.bringUpSeams(IMAGE, 2, 4, false, true);
+  CHECK(err.find("no longer Up") != std::string::npos);
+  CHECK(h.status() == "no eth-seam links");
+  // healthy again: succeeds
+  f.dropPortAtE1 = 0;
+  for (u32 x : { 6u, 7u, 10u, 11u }) f.init(x, 1, 2);
+  CHECK(h.bringUpSeams(IMAGE, 2, 4, false, true).empty());
+  h.tearDownAll();
+  h.clearSeams();
+  for (u32 c = 0; c < 4; ++c) h.chipClosing(c);
+  h.setPortFactory(nullptr);
+}
 
 static void test_refusals() {
   const RefusalCase cases[] = {
@@ -911,8 +1005,11 @@ static void test_planner_lshape() {
 
 int main() {
   ethLinksSetLogger([](const std::string & s) { logs.push_back(s); });
+  ethLinksSetUpWaitMs(0);       // tests must not wait for a dead link
 
   test_happy_path();
+  test_up_wait();
+  test_verify_after_bringup();
   test_refusals();
   test_force();
   test_channel_validation();

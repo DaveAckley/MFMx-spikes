@@ -143,6 +143,8 @@ namespace MFM {
       u32 b;
       u32 ethx;
       std::vector<u32> chans;   //< channel numbers set up on this link
+      u32 retrainA = 0;         //< retrain counters when the link came up
+      u32 retrainB = 0;
       std::unique_ptr<EthLink> link;
     };
 
@@ -180,6 +182,7 @@ namespace MFM {
     std::string tearDownLinkLocked(u32 chipA, u32 chipB, u32 ethx) ;
     EthSeam::SeamTable tableLocked(u32 chip) ;
     std::string closureErrorLocked() ;
+    std::string verifyAllLocked() ;
 
     /// creates on first use; mMutex held
     EthPort * portFor(u32 chip, std::string & err) ;

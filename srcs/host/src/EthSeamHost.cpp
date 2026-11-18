@@ -1,5 +1,8 @@
 #include "EthSeamHost.h"
 
+#include <chrono>
+#include <thread>
+
 namespace MFM {
 
   EthSeamHost & EthSeamHost::get() {
@@ -166,6 +169,8 @@ namespace MFM {
     for (const EthChannel & ch : setupA.channels) {
       rec.chans.push_back(ch.channel);
     }
+    rec.retrainA = rec.link->a().health().retrain;
+    rec.retrainB = rec.link->b().health().retrain;
     mLinks.push_back(std::move(rec));
     return "";
   }
@@ -460,6 +465,34 @@ namespace MFM {
     return "";
   }
 
+  /** The last look before bring-up is declared a success: every end of
+      every link still reports Up and has not retrained since it came
+      up.  A link that dropped (or retrained, which loses the cars in
+      flight) while the others were being brought up fails here, with
+      the tile named, instead of mid-run. */
+  std::string EthSeamHost::verifyAllLocked() {
+    for (Rec & r : mLinks) {
+      EthLinkEnd * ends[2] = { &r.link->a(), &r.link->b() };
+      u32 first[2] = { r.retrainA, r.retrainB };
+      for (u32 i = 0; i < 2; ++i) {
+        u32 port = 0;
+        u32 waited = 0;
+        if (!ends[i]->waitPortUp(ethLinksUpWaitMs(), port, waited)) {
+          return "link " + ends[i]->name() + " is no longer Up (port"
+            " status " + std::to_string(port)
+            + ") after bring-up of the other links";
+        }
+        EthHealth h = ends[i]->health();
+        if (h.retrain != first[i]) {
+          return "link " + ends[i]->name() + " retrained after it came"
+            " up (retrain " + std::to_string(first[i]) + " -> "
+            + std::to_string(h.retrain) + ")";
+        }
+      }
+    }
+    return "";
+  }
+
   std::string EthSeamHost::bringUpSeams(const std::string & imagePath,
                                         u32 flags,
                                         u32 ringCars,
@@ -501,6 +534,7 @@ namespace MFM {
       }
       if (!err.empty()) break;
     }
+    if (err.empty()) err = verifyAllLocked();
     if (!err.empty()) {
       for (const Up & u : ups) tearDownLinkLocked(u.a, u.b, u.ethx);
     }

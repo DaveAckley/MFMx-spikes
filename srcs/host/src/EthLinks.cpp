@@ -50,6 +50,7 @@ namespace MFM {
     constexpr u32 SMOKE_BYTES = 64u;
 
     std::function<void(const std::string &)> gSink;
+    u32 gUpWaitMs = 60000u;
 
     void logf(const char * fmt, ...) {
       char buf[600];
@@ -83,6 +84,14 @@ namespace MFM {
 
   void ethLinksSetLogger(std::function<void(const std::string &)> sink) {
     gSink = sink;
+  }
+
+  void ethLinksSetUpWaitMs(u32 ms) {
+    gUpWaitMs = ms;
+  }
+
+  u32 ethLinksUpWaitMs() {
+    return gUpWaitMs;
   }
 
   bool ethLoadImageFile(const std::string & path,
@@ -323,7 +332,20 @@ namespace MFM {
     return true;
   }
 
-  bool EthLinkEnd::validate(bool force) {
+  bool EthLinkEnd::waitPortUp(u32 waitMs, u32 & port, u32 & waited) {
+    auto t0 = std::chrono::steady_clock::now();
+    for (;;) {
+      port = R(BOOT_RESULTS + 4);
+      auto dt = std::chrono::steady_clock::now() - t0;
+      waited = (u32) std::chrono::duration_cast<
+        std::chrono::milliseconds>(dt).count();
+      if (port == 1u) return true;
+      if (waited >= waitMs) return false;
+      sleepUs(100000u);
+    }
+  }
+
+  bool EthLinkEnd::validate(bool force, int waitMs) {
     mValidated = false;
     u32 ep = 0;
     if (!R(NIU0 + NOC_ENDPOINT_ID_OFF, ep)) {
@@ -341,10 +363,25 @@ namespace MFM {
     }
     if (cfg & NIU_CFG_0_HARVESTED) return fail("tile is harvested");
 
-    u32 port = R(BOOT_RESULTS + 4);
-    if (port != 1u) {
-      return fail("link not Up (port status "
-                  + std::to_string(port) + ")");
+    u32 port = 0;
+    u32 waited = 0;
+    u32 limit = waitMs < 0 ? gUpWaitMs : (u32) waitMs;
+    if (!waitPortUp(limit, port, waited)) {
+      char b[160];
+      snprintf(b,
+               sizeof b,
+               "link not Up (port status %u) after waiting %u ms;"
+               " heartbeat 0x%08x retrain %u",
+               port,
+               waited,
+               R(SYSENG_HEARTBEAT),
+               R(SYSENG_RETRAIN));
+      return fail(b);
+    }
+    if (waited >= 500u) {
+      logf("%s: link reported Up after %u ms",
+           name().c_str(),
+           waited);
     }
     const u32 r = BOOT_RESULTS + 4u * 240u;
     if (R(r + 28) != 1u || R(r + 32 + 28) != 1u) {
@@ -708,7 +745,19 @@ namespace MFM {
       return false;
     };
 
-    if (!mA.validate(force)) return bad(mA);
+    // Validate BOTH ends even if the first fails, so the error says
+    // what the other end saw (the second look does not wait again).
+    if (!mA.validate(force)) {
+      std::string why = mA.lastError();
+      if (!mB.validate(force, 0)) {
+        why += "; peer: " + mB.lastError();
+      } else {
+        why += "; peer " + mB.name() + " reports Up";
+      }
+      mErr = why;
+      tearDown();
+      return false;
+    }
     if (!mB.validate(force)) return bad(mB);
     if (mA.mPeerMajor != mB.mMajor ||
         mA.mPeerMinor != mB.mMinor ||
