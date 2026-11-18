@@ -83,8 +83,12 @@ Risks / checks:
     docs need no change except wording; HubValue parity code becomes unused.
 
 Plan, in order (each step needs a go-ahead):
-  1. MEASURE: exchange time against band volume (check the 1.8 s constant;
-     per-T6 ack timestamps, last acker per bolt).  Confirms the duty win.
+  1. MEASURE (SET UP, awaiting a run): hub marks .xb/.xe (PhaseSteppers.cpp
+     xchgStep) give each hub's SAVE and LOAD time and packet count;
+     scripts/xchg/xchg.py reports them and compares with the host bolt times.
+     Run seam6.cmd on the new hub image, then
+       python3 scripts/xchg/xchg.py MFMX-<date>-<time> --bolts seam4-NN.out
+     See FINDING below.
   2. PROTOTYPE: quadrant cache config + event bounds in the hub image
      (configureCacheLoaders, seekRandomNonEmptySite bounds).  Same host.
   3. RUN: seam6.cmd style 12 minute run; compare duty, bolt times, AER and
@@ -93,8 +97,18 @@ Plan, in order (each step needs a go-ahead):
 
 ## Speed / measurement ideas (not started)
 
-- Find the constant 1.8 s in NEW_LEADER: timestamp each T6 ack, log the last
-  acker per bolt (needs a rebuild).
+- FINDING (read from the code, not yet measured): CacheLoader.cpp busy-waits
+  PACKET_SLEEP_CYCLES (10,000,000, a "DEBUG give hn a chance" literal, now
+  named, value unchanged) after EVERY packet loaded or unloaded, in
+  loadPacketIfNeeded and unloadPacketIfNeeded, serially on hart B.  A packet
+  carries up to 255 atoms; a leader moves about 26 packets per phase, so
+  the busy-wait alone could be most of the constant 1.8 s NEW_LEADER and of
+  the 1.7-3.4 s RUN_EVENTS load.  If xchg.py shows per-packet time near
+  70 ms, shrinking PACKET_SLEEP_CYCLES (one constant in CacheLoader.h;
+  rebuild per value; try 1M, 100k, 0) is the cheapest speed-up there is,
+  before any four-corners work.  Why the sleep is there is unknown: watch
+  for lost or out-of-order cars (cars out == in == noc, BADC marks, bolt
+  TIMEOUTs) when shrinking it.
 - Bolt poll tick 0.05 s instead of 0.2 s (about 2 percent).
 - Longer `dwell` (script only; physics trade-off).  `dwell` is the only knob
   for event time per cycle; duty is about 74 percent.

@@ -60,6 +60,9 @@ source, comments, docs and commit messages).
 - srcs/host/tools/ERISC_NOTES.md  hardware facts, ordering lessons, the
   running hardware record (sec 9.x; 9.14 = mfmxctl runs).  Cabling: ring
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
+- scripts/xchg/xchg.py  cache exchange timing per hub from the `.xb`/`.xe`
+  marks (SAVE in NEW_LEADER, LOAD in RUN_EVENTS: time and packets), with
+  --bolts to compare against the host bolt times.  Self-test xchg_test.py.
 - OPEN_ISSUES.md  the one list of open bugs, unproven things and ideas.
 - srcs/host/python/EWD/HANDOFF.md  mfmxctl usage, command files (seamtest,
   seamcycle, seamlong, seamns), selftest, ptrace and eth-seam sections.
@@ -199,6 +202,9 @@ empty every attempt burns 5000 cheap empty draws (first 1800 s: 40494 mAER);
 use the trailing figures for steady state.  Per hub, committed events are
 uniform (225-255M, +-6%); the 40% spread in total events per hub is all empty
 draws (131M-2.5G; low on central chip 0 hubs near the seed, which fill first).
+Since the hub image after 76b9426 seekRandomNonEmptySite gives up after 100
+empty draws (was 5000): AER numbers from before and after are NOT comparable
+on sparse grids (the empty events of the first half hour shrink a lot).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam7.cmd: 6 hour unattended version of seam5/seam6 (36 blocks of
 wait 600 / seams / status); edit the number of blocks to change the length.

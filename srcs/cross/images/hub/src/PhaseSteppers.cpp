@@ -125,6 +125,30 @@ namespace MFM {
       return b.buf;
     }
 
+    /* .xb:K at the first call of an exchange phase, .xe:K:P (hex) when
+       this hub is ready to ack.  K is 0 for SAVE (NEW_LEADER) and 1 for
+       LOAD (RUN_EVENTS); P is the packets this hub loaded or unloaded.
+       The marks' own ms stamps give the hub's time in the phase
+       (scripts/xchg/xchg.py). */
+    static bool xchgStep(u32 kind) {
+      static bool begun[2];
+      if (!begun[kind]) {
+        begun[kind] = true;
+        theL1CacheLoaders.mPacketsMoved = 0;
+        LOGPTAG(.xb,kind);
+      }
+      if (kind == 0u) theL1CacheLoaders.saveCaches();
+      else theL1CacheLoaders.loadCaches();
+      const bool ready = theL1CacheLoaders.allReadyToAck();
+      if (ready) {
+        begun[kind] = false;
+        char b[32];
+        snprintf(b,sizeof(b),"%x:%x",kind,theL1CacheLoaders.mPacketsMoved);
+        LOGPTAG(.xe,b);
+      }
+      return ready;
+    }
+
     /* true when ready to ack "N<" (i.e., entering NEW LEADER) */
     bool workOnEnteringNewLeaderB() {
       CmdArg cda = thePLL.getIncomingCDA();
@@ -152,8 +176,7 @@ namespace MFM {
           LOGPTAG(SAVE_CACHES,arg);
           HBPTAG(BOLTR_SAV$,(u32) arg);
         });
-      theL1CacheLoaders.saveCaches();
-      return theL1CacheLoaders.allReadyToAck();
+      return xchgStep(0u);
     }
 
     bool workOnExitingNewLeaderB() {
@@ -182,8 +205,7 @@ namespace MFM {
           HBPTAG(BOLTR_LOD$,arg);
         });
 
-      theL1CacheLoaders.loadCaches();
-      const bool ready = theL1CacheLoaders.allReadyToAck();
+      const bool ready = xchgStep(1u);
       if (ready) {              // events start now
         char b1[80];
         LOGPTAG(.es,fmtEventCounts(b1,fB.mGridManager));

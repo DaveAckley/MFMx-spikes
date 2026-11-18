@@ -34,10 +34,16 @@ namespace MFM {
     
   };
 
+  /* Busy-wait after every packet moved (was an unnamed DEBUG literal, 'give
+     hn a chance').  The value is unchanged; it is named so the exchange
+     timing can be measured and tuned (the .xb/.xe marks). */
+  static constexpr u32 PACKET_SLEEP_CYCLES = 10'000'000u;
+
   struct CacheLoaders {
     static constexpr u32 CACHELOADER_COUNT = 8;
     CacheLoader mCacheLoaders[CACHELOADER_COUNT];
     u8 mConfiguredSCL;
+    u32 mPacketsMoved;          //< packets loaded or unloaded since cleared (.xe mark)
 
     void configureCacheLoaders(u8 scleader) ;
 

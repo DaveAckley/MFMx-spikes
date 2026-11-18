@@ -116,7 +116,10 @@ namespace MFM {
       ewbounds.stop.y = T6Grid::SELF_MAX.y-DG::T6GRID_OVERLAP_HEIGHT-4;     //exclusive
     }
     
-    constexpr u32 MAX_TRIES = 5'000u;
+    // Each miss is an event at an empty center and counts toward AER, so a
+    // big limit makes the AER of a sparse grid (e.g. right after the seed)
+    // huge and warps comparisons: 100 keeps that distortion modest.
+    constexpr u32 MAX_TRIES = 100u;
     for (u32 i = 0u; i < MAX_TRIES; ++i) {
       U16C s = selectRandomSite(ewbounds);
       P4Atom a = mT6GridPtr->getAtom(s);
