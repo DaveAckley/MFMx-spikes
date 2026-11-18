@@ -165,13 +165,14 @@ nothing to read; the AER run needs the hub from b948755 or later.
 FIRST AER (run 20261118-030230, 435e0e4, seam6, 12 min, 140 hubs):
 `python3 scripts/aer/aer.py MFMX-20261118-030230 --series 300`.  Window starts
 at the autoseed.  Duty 74% (events running 74% of wall time), obsolete 0.8%.
-Events per site over ALL sites rose 92 -> 346 -> 413 mAER (trailing) only
-because the FB1 seed was still filling the grid (fill 8% -> 39% -> 49%): the
-hubs pick only NON-EMPTY event centers (Grid.cpp seekRandomNonEmptySite) and
-skip empty ones.  The comparable figure is events per LIVE site per second:
-steady at ~1.4-1.6 AER (1400-1600 mAER, running time) all run, fill-independent.
-aer.py prints both ("per live atom").  The hub marks `.ae` (census) supply
-the live-atom count.  Per-hub spread 92% is the fill front still spreading.
+AER is per grid SITE (all sites, so grid occupancy counts and is accepted):
+it rose 92 -> 346 -> 413 mAER (trailing) while the FB1 seed filled the grid
+(fill 8% -> 39% -> 49%), so judge a steady AER only once the fill has levelled
+off.  The hubs pick only NON-EMPTY event centers (Grid.cpp
+seekRandomNonEmptySite).  aer.py also prints a DIAGNOSTIC, events per live
+(non-empty) site per second, with the fill taken out: steady ~1.4-1.6 AER
+(1400-1600 mAER, running time) all run.  The hub `.ae` census supplies the
+live-atom count.  Per-hub spread 92% is the fill front still spreading.
 Hubs stop logging at different moments: only the cycles every hub has are used.
 Other open items: the user must merge the latest bundle.  The mock
 selftest (mock/selftest.py) is fully green again (132 checks; the old 7

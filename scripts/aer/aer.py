@@ -35,13 +35,14 @@ Reported:
   wall AER        events / (sites * wall seconds)       what you get overall
   running AER     events / (sites * events-running s)   the physics speed
   duty            running / wall   (the rest is bolts, cache load and save)
-  fill, per live atom   non-empty fraction of the sites (the '.ae' census at
-                  the end of events) and events per NON-EMPTY site per second.
-                  The hubs pick only non-empty event centers, uniformly, and
-                  skip empty ones, so events per site over ALL sites reads low
-                  in a sparse sim; per live atom is the rate each site would
-                  see in a standard MFM, the figure to compare with other AERs.
-  obsolete        fraction of returned events that were dropped
+  fill, per live atom   DIAGNOSTICS, not the AER: the non-empty fraction of
+                  the sites (the '.ae' census at the end of events) and events
+                  per NON-EMPTY site per second.  AER is per grid SITE, so the
+                  occupancy of the grid counts and is accepted: a half-empty
+                  grid has a lower AER.  The hubs only pick non-empty event
+                  centers (and skip empty ones), so the wall and running
+                  figures rise as a seed fills the grid; per live atom shows
+                  the machine's own event rate with the fill taken out.
   trailing        the same over the last N seconds, at the end of the run
   --series S      total-so-far and trailing-S figures every S seconds
   --window W      trailing windows to print (default 60 and 300 s)
@@ -202,11 +203,8 @@ def rates(cyc, sites):
 
 
 def per_atom(cyc, sites):
-    """(fill fraction, running mAER per non-empty site) or None.  The hubs
-    only pick non-empty event centers (uniformly), so events/site/s over ALL
-    sites undercounts a sparse sim: an event at an empty site is a no-op
-    that the hub skips.  Events per LIVE site per second is the rate every
-    site would get in a standard MFM (the comparable AER)."""
+    """(fill fraction, running mAER per non-empty site) or None: a
+    diagnostic, NOT the AER (AER is per grid site, occupancy included)."""
     if any(c['live'] is None for c in cyc):
         return None
     ev = sum(c['committed'] for c in cyc)
@@ -232,7 +230,7 @@ def fmt(r, pa=None):
     t = ('wall %8.2f mAER   running %8.2f mAER   duty %3.0f%%   '
          'obsolete %4.1f%%' % (r[0], r[1], 100 * r[2], 100 * r[3]))
     if pa:
-        t += '   fill %3.0f%%   per live atom %8.2f mAER' % (100 * pa[0], pa[1])
+        t += '   | diag: fill %3.0f%%  per live atom %8.2f mAER' % (100 * pa[0], pa[1])
     return t
 
 
