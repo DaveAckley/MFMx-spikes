@@ -89,26 +89,19 @@ namespace MFM {
     }
 
     /* Keep the LATEST marks: when the log would overflow, drop the oldest
-       whole marks to make room (RingBuffer::add alone discards the NEW
-       input, so a log nobody drains froze on the earliest marks).  Every
-       packString() starts on a word boundary and every mark starts with
-       '{', so after dropping we skip to the next '{' and the host never
-       sees a torn mark at the head.  RACY by design against the host's
-       slowscan read/reset (both advance mFirstUsedIdx); the producer side
-       is serialized by stringPackLock. */
+       words to make room (RingBuffer::add alone discards the NEW input, so
+       a log nobody drains froze on the earliest marks).  Goes by words, not
+       marks: a torn mark at the head is fine, the host dump has plenty of
+       unformatted text anyway.  RACY by design against the host's slowscan
+       read/reset (both advance mFirstUsedIdx); the producer side is
+       serialized by stringPackLock. */
     void makeRoomForWords(u32 words) {
       typedef LogBuffer LB;
-      bool dropped = false;
       while (LB::RING_BUFFER_MASK -
              ((mLogBuffer.mFirstFreeIdx - mLogBuffer.mFirstUsedIdx) &
               LB::RING_BUFFER_MASK) < words) {
         if (!mLogBuffer.drop()) break;
-        dropped = true;
       }
-      if (!dropped) return;
-      u16 head;
-      while (mLogBuffer.peek(head) && (head & 0xffu) != (u16) '{')
-        mLogBuffer.drop();
     }
 
     bool packString(const char *st) {

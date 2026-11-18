@@ -46,7 +46,7 @@ source, comments, docs and commit messages).
   the hn hart delivers, and slowscan does NOT capture them.  Only HBPTAG
   (and friends) go into the HostBlock buffer that slowscan reads, so it still
   works when hn is sick.  That ring keeps the LATEST
-  marks (packString drops the oldest whole marks when full).  When a mark must survive a hang, emit LOGPTAG and
+  marks (packString drops the oldest words when full; a torn mark at the head is OK).  When a mark must survive a hang, emit LOGPTAG and
   HBPTAG back to back.  Slowscan prints with Eprintf (stderr): capture
   stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):

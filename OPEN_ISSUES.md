@@ -40,7 +40,7 @@ ERISC_NOTES.md.
   turns the tick on (sweep of every tile, about 13 min per chip pass).
   HB ring: it used to discard NEW marks when full (frozen on the earliest
   marks with the slowscan tick off).  Now HostBlock::packString drops the
-  OLDEST whole marks to keep the latest (racy against slowscan's read/reset,
+  OLDEST words to keep the latest (torn head OK) (racy against slowscan's read/reset,
   accepted).  Unproven on hardware.  Open: xchg.py reads .xw from
   tiles/*.mfmk only; HB marks land in all.mfmk (slowscan dump).
   Until understood, run at 1M, not 100k.

@@ -26,17 +26,17 @@ int main() {
     out += (char)(w & 0xff); out += (char)(w >> 8);
   }
   printf("bytes %zu\n", out.size());
-  bool headOk = out[0] == '{';
+  bool headOk = true;                       // a torn head is allowed
   // every '{' must start a complete mark; last mark must be i = N-1
   size_t last = out.rfind("hb .t:");
   int lastI = atoi(out.c_str() + last + 6);
-  size_t torn = 0, marks = 0, pos = 0;
-  while ((pos = out.find('{', pos)) != std::string::npos) {
+  size_t torn = 0, marks = 0, pos = out.find('{');   // skip any torn head
+  while (pos != std::string::npos) {
     size_t e = out.find("} \n", pos);
     if (e == std::string::npos) { ++torn; break; }
-    ++marks; pos = e + 3;
+    ++marks; pos = out.find('{', e + 3);
   }
-  printf("head '{' %d, marks %zu, torn %zu, last i %d\n", headOk, marks, torn, lastI);
+  printf("head ok %d, marks %zu, torn %zu, last i %d\n", headOk, marks, torn, lastI);
   if (!headOk || torn || lastI != N - 1 || marks < 100) ++fails;
   // fit without overflow: nothing dropped
   hb.resetLog();
