@@ -83,5 +83,21 @@ check('report says dropped', 'dropped (lost marks): at0c' in text, text)
 none = []
 xchg.report([None, None], [], None, none.append)
 check('no marks is said', 'no .xb/.xe marks' in '\n'.join(none))
-print('%d failure(s)' % fails)
+
+# --- heartbeat (.xw) parsing
+hb = d + '/hb.mfmk'
+with open(hb, 'w') as f:
+    f.write('{32:150 5000 1 2,3 hb .xw:1:3e8:a:4:11111111:00020000}\n')
+    f.write('{32:150 6000 1 2,3 hb .xw:1:7d0:a:4:11111111:00020000}\n')
+last, n = xchg.load_stalls(hb)
+check('xw: count', n == 2, n)
+check('xw: last beat', last and last['ms'] == 2000 and last['kind'] == 1
+      and last['need'] == 0xa and last['ldr'] == 4, last)
+out = []
+xchg.say_stalls({'at1c9': (last, n)}, out.append)
+check('xw: report names waited dirs', 'NE,SE' in ' '.join(out), out)
+out = []
+xchg.say_stalls({}, out.append)
+check('xw: none', 'none' in out[0], out)
+print('FAILURES: %d' % fails)
 sys.exit(1 if fails else 0)

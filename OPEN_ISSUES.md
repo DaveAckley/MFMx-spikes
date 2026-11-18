@@ -32,9 +32,9 @@ ERISC_NOTES.md.
     log ending early does NOT mean the hub hung.
   * Mark volume does not single out the cross (lamers 21-22k hn marks, same as
     healthy hubs), so log back-pressure is not an obvious cause.
-  Next (needs go-ahead): hb heartbeat while an exchange phase is not ready
-  (every ~1 s: per-Dir8 needsAnotherPacket, ring occupancy), so the next hang
-  names who waits on whom via the slowscan path, which survives a hung hn.
+  Heartbeat added (.xw, 1 s while an exchange phase is not ready: per-Dir8
+  need mask, leader mask, car ring lengths); `xchg.py` prints it as STALLS.
+  NEXT hang will name who waits on whom.  Unproven on hardware.
   Until understood, run at 1M, not 100k.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).

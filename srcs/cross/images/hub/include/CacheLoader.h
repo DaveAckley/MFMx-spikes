@@ -60,6 +60,11 @@ namespace MFM {
         get(i).restartIterator();
     }
 
+    /* One line of who-is-waiting state for the .xw heartbeat: hex of the
+       need mask (bit per Dir8 that still wants a packet), the leader mask,
+       then per Dir8 the lengths of the inbound and outbound car rings. */
+    void formatWaiting(char * buf, u32 len) ;
+
     bool allReadyToAck() const {
       for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
         if (get(i).needsAnotherPacket()) return false;

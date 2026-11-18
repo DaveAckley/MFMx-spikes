@@ -4,6 +4,7 @@
 #include "HubLiveB.h"  // for fB
 #include "EthSeam.h"
 #include "DemoGlobal.h"
+#include "Printf.h"      //< for snprintf
 
 namespace MFM {
   CacheLoaders theL1CacheLoaders;
@@ -189,6 +190,29 @@ namespace MFM {
       else if (cl.isThatALeader())    // we follow: receive their caches into our sites
         cl.unloadPacketIfNeeded(gm);
     }
+  }
+
+  void CacheLoaders::formatWaiting(char * buf, u32 len) {
+    using IHubData = InterHubEP::Super::L1Data;
+    u32 need = 0u;                //< Dir8 bits still wanting a packet
+    u32 ldr = 0u;                 //< Dir8 bits where the peer is the leader
+    char in[CACHELOADER_COUNT + 1u];
+    char out[CACHELOADER_COUNT + 1u];
+    for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+      const CacheLoader & cl = get(i);
+      if (cl.needsAnotherPacket()) need |= 1u << i;
+      if (cl.isThatALeader()) ldr |= 1u << i;
+      IHubData::CarIdxs & idxs = theInterHubL1Data.mTheCarIdxs[i];
+      const IHubData::CarIdxRB & rli = idxs.mTheIdxs[IHubData::CarIdxs::COMM2COMP];
+      u32 li = (rli.mFirstFreeIdx - rli.mFirstUsedIdx) & IHubData::CarIdxRB::RING_BUFFER_MASK; //< racy peek, diagnostic only
+      const IHubData::CarIdxRB & rlo = idxs.mTheIdxs[IHubData::CarIdxs::COMP2COMM];
+      u32 lo = (rlo.mFirstFreeIdx - rlo.mFirstUsedIdx) & IHubData::CarIdxRB::RING_BUFFER_MASK; //< racy peek, diagnostic only
+      in[i] = "0123456789abcdef"[li & 0xfu];
+      out[i] = "0123456789abcdef"[lo & 0xfu];
+    }
+    in[CACHELOADER_COUNT] = '\0';
+    out[CACHELOADER_COUNT] = '\0';
+    snprintf(buf, len, "%x:%x:%s:%s", need, ldr, in, out);
   }
 
   void CacheLoader::loadPacketIfNeeded(GridManager & gm) {

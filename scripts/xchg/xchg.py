@@ -10,6 +10,12 @@ Each hub logs (hub image, PhaseSteppers.cpp, xchgStep) around each cache
 exchange phase of every supercycle:
   .xb:K        first call of the phase     K = 0 SAVE (inside NEW_LEADER)
   .xe:K:P      the hub is ready to ack                 1 LOAD (inside RUN_EVENTS)
+  .xw:K:MS:N:L:IN:OUT   HEARTBEAT, once a second while NOT ready (a phase
+               normally ends in well under 1 s, so any .xw is a stall):
+               MS ms into the phase, N hex mask of Dir8s still wanting a
+               packet (bit 0 = D8_NT, clockwise), L mask of Dir8s whose peer
+               is the leader, IN / OUT 8 hex digits: car ring lengths per
+               Dir8 (COMM2COMP / COMP2COMM).  Printed as 'STALLS'.
 where P (hex) is the number of packets this hub loaded or unloaded in the
 phase.  The marks carry the hub's own clock in ms, so a phase's time is
 xe - xb within one hub (hub clocks are not synchronized).  Hubs finish at
@@ -36,6 +42,9 @@ TILE = re.compile(r'TILE chip=(\d+) tlbi=(\d+) noc=\d+,\d+ tag=(\w+) '
                   r'img=(\w+)')
 XB = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xb:([0-9a-f]+)\}')
 XE = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xe:([0-9a-f]+):([0-9a-f]+)\}')
+XW = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xw:([0-9a-f]+):([0-9a-f]+):'
+                r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
+DIRS = ('NT', 'NE', 'ET', 'SE', 'ST', 'SW', 'WT', 'NW')
 BOLT = re.compile(r'bolt #\d+ (NEW_LEADER|RUN_EVENTS)\(.*\) CONSENSUS '
                   r'([0-9.]+)s')
 NAMES = ('SAVE', 'LOAD')
@@ -67,6 +76,35 @@ def load_phases(path):
                                int(m.group(3), 16)))
                 began[k] = None
     return out
+
+
+def load_stalls(path):
+    """Last .xw heartbeat of the file as a dict, or None; plus the count."""
+    last, n = None, 0
+    for line in open(path, errors='replace'):
+        m = XW.search(line)
+        if m:
+            n += 1
+            last = dict(at=int(m.group(1)), kind=int(m.group(2), 16) & 1,
+                        ms=int(m.group(3), 16), need=int(m.group(4), 16),
+                        ldr=int(m.group(5), 16), inr=m.group(6),
+                        outr=m.group(7))
+    return last, n
+
+
+def say_stalls(stalls, say=print):
+    if not stalls:
+        say('STALLS: none (no hub ever waited a full second)')
+        return
+    say('STALLS: %d hubs logged a heartbeat (.xw); last one each:'
+        % len(stalls))
+    for tag in sorted(stalls):
+        d, n = stalls[tag]
+        waits = ','.join(DIRS[i] for i in range(8) if d['need'] >> i & 1)
+        say('  %s %s %.1fs in, %d beats; waiting on %s; in-rings %s '
+            'out-rings %s'
+            % (tag, NAMES[d['kind']], d['ms'] / 1000.0, n, waits or '-',
+               d['inr'], d['outr']))
 
 
 def analyze(per_hub):
@@ -162,13 +200,18 @@ def main(argv):
         else:
             sys.exit(__doc__)
     per_hub = {}
+    stalls = {}
     for tag in hub_tags(rundir):
         try:
             per_hub[tag] = load_phases('%s/tiles/%s.mfmk' % (rundir, tag))
+            d, n = load_stalls('%s/tiles/%s.mfmk' % (rundir, tag))
+            if d:
+                stalls[tag] = (d, n)
         except OSError:
             continue
     res, dropped = analyze(per_hub)
     report(res, dropped, bolts)
+    say_stalls(stalls)
 
 
 if __name__ == '__main__':

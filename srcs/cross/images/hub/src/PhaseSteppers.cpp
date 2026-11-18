@@ -4,6 +4,7 @@
 #include "HubLiveB.h"     //< for fB
 #include "NgbCacheMgr.h"  //< for sites-and-caches constants
 #include "CacheLoader.h"  //< for theL1CacheLoaders
+#include "FastT0.h"      //< for millisElapsed
 #include "Printf.h"      //< for snprintf
 
 namespace MFM {
@@ -130,16 +131,32 @@ namespace MFM {
        LOAD (RUN_EVENTS); P is the packets this hub loaded or unloaded.
        The marks' own ms stamps give the hub's time in the phase
        (scripts/xchg/xchg.py). */
+    static constexpr u32 XCHG_BEAT_MS = 1000u;  //< .xw heartbeat period
+
     static bool xchgStep(u32 kind) {
       static bool begun[2];
+      static u32 beganMs;       //< when this phase began (millisElapsed)
+      static u32 lastBeatMs;    //< when we last logged a heartbeat
       if (!begun[kind]) {
         begun[kind] = true;
         theL1CacheLoaders.mPacketsMoved = 0;
+        beganMs = lastBeatMs = millisElapsed();
         LOGPTAG(.xb,kind);
       }
       if (kind == 0u) theL1CacheLoaders.saveCaches();
       else theL1CacheLoaders.loadCaches();
       const bool ready = theL1CacheLoaders.allReadyToAck();
+      if (!ready) {             // HEARTBEAT: who is still waiting (hang diagnosis)
+        const u32 now = millisElapsed();
+        if (now - lastBeatMs >= XCHG_BEAT_MS) {
+          lastBeatMs = now;
+          char b[48];
+          char w[64];
+          theL1CacheLoaders.formatWaiting(w,sizeof(w));
+          snprintf(b,sizeof(b),"%x:%x:%s",kind,now - beganMs,w);
+          LOGPTAG(.xw,b);
+        }
+      }
       if (ready) {
         begun[kind] = false;
         char b[32];
