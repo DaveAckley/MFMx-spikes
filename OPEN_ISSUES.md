@@ -14,11 +14,6 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
-- Empty-center counters and u64 `.es`/`.ev` marks (f5f7b56 era image):
-  first reading comes from the seam7 run.
-- Keepalive pacing fix (1e948b3) on the real stream (FEEDSTAT dup near 153
-  per 30 s during `start`; if it stays near 76-92 the stall is media-server
-  or player side).
 - ZHD counter zero-init (61cb6de): `#N` in HAR lines should now be small.
 - Atom CONTENTS match across seams (content-hash slice; user: pass on it
   indefinitely while things look good).

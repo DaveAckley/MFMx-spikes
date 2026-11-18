@@ -185,10 +185,24 @@ AER; ignore them (the old C:R:O marks are not readable by the current
 aer.py).  Redo with the hub from the empty-center commit.  Counters are now
 u64 (a sparse grid draws many empty events: at 20 draws per event the u32
 empties counter could wrap in days).
+FIRST 6 HOUR RUN AND FIRST TRUE AER (run 20261118-035205, f5f7b56, seam7,
+6.04 h, seam4, --abort-on-error): clean.  Preflight 30.9 s after 2 extra
+resets.  4182 bolts, no TIMEOUT: NEW_LEADER 1.79 s (sd 0.06, constant),
+RUN_EVENTS 2.43 s mean (1.70-3.50, sd 0.58).  Cars out == in == noc on every
+channel, 1,124,360 in the last block, txfail 0, nocfail 0, retrain 0,
+uncorrected FEC 0 (corrected FEC counts are in the billions per link).  Stream:
+FEEDSTAT real 151.7 / dup 4.3 per 30 s (keepalive pacing fix 1e948b3 works).
+aer.py: duty 74-75%, obsolete 0.7%, fill plateau 72-73%.  Trailing 300 s:
+1166 mAER wall, 1553 running (non-empty-only 1008, i.e. about 1.0 AER).  The
+TOTAL (4523 mAER) is inflated by the first 30 min: while the grid is nearly
+empty every attempt burns 5000 cheap empty draws (first 1800 s: 40494 mAER);
+use the trailing figures for steady state.  Per hub, committed events are
+uniform (225-255M, +-6%); the 40% spread in total events per hub is all empty
+draws (131M-2.5G; low on central chip 0 hubs near the seed, which fill first).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam7.cmd: 6 hour unattended version of seam5/seam6 (36 blocks of
 wait 600 / seams / status); edit the number of blocks to change the length.
-Run directory grows ~3.4 MB/min; check df first.  Untested for that length.
+Run directory grows ~3.4 MB/min; check df first.  Ran clean for 6 h.
 Other open items: the user must merge the latest bundle.  The mock
 selftest (mock/selftest.py) is fully green again (132 checks; the old 7
 failures were a mock gap plus tests still using the renamed `phase` command).
