@@ -32,9 +32,11 @@ ERISC_NOTES.md.
     log ending early does NOT mean the hub hung.
   * Mark volume does not single out the cross (lamers 21-22k hn marks, same as
     healthy hubs), so log back-pressure is not an obvious cause.
-  Heartbeat added (.xw, 1 s while an exchange phase is not ready: per-Dir8
+  Heartbeat added (.xw via LOGPTAG and HBPTAG, 1 s while an exchange phase is not ready: per-Dir8
   need mask, leader mask, car ring lengths); `xchg.py` prints it as STALLS.
-  NEXT hang will name who waits on whom.  Unproven on hardware.
+  NEXT hang will name who waits on whom.  Unproven on hardware.  Open: where
+  slowscan's HB marks land in the run directory (its output is Eprintf, stderr,
+  not in seam9-NN.out); xchg.py reads .xw from tiles/*.mfmk only.
   Until understood, run at 1M, not 100k.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).

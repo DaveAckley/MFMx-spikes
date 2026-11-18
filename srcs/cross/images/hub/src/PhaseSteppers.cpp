@@ -155,6 +155,7 @@ namespace MFM {
           theL1CacheLoaders.formatWaiting(w,sizeof(w));
           snprintf(b,sizeof(b),"%x:%x:%s",kind,now - beganMs,w);
           LOGPTAG(.xw,b);
+          HBPTAG(.xw,b);          // LOG may not get out when hn is sick; HB is read by slowscan
         }
       }
       if (ready) {

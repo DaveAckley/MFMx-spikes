@@ -42,6 +42,12 @@ source, comments, docs and commit messages).
   compile.  T6/E1 images CAN be cross-built here: rsync the tree to a scratch
   dir and `make` in its build_cross.
 - When running mfmxctl on the QB include --rtmp so the user can watch.
+- HUB DIAGNOSTIC MARKS: LOGPTAG (and friends) go to the log block, which
+  the hn hart delivers, and slowscan does NOT capture them.  Only HBPTAG
+  (and friends) go into the HostBlock buffer that slowscan reads, so it still
+  works when hn is sick.  When a mark must survive a hang, emit LOGPTAG and
+  HBPTAG back to back.  Slowscan prints with Eprintf (stderr): capture
+  stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):
   * Fixed a bug or finished an item: delete or update its entry in
     OPEN_ISSUES.md (and any note in HANDOFF.md) in the SAME commit.
