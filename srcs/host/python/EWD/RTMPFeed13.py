@@ -355,22 +355,40 @@ class RTMPFeed:
     def keepAlive(self):
         """Whenever the next real frame is late, send the last real image
         again with a fresh overlay: the clocks keep running and a
-        NO NEW DATA line counts the seconds since the last real frame."""
-        late = 1.3 / self.fps
+        NO NEW DATA line counts the seconds since the last real frame.
+
+        ffmpeg stamps frames by COUNT (at self.fps), so the repeats must
+        arrive at the frame rate or the stream's clock and the player's
+        drift apart.  The first repeat waits 1.3 frame periods after the
+        last real frame (one may be about to arrive); after that a repeat
+        is due one period after the PREVIOUS REPEAT STARTED, so the
+        rendering and write time (about 70 ms) does not slow the rate
+        (it used to: about 3 repeats per second instead of 5)."""
+        period = 1.0 / self.fps
+        late = 1.3 * period
+        dupStart = 0.0          #< when our last repeat began
+        dupEnd = 0.0            #< lastWriteT right after it
         while True:
-            time.sleep(0.5 / self.fps)
+            time.sleep(0.2 * period)
             base = self.lastBase
             if base is None:
                 continue
-            if time.monotonic() - self.lastWriteT > late:
+            now = time.monotonic()
+            if self.lastWriteT == dupEnd:    # no real frame since our repeat
+                due = dupStart + period
+            else:
+                due = self.lastWriteT + late
+            if now >= due:
                 try:
-                    stale = time.monotonic() - self.lastRealMono
+                    dupStart = now
+                    stale = now - self.lastRealMono
                     img = base.copy()
                     sim = self.lastSimNanos + int(stale * 1e9)
                     self.renderOverlay(img, sim, self.lastInfo, stale)
                     data = np.ascontiguousarray(img).tobytes()
                     self.lastBytes = data
                     self.writeFrame(data, False)
+                    dupEnd = self.lastWriteT
                 except Exception as e:
                     self.ewd.logkt("FEEDSTAT", f"keepalive: {e}")
                     time.sleep(1.0)
