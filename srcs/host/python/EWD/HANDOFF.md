@@ -95,34 +95,9 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
    alternative fix).
 
 ### Open items / next steps
-- **DL backlog is by design, not a bug.**  The host display is intentionally allowed
-  to fall behind (DLGridList is lossy; ACB ships oldest-first at a paced rate) so
-  that NoC bandwidth is preserved for EWPs and InterHub traffic.  A saturated FB4
-  grid dirties 3k-13k of ~15k sites per tile faster than they ship; that is
-  expected.  `T6Grid::setAtom` already skips unchanged atoms and
-  `GridManager::setAtomOrDrop` only pushes the DL list on real changes, so
-  compare-before-write is not a win.  The ship rate (frame pacing BOGOMS_PER_FRAME
-  in EP_ACacheBlock.cpp, car count) is a tuning knob, low priority.  If you want
-  to verify ACB is not crowding out IH, measure ACB bytes/s vs IH bytes/s: add a
-  dotted `.ab` mark at the ship point in `ACacheBlockPrivateControl::updateCars`
-  (ACB tags like SHIPFRM/WAITSENT/DGLLen are undotted and suppressed by
-  HBF_NO_UTAG).
-- FB4's renderer (`renderPhysicsHACK`, ZHostDecompressor.cpp) colors by the hidden
-  counter `mStg[1]`, so a saturated grid shimmers (visually striking, not dull);
-  darkest FB4 pixel is (50,50,50) vs empty (15,10,5).  A seed mix (DReg/FB1; the
-  `create(50)` switch in `GridManager::seekRandomNonEmptySite` is computed but
-  unused -- seed is hard-coded to type 5) would add variety.
-- `loadPacket` ships every site in the range including EMPTY atoms (full cars
-  regardless of occupancy): a bandwidth/latency optimization opportunity.
-- `dwell` is the only knob for event time per cycle (default 3s vs ~2-3s cache
-  load and ~2s NEW_LEADER); longer dwell = more events per exchange.
-- First-NEW_LEADER `once` hack in `workOnEnteringNewLeaderB` is probably removable
-  (zero-initialized loaders make the first save a no-op anyway).
-- Not yet emitted: `.pw` waypoint marks on the T6 side (analyzer parses them).
-- Hub undotted tags (`LOGPTAG(BADC,...)` etc.) are suppressed by HBF_NO_UTAG;
-  use dotted tags (`.x`, not `.p*` unless PTRACE-gated) for anything you need.
-- Inter-T6 destinations are not in PKTS.txt (analyzer learns directions from marks).
-- Possible `sleep SECS` mfmxctl command (offered, not requested).
+Moved to /OPEN_ISSUES.md (repo root).  Keep it there, not here.
+Note: undotted hub tags (`LOGPTAG(BADC,...)` etc.) are suppressed by
+HBF_NO_UTAG; use dotted tags (`.x`, not `.p*` unless PTRACE-gated).
 
 ### C++ / host changes requiring rebuild (all in `latest` history)
 - `OurTLBs::getNonPhaseTLBIList()`, `Blackhole::getNonPhaseTLBIs/getTLBITag/

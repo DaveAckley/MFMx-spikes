@@ -42,6 +42,15 @@ source, comments, docs and commit messages).
   compile.  T6/E1 images CAN be cross-built here: rsync the tree to a scratch
   dir and `make` in its build_cross.
 - When running mfmxctl on the QB include --rtmp so the user can watch.
+- DEFINITION OF DONE for a commit (docs are part of the change):
+  * Fixed a bug or finished an item: delete or update its entry in
+    OPEN_ISSUES.md (and any note in HANDOFF.md) in the SAME commit.
+  * Found a bug or idea and did not fix it: add it to OPEN_ISSUES.md before
+    the turn ends; chat is not a record.
+  * Changed behaviour, an option or a command: update the CLAUDE.md map or
+    run record and any .cmd header that mentions it.
+  * Before committing, grep the docs for the touched symbols/options, and
+    say in the commit message which docs changed (or "no doc impact").
 
 ## 3. DOCUMENT MAP (every file below links to the others)
 
@@ -51,6 +60,7 @@ source, comments, docs and commit messages).
 - srcs/host/tools/ERISC_NOTES.md  hardware facts, ordering lessons, the
   running hardware record (sec 9.x; 9.14 = mfmxctl runs).  Cabling: ring
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
+- OPEN_ISSUES.md  the one list of open bugs, unproven things and ideas.
 - srcs/host/python/EWD/HANDOFF.md  mfmxctl usage, command files (seamtest,
   seamcycle, seamlong, seamns), selftest, ptrace and eth-seam sections.
 - scripts/ptrace/README.txt  packet-trace analyzer (reads RUNDIR/tiles).
