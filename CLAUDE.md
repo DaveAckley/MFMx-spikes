@@ -129,6 +129,15 @@ tt-smi -r (machine.py preflight_links): read-only port-status polls
 (60), then up to --link-resets (3) more tt-smi -r, then boot fails naming the
 links.  releaseIdlePorts drops the cached TLB windows before each reset.
 If it keeps failing on the same link, reseat that cable.
+Run 20261117-203012 (0c35e57, seam5, ~35 min, seed type 4): PREFLIGHT
+WORKED.  Rounds 1 and 2 had links stuck at port 2 (bh1/bh3 eth13; then also
+bh0/bh1 eth7: always BOTH ends of a link, a different set each reset), the
+third reset brought all 32 ends Up (127 s total).  Then 16 links, retrain 0,
+uncorrected FEC 0, txfail 0, out == in == noc at every dump (15.7k cars per 5
+min, steady 15.7k..15.9k, no die-out), 412 bolts CONSENSUS (median 1.8 s, max
+3.4 s), centre channels one-way, 10667 frames, `.as:4` in the tile logs: the
+seed-type fix (b450021) is proven, the stream shows FB1.  Use --link-resets 5
+for unattended runs; a reseat of the bh1<->bh3 eth13 cable may help.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
