@@ -67,22 +67,17 @@ namespace MFM {
       if (--mAutoseedWaitCount == 0) {
         MFM_API_ASSERT_NONNULL(mT6GridPtr);
         U16C ctr(DG::T6GRID_WIDTH/2,DG::T6GRID_HEIGHT/2);
-        u16 type;
-        switch (create(50)) {
-          // LET'S TRY NO FB4: case 0:  type = 5; break;
-          //        case 1:
-          // ALMOST ALL DREG!
-          //case 2:
-          //case 3:
-        case 4:  type = 4; break;
-        default: type = 2; break;
-        }
-        //setAtom(ctr,P4Atom::makeAtom(type)); // DREG IS TWO
-        setAtom(ctr,P4Atom::makeAtom(5)); // FB4 IS FIVE
-        //setAtom(ctr,P4Atom::makeAtom(4)); // FB1 IS FOUR
+        // The seed type comes from the host (mfmxctl 'decay N',
+        // CodeManager::setStartDecayType -> mCommonArgs[1]); U16_MAX
+        // means unset, which keeps the old default of FB4 (five).
+        // FB1 is four, DREG is two.
+        u16 type = 5;
+        if (theHostBlock.mCommonArgs[1] != U16_MAX)
+          type = (u16) theHostBlock.mCommonArgs[1];
+        setAtom(ctr,P4Atom::makeAtom(type));
         HBPTAG("AUTOSEEDOMATIC",type);
         LOGPTAG("LOGOAUTOSEEDOMATIC",type);
-        LOGPTAG(.as,5);      // dotted: survives HBF_NO_UTAG (seed atom type)
+        LOGPTAG(.as,type);   // dotted: survives HBF_NO_UTAG (seed atom type)
       } else {
         if ((mAutoseedWaitCount % 1'000'000) == 0)
           LOGPTAG(WAITING,mAutoseedWaitCount);

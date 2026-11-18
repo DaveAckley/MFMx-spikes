@@ -108,6 +108,17 @@ not only after a kill).  validate() now polls up to 60 s for Up (logs how long
 it took), reports both ends, and bringUpSeams re-verifies every end (Up, no
 retrain) before succeeding.  If it still fails after the wait, the link is
 stuck, not slow: note which tile (EthLinks lines in host/hc000.mfmk).
+Long run (seam5.cmd, run 20261117-175735, a67ac2c, about 35 min): all 16
+links came up first try (no "Up after N ms" wait logged, so the wait is
+untested on a real failure), retrain 0, uncorrected FEC 0, txfail 0, out == in
+== noc at every 5-minute dump, steady 15.5k cars per 5 minutes (CA did not die
+out, no seam stalled), 412 bolts CONSENSUS (median 1.8 s, max 3.4 s), centre
+channels one-way, 10666 frames at about 5.1 fps, orderly SIGTERM exit.
+SEED TYPE BUG: that run was still FB4.  `decay 4` reached mCommonArgs[1] but
+hub Grid.cpp (seekRandomNonEmptySite) hard-coded makeAtom(5) and never read
+it (only Physics.cpp START_TYPE does).  Fixed: Grid.cpp now seeds
+mCommonArgs[1] when set (default stays 5); `.as` logs the real type.  Needs a
+QB rebuild; check the `.as` mark / AUTOSEEDOMATIC value to confirm type 4.
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
