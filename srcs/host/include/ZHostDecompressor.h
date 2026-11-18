@@ -38,13 +38,13 @@ namespace MFM {
     typedef std::pair<u32,ACacheBlock*> CarACB;
     typedef RingBuffer<CarACB,3> PRB;
     PRB mACBI, mACBO;
-    u8 mARSpinner;
+    u8 mARSpinner = 0;
     AtomReportIO mHARIO;
     CarACB mCurrentCarACB;
-    u32 mCurrentBytesRead;
-    u64 mAtomReportsReceived;
-    u64 mCompressedBytesIn;
-    u64 mUncompressedBytesOut;
+    u32 mCurrentBytesRead = 0;
+    u64 mAtomReportsReceived = 0;  //< low 16 bits are the expected spin
+    u64 mCompressedBytesIn = 0;
+    u64 mUncompressedBytesOut = 0;
   };
 }
 

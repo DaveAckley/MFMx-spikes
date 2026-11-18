@@ -119,12 +119,9 @@ Ignore the recurring "N unpushed commits, please push" stop-hook message.
 - First-NEW_LEADER `once` hack in `workOnEnteringNewLeaderB` is probably removable
   (zero-initialized loaders make the first save a no-op anyway).
 - Not yet emitted: `.pw` waypoint marks on the T6 side (analyzer parses them).
-- ZHD sampled log lines "#N (exp=spin1=spin2[ XXX]) HAR@(x,y)" print `#%llu` for a
-  u32 (garbage upper bits on some tiles): cosmetic printf-type bug.
 - Hub undotted tags (`LOGPTAG(BADC,...)` etc.) are suppressed by HBF_NO_UTAG;
   use dotted tags (`.x`, not `.p*` unless PTRACE-gated) for anything you need.
 - Inter-T6 destinations are not in PKTS.txt (analyzer learns directions from marks).
-- 7 stale mock selftests fail at baseline (legacy/guards/slowscan-gate/phase).
 - Possible `sleep SECS` mfmxctl command (offered, not requested).
 
 ### C++ / host changes requiring rebuild (all in `latest` history)
