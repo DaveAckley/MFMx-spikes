@@ -217,10 +217,14 @@ namespace MFM {
       center.x = ewt.mHiddenXPos;
       center.y = ewt.mHiddenYPos;
       SNAP(100,HBPTAG(ewtraply,center));
+      ++mEWsReturned;           // tried to apply: committed + obsoleted
       if (matchesEW(ewt.mOld,center)) {
         SNAP(100,HBPTAG(ewaplid!,center));
         EACH(100'000,LOGPTAG(!MEW@,center));
         writeEW(ewt.mNew,center);
+        ++mEWsCommitted;        // an event happened (AER counts these)
+      } else {
+        ++mEWsObsoleted;        // the window changed meanwhile: dropped
       }
     }
 
@@ -229,6 +233,7 @@ namespace MFM {
     if (!lgmc.isEPSuspReq() && seekRandomNonEmptySite(center)) {
       SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
+      ++mEWsOffered;            // a real (non-empty) event shipped
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;

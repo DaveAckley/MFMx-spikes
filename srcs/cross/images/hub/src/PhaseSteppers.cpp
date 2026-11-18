@@ -96,6 +96,18 @@ namespace MFM {
       return b.buf;
     }
 
+    /* .es/.ev: cumulative event counters of this hub's GridManager,
+       COMMITTED:RETURNED:OFFERED (hex).  .es is logged when the hub
+       starts running events, .ev when it stops, so the host can compute
+       the average event rate (AER, events per site per second) over
+       the events-running time and over wall-clock time
+       (scripts/aer/aer.py).  OBSOLETED = RETURNED - COMMITTED. */
+    static const char * fmtEventCounts(Buf32 & b, const GridManager & gm) {
+      snprintf(b.buf,b.SIZE,"%x:%x:%x",
+               gm.mEWsCommitted,gm.mEWsReturned,gm.mEWsOffered);
+      return b.buf;
+    }
+
     static const char * fmtCensusTypes(Buf32 & b, const GridCensus & gc) {
       snprintf(b.buf,b.SIZE,"2=%x,4=%x,5=%x,o=%x",gc.type2,gc.type4,gc.type5,gc.other);
       return b.buf;
@@ -159,7 +171,12 @@ namespace MFM {
         });
 
       theL1CacheLoaders.loadCaches();
-      return theL1CacheLoaders.allReadyToAck();
+      const bool ready = theL1CacheLoaders.allReadyToAck();
+      if (ready) {              // events start now
+        Buf32 b1;
+        LOGPTAG(.es,fmtEventCounts(b1,fB.mGridManager));
+      }
+      return ready;
     }
 
     bool workOnExitingRunEventsB() {
@@ -176,6 +193,8 @@ namespace MFM {
           LOGPTAG(.ae,fmtCensusCounts(b1,gc));
           char b4[64];
           LOGPTAG(.ac,fmtCensusCache(b4,gc));
+          Buf32 b5;
+          LOGPTAG(.ev,fmtEventCounts(b5,fB.mGridManager));
         }
         theL1CacheLoaders.restartIterators();
         HBPTAG(BOLTR_done_wOxREB,(u32) arg);
