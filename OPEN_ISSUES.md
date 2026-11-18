@@ -18,7 +18,24 @@ ERISC_NOTES.md.
   hung.  Suspect a latent packet-exchange race that the 10M/1M busy-wait
   was hiding (hn needing time to drain), not a link fault.  Not diagnosed:
   need the hub-side state of the stuck cross (which loader, which Dir8, who is
-  waiting for whom).  Until understood, run at 1M, not 100k.
+  Dig results (tile marks of run 125641; marks are chronically lossy, see
+  below, so this is a lead, not proof):
+  * Eth transport lost nothing: cars out==in==noc (133,942) after the freeze.
+  * Lamers show NO marks past about 20 ms into the cycle-250 LOAD (RUN_EVENTS):
+    c5/c7/129/1a9/1cb have .xb:1 and no .xe:1.  at1c9 (the cross centre) has
+    no .xb:1 at all; its marks end at the tail of the SAVE.  Its Dir4
+    neighbours stop right at LOAD start, farther hubs a bit later: looks like
+    a stall at at1c9 spreading outward along the packet dependencies.
+    Candidate root: at1c9 (12,9), leader code 3 at scy 250.  Unconfirmed.
+  * Mark streams are lossy on their own: at149, at1e9 and at1e5 stopped
+    logging 5.8 s earlier (cycle 249 SAVE) yet kept acking bolts, so a mark
+    log ending early does NOT mean the hub hung.
+  * Mark volume does not single out the cross (lamers 21-22k hn marks, same as
+    healthy hubs), so log back-pressure is not an obvious cause.
+  Next (needs go-ahead): hb heartbeat while an exchange phase is not ready
+  (every ~1 s: per-Dir8 needsAnotherPacket, ring occupancy), so the next hang
+  names who waits on whom via the slowscan path, which survives a hung hn.
+  Until understood, run at 1M, not 100k.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
