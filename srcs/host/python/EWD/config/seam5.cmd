@@ -2,7 +2,7 @@
 # PHY_FB1 (start symbol type 4: full and empty patches at steady state, a more
 # plausible CA load than type 5 = PHY_FB4).  Same layout, links and one-way
 # centre channels as seam4.cmd; only chip 0 autoseeds.
-#   python mfmxctl.py --layout seam4 --boot --rtmp -s config/seam5.cmd --script-exit
+#   python mfmxctl.py --layout seam4 --boot --rtmp -s config/seam5.cmd --script-exit --abort-on-error
 # Afterwards
 #   scripts/cachecensus/cachecensus.py MFMX-<date>-<time> \
 #     --seam 0:E:1 --seam 2:E:3 --seam 0:S:2 --seam 1:S:3

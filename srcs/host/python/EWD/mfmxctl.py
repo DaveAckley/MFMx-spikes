@@ -56,10 +56,10 @@ def parse_args(argv):
     ap.add_argument("--tt-smi", default=TT_SMI_DEFAULT)
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
     ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
-    ap.add_argument("--link-wait", type=float, default=60.0,
+    ap.add_argument("--link-wait", type=float, default=12.0,
                     help="boot preflight: seconds to wait for every declared "
                          "eth-seam link to report Up after a chip reset")
-    ap.add_argument("--link-resets", type=int, default=3,
+    ap.add_argument("--link-resets", type=int, default=5,
                     help="boot preflight: extra 'tt-smi -r' tries if links "
                          "are still not Up (0 = wait only)")
     ap.add_argument("--t6s-per-chip", type=int, default=140)
@@ -78,6 +78,11 @@ def parse_args(argv):
     ap.add_argument("-s", "--script", action="append", default=[], metavar="FILE",
                     help="run the commands in FILE as if typed at the prompt (after --boot); "
                          "may be repeated; then continue with stdin")
+    ap.add_argument("--abort-on-error", action="store_true",
+                    help="a command-file line that fails (error, unknown "
+                         "command) ends the run with exit status 1 after an "
+                         "orderly shutdown, and a failed --boot skips the "
+                         "script (typed lines never abort)")
     ap.add_argument("--script-exit", action="store_true",
                     help="quit (orderly, like 'quit') when the --script files are used up, "
                          "instead of continuing with stdin")
@@ -419,14 +424,19 @@ def main(argv=None):
                 sh.say(m.boot())
             except Exception as e:
                 sh.say(f"boot failed: {type(e).__name__}: {e}")
+                if args.abort_on_error:
+                    sh.say("script skipped (--abort-on-error)")
+                    sh.aborted = True
         sh.script_exit = args.script_exit
-        for f in args.script:
-            sh.load_script(f)
-        sh.run()
+        sh.abort_on_error = args.abort_on_error
+        if not sh.aborted:
+            for f in args.script:
+                sh.load_script(f)
+            sh.run()
     finally:
         sh.say("shutting down...")
         sh.say(m.shutdown(close=state["close"]) or "nothing to shut down")
-    return 0
+    return 1 if sh.aborted else 0
 
 
 if __name__ == "__main__":

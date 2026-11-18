@@ -51,6 +51,13 @@ class Shell:
         self._echo = not os.isatty(fd)   # make piped transcripts readable
         self.script = collections.deque()  # pending command-file lines (text)
         self.script_exit = False           # quit once command files are used up
+        self.abort_on_error = False        # a failing script line ends the run
+        self.aborted = False               # set when abort_on_error fired
+        self._waiting = False              # inside 'wait' (no nested waits)
+        # 'wait' executes lines typed meanwhile, but ONLY on a terminal.  On
+        # a pipe or file every line is already buffered, so polling would run
+        # the rest of the input at the first 'wait' instead of after it.
+        self.poll_wait = os.isatty(fd)
         self._script_ran = False
         self.max_source_depth = 8
         self._source_depth = 0
@@ -58,7 +65,8 @@ class Shell:
         self.command("tick", self._cmd_tick,
                      "tick [NAME on|off|period SECS|now]: list or control periodic ticks")
         self.command("wait", self._cmd_wait,
-                     "wait SECS: let ticks run for SECS (input is not read meanwhile)")
+                     "wait SECS: let ticks run for SECS; on a terminal, lines "
+                     "typed meanwhile run (so 'quit' ends the wait)")
         self.command("source", self._cmd_source,
                      "source FILE: run the commands in FILE as if typed (comments with #)")
         self.command("echo", lambda a: " ".join(a),
@@ -115,15 +123,41 @@ class Shell:
             return cap
         return max(0.0, min(min(dues) - now, cap))
 
-    def run_for(self, secs):
-        """Run ticks (only) for secs."""
+    def run_for(self, secs, poll_input=False):
+        """Run ticks for secs.  With poll_input, lines typed meanwhile are
+        executed as they arrive (so a typed 'quit' or 'stop' works during a
+        long script 'wait'); a stop request ends the wait early.  At EOF
+        nothing more is polled (select would return at once, forever)."""
         end = self.clock() + secs
         while True:
             self._run_due()
+            if self._stop:
+                return
+            if poll_input:
+                self._run_typed()
+                if self._stop:
+                    return
             left = end - self.clock()
             if left <= 0:
                 return
-            time.sleep(min(self._until_next_tick(), left))
+            nap = min(self._until_next_tick(), left)
+            if poll_input and not self.eof:
+                self._fill(nap)
+            else:
+                time.sleep(nap)
+
+    def _run_typed(self):
+        """Execute the complete lines already read from stdin."""
+        while not self._stop:
+            line = self._next_line()
+            if line is None:
+                return
+            if self._echo:
+                self._prompt_up = False
+                self.out.write(line + "\n")
+                self.out.flush()
+            self.dispatch(line)
+            self._need_prompt = True
 
     # ---- input --------------------------------------------------------------
     def _next_line(self):
@@ -195,30 +229,36 @@ class Shell:
         raise AbbrevError(f"unknown {what} {word!r}; try 'help'")
 
     def dispatch(self, line):
+        """Run one command line.  Returns False if it failed (parse error,
+        unknown or ambiguous command, or an exception); True otherwise."""
         line = line.strip()
         if not line or line.startswith("#"):
-            return
+            return True
         try:
             argv = shlex.split(line)
         except ValueError as e:
             self.say(f"parse error: {e}")
-            return
+            return False
         name, args = argv[0].lower(), argv[1:]
         try:
             name = self.resolve(name, self.cmds, "command")
         except AbbrevError as e:
             self.say(str(e))
-            return
+            return False
+        ok = True
         try:
             out = self.cmds[name][0](args)
         except KeyboardInterrupt:
             out = "interrupted"
         except AbbrevError as e:
             out = str(e)
+            ok = False
         except Exception as e:             # keep the shell alive
             out = f"error: {type(e).__name__}: {e}"
+            ok = False
         if out:
             self.say(str(out))
+        return ok
 
     def run(self):
         while not self._stop:
@@ -246,8 +286,14 @@ class Shell:
                 if self._echo or from_script:
                     self.out.write(line + "\n")
                     self.out.flush()
-                self.dispatch(line)
+                ok = self.dispatch(line)
                 self._need_prompt = True
+                if from_script and not ok and self.abort_on_error \
+                   and not self._stop:
+                    self.say(f"script aborted (--abort-on-error) at: {line.strip()}")
+                    self.script.clear()
+                    self.aborted = True
+                    self._stop = True
                 if from_script:
                     self._run_due()
             except KeyboardInterrupt:
@@ -263,7 +309,14 @@ class Shell:
             for name, (_, h) in sorted(self.cmds.items()) if not h.startswith("alias"))
 
     def _cmd_wait(self, args):
-        self.run_for(float(args[0]) if args else 1.0)
+        if self._waiting:
+            return "wait: already waiting (a typed wait inside a wait is refused)"
+        self._waiting = True
+        try:
+            self.run_for(float(args[0]) if args else 1.0,
+                         poll_input=self.poll_wait)
+        finally:
+            self._waiting = False
 
     def _cmd_tick(self, args):
         if not args:

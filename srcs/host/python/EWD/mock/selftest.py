@@ -173,7 +173,7 @@ def scenario_link_preflight():
     finally:
         os.environ.pop("MFMX_MOCK_LINK_DOWN_POLLS")
     check("preflight: resets until the links come up",
-          "chip reset 1 of 3" in out and "all 4 link ends Up" in out
+          "chip reset 1 of 5" in out and "all 4 link ends Up" in out
           and "extra reset(s)" in out, out[-900:])
     check("preflight: names the links that were down",
           "bh0:eth6(port 2)" in out, out[-900:])
@@ -201,7 +201,72 @@ def scenario_link_preflight():
 
     rc, out = run("boot\nquit\n", api="fire")
     check("preflight: layouts without seams do not preflight",
-          "link preflight" not in out, out[-400:])
+          "link preflight:" not in out, out[-400:])
+
+
+def scenario_abort_on_error():
+    def go(extra, lines):
+        f = os.path.join(tempfile.mkdtemp(prefix="abort-"), "s.cmd")
+        with open(f, "w") as fh:
+            fh.write(lines)
+        return run("", extra_args=("-s", f, "--script-exit") + extra)
+
+    script = "echo before\nbogus_command\necho after\nquit\n"
+    rc, out = go((), script)
+    check("abort: default keeps going past a bad line",
+          "after" in out.split("bogus_command")[-1] and rc == 0, out[-500:])
+    rc, out = go(("--abort-on-error",), script)
+    check("abort: flag stops at the bad line, exit 1, orderly shutdown",
+          "script aborted (--abort-on-error) at: bogus_command" in out
+          and "\nafter\n" not in out.split("script aborted")[-1]
+          and "shutting down..." in out and rc == 1, f"rc={rc}\n{out[-600:]}")
+    rc, out = go(("--abort-on-error",), "echo ok\nquit\n")
+    check("abort: a clean script is unaffected", rc == 0 and "ok" in out, out[-400:])
+    rc, out = go(("--abort-on-error",), "start\necho after\nquit\n")
+    check("abort: start before boot (a command error) aborts",
+          "script aborted" in out and rc == 1, out[-500:])
+
+
+def run_pty(steps, timeout=60):
+    """Run mfmxctl --mock on a pseudo-terminal (stdin is a tty, as when a
+    person types).  steps: [(delay_secs, text_to_type), ...].  Returns
+    (rc, output, elapsed)."""
+    import pty
+    env = dict(os.environ, MFMX_MOCK_API="async",
+               MFMX_MOCK_SIMDIR=tempfile.mkdtemp(prefix="selftest-"))
+    mfd, sfd = pty.openpty()
+    t0 = time.monotonic()
+    p = subprocess.Popen([sys.executable, CTL, "--mock"], stdin=sfd,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         env=env)
+    os.close(sfd)
+    for delay, text in steps:
+        time.sleep(delay)
+        os.write(mfd, text.encode())
+    try:
+        out, _ = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out, _ = p.communicate()
+    os.close(mfd)
+    return p.returncode, out.decode("utf-8", "replace"), time.monotonic() - t0
+
+
+def scenario_wait_typed_input():
+    rc, out, dt = run_pty([(1.0, "wait 40\n"), (2.0, "quit\n")])
+    check("wait-input: a typed quit ends a long wait early (tty)",
+          rc == 0 and dt < 20, f"rc={rc} dt={dt:.1f}\n{out[-300:]}")
+    rc, out, dt = run_pty([(1.0, "wait 40\n"), (1.5, "wait 5\n"),
+                           (1.0, "echo hi\n"), (1.0, "quit\n")])
+    check("wait-input: a typed wait inside a wait is refused (tty)",
+          "already waiting" in out and "hi" in out and rc == 0 and dt < 20,
+          f"dt={dt:.1f}\n{out[-400:]}")
+    # piped input is all buffered at once: wait must NOT run the rest early
+    t0 = time.monotonic()
+    rc, out = run("wait 3\necho AFTER\nquit\n")
+    dt = time.monotonic() - t0
+    check("wait-input: on a pipe the rest of the input waits its turn",
+          rc == 0 and dt >= 2.5 and "AFTER" in out, f"dt={dt:.1f}")
 
 
 def scenario_ethseams_layout_option():

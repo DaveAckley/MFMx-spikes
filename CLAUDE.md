@@ -126,7 +126,7 @@ tt-smi -r (stuck, not slow; bh1:eth13 has now failed twice, bh1:eth4 and
 bh0:eth7 once each).  Response: mfmxctl `boot` now runs a link PREFLIGHT after
 tt-smi -r (machine.py preflight_links): read-only port-status polls
 (EthSeamHost::portStatus) of every declared link end for --link-wait secs
-(60), then up to --link-resets (3) more tt-smi -r, then boot fails naming the
+(12), then up to --link-resets (5) more tt-smi -r, then boot fails naming the
 links.  releaseIdlePorts drops the cached TLB windows before each reset.
 If it keeps failing on the same link, reseat that cable.
 Run 20261117-203012 (0c35e57, seam5, ~35 min, seed type 4): PREFLIGHT
@@ -138,6 +138,13 @@ min, steady 15.7k..15.9k, no die-out), 412 bolts CONSENSUS (median 1.8 s, max
 3.4 s), centre channels one-way, 10667 frames, `.as:4` in the tile logs: the
 seed-type fix (b450021) is proven, the stream shows FB1.  Use --link-resets 5
 for unattended runs; a reseat of the bh1<->bh3 eth13 cable may help.
+mfmxctl (after run 203012): preflight defaults are now --link-wait 12 /
+--link-resets 5.  New --abort-on-error: a failing command-file line (error,
+unknown command; not usage text, not typed lines) or a failed --boot ends the
+run, exit 1, orderly shutdown.  `wait` now runs lines typed meanwhile, ONLY on
+a tty (on a pipe all input is already buffered, so polling would run the rest
+of a piped script at the first wait); a typed wait inside a wait is refused.
+Selftests for these use a pty (mock/selftest.py run_pty).
 Other open items: the user must merge the latest bundle; branch
 `backup-before-untrack` can be deleted with the user's say-so; 7 unrelated
 selftest failures are pre-existing (legacy lamer/timeouts, guards, slowscan
