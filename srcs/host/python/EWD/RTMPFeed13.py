@@ -162,6 +162,19 @@ class RTMPFeed:
                                                        self.fontCodeLiveSize,
                                                        (0xef,0x2f,0x04), (0x12,0x14,0x12), preload=False)
 
+        # NO NEW DATA banner: big, centred, 3 grid tiles wide.  A tile of the
+        # rendered grid is 138 x 108 px (the cross marks in EWControl.cpp).
+        self.staleTilePx = (138,108)
+        self.staleTiles = 3
+        self.staleText = "NO NEW DATA"
+        staleFontPath = f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf"
+        self.fontCodeStaleSize = self.fontSizeForTextWidth(
+            staleFontPath, len(self.staleText),
+            self.staleTiles*self.staleTilePx[0])
+        self.fontCodeStale = self.fontCache.getFontCode(staleFontPath,
+                                                        self.fontCodeStaleSize,
+                                                        (0xef,0x2f,0x04), (0x12,0x14,0x12), preload=False)
+
         #gather video info to ffmpeg
         #self.fps = int(10)
         self.fps = int(5)
@@ -446,6 +459,44 @@ class RTMPFeed:
             self.restartSubProc()
 
 
+    @staticmethod
+    def fontSizeForTextWidth(path,nchars,pxwidth,aspect=.5):
+        """The font size whose cached glyphs (FontCache.CachedFont: cell
+        width = aspect * (ascent+descent)) make nchars characters about
+        pxwidth wide."""
+        best,bestdiff = 12,None
+        for size in range(12,400):
+            asc,desc = ImageFont.truetype(path,size).getmetrics()
+            diff = abs(nchars*round(aspect*(asc+desc)) - pxwidth)
+            if bestdiff is None or diff < bestdiff:
+                best,bestdiff = size,diff
+            elif diff > bestdiff + 60:
+                break
+        return best
+
+    def drawStaleBanner(self,bgrimage,stale):
+        """NO NEW DATA over the middle of the frame, with the seconds since
+        the last real frame under it, in a dark box with a red border."""
+        font = self.fontCache.getCachedFont(self.fontCodeStale)
+        ch,cw = font.renderBox
+        lines = [self.staleText,f"{int(stale)}s"]
+        boxw = max(len(t) for t in lines)*cw
+        boxh = len(lines)*ch
+        pad,bord = 18,4
+        x0 = (self.width-boxw)//2
+        y0 = (self.height-boxh)//2
+        xa,ya = max(0,x0-pad),max(0,y0-pad)
+        xb,yb = min(self.width,x0+boxw+pad),min(self.height,y0+boxh+pad)
+        bgrimage[ya:yb,xa:xb] = (0x12,0x14,0x12)
+        red = (0x04,0x2f,0xef)                  # BGR
+        bgrimage[ya:ya+bord,xa:xb] = red
+        bgrimage[yb-bord:yb,xa:xb] = red
+        bgrimage[ya:yb,xa:xa+bord] = red
+        bgrimage[ya:yb,xb-bord:xb] = red
+        for i,t in enumerate(lines):
+            tx = x0 + (boxw-len(t)*cw)//2       # each line centred
+            self.drawTextOnImage(bgrimage,t,(tx,y0+i*ch),font)
+
     def renderOverlay(self,bgrimage,simnanos,info,stale=None):
         """Burn the overlays (info, LIVE timer, UTC clock, logo) into
         bgrimage.  stale is None for a real frame, else the seconds since
@@ -523,11 +574,7 @@ class RTMPFeed:
 
 
         if stale is not None and stale >= 1.5:
-            self.drawTextOnImage(
-                bgrimage, f"NO NEW DATA {int(stale)}s",
-                (dickWidth,
-                 self.height-richardBaseheight-2*(self.fontCodeLiveSize+2)),
-                self.fontCache.getCachedFont(self.fontCodeLive))
+            self.drawStaleBanner(bgrimage,stale)
 
     def sendGraphicsFrame(self,bgrimage,simnanos,info): # fully rendered BGR image as numpy array
         # keep the bare image so the keepalive can redraw a fresh overlay
