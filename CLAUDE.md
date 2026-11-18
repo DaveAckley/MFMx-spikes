@@ -176,6 +176,9 @@ aer.py).  Redo with the hub from the empty-center commit.  Counters are now
 u64 (a sparse grid draws many empty events: at 20 draws per event the u32
 empties counter could wrap in days).
 Hubs stop logging at different moments: only the cycles every hub has are used.
+config/seam7.cmd: 6 hour unattended version of seam5/seam6 (36 blocks of
+wait 600 / seams / status); edit the number of blocks to change the length.
+Run directory grows ~3.4 MB/min; check df first.  Untested for that length.
 Other open items: the user must merge the latest bundle.  The mock
 selftest (mock/selftest.py) is fully green again (132 checks; the old 7
 failures were a mock gap plus tests still using the renamed `phase` command).
