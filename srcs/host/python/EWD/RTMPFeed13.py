@@ -205,7 +205,12 @@ class RTMPFeed:
         # rebuffers.  A keepalive thread repeats the last frame whenever
         # the next real one is late.  Stats go to the FEEDSTAT log.
         self.writeLock = threading.Lock()
-        self.lastBytes = None          #< last real frame, raw BGR bytes
+        self.lastBytes = None          #< last frame written, raw BGR bytes
+        self.lastBase = None           #< last real image BEFORE overlays
+        self.lastSimNanos = 0          #< its sim time
+        self.lastInfo = ""             #< its info line
+        self.lastRealMono = 0.0        #< monotonic time it arrived
+        self.overlayLock = threading.Lock()
         self.lastWriteT = 0.0          #< monotonic time of last write
         self.lastRealT = 0.0           #< ... of last real frame
         self.keepThread = None
@@ -335,15 +340,23 @@ class RTMPFeed:
                 self.statMaxWrite = 0.0
 
     def keepAlive(self):
-        """Repeat the last frame whenever the next one is late."""
+        """Whenever the next real frame is late, send the last real image
+        again with a fresh overlay: the clocks keep running and a
+        NO NEW DATA line counts the seconds since the last real frame."""
         late = 1.3 / self.fps
         while True:
             time.sleep(0.5 / self.fps)
-            data = self.lastBytes
-            if data is None:
+            base = self.lastBase
+            if base is None:
                 continue
             if time.monotonic() - self.lastWriteT > late:
                 try:
+                    stale = time.monotonic() - self.lastRealMono
+                    img = base.copy()
+                    sim = self.lastSimNanos + int(stale * 1e9)
+                    self.renderOverlay(img, sim, self.lastInfo, stale)
+                    data = np.ascontiguousarray(img).tobytes()
+                    self.lastBytes = data
                     self.writeFrame(data, False)
                 except Exception as e:
                     self.ewd.logkt("FEEDSTAT", f"keepalive: {e}")
@@ -433,7 +446,15 @@ class RTMPFeed:
             self.restartSubProc()
 
 
-    def sendGraphicsFrame(self,bgrimage,simnanos,info): # fully rendered BGR image as numpy array
+    def renderOverlay(self,bgrimage,simnanos,info,stale=None):
+        """Burn the overlays (info, LIVE timer, UTC clock, logo) into
+        bgrimage.  stale is None for a real frame, else the seconds since
+        the last real one (a repeated frame): then a NO NEW DATA line is
+        added."""
+        with self.overlayLock:
+            self.renderOverlayLocked(bgrimage,simnanos,info,stale)
+
+    def renderOverlayLocked(self,bgrimage,simnanos,info,stale):
         now = datetime.datetime.now(datetime.timezone.utc)
         snowd = now.strftime("%Y-%m-%d")
         snowt = now.strftime("%H:%M:%SUTC")
@@ -501,6 +522,20 @@ class RTMPFeed:
                                  self.fontCache.getCachedFont(self.fontCodeTime))
 
 
+        if stale is not None and stale >= 1.5:
+            self.drawTextOnImage(
+                bgrimage, f"NO NEW DATA {int(stale)}s",
+                (dickWidth,
+                 self.height-richardBaseheight-2*(self.fontCodeLiveSize+2)),
+                self.fontCache.getCachedFont(self.fontCodeLive))
+
+    def sendGraphicsFrame(self,bgrimage,simnanos,info): # fully rendered BGR image as numpy array
+        # keep the bare image so the keepalive can redraw a fresh overlay
+        self.lastBase = bgrimage.copy()
+        self.lastSimNanos = simnanos
+        self.lastInfo = info
+        self.lastRealMono = time.monotonic()
+        self.renderOverlay(bgrimage, simnanos, info)
         self.framesSentThisSubproc += 1
         data = np.ascontiguousarray(bgrimage).tobytes()
         self.lastBytes = data
