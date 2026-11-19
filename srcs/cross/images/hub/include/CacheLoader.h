@@ -38,8 +38,9 @@ namespace MFM {
      10'000'000, 'give hn a chance').  Named so the exchange timing can be
      measured and tuned (the .xb/.xe marks).  EXPERIMENT history: 10'000'000
      (64 ms per packet, duty 74%), 1'000'000 (6.4 ms, duty 94%, run 123006),
-     now 100'000; the last candidate is 0. */
-  static constexpr u32 PACKET_SLEEP_CYCLES = 100'000u;
+     100'000 (0.8 ms, duty 97%; one hang in two one-hour runs, 125641 hung,
+     165950 clean), now 0 (run seam10.cmd). */
+  static constexpr u32 PACKET_SLEEP_CYCLES = 0u;
 
   struct CacheLoaders {
     static constexpr u32 CACHELOADER_COUNT = 8;

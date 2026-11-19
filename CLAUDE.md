@@ -231,6 +231,8 @@ total mAER while the grid fills is driven by sparse hubs, so compare AER at
 equal fill or in steady state (full 6 h run at 73% fill: 1166 wall).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at cycle 250; rerun 165950 ran the full hour clean (565 cycles, steady wall AER ~1570, duty 97%). Hang is intermittent (see OPEN_ISSUES.md).
+config/seam10.cmd: seam9.cmd for the PACKET_SLEEP_CYCLES=0 experiment (hub
+build must have the 0 constant).  Compare the same counters, STALLS and AER.
 config/seam7.cmd: 6 hour unattended version of seam5/seam6 (36 blocks of
 wait 600 / seams / status); edit the number of blocks to change the length.
 Run directory grows ~3.4 MB/min; check df first.  Ran clean for 6 h.

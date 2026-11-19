@@ -158,6 +158,7 @@ Plan, in order (each step needs a go-ahead):
   duty 94% (was 74%), nothing lost (cars out == in == noc, BADC 0, retrain
   0, FEC uncorrected 0, no TIMEOUT).  Remaining non-running time is the
   slowest hub's exchange, about 0.17 s save + 0.24 s load per cycle.  NOW
+  NOW RUNNING (next): 0, seam10.cmd.
   DONE: 100,000 ran a clean hour (run 165950: wall AER 1561-1573 steady, duty 97%,
   slowest hub 0.013 s SAVE / 0.032 s LOAD) after one hang (125641); then 0: another 5 percent of duty, and it makes a
   much shorter `dwell` affordable.  Why the sleep existed is still unknown;
