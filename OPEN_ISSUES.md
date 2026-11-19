@@ -80,7 +80,8 @@ Real (committed) events per hub per second: mean 9.0k vs 6.8-7.2k, spread
 24-28%).  Not yet proven: an HOUR run (seam10 with `policy fourcorners`, wall
 AER at steady state vs about 1.57), and whether the array edges lose atoms.
 Visually (user): much less difference between visible and hidden sites.
-Next: a one-hour four-corners run.  Earlier status: PROTOTYPE BUILT
+Next: config/seam12.cmd, a three-hour four-corners soak (its first hour
+compares with the one-hour supercell runs).  Earlier status: PROTOTYPE BUILT
 (step 2 below:
 CachingPolicy.h, `policy fourcorners`, config/seam11.cmd; the NEW_LEADER
 argument is a Corner4 under it).  UPDATE

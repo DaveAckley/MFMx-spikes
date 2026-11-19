@@ -284,6 +284,8 @@ total mAER while the grid fills is driven by sparse hubs, so compare AER at
 equal fill or in steady state (full 6 h run at 73% fill: 1166 wall).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at cycle 250; rerun 165950 ran the full hour clean (565 cycles, steady wall AER ~1570, duty 97%). Hang is intermittent (see OPEN_ISSUES.md).
+config/seam12.cmd: THREE HOUR four-corners soak (`policy fourcorners`, 18 blocks
+of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
 config/seam11.cmd: the seam6 twin with `policy fourcorners` (the four-corners
 prototype; compare with seam6 runs 005507/012507).  Run 022401 (1159c97): CLEAN,
 faster fill (69% vs 49-63% at 690 s), committed events/hub/s +26-32%, spread
