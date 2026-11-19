@@ -80,8 +80,16 @@ Real (committed) events per hub per second: mean 9.0k vs 6.8-7.2k, spread
 24-28%).  Not yet proven: an HOUR run (seam10 with `policy fourcorners`, wall
 AER at steady state vs about 1.57), and whether the array edges lose atoms.
 Visually (user): much less difference between visible and hidden sites.
-Next: config/seam12.cmd, a three-hour four-corners soak (its first hour
-compares with the one-hour supercell runs).  Earlier status: PROTOTYPE BUILT
+THREE-HOUR SOAK CLEAN 2026-11-19 (run 024650, seam12-10.out, 1159c97 binaries,
+10996 s): no TIMEOUT/FROZEN, no BADC, .cp:1 on all 140 hubs, control viewer
+(ffmpeg on the HLS feed) ran 02:48-05:50 local with no stall or reconnect.
+Live AER (1m, 5m) flat for the whole three hours at 1.50-1.61 and 1.52-1.55,
+no drift (supercell hour runs: 1.55-1.58 and later drift); fill about 71% (vs
+about 73% supercell).  So four corners fills the grid faster and is
+steadier, but steady-state wall AER is the same as supercell (about 1.55);
+duty 94% total / 97% last minute.  aer.py is useless on this run (only 1
+hub kept: the cropped-mark hub drop); use the live line.  Not yet checked:
+array-edge atom loss; cars out/in/noc counters.  Earlier status: PROTOTYPE BUILT
 (step 2 below:
 CachingPolicy.h, `policy fourcorners`, config/seam11.cmd; the NEW_LEADER
 argument is a Corner4 under it).  UPDATE

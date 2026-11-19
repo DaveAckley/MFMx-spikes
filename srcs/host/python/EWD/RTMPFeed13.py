@@ -171,14 +171,15 @@ class RTMPFeed:
                                                        self.fontCodeLiveSize,
                                                        (0xef,0x2f,0x04), (0x12,0x14,0x12), preload=False)
 
-        # NO NEW DATA banner: big, centred, 3 grid tiles wide.  A tile of the
+        # NO DATA banner: big, centred; font as 11 chars over 3 grid tiles.  A tile of the
         # rendered grid is 138 x 108 px (the cross marks in EWControl.cpp).
         self.staleTilePx = (138,108)
         self.staleTiles = 3
-        self.staleText = "NO NEW DATA"
+        self.staleText = "NO DATA"
+        self.staleSizeChars = 11       # font sized as for "NO NEW DATA"
         staleFontPath = f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf"
         self.fontCodeStaleSize = self.fontSizeForTextWidth(
-            staleFontPath, len(self.staleText),
+            staleFontPath, self.staleSizeChars,
             self.staleTiles*self.staleTilePx[0])
         self.fontCodeStale = self.fontCache.getFontCode(staleFontPath,
                                                         self.fontCodeStaleSize,
@@ -365,7 +366,7 @@ class RTMPFeed:
     def keepAlive(self):
         """Whenever the next real frame is late, send the last real image
         again with a fresh overlay: the clocks keep running and a
-        NO NEW DATA line counts the seconds since the last real frame.
+        NO DATA line counts the seconds since the last real frame.
 
         ffmpeg stamps frames by COUNT (at self.fps), so the repeats must
         arrive at the frame rate or the stream's clock and the player's
@@ -506,7 +507,7 @@ class RTMPFeed:
         return best
 
     def drawStaleBanner(self,bgrimage,stale):
-        """NO NEW DATA over the middle of the frame, with the seconds since
+        """NO DATA over the middle of the frame, with the seconds since
         the last real frame under it, in a dark box with a red border."""
         font = self.fontCache.getCachedFont(self.fontCodeStale)
         ch,cw = font.renderBox
@@ -531,7 +532,7 @@ class RTMPFeed:
     def renderOverlay(self,bgrimage,simnanos,info,stale=None,extra=""):
         """Burn the overlays (info, LIVE timer, UTC clock, logo) into
         bgrimage.  stale is None for a real frame, else the seconds since
-        the last real one (a repeated frame): then a NO NEW DATA line is
+        the last real one (a repeated frame): then a NO DATA line is
         added.  extra, if not empty, is a line of its own (the live AER)
         between the info line below and the LIVE line above."""
         with self.overlayLock:
