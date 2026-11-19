@@ -52,7 +52,13 @@ ERISC_NOTES.md.
   OLDEST words to keep the latest (torn head OK) (racy against slowscan's read/reset,
   accepted).  Unproven on hardware.  Open: xchg.py reads .xw from
   tiles/*.mfmk only; HB marks land in all.mfmk (slowscan dump).
-  Until understood, run at 1M, not 100k.
+  RERUN (run 165950, seam9-11.out, build f22f6a3, 100k): did NOT hang.
+  Full hour, 565 cycles (bolt #1130), clean teardown, no bolt TIMEOUT,
+  seams out=in=noc=304890, txfail 0, nocfail 0, no .xw stall (STALLS: none).
+  So the hang is intermittent: 1 hang in 2 runs (246 and 565 cycles).  Still
+  unexplained and still possible at 100k; the .xw heartbeat, sweep-on-timeout
+  and HB-ring fixes remain unproven on a real hang.  Keep 100k for further
+  runs on 3516d21 or later to catch it.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
@@ -152,7 +158,8 @@ Plan, in order (each step needs a go-ahead):
   duty 94% (was 74%), nothing lost (cars out == in == noc, BADC 0, retrain
   0, FEC uncorrected 0, no TIMEOUT).  Remaining non-running time is the
   slowest hub's exchange, about 0.17 s save + 0.24 s load per cycle.  NOW
-  RUNNING: 100,000 (3e5011e -> next commit; seam9.cmd, one hour); then 0: another 5 percent of duty, and it makes a
+  DONE: 100,000 ran a clean hour (run 165950: wall AER 1561-1573 steady, duty 97%,
+  slowest hub 0.013 s SAVE / 0.032 s LOAD) after one hang (125641); then 0: another 5 percent of duty, and it makes a
   much shorter `dwell` affordable.  Why the sleep existed is still unknown;
   re-check the same counters at each step.
 - Bolt poll tick 0.05 s instead of 0.2 s (about 2 percent).
