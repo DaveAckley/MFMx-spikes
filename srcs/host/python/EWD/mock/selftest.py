@@ -607,6 +607,14 @@ def scenario_dumpl1():
     check("dumpl1: usage", "usage: dumpl1" in out, out[-1500:])
 
 
+def scenario_hubgeom():
+    repo = os.path.abspath(os.path.join(EWD, "..", "..", "..", ".."))
+    p = subprocess.run(["scripts/hubgeom/hubgeom_check.sh"], cwd=repo,
+                       capture_output=True, text=True, timeout=90)
+    check("hubgeom: Python and C++ geometry agree", p.returncode == 0 and "PASS hubgeom" in p.stdout,
+          p.stdout[-400:] + p.stderr[-400:])
+
+
 def scenario_command_file():
     d = tempfile.mkdtemp(prefix="selftest-cmd-")
     main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))

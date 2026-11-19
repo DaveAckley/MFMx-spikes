@@ -47,6 +47,12 @@ if [ $# -gt 0 ]; then
     exit 3
 fi
 
+# Hub geometry has one C++ source (DemoGlobal.h) and a Python copy of its
+# formulas (HubGeometry.py).  Refuse to build if they disagree.
+echo
+echo "=== STEP 0: CHECKING HUB GEOMETRY (C++ vs PYTHON) ==="
+scripts/hubgeom/hubgeom_check.sh || { echo "STOPPING: fix HubGeometry.py or DemoGlobal.h"; exit 4; }
+
 echo
 echo "=== STEP 1: CONFIGURING AND BUILDING PRIMARY (CROSS) PROJECT ==="
 mkdir -p "${PRIMARY_BUILD_DIR}"

@@ -82,7 +82,7 @@ source, comments, docs and commit messages).
   static_assert guards).  C++ derives from it (EWControl cross marks too).
   Python derives from srcs/host/python/EWD/HubGeometry.py (SITES_PER_HUB,
   base/ring sizes; used by LiveAER, aer.py, RTMPFeed13, the mock).  Never write
-  137/108/157/128 as literals; run scripts/hubgeom/hubgeom_check.sh (fails if
+  137/108/157/128 as literals; run scripts/hubgeom/hubgeom_check.sh (build_all.sh runs it first and stops; fails if
   Python and C++ disagree).  Numbers quoted in docs (137, 959, 1918, 14796) are
   descriptive of the current width, not inputs.  EXCEPTION, guarded: the T6GRID
   size literal in BlockCode.h (hub image static_assert fails until updated).
