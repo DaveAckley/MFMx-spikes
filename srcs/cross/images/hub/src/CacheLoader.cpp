@@ -5,6 +5,7 @@
 #include "EthSeam.h"
 #include "DemoGlobal.h"
 #include "Printf.h"      //< for snprintf
+#include "CachingPolicy.h" //< supercell vs four corners
 
 namespace MFM {
   CacheLoaders theL1CacheLoaders;
@@ -26,7 +27,21 @@ namespace MFM {
 
     GridManager & gm = fB.mGridManager;
     bool iAmLeader = (mConfiguredSCL==gm.getOurSuperCellPosition());
-    LOGPTAG(IAM..,iAmLeader ? "LEADER" : "FOLLOWER");
+
+    // Which caching policy this run uses (host flags, mfmxctl 'policy');
+    // the argument is a leader code for CP_SUPERCELL, a Corner4 for
+    // CP_FOURCORNERS (CachingPolicy.h).
+    const CachePolicyId policy = cachePolicyFromHostFlags(hb.mHostFlags);
+    {
+      static bool saidPolicy = false;
+      if (!saidPolicy) {
+        saidPolicy = true;
+        LOGPTAG(.cp,(u32) policy);   // dotted: survives HBF_NO_UTAG
+        HBPTAG(.cp,(u32) policy);
+      }
+    }
+    if (policy == CP_SUPERCELL)
+      LOGPTAG(IAM..,iAmLeader ? "LEADER" : "FOLLOWER");
 
     U8C uct6_per_ureg(2,2);        // UCT6 conversion to UREG
     U8C ureg_per_uscl(2,2);        // UREG conversion to USCL
@@ -102,46 +117,32 @@ namespace MFM {
 #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 
       if (true) {
-        //LOGPTAG(REPHd8nNoC0C,d8nNoC0C);
-
-        //LOGPX(d8nREGV_of_SCLC);
-        //LOGPX(ldrREGV_of_SCLC);
-        //LOGPX(d8IsLeader);
-
         Dir8 d8FromUs = d8; // XXX RIGHT?
-      
         CacheLoader & cl = theL1CacheLoaders.get(d8FromUs);
-//        LOGPTAG(REPHd8,dir8ToByteString(d8));
-//        LOGPTAG(REPHcD8,dir8ToByteString(cl.mDir8));
 
-        U8C uroa_per_ureg(NgbCacheMgr::BW,NgbCacheMgr::BH);
-        S8C o2oREGV = d8nREGV; // origin to origin region vector
-        S16C o2oROAV = S16C(o2oREGV) * S16C(uroa_per_ureg);
-
-        //LOGPX(o2oROAV);
-
-        U8CRange mySitesForYou = NgbCacheMgr::SITE_RANGES[d8];  // my follower sites (for your cache)
-        U8CRange myCacheForYou = NgbCacheMgr::CACHE_RANGES[d8]; // my leader cache (for your sites)
+        U8CRange mySitesForYou = NgbCacheMgr::SITE_RANGES[d8];  // my edge sites (for your cache)
+        U8CRange myCacheForYou = NgbCacheMgr::CACHE_RANGES[d8]; // my cache (for your sites)
 
 #pragma GCC diagnostic pop
 
-        if (d8IsLeader) {
+        PolicyCtx pc;
+        pc.weLead = iAmLeader;
+        pc.peerLeads = d8IsLeader;
+        pc.noLeader = false;
+        if (policy == CP_SUPERCELL && d8IsLeader)
           MFM_API_ASSERT(!iAmLeader,ILLEGAL_STATE);
+        const DirPlan plan = CachingPolicies::plan(policy, mConfiguredSCL, d8, pc);
+
+        if (plan == DirPlan::SEND_SITES) {         // peer receives (leader)
           LOGPTAG(ULDR,dir8ToByteString(d8));
-          //LOGPTAG(REPH_TLBI,theirTLBI);
-          //LOGPTAG(REPHmyS4UC,mySitesForYou);
           cl.mLocalItr = U8CRange::iterator(mySitesForYou);
           cl.mDestType = 1;
-        } else if (iAmLeader) {
+        } else if (plan == DirPlan::RECV_CACHES) { // we receive (leader)
           LOGPTAG(UFLW,dir8ToByteString(d8));
-          //LOGPTAG(REPH_TLBI,theirTLBI);
-          //LOGPTAG(REPHUC4MyS,myCacheForYou);
           cl.mLocalItr = U8CRange::iterator(myCacheForYou);
           cl.mDestType = -1;
-        } else { // we both followers here
-          //LOGPTAG(FOFO,dir8ToByteString(d8));
+        } else {                                   // no exchange this cycle
           cl.mLocalItr = U8CRange::iterator(); //< empty iterator
-          //LOGPTAG(REPH04U,U8CRange());
           cl.mDestType = -1;
         }
         cl.mDir8 = d8;

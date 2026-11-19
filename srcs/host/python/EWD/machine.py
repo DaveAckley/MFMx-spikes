@@ -125,12 +125,28 @@ def parse_ethseams(specs, chips):
     return seams
 
 
+CACHE_POLICIES = ("supercell", "fourcorners")   # CachePolicyId 0, 1 (CachingPolicy.h)
+
+
+def parse_policy(text):
+    """'supercell' | 'fourcorners' (any unique prefix; 'corners' too) -> name.
+    Raises ValueError."""
+    t = str(text).strip().lower()
+    if t in ("corners", "4corners", "fourcorner", "four-corners", "four"):
+        return "fourcorners"
+    hits = [p for p in CACHE_POLICIES if t and p.startswith(t)]
+    if len(hits) != 1:
+        raise ValueError(f"cache policy '{text}': want one of "
+                         f"{', '.join(CACHE_POLICIES)}")
+    return hits[0]
+
+
 class Machine:
     def __init__(self, mfmx, config, say, *, script_dir, logprefix="mfmxctl",
                  t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
                  extra_bindirs=(), slowscan_gap=0.2, layout=None,
-                 link_wait=12.0, link_resets=5):
+                 link_wait=12.0, link_resets=5, policy="supercell"):
         self.M = mfmx
         self.config = config
         self.say = say
@@ -139,6 +155,7 @@ class Machine:
         self.t6s = t6s_per_chip
         self.verbose = verbose
         self.decay, self.alt_decay = decay, alt_decay
+        self.policy = parse_policy(policy)   # caching policy, applied at next 'start'
         self.tt_smi, self.do_reset = tt_smi, reset_chips
         self.extra_bindirs = list(extra_bindirs)
         self.slowscan_gap = slowscan_gap
@@ -401,6 +418,11 @@ class Machine:
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))
+            if hasattr(bh, "setCachePolicy"):
+                bh.setCachePolicy(CACHE_POLICIES.index(self.policy))
+            elif self.policy != "supercell":
+                raise RuntimeError(f"this MFMx module cannot set the cache policy "
+                                   f"(wanted {self.policy}); rebuild the host")
             t = time.monotonic()
             if self.has_fire_phaser:
                 # Advance to HAS_T6_CODE_DEPLOYED: TLBs are now configured and
@@ -803,6 +825,7 @@ class Machine:
     # ---- status ---------------------------------------------------------------------
     def status(self):
         lines = []
+        lines.append(f"cache policy: {self.policy}")
         lines.append(f"booted: configured={self.configured} inited={self.inited} "
                      f"api={'async' if self.async_api else 'legacy' if self.inited else '-'}")
         if self.bhs:

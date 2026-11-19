@@ -4,6 +4,7 @@
 #include "T6Grid.h"
 #include "EwpBlock.h"
 #include "DemoGlobal.h"
+#include "CachingPolicy.h" // supercell vs four corners event bounds
 
 namespace MFM {
 
@@ -92,30 +93,24 @@ namespace MFM {
         LOGPTAG(SCLC-us,(u32) mSuperCellLeaderCode);
       });
 
-    U16CRange ewbounds;
+    // The bounds come from the run's caching policy (CachingPolicy.h):
+    // supercell leader/follower, or four corners.  Either way an event
+    // window may only touch sites this hub owns this supercycle.
     SCStatus s = leadFollowOrGetOutOfTheWay();
-    if (s == SCStatus::NO_LEADER) {
-      // there is currently no SCL: avoid the caches
-      ewbounds.start.x = T6Grid::SELF_ORIGIN.x+4; //inclusive
-      ewbounds.stop.x = T6Grid::SELF_MAX.x-4;     //exclusive
-      ewbounds.start.y = T6Grid::SELF_ORIGIN.y+4; //inclusive
-      ewbounds.stop.y = T6Grid::SELF_MAX.y-4;     //exclusive
+    PolicyCtx pc;
+    pc.noLeader = s == SCStatus::NO_LEADER;   // no argument yet: avoid the caches
+    pc.weLead = s == SCStatus::WE_LEAD;       // (supercell policy only)
+    pc.peerLeads = false;
+    const EventBounds eb =
+      CachingPolicies::bounds(cachePolicyFromHostFlags(theHostBlock.mHostFlags),
+                              (u8) lgmc.mSuperCellLeader,
+                              pc);
+    U16CRange ewbounds;
+    ewbounds.start.x = eb.x0;   //inclusive
+    ewbounds.stop.x = eb.x1;    //exclusive
+    ewbounds.start.y = eb.y0;   //inclusive
+    ewbounds.stop.y = eb.y1;    //exclusive
 
-    } else if (s == SCStatus::WE_LEAD) {
-      // we are currently the SCL: own the caches
-      ewbounds.start.x = 0+4;                     //inclusive
-      ewbounds.stop.x = T6Grid::FULL_WIDTH-4;     //exclusive
-      ewbounds.start.y = 0+4;                     //inclusive
-      ewbounds.stop.y = T6Grid::FULL_HEIGHT-4;    //exclusive
-
-    } else { /* s == some kind of follower */
-      // we are currently an SCL follower: avoid our own edges
-      ewbounds.start.x = T6Grid::SELF_ORIGIN.x+DG::T6GRID_OVERLAP_WIDTH+4;  //inclusive
-      ewbounds.stop.x = T6Grid::SELF_MAX.x-DG::T6GRID_OVERLAP_WIDTH-4;      //exclusive
-      ewbounds.start.y = T6Grid::SELF_ORIGIN.y+DG::T6GRID_OVERLAP_HEIGHT+4; //inclusive
-      ewbounds.stop.y = T6Grid::SELF_MAX.y-DG::T6GRID_OVERLAP_HEIGHT-4;     //exclusive
-    }
-    
     // Each miss is an event at an empty center and counts toward AER, so a
     // big limit makes the AER of a sparse grid (e.g. right after the seed)
     // huge and warps comparisons: 100 keeps that distortion modest.

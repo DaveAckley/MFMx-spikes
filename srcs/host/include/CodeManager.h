@@ -21,9 +21,11 @@ namespace MFM {
       , mOurTLBs(tlbs)
       , mLastTLBISlowScanned(U32_MAX)
       , mStartDecayType(U16_MAX)
+      , mCachePolicy(0)
     {
     }
     void setStartDecayType(u16 val) { mStartDecayType = val; }
+    void setCachePolicy(u8 val) { mCachePolicy = val; } //< CachePolicyId, applied at deploy
     s32 deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) ;
 
     u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
@@ -92,6 +94,7 @@ namespace MFM {
     OurTLBs & mOurTLBs;
     u32 mLastTLBISlowScanned;
     u16 mStartDecayType;
+    u8 mCachePolicy;             //< CachePolicyId for the hubs' HostFlags
   };
 }
 

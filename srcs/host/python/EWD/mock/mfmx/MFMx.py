@@ -37,6 +37,7 @@ class _Mock:
 
     def __init__(self):
         self.ntiles = 140
+        self.last_policy = None              # last setCachePolicy() value
         self.t_start = time.monotonic()      # liveAERSnapshot's clock
         self.rng = random.Random(1234)
         self.clock = time.monotonic
@@ -85,7 +86,8 @@ class _Mock:
         return (f"ntiles={self.ntiles} delays={self.delays} "
                 f"lamers={ {c: sorted(s) for c, s in self.lamers.items()} } "
                 f"cmd_lamers={ {k: sorted(s) for k, s in self.cmd_lamers.items()} } "
-                f"slow={self.slow} legacy_timeout={self.legacy_timeout} api={API}")
+                f"slow={self.slow} legacy_timeout={self.legacy_timeout} api={API} "
+                f"policy={self.last_policy}")
 
 
 _mock = _Mock()
@@ -436,6 +438,10 @@ class Blackhole:
 
     def setStartDecayType(self, t):
         self.decay = int(t)
+
+    def setCachePolicy(self, p):
+        self.policy = int(p)
+        _mock.last_policy = int(p)
 
     def getNonPhaseTLBIs(self):
         """TLBIs that never acked the last bolt (the real one returns the

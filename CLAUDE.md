@@ -70,6 +70,19 @@ source, comments, docs and commit messages).
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
 - scripts/feed/keepalive_test.py  simulates the RTMPFeed keepalive pacing
   (old vs new rule, repeats per 30 s).
+- srcs/shared/include/CachingPolicy.h  the CACHING POLICY: per Dir8 whether a
+  hub sends its edge sites, receives into its cache, or does nothing, and the
+  event bounds; CP_SUPERCELL (original: NEW_LEADER arg = leader code in each
+  2x2 supercell) and CP_FOURCORNERS (every hub alike; the arg is a Corner4,
+  MDist.h: the corner the hubs expand toward, borrowing the two edge bands
+  and the corner cache there and lending the opposite three).  No virtuals
+  (T6): CRTP base + static functions, picked by a switch.  The host chooses
+  per run with `policy [supercell|fourcorners]` (or --policy), before
+  'start': Blackhole.setCachePolicy -> CodeManager -> two HostFlags bits
+  (HBF_CACHEPOL0/1, no HostBlock layout change); hubs log `.cp:ID` once.
+  scripts/cachepolicy/cachepolicy_test.cpp checks the invariants on the host
+  (g++ line in its header): pair agreement, non-overlapping event reach,
+  never touching a lent band or an unexchanged cache.
 - scripts/xchg/xchg.py  cache exchange timing per hub from the `.xb`/`.xe`
   marks (SAVE in NEW_LEADER, LOAD in RUN_EVENTS: time and packets), with
   --bolts to compare against the host bolt times.  Also prints STALLS from
@@ -262,6 +275,8 @@ total mAER while the grid fills is driven by sparse hubs, so compare AER at
 equal fill or in steady state (full 6 h run at 73% fill: 1166 wall).
 Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at cycle 250; rerun 165950 ran the full hour clean (565 cycles, steady wall AER ~1570, duty 97%). Hang is intermittent (see OPEN_ISSUES.md).
+config/seam11.cmd: the seam6 twin with `policy fourcorners` (the four-corners
+prototype; compare with seam6 runs 005507/012507).
 config/seam10.cmd: seam9.cmd for the PACKET_SLEEP_CYCLES=0 experiment (hub
 build must have the 0 constant).  Run 211051: clean hour, same AER/duty as
 100k (exchange is no longer the bottleneck).  Compare the same counters, STALLS and AER.

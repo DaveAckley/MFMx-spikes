@@ -60,7 +60,9 @@ ERISC_NOTES.md.
 
 ## Design proposal: four-corners cache exchange (replaces leader/follower)
 
-STATUS: discussed 2026-11-18, not started, no go-ahead yet.  UPDATE
+STATUS: PROTOTYPE BUILT 2026-11-19, unproven on hardware (step 2 below:
+CachingPolicy.h, `policy fourcorners`, config/seam11.cmd; the NEW_LEADER
+argument is a Corner4 under it).  Step 3, the run, is next.  UPDATE
 2026-11-19: the speed case is mostly gone (duty is 97%, the exchange takes
 about 0.01 s); what remains is physics quality: uniform per-site event rate
 (events per hub spread 29-34% min to max today), more interhub events,
@@ -127,9 +129,16 @@ Risks / checks:
 Plan, in order (each step needs a go-ahead):
   1. MEASURE: DONE (hub marks .xb/.xe, scripts/xchg/xchg.py; see
      CLOSED_ISSUES.md).
-  2. PROTOTYPE: quadrant cache config + event bounds in the hub image
-     (configureCacheLoaders, seekRandomNonEmptySite bounds).  Same host.
-  3. RUN: seam6.cmd style 12 minute run; compare duty, bolt times, AER and
+  2. PROTOTYPE: DONE (unproven).  Policy header srcs/shared/include/
+     CachingPolicy.h (CRTP base, SuperCellPolicy, FourCornersPolicy, no
+     virtuals), chosen per run by two HostFlags bits (mfmxctl `policy`),
+     used by configureCacheLoaders and the event bounds in Grid.cpp.  Host
+     test: scripts/cachepolicy/cachepolicy_test.cpp (all invariants hold for
+     both policies).  Unproven: the host build (could not be compiled here)
+     and everything on hardware.  Risks to watch on the run: array-edge hubs
+     run events over a cache nobody fills (the old leader mode has the same
+     exposure); one-way centre diagonals across chips in all four corners.
+  3. RUN: config/seam11.cmd (the seam6 twin with `policy fourcorners`); compare duty, bolt times, AER and
      cars out == in == noc against the leader baseline (run 030230 etc.).
   4. Later: 8 codes (Dir4 mixed in) if the exchange is still the limit.
 

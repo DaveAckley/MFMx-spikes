@@ -11,6 +11,7 @@
 #include "FATAL.h"
 #include "HostBlock.h"
 #include "EthSeamHost.h"
+#include "CachingPolicy.h" // cachePolicyToHostFlags
 #include "FailStrings.h"
 #include "Constants.h"
 #include "HostUtils.h"
@@ -146,6 +147,7 @@ namespace MFM {
     hb->mHostFlags |= HostFlags::HBF_ASSERT_STOP_LOG; // XXX TRY STOP LOGGING
     hb->mHostFlags |= HostFlags::HBF_NO_UTAG; // XXX STOP RANDOM TAG LOGGING
     hb->mHostFlags |= HostFlags::HBF_STAG_PTRACE; // XXX TRY TO INCLUDE PACKET TRACE LOGGING
+    hb->mHostFlags |= cachePolicyToHostFlags((CachePolicyId) mCachePolicy); // supercell or four corners
     hb->mCommonArgs[0] = time(0); // per-run nonce
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
     hb->mHBMagic = HostBlock::HBMAGIC;

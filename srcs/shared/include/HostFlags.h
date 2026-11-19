@@ -7,8 +7,8 @@ namespace MFM {
     HBF_NO_UTAG =         0x02, //< exclude unstructured tags from LOG
     HBF_STAG_PTRACE =     0x04, //< include structured PTRACE flags in LOG
     HBF_NO_AUTOSEED =     0x08, //< this chip does not autoseed its grid
-    HBF_RSV4 =            0x10,
-    HBF_RSV5 =            0x20,
+    HBF_CACHEPOL0 =       0x10, //< cache policy id, bit 0 (CachingPolicy.h)
+    HBF_CACHEPOL1 =       0x20, //< cache policy id, bit 1 (0 = supercell)
     HBF_RSV6 =            0x40,
     HBF_RSV7 =            0x80
   };

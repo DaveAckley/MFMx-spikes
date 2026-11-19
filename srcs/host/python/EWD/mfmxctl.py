@@ -55,6 +55,8 @@ def parse_args(argv):
     ap.add_argument("--no-chip-reset", action="store_true", help="skip 'tt-smi -r' during boot")
     ap.add_argument("--tt-smi", default=TT_SMI_DEFAULT)
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
+    ap.add_argument("--policy", default="supercell",
+                    help="cache policy: supercell (default) or fourcorners")
     ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
     ap.add_argument("--link-wait", type=float, default=12.0,
                     help="boot preflight: seconds to wait for every declared "
@@ -138,6 +140,7 @@ def main(argv=None):
     m = Machine(MFMx, cfg, sh.say, script_dir=HERE, logprefix=args.log_prefix,
                 t6s_per_chip=args.t6s_per_chip, verbose=args.verbose,
                 decay=args.decay, alt_decay=args.alt_decay, tt_smi=args.tt_smi,
+                policy=args.policy,
                 # --mock skips the real reset unless a fake --tt-smi is given
                 # (the selftests use /bin/true to exercise the preflight)
                 reset_chips=not (args.no_chip_reset or
@@ -209,6 +212,17 @@ def main(argv=None):
         if a:
             m.decay = int(a[0])
         return f"start decay type: {m.decay} (applied at next 'start')"
+
+    def c_policy(a):
+        from machine import CACHE_POLICIES, parse_policy
+        if a:
+            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
+                                              for _c, p in m.steps()):
+                return ("cache policy is applied when the code is deployed "
+                        "(at 'start'): set it before 'start'")
+            m.policy = parse_policy(a[0])
+        return (f"cache policy: {m.policy} (applied at next 'start'; "
+                f"one of {', '.join(CACHE_POLICIES)})")
 
     def c_scan(a):
         return f"slowscan -> {m.slowscan(int(a[0]) if a else 1)}"
@@ -384,6 +398,7 @@ def main(argv=None):
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
     sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
+    sh.command("policy", c_policy, "policy [supercell|fourcorners]: show/set the cache policy (before 'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
     sh.command("cycle", c_cycle,
