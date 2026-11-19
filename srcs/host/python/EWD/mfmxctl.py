@@ -55,8 +55,8 @@ def parse_args(argv):
     ap.add_argument("--no-chip-reset", action="store_true", help="skip 'tt-smi -r' during boot")
     ap.add_argument("--tt-smi", default=TT_SMI_DEFAULT)
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
-    ap.add_argument("--policy", default="supercell",
-                    help="cache policy: supercell (default) or fourcorners")
+    ap.add_argument("--policy", default="fourcorners",
+                    help="cache policy: fourcorners (default) or supercell")
     ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
     ap.add_argument("--link-wait", type=float, default=12.0,
                     help="boot preflight: seconds to wait for every declared "
@@ -398,7 +398,7 @@ def main(argv=None):
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
     sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
-    sh.command("policy", c_policy, "policy [supercell|fourcorners]: show/set the cache policy (before 'start')")
+    sh.command("policy", c_policy, "policy [fourcorners|supercell]: show/set the cache policy (before 'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
     sh.command("cycle", c_cycle,

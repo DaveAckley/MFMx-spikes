@@ -67,6 +67,62 @@ ERISC_NOTES.md.
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
   beyond one clean run.
 
+## Design proposal: PERMANENT array edges (INACCESSIBLE) vs temporary dead bands
+
+STATUS: SCOPED 2026-11-19, not started (needs a go-ahead).  Four corners is
+now the default policy (supercell is `policy supercell`).
+
+The MFM rule (user): at a PERMANENT physical edge of the array, random event
+centres go right up to the edge; window sites beyond it are INACCESSIBLE
+(reads see EMPTY, writes are discarded, physics may ask whether a site is
+inaccessible).  At a TEMPORARY dead band (a caching-policy artifact) centres
+stay a full window radius (4) away so every EWP is full of persistent sites.
+
+Today: the grid boundary is the T6Grid (158x128, the 10-wide cache ring
+included); getAtomOrInaccessible() / setAtomOrDrop() treat only sites outside
+the whole T6Grid as inaccessible.  An array-edge hub's unfilled ring is
+ordinary storage (atoms written there just sit), and the policy bounds treat
+every outer side as a temporary band.  Physics.cpp already refuses INACCESSIBLE
+(centre -> false, DREG avoids it, EventWindow::swap refuses).
+
+Scope (no HostBlock change, no HostFlags bit):
+ 1. The hub already knows which neighbours exist: configureCacheLoaders'
+    `if (!seamHere) continue; // off chip, no seam` from the live seam mask
+    (HostBlock mEthSeamLo/Hi, already there).  Factor that into one
+    per-Dir4 "neighbour exists" decision made once at hub init; a side with
+    no on-chip hub and no seam is a PERMANENT edge.  Layouts then need
+    nothing new: 0/1/2/3 alone = four edges; 01 (0 E 1), 23, 02 (0 S 2), 13 =
+    three edges each; 0123 = outer sides only.  The four single-chip layouts
+    cannot be told apart from the seams, and need not be: the hub only needs
+    which of ITS sides have a seam.  (Seams distinguish 01, 23, 02, 13 and
+    0123 by chip number + side: five classes, four hub-local shapes.)
+ 2. Keep the accessible rectangle in the grid (4 u16 in the hub's T6Grid or
+    GridManager, NOT HostBlock): [0,158) minus the 10-wide ring on each
+    permanent side.  getAtomOrInaccessible / setAtomOrDrop / matchesEW use it,
+    so reads see INACCESSIBLE and writes drop, with no prefilled atoms and no
+    new storage.  Cache exchange on such a side is already absent.
+ 3. Event bounds: per side, permanent edge -> the first real site (10 / TW-10
+    / 10 / TH-10) whatever the policy or the Corner4; neighbour side -> the
+    policy value (4 toward, 24 / 134 / 104 away).  A per-side override on the
+    EventBounds that CachingPolicies::bounds() returns, so it applies to
+    supercell too.  Add the permanent flags to cachepolicy_test.cpp.
+ 4. Decide the read semantics: the spec says reads return EMPTY plus a
+    separate isAccessible(); today physics sees the INACCESSIBLE atom type
+    and checks it (DREG does).  Either keep that or add
+    EventWindow::isAccessible(sn) and have readEW load EMPTY for them with
+    writeEW dropping; swap() with an inaccessible site currently refuses.
+ 5. Host/AER: the viewer already draws INACCESSIBLE (EWControl, ZHostDecompressor);
+    AER sites stay 138x108 per hub.  Edge events now run over partly
+    inaccessible windows (still count as events).  Expect a small AER/density
+    change on single-chip runs (the ring is no longer a stash).
+Risks: a seam link down at deploy would look like a permanent edge (preflight
+already refuses to run with a link down); an L-shaped 3-chip layout has an
+inner corner notch a rectangle cannot express (not among the nine layouts);
+all older single-chip runs change behaviour at their edges.
+Test: a mock/host test of the edge classification from seam masks for the
+nine layouts, the cachepolicy_test bounds, and one QB run of seam6 on a single
+chip comparing edge-site occupancy.
+
 ## Design proposal: four-corners cache exchange (replaces leader/follower)
 
 STATUS: FIRST RUN CLEAN 2026-11-19 (run 022401, seam11-10.out, 1159c97, 12

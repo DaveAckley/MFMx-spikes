@@ -146,7 +146,7 @@ class Machine:
                  t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
                  extra_bindirs=(), slowscan_gap=0.2, layout=None,
-                 link_wait=12.0, link_resets=5, policy="supercell"):
+                 link_wait=12.0, link_resets=5, policy="fourcorners"):
         self.M = mfmx
         self.config = config
         self.say = say

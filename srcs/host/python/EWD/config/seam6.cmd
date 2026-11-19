@@ -15,6 +15,7 @@
 # and no change in the numbers of cars per 4 minutes (a falling rate would
 # mean the CA is dying out or a seam is stalling).
 tick slowscan off
+policy supercell
 decay 4
 dwell 4 8
 start

@@ -77,7 +77,8 @@ source, comments, docs and commit messages).
   MDist.h: the corner the hubs expand toward, borrowing the two edge bands
   and the corner cache there and lending the opposite three).  No virtuals
   (T6): CRTP base + static functions, picked by a switch.  The host chooses
-  per run with `policy [supercell|fourcorners]` (or --policy), before
+  per run with `policy [fourcorners|supercell]` (or --policy; DEFAULT is
+  fourcorners since 2026-11-19, supercell is the opt-out), before
   'start': Blackhole.setCachePolicy -> CodeManager -> two HostFlags bits
   (HBF_CACHEPOL0/1, no HostBlock layout change); hubs log `.cp:ID` once.
   scripts/cachepolicy/cachepolicy_test.cpp checks the invariants on the host
@@ -286,6 +287,7 @@ Hubs stop logging at different moments: only the cycles every hub has are used.
 config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at cycle 250; rerun 165950 ran the full hour clean (565 cycles, steady wall AER ~1570, duty 97%). Hang is intermittent (see OPEN_ISSUES.md).
 config/seam12.cmd: THREE HOUR four-corners soak (`policy fourcorners`, 18 blocks
 of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
+(Default policy is fourcorners since 2026-11-19; seam6.cmd and seam10.cmd now say `policy supercell` so they stay the supercell baselines.)
 config/seam11.cmd: the seam6 twin with `policy fourcorners` (the four-corners
 prototype; compare with seam6 runs 005507/012507).  Run 022401 (1159c97): CLEAN,
 faster fill (69% vs 49-63% at 690 s), committed events/hub/s +26-32%, spread

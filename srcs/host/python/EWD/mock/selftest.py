@@ -563,7 +563,7 @@ def scenario_feed_command():
 def scenario_cache_policy():
     rc, out = run("policy\npolicy fourcorners\npolicy supercell\npolicy four\n"
                   "boot\nstart\nmock\nstatus\npolicy supercell\nquit\n")
-    check("policy: default is supercell", "cache policy: supercell (applied at next" in out, out[:400])
+    check("policy: default is fourcorners", "cache policy: fourcorners (applied at next" in out, out[:400])
     check("policy: fourcorners accepted (prefix 'four' too)",
           "cache policy: fourcorners (applied" in out, out[:600])
     check("policy: chips told at start (mock saw policy=1)", "policy=1" in out, out[-900:])
@@ -574,7 +574,9 @@ def scenario_cache_policy():
     check("policy: bad name explained, shell survives",
           "want one of supercell, fourcorners" in out and rc == 0, out[-500:])
     rc, out = run("boot\nstart\nmock\nquit\n")
-    check("policy: default run tells chips policy=0", "policy=0" in out, out[-500:])
+    check("policy: default run tells chips policy=1", "policy=1" in out, out[-500:])
+    rc, out = run("policy supercell\nboot\nstart\nmock\nquit\n")
+    check("policy: supercell opt-out tells chips policy=0", "policy=0" in out, out[-500:])
 
 
 def scenario_command_file():
