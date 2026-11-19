@@ -47,6 +47,15 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
+- aer.py drops hubs whose mark count differs (lost marks), which biases it:
+  run 022401 used only 37 of 140 hubs, and the busy (filled, mark-heavy) hubs
+  are the ones that lose marks, so the sample leans toward sparse hubs with
+  very high AER.  Seen as aer.py 5 min 36.0 AER vs the live line 13.4 (all
+  140 hubs) at the same moment; the last-minute figures agree (1.67 vs 1.60).
+  Fix would be to align hubs by time, like LiveAER does, instead of by mark
+  number.  (AER work is tabled; the per-hub rates computed straight from
+  the tile marks are the better numbers until then.)
+
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
   figure was trimmed (read low while hubs differ); now a plain mean.  Compare
@@ -60,9 +69,21 @@ ERISC_NOTES.md.
 
 ## Design proposal: four-corners cache exchange (replaces leader/follower)
 
-STATUS: PROTOTYPE BUILT 2026-11-19, unproven on hardware (step 2 below:
+STATUS: FIRST RUN CLEAN 2026-11-19 (run 022401, seam11-10.out, 1159c97, 12
+min, `policy fourcorners`): .cp:1 on all 140 hubs; cars out=in=noc=98824
+(vs about 60k: three bands each way per hub), txfail/nocfail 0, no BADC, no
+TIMEOUT, STALLS none, no retrain, FEC uncorrected 0; slowest hub 0.012 s save
+/ 0.014 s load (same as supercell), duty 98%.  Fill came faster: 57% at 605 s
+and 69% at 688 s vs 39-50% and 49-63% in four supercell runs (equal at 480 s).
+Real (committed) events per hub per second: mean 9.0k vs 6.8-7.2k, spread
+(cv over all 140 hubs) 37% vs 58-67%, at about the same average fill (28% vs
+24-28%).  Not yet proven: an HOUR run (seam10 with `policy fourcorners`, wall
+AER at steady state vs about 1.57), and whether the array edges lose atoms.
+Visually (user): much less difference between visible and hidden sites.
+Next: a one-hour four-corners run.  Earlier status: PROTOTYPE BUILT
+(step 2 below:
 CachingPolicy.h, `policy fourcorners`, config/seam11.cmd; the NEW_LEADER
-argument is a Corner4 under it).  Step 3, the run, is next.  UPDATE
+argument is a Corner4 under it).  UPDATE
 2026-11-19: the speed case is mostly gone (duty is 97%, the exchange takes
 about 0.01 s); what remains is physics quality: uniform per-site event rate
 (events per hub spread 29-34% min to max today), more interhub events,
