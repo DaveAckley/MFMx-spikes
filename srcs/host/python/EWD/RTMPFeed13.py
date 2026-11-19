@@ -97,6 +97,15 @@ def load_rtmp_target(stream):
     return f"rtmp://{host}:{port}/{app}/{stream}?user={user}&pass={pw}", pw
 
 
+def repeatBase(now, due, period):
+    """Base time for the next keepalive repeat's due time.  A repeat that
+    starts a little late (the poll quantum, rendering) still counts from
+    when it was DUE, so the average rate stays 1/period; if we are more
+    than one period behind (a long stall) resync to now instead of
+    sending a burst."""
+    return due if now - due < period else now
+
+
 class RTMPFeed:
     def redact(self, obj):
         """str(obj) with the stream password masked (for log files)."""
@@ -360,13 +369,16 @@ class RTMPFeed:
         ffmpeg stamps frames by COUNT (at self.fps), so the repeats must
         arrive at the frame rate or the stream's clock and the player's
         drift apart.  The first repeat waits 1.3 frame periods after the
-        last real frame (one may be about to arrive); after that a repeat
-        is due one period after the PREVIOUS REPEAT STARTED, so the
-        rendering and write time (about 70 ms) does not slow the rate
-        (it used to: about 3 repeats per second instead of 5)."""
+        last real frame (one may be about to arrive); after that each
+        repeat is due one period after the previous repeat was DUE (see
+        repeatBase), not after it actually started: the loop only polls
+        every 0.2 period and rendering takes about 70 ms, so counting from
+        the actual start made every repeat late (about 4.4 per second
+        instead of 5.1, a stream running 12 percent slow while idle, which
+        starves a player's buffer)."""
         period = 1.0 / self.fps
         late = 1.3 * period
-        dupStart = 0.0          #< when our last repeat began
+        dupBase = 0.0           #< the time our last repeat was due (or began)
         dupEnd = 0.0            #< lastWriteT right after it
         while True:
             time.sleep(0.2 * period)
@@ -375,12 +387,12 @@ class RTMPFeed:
                 continue
             now = time.monotonic()
             if self.lastWriteT == dupEnd:    # no real frame since our repeat
-                due = dupStart + period
+                due = dupBase + period
             else:
                 due = self.lastWriteT + late
             if now >= due:
                 try:
-                    dupStart = now
+                    dupBase = repeatBase(now, due, period)
                     stale = now - self.lastRealMono
                     img = base.copy()
                     sim = self.lastSimNanos + int(stale * 1e9)

@@ -67,6 +67,8 @@ source, comments, docs and commit messages).
 - srcs/host/tools/ERISC_NOTES.md  hardware facts, ordering lessons, the
   running hardware record (sec 9.x; 9.14 = mfmxctl runs).  Cabling: ring
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
+- scripts/feed/keepalive_test.py  simulates the RTMPFeed keepalive pacing
+  (old vs new rule, repeats per 30 s).
 - scripts/xchg/xchg.py  cache exchange timing per hub from the `.xb`/`.xe`
   marks (SAVE in NEW_LEADER, LOAD in RUN_EVENTS: time and packets), with
   --bolts to compare against the host bolt times.  Also prints STALLS from

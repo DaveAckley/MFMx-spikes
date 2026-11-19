@@ -8,6 +8,15 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- Video stream locks up at bring-up ("NO NEW DATA 27s", a page refresh fixes
+  it).  Suspect: while idle (bring-up, about 107 s) the keepalive sent about
+  4.5 repeats/s instead of 5.1 (FEEDSTAT dup 133-136 per 30 s vs 153), so the
+  stream ran 12 percent slow and drained a ~3 s player buffer in about 27 s.
+  Cause: each repeat was due one period after the previous one STARTED, and
+  the 39 ms poll plus 70 ms render quantized it to about 226 ms.  Fixed:
+  due now counts from when the previous repeat was DUE (repeatBase).
+  Unproven on hardware: expect dup near 153 per 30 s during bring-up and no
+  lockup.  If it still locks up, look at the player/media server instead.
 - HANG at PACKET_SLEEP_CYCLES=100,000 (run 125641, seam9-10.out): cycle 250,
   bolt #500 RUN_EVENTS TIMEOUT 10.2 s; 130/140 hubs on bh1 acked, 10 lamers
   (TLBI 23,51,79,99,101,103,105,107,109,135 = at1c3 at1c5 at1c7 at129 at149
