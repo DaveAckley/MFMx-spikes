@@ -111,7 +111,9 @@ source, comments, docs and commit messages).
   `status` (`live:`): `[140] est. AER: 1.57, 1.58, 1.57`
   ([N] = hubs reporting, 140 = every hub: 35 per chip; then the last 1 minute,
   last 5 minutes and all since the autoseed, in that order like top's load
-  averages; three significant digits).  AER is aer.py's wall AER
+  averages; three significant digits).  mfmxctl logs the line once a minute to misc/mfmxctl-LIVEAER.txt
+  and the last one as `live AER final:` in the shutdown output (so it is in
+  the .out), to compare with aer.py afterwards.  AER is aer.py's wall AER
   /1000.  It ignores counters that go backwards (torn marks) and takes a 5%
   trimmed mean over hubs.  While the grid fills the figure is HIGH (empty
   draws are cheap: about 30 AER at 54% fill after 12 min, about 1.6 at steady

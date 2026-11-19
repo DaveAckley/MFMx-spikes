@@ -150,6 +150,8 @@ class Machine:
         self.mfmxVersion = mfmx.getVersion()
         snap = getattr(mfmx, "liveAERSnapshot", None)   # absent in old/mock MFMx
         self.liveaer = LiveAER.LiveAER(snap) if snap else None
+        self.live_log_secs = 60.0            # misc/*-LIVEAER.txt: one line this often
+        self.live_logged = None              # host monotonic time of the last one
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
         self.seams = []                      # parsed ethseams of the active layout
         self.e1image = ""                    # E1 router image for the seams
@@ -627,6 +629,9 @@ class Machine:
         if self.configured and self.inited and self.released():
             self.slowscan(1)
 
+    def _run_secs(self):
+        return (time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns) / 1e9
+
     def _live_line(self):
         """The live AER line for the overlay ('' until any hub has
         reported; see LiveAER.py).  Never raises: the overlay must not cost
@@ -635,7 +640,13 @@ class Machine:
             return ""
         try:
             self.liveaer.update()
-            return self.liveaer.text()
+            text = self.liveaer.text()
+            now = time.monotonic()
+            if text and (self.live_logged is None
+                         or now - self.live_logged >= self.live_log_secs):
+                self.live_logged = now
+                self.logkt("LIVEAER", f"{self._run_secs():.0f}s {text}")
+            return text
         except Exception as e:
             self.liveaer = None
             self.say(f"live AER disabled: {e}")
@@ -827,6 +838,15 @@ class Machine:
                 out.append(f"{name}: {r if r else 'ok'}")
             except Exception as e:
                 out.append(f"{name}: FAILED {type(e).__name__}: {e}")
+
+        if self.liveaer is not None:         # the last live AER, for the record
+            def final():
+                text = self.liveaer.text()
+                if not text:
+                    return "no hub had reported"
+                self.logkt("LIVEAER", f"{self._run_secs():.0f}s FINAL {text}")
+                return text
+            step("live AER final", final)
 
         if self.configured and self.inited:
             if any(p >= self.M.Step.HAS_T6_EVENT_WINDOWS for _c, p in self.steps()):
