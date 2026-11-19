@@ -170,7 +170,9 @@ Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`
 `mfmxctl.py -s FILE` (repeatable) runs FILE's lines as if typed, after `--boot`,
 then continues with stdin; `--script-exit` quits when the files are used up.
 `source FILE` does the same from the prompt (nested, depth-limited); `echo TEXT`
-annotates; `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
+annotates; `dumpl1 CHIP HX HY` (or `dumpl1 CHIP all`) writes a hub's whole 1.5MB
+L1 to `<run>/dumps/<tag>-N.l1` while the hub runs (HX,HY = hub coordinates on the
+chip, 0..6 x 0..4; works once the code is deployed); `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
 `shoot` supersedes a pending one, so scripts want it between shots).  Script
 lines are echoed after the prompt; ticks run between lines; errors do not stop
 the script.  Test: `python3 mock/selftest.py command_file` (7 older selftests

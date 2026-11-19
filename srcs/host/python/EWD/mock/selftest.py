@@ -579,6 +579,17 @@ def scenario_cache_policy():
     check("policy: supercell opt-out tells chips policy=0", "policy=0" in out, out[-500:])
 
 
+def scenario_dumpl1():
+    rc, out = run("dumpl1 0 0 0\nboot\nstart\ndumpl1 0 6 4\ndumpl1 0 7 0\n"
+                  "dumpl1 0\ndumpl1 0 all\nquit\n")
+    check("dumpl1: refused before boot", "not booted" in out.lower() or "boot" in out, out[:300])
+    check("dumpl1: one hub written", "dumpl1 -> /mock/dumps/chip0-hub6-4.l1" in out, out[-600:])
+    check("dumpl1: bad hub reported, shell survives",
+          "dumpl1: FAILED" in out and rc == 0, out[-600:])
+    check("dumpl1: usage", "usage: dumpl1" in out, out[-600:])
+    check("dumpl1: all", "35 hub L1s of chip 0 written" in out, out[-600:])
+
+
 def scenario_command_file():
     d = tempfile.mkdtemp(prefix="selftest-cmd-")
     main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))

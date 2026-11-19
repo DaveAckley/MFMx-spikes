@@ -227,6 +227,19 @@ def main(argv=None):
     def c_scan(a):
         return f"slowscan -> {m.slowscan(int(a[0]) if a else 1)}"
 
+    def c_dumpl1(a):
+        if len(a) == 2 and a[1] == "all":
+            chip = int(a[0])
+            paths = [m.dumpl1(chip, x, y) for y in range(m.HUBS_Y)
+                     for x in range(m.HUBS_X)]
+            bad = paths.count("")
+            return (f"dumpl1: {len(paths) - bad} hub L1s of chip {chip} written"
+                    + (f", {bad} FAILED" if bad else "") + " (see the run's dumps/)")
+        if len(a) != 3:
+            return "usage: dumpl1 CHIP HX HY | dumpl1 CHIP all"
+        path = m.dumpl1(int(a[0]), int(a[1]), int(a[2]))
+        return f"dumpl1 -> {path}" if path else "dumpl1: FAILED (no such hub, or code not deployed yet)"
+
     def c_grid(a):
         m.need_booted()
         if a:
@@ -409,6 +422,8 @@ def main(argv=None):
                "waitbolt [SECS]: let ticks run until the pending bolt settles (default: its timeout + 5s)")
     sh.command("bolt", c_bolt, "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
     sh.command("scan", c_scan, "scan [N]: run slowscans now")
+    sh.command("dumpl1", c_dumpl1,
+               "dumpl1 CHIP HX HY | CHIP all: write a hub's whole L1 (1.5MB; 'all' is 35 hubs) to dumps/")
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [alt]: EWControl.doSeed")

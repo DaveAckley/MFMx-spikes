@@ -18,6 +18,7 @@
 #include "BHLog.h"
 #include "FileIDs.h" // for GET_PATH_FROM_FILE_ID
 #include "UxC.h"
+#include "dev_mem_map.h" // for MEM_L1_SIZE
 #include "HostRandom.h" // for hostPRNG
 
 namespace MFM {
@@ -60,6 +61,37 @@ namespace MFM {
 
     delete [] bytes;
     bytes = 0;
+  }
+
+  std::string CodeManager::dumpHubL1(u32 hubx, u32 huby) {
+    u32 tlbi = U32_MAX;
+    for (const auto & kv : mHubTLBIToHubValue) {
+      const U8C & hig = kv.second.mHubInGridCoord;
+      if (hig.x == hubx && hig.y == huby) tlbi = kv.first;
+    }
+    if (tlbi == U32_MAX) {
+      LOGprintf(mChipNum," No hub (%u,%u) to dump\n", hubx, huby);
+      return "";
+    }
+    static u32 seq = 0u;          //< keeps repeat dumps from overwriting
+    BHTag tag(TagType::T6TADR, mChipNum, tlbi);
+    std::string path = getSimDir() + "dumps/" + tag.to_string() + "-" +
+      std::to_string(++seq) + ".l1";
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+      LOGprintf(mChipNum," Couldn't write '%s'\n", path.c_str());
+      return "";
+    }
+    const u32 CHUNK = 64u * 1024u;      //< words need a 4 byte aligned buffer
+    std::vector<u32> buf(CHUNK / 4u);
+    for (u32 addr = 0u; addr < MEM_L1_SIZE; addr += CHUNK) {
+      mOurTLBs.readFromBytes(tlbi, addr, (u8 *) buf.data(), CHUNK);
+      file.write((const char *) buf.data(), CHUNK);
+    }
+    file.close();
+    LOGprintf(mChipNum," Wrote %uB of L1 of hub (%u,%u) tlbi%u to '%s'\n",
+              (u32) MEM_L1_SIZE, hubx, huby, tlbi, path.c_str());
+    return path;
   }
 
   u8 * CodeManager::extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 fromTLBI) {

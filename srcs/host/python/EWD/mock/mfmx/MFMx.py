@@ -471,6 +471,11 @@ class Blackhole:
         EthSeamHost.get().chipClosing(self.chip)
         self._change(Step.HAS_CHIP_NUM)
 
+    def dumpHubL1(self, hubx, huby):
+        if self.step < Step.HAS_T6_CODE_DEPLOYED or hubx >= 7 or huby >= 5:
+            return ""
+        return f"/mock/dumps/chip{self.chip}-hub{hubx}-{huby}.l1"
+
     def monitorFleet(self):
         return U32_MAX if self.step < Step.HAS_T6_CODE_DEPLOYED else 0
 

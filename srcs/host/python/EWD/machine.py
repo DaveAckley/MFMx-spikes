@@ -16,6 +16,7 @@ import os
 import subprocess
 import time
 
+import HubGeometry
 import LiveAER
 
 DEFAULT_TIMEOUTS = {"HOLD_AT_BIRTH": 60.0, "NEW_LEADER": 60.0, "RUN_EVENTS": 10.0}
@@ -643,6 +644,19 @@ class Machine:
         have been released and have set up their hostblocks)."""
         return bool(self.bhs) and all(bh.getStep() >= self.M.Step.HAS_T6_CODE_RUNNING
                                       for bh in self.bhs)
+
+    HUBS_X = HubGeometry.ACTIVE_HUB_WIDTH     # hubs per chip, x
+    HUBS_Y = HubGeometry.ACTIVE_HUB_HEIGHT    # hubs per chip, y
+
+    def dumpl1(self, chip, hubx, huby):
+        """Write the whole L1 of one hub (hub coordinates on the chip) to the
+        run's dumps/ directory.  Reads only; safe while the hub runs.
+        Returns the file path, or '' if it could not be done."""
+        self.need_booted()
+        for bh in self.bhs:
+            if bh.getChipNumber() == chip:
+                return bh.dumpHubL1(hubx, huby)
+        raise ValueError(f"no chip {chip} in this run")
 
     def tick_slowscan(self):
         # Before the T6s are released their hostblocks hold no valid magic, so

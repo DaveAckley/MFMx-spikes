@@ -31,6 +31,12 @@ namespace MFM {
     u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
     void dumpT6Image(const T6Image & image, u8 fromTLBI) ;
 
+    /** Write the whole L1 of hub (hubx,huby) of this chip (hub
+        coordinates on the chip) to a new file under <simdir>/dumps/
+        and return its path, or "" if there is no such hub or the file
+        could not be written.  Safe while the hub runs (reads only). */
+    std::string dumpHubL1(u32 hubx, u32 huby) ;
+
     void releaseTheHounds() ;
 
     void assertGoodMagic() ;
