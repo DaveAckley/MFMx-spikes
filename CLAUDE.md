@@ -94,7 +94,21 @@ source, comments, docs and commit messages).
   (mEWsEmptyCenters).  mEWsEmptyCenters stays 0, so aer.py/live AER (committed
   + empty) count only round-tripped events: no empty-grid AER inflation after
   the seed.  The hubs log `.ee:1` (0 in a normal build) next to `.cp`.  Before
-  the autoseed fires nothing is shipped in either mode.  Not yet run.
+  the autoseed fires nothing is shipped in either mode.
+  RESULT, run 20261119-121915 (seam11, 4 cards, 1920x1080 = about 2.07M sites, hub
+  width 137, fourcorners, FB1, `.ee:1` on all 140 hubs, 14.3 min): live AER
+  final 0.973 (1 min), 0.976 (5 min), 0.979 (whole run), flat from the first
+  reading (0.982) to the end; aer.py (110 of 140 hubs kept) wall 0.996, running
+  1.022, duty 97%, obsolete 0.0%, events per hub spread 0.8% (35.7% in the
+  old-mode run 113217).  Old mode, run 113217 last 60 s: wall 1.52 but
+  NON-EMPTY-ONLY 1.007 at 72% fill, so the honest bound was always about
+  1.0 and the extra was free empty-draw credit (about 1/fill).  Honest
+  reading: ~1 AER on an HD-size grid, with cross-hub and cross-card events,
+  FB1 physics (cheap; heavier physics lowers it).  NOTE the grid fills MUCH
+  more slowly now (fill 3-9% after 14 min, versus 72% by ~12 min in old mode):
+  the old mode gave sparse grids a 1/fill time warp.  Use `seed` or a longer
+  run (seam12) to reach a full grid.  Link time: 64 B per NoC tick, so an
+  EWPC_EMPTY placeholder (state word only) saves little on the wire.
 - scripts/l1dump/l1grid.py  decodes the T6Grid out of a hub L1 dump (mfmxctl
   `dumpl1 at023` -> <run>/dumps/N/at023.l1) and checks that the PERMANENT-edge
   cache rings are EMPTY (exit 1 if not).  Finds theT6Grid via the hub image's
