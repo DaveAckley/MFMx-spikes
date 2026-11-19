@@ -33,3 +33,20 @@ Tools born on the way: `.xb/.xe` marks, scripts/xchg/xchg.py, scripts/aer/.
 
 ## 2026-11-19  ZHD counter zero-init
 `#N` in the HAR lines is now a sane running count (61cb6de).
+
+## 2026-11-19  aer.py hub-drop bias
+aer.py lined cycles up by mark number and dropped every hub whose count of
+.es/.ev cycles differed by more than 2: run 022401 kept 37 of 140 hubs, 121915
+110, 113217 44, and the 3 h honest run 124337 ONE (the '.es' marks are lost
+8% of the time, '.ev' a few).  The busy hubs lose the most marks, so the kept
+sample leaned toward sparse, high-AER hubs (aer.py 5 min 36.0 vs live 13.4).
+Fixed: cycles are lined up by TIME (hubs of a chip share a clock to ~40 ms, so
+each chip's cycles are the clusters of its hubs' '.ev' times); a lost mark is
+filled in (time from the chip, cumulative counters interpolated, so totals stay
+exact); chips line up by cycle number (warning if they disagree); only a hub
+that really stopped logging early is dropped.  Run 124337 now reads all 140
+hubs: wall 958.6, running 986.1 mAER (live 0.956-0.958).  Run 121915 987.7 wall
+(was 996.5 from 110 hubs).  Figures from earlier runs that used a hub subset
+(022401, 113217, and any other with a 'left out' line) are unreliable; rerun
+aer.py on the run directory if one matters (run 113217 old mode: 81690 mAER
+from 44 hubs, 58230 from all 140).  Tests: scripts/aer/aer_test.py (44).

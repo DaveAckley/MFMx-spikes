@@ -118,13 +118,14 @@ source, comments, docs and commit messages).
   (or --pe).  Parity-checks every atom, so a wrong address shows as WARNING.
   Test: python3 scripts/l1dump/l1grid_test.py.
 - RESULT, honest (no AER cheating) 3 h soak seam12, run 124337 (10929 s): LIVE AER
-  0.956/0.956/0.958 (1m/5m/all) at the end; aer.py (only ONE hub kept: marks differ
-  in count on 139 of 140, see the hub-drop note) wall AER 0.961 total, flat across the
-  three hours (0.987 at 10 min, 0.961 at 3 h; trailing 0.955-0.959 from 40 min on);
-  fill reached 71% by 2400 s and plateaued at 63-73%; duty 95%; no bolt stalls, no
-  hang; hub time max 0.03 s.  The honest AER settles about 0.02 below the early
-  0.98 as the grid fills, no drift after that.  4 of 140 hubs desynced their report
-  stream (display only; OPEN_ISSUES "Display tiles freeze").
+  0.956/0.956/0.958 (1m/5m/all) at the end; aer.py over ALL 140 hubs (time-aligned
+  since 2026-11-19, see CLOSED_ISSUES): wall AER 0.959 total, running 0.986, duty
+  97%, flat across the three hours (0.967 at 50 min, 0.961 at 100 min, 0.959 at
+  150 min; trailing 0.954-0.956 after the first hour); events per hub spread 0.2%;
+  fill reached 66% by ~6000 s and sat at 60-70%; no bolt stalls, no hang; hub time
+  max 0.03 s.  The honest AER settles about 0.02 below the early 0.98 as the grid
+  fills, no drift after that.  4 of 140 hubs desynced their report stream (display
+  only; OPEN_ISSUES "Display tiles freeze").
 - Report stream health (srcs/host/{include,src}/ZHostDecompressor.*): the per-hub
   compressed atom-report stream has no resync, so one bad byte freezes that hub's
   tile on screen forever while the hub keeps running (run 124337: 4 of 140 hubs
@@ -197,7 +198,11 @@ source, comments, docs and commit messages).
   together).  Torn counter marks (a hub log now and then has a truncated hex
   field) are repaired first (repair_counters: longest
   non-decreasing run, previous counts carried over), else one makes a ~2**64
-  delta and the totals read 1e13 mAER.  scripts/aer/aer_test.py is its self-test.
+  delta and the totals read 1e13 mAER.  Hubs lose marks (8% of '.es', a few '.ev'),
+  so cycles are lined up across hubs BY TIME (align_hubs: per chip, clusters of the
+  hubs' '.ev' times; a lost mark is filled in, counters interpolated, totals exact);
+  only a hub that stopped logging early is dropped.  Older versions lined up by mark
+  number and kept as few as 1 of 140 hubs.  scripts/aer/aer_test.py is its self-test.
   Needs the hub image from this commit or later.
 - LIVE AER on the stream (rough reference, not a measurement): the host
   transport thread hands every parsed tile mark to LiveAER::noteMark

@@ -27,7 +27,7 @@ def mark(kind, ms, c, r, e):
 
 def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
              obsolete=0.25, skew=0, short=(), seed_cycle=None, seed_at=0.0,
-             live=None, empties=0):
+             live=None, empties=0, chips=1):
     """Every hub commits `rate` events/s (and does `empties` events/s at
     empty centers) while running.  A cycle runs
     events for run_s seconds, then spends over_s seconds in bolts."""
@@ -36,11 +36,11 @@ def make_run(hubs, cycles, rate, run_s, over_s, start_ms=1000,
     os.mkdir(d + '/tiles')
     with open(d + '/misc/PKTS.txt', 'w') as f:
         for i in range(hubs):
-            f.write('TILE chip=0 tlbi=%d noc=2,3 tag=at0%d img=HUB\n'
-                    % (15 + 2 * i, i))
+            f.write('TILE chip=%d tlbi=%d noc=2,3 tag=at0%d img=HUB\n'
+                    % (i % chips, 15 + 2 * i, i))
         f.write('TILE chip=0 tlbi=0 noc=1,2 tag=at012 img=EWP\n')
     for i in range(hubs):
-        t = start_ms + i * skew       # unsynchronized hub clocks
+        t = start_ms + i * skew + (i % chips) * 4600  # unsynchronized hub clocks
         c = 77 * (i + 1)              # arbitrary starting counters
         e = 5 * (i + 1)
         lines = []
@@ -298,6 +298,77 @@ aer.report(analyze_dir(d), sites, [60, 300], 30, True,
 txt = out.getvalue()
 check('report text', 'mAER' in txt and 'duty' in txt and 'series every 30'
       in txt and 'events per hub' in txt, txt)
+
+# ---- lost marks: cycles are lined up by TIME (load_run), not mark number ----
+def drop_marks(d, i, kind, keep):
+    """Remove the '.kind' marks of hub i for which keep(n) is False (n counts
+    the hub's marks of that kind from 0)."""
+    p = '%s/tiles/at0%d.mfmk' % (d, i)
+    n, out = 0, []
+    for line in open(p).read().split('\n'):
+        if ' hb .%s:' % kind in line:
+            n += 1
+            if not keep(n - 1):
+                continue
+        out.append(line)
+    open(p, 'w').write('\n'.join(out))
+
+
+def totals(res):
+    return sum(c['committed'] for c in res['cycles']), \
+        sum(c['wall'] for c in res['cycles'])
+
+
+clean = aer.load_run(make_run(6, 12, 100, 6, 4, chips=2, skew=40))[0]
+check('time alignment, clean run: all hubs kept',
+      clean['hubs'] == 6 and clean['dropped'] == [] and len(clean['cycles']) == 12,
+      str((clean['hubs'], clean['dropped'], len(clean['cycles']))))
+
+d = make_run(6, 12, 100, 6, 4, chips=2, skew=40)
+for i in (0, 1, 2, 5):
+    drop_marks(d, i, 'es', lambda n: n % 3 != 1)          # a third of the starts lost
+res = aer.load_run(d)[0]
+check('lost .es marks no longer drop the hub',
+      res['hubs'] == 6 and res['dropped'] == [], str((res['hubs'], res['dropped'])))
+check('lost .es marks: same events and wall time', totals(res) == totals(clean),
+      str((totals(res), totals(clean))))
+
+d = make_run(6, 12, 100, 6, 4, chips=2, skew=40)
+drop_marks(d, 1, 'ev', lambda n: n not in (3, 4))          # two stops in a row lost
+drop_marks(d, 3, 'ev', lambda n: n != 7)
+res = aer.load_run(d)[0]
+tot_c, tot_w = totals(res)
+check('lost .ev marks: hub kept, TOTAL events exact (interpolated)',
+      res['hubs'] == 6 and tot_c == totals(clean)[0], str((res['hubs'], tot_c, totals(clean))))
+check('lost .ev marks: wall time as clean', abs(tot_w - totals(clean)[1]) < 1.0,
+      str((tot_w, totals(clean))))
+
+d = make_run(6, 12, 100, 6, 4, chips=2, skew=40)
+drop_marks(d, 4, 'ev', lambda n: n < 8)                    # hub 4 really stopped early
+res = aer.load_run(d)[0]
+check('a hub that stops logging early is still dropped',
+      res['dropped'] == ['at04'] and res['hubs'] == 5, str((res['dropped'], res['hubs'])))
+
+d = make_run(6, 12, 100, 6, 4, chips=2, skew=40)
+drop_marks(d, 2, 'ev', lambda n: n < 11)                   # one stop short at the end: fine
+res = aer.load_run(d)[0]
+check('one stop short at the end is kept, cycles cut', res['dropped'] == []
+      and len(res['cycles']) == 11, str((res['dropped'], len(res['cycles']))))
+
+# the seeding hub lost its '.es' of the seed cycle
+d = make_run(4, 10, 100, 6, 4, seed_cycle=2, seed_at=1.5, chips=2)
+drop_marks(d, 0, 'es', lambda n: n != 2)
+res = aer.load_run(d)[0]
+check('seed found by time when the seeding hub lost that .es',
+      res['seed'] is not None and res['seed'][0] == 2 and abs(res['seed'][1] - 1.5) < 0.05,
+      str(res['seed']))
+
+# chips with different cycle counts warn instead of failing
+d = make_run(4, 6, 100, 6, 4, chips=2)
+drop_marks(d, 1, 'ev', lambda n: n < 4)
+drop_marks(d, 3, 'ev', lambda n: n < 4)
+w = aer.load_run(d)[1]
+check('chips with different numbers of cycles warn', any('different numbers' in x for x in w), str(w))
 
 print('all ok' if not fails else '%d FAILED' % fails)
 sys.exit(1 if fails else 0)

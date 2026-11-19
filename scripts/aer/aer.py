@@ -20,9 +20,19 @@ physics and counts: the events that happened are C + E, and AER is that per
 grid SITE per second, so a sparse grid has a HIGHER AER (empty events are
 cheap).  The header of every mark carries the hub's own clock in ms, so all
 times here are DIFFERENCES within one hub (hub clocks are not synchronized).
-The k-th cycle of every hub is lined up by mark number.  Hubs stop logging at
-slightly different moments, so only the cycles every hub has are used; a hub
-more than 2 cycles short (lost marks) is reported and left out.
+Cycles are lined up across hubs BY TIME, not by mark number: the marks are
+lossy (some hubs lose 8% of their '.es' and a few '.ev'), and a lost mark
+shifts every later mark number.  The hubs of one chip share a clock to within
+a few tens of ms, so each chip's cycles are the clusters of its hubs' '.ev'
+times; a hub's marks are put in their cluster, and a lost mark is filled in:
+its time from the other hubs of the chip, its counters by interpolating the
+(cumulative) counters between the marks the hub does have, so the TOTALS stay
+exact and only the split between neighbouring cycles is smoothed.  Chips are
+lined up by cycle number (the chips' first cycles, which all hubs log, are
+cycle 0; each chip must have the same number of cycles, else a warning).
+Hubs stop logging at slightly different moments, so only the cycles every hub
+has are used; a hub more than 2 cycles short at the END (it really stopped) is
+reported and left out.
 
 Per cycle: events = sum over hubs of (C + E) at this stop minus at the
 previous stop (nothing happens between a stop and the next start; the first
@@ -196,6 +206,148 @@ def delta(a, b):
     return (b - a) % U64
 
 
+CLUSTER_FRACTION = 3        # hubs of a chip agree within a third of a cycle
+
+
+def hub_events(marks):
+    """([(ms, counts, live)] of the '.ev' marks, [(ms, counts)] of the '.es'
+    marks) in file order; live = the '.ae' census just before that stop.
+    Counts are (C, R, E) (repair_counters has already fixed torn ones)."""
+    evs, ess, live = [], [], None
+    for kind, ms, c, r, o in marks:
+        if kind == 'es':
+            ess.append((ms, (c, r, o)))
+        elif kind == 'ae':
+            live = c
+        elif kind == 'ev':
+            evs.append((ms, (c, r, o), live))
+            live = None
+    return evs, ess
+
+
+def chip_timeline(hub_evs):
+    """The cycle stop times of one chip: the medians of the clusters of all
+    its hubs' '.ev' times.  hub_evs: one list of ms per hub.  A cluster is a
+    run of times closer than a third of the usual cycle length."""
+    ref = max(hub_evs, key=len)
+    gaps = [b - a for a, b in zip(ref, ref[1:])]
+    period = statistics.median(gaps) if gaps else 1000
+    allt = sorted(t for ts in hub_evs for t in ts)
+    clusters = [[allt[0]]]
+    for t in allt[1:]:
+        if t - clusters[-1][-1] > period / CLUSTER_FRACTION:
+            clusters.append([t])
+        else:
+            clusters[-1].append(t)
+    return [statistics.median(c) for c in clusters]
+
+
+def nearest_slot(times, ms):
+    """Index of the time closest to ms."""
+    i = bisect.bisect_left(times, ms)
+    if i == len(times) or (i > 0 and ms - times[i - 1] <= times[i] - ms):
+        return i - 1
+    return i
+
+
+def interp(known, k):
+    """Counts at slot k from {slot: counts} by linear interpolation between
+    the nearest known slots on either side (0,0,0 before the first)."""
+    below = max((j for j in known if j <= k), default=None)
+    above = min((j for j in known if j >= k), default=None)
+    if below == k:
+        return known[k]
+    lo, lo_c = (below, known[below]) if below is not None else (-1, (0, 0, 0))
+    if above is None:
+        return lo_c
+    hi, hi_c = above, known[above]
+    return tuple(a + (b - a) * (k - lo) // (hi - lo)
+                 for a, b in zip(lo_c, hi_c))
+
+
+def align_hubs(hub_marks, chip_of):
+    """hub_marks {tag: repaired marks}, chip_of {tag: chip} -> ({tag:
+    cycles_of-style list, one entry per cycle slot, up to the hub's last
+    stop}, warnings, {chip: (stop times, start times by slot)}).  See the
+    module docstring."""
+    ev_of = {t: hub_events(m) for t, m in hub_marks.items()}
+    chips = {}
+    for t in ev_of:
+        if ev_of[t][0]:
+            chips.setdefault(chip_of[t], []).append(t)
+    warnings, line = [], {}
+    for chip, tags in chips.items():
+        T = chip_timeline([[e[0] for e in ev_of[t][0]] for t in tags])
+        starts = {}                 # slot -> start times of the hubs
+        for t in tags:
+            for ms, _c in ev_of[t][1]:
+                starts.setdefault(bisect.bisect_left(T, ms), []).append(ms)
+        ES = {k: statistics.median(v) for k, v in starts.items()
+              if k < len(T)}
+        runs = [T[k] - ES[k] for k in ES]
+        line[chip] = (T, ES, statistics.median(runs) if runs else 0.0)
+    counts = {len(T) for T, _e, _r in line.values()}
+    if len(counts) > 1:
+        warnings.append('chips saw different numbers of cycles (%s): cycles '
+                        'are lined up by number from the start, so later '
+                        'cycles may be misaligned'
+                        % ', '.join('chip %d: %d' % (c, len(line[c][0]))
+                                    for c in sorted(line)))
+    out = {}
+    for chip, tags in chips.items():
+        T, ES, med_run = line[chip]
+        for tag in tags:
+            evs, ess = ev_of[tag]
+            ev_at, live_at, es_at = {}, {}, {}
+            for ms, c, live in evs:
+                k = nearest_slot(T, ms)
+                if k not in ev_at:
+                    ev_at[k] = (ms, c)
+                    live_at[k] = live
+            for ms, c in ess:
+                k = bisect.bisect_left(T, ms)
+                if k < len(T) and k not in es_at:
+                    es_at[k] = (ms, c)
+            known = {k: v[1] for k, v in ev_at.items()}
+            last = max(ev_at)
+            cyc, prev_live, cum = [], None, {}
+            for k in range(last + 1):
+                cum[k] = interp(known, k)
+                ev_ms = ev_at[k][0] if k in ev_at else T[k]
+                if k in es_at:
+                    es_ms, es_c = es_at[k]
+                else:       # nothing happens between a stop and the next start
+                    es_ms = ES.get(k, T[k] - med_run)
+                    es_c = cum[k - 1] if k else (0, 0, 0)
+                live = live_at.get(k)
+                if live is None:
+                    live = prev_live
+                prev_live = live if live is not None else prev_live
+                cyc.append((es_ms, ev_ms, es_c, cum[k], live))
+            out[tag] = cyc
+    return out, warnings, line
+
+
+def seed_slot(marks, T, ES):
+    """(cycle slot, seconds into that cycle's events, seed type) of the
+    first '.as' mark on this chip's timeline, or None.  The offset is from
+    the hub's own '.es' of that cycle when it logged one (else the chip's
+    median start time)."""
+    own = None
+    for kind, ms, c, r, o in marks:
+        if kind == 'es':
+            own = ms
+        elif kind == 'as':
+            k = min(bisect.bisect_left(T, ms), len(T) - 1)
+            if own is not None and bisect.bisect_left(T, own) == k:
+                es = own
+            else:
+                es = ES.get(k)
+            off = max((ms - es) / 1000.0, 0.0) if es is not None else 0.0
+            return (k, off, c)
+    return None
+
+
 def analyze(per_hub, seed=None):
     """per_hub: {name: cycles_of(...)}.  seed: seed_of() of the seeding hub
     (the window then starts there) or None.  Returns a dict of results."""
@@ -348,6 +500,32 @@ def report(res, sites, windows, series, verbose, say=print):
                                      c['wall'], c['run']))
 
 
+def load_run(rundir, from_start=False):
+    """Read a run directory -> (analyze() result, warnings, torn marks
+    repaired, hubs they were in)."""
+    hub_marks, chip_of = {}, {}
+    repaired, repaired_hubs = 0, 0
+    for tag, (chip, _tlbi) in hub_tiles(rundir).items():
+        try:
+            marks = load_marks('%s/tiles/%s.mfmk' % (rundir, tag))
+        except OSError:
+            continue
+        marks, nfix = repair_counters(marks)
+        repaired += nfix
+        repaired_hubs += 1 if nfix else 0
+        hub_marks[tag] = marks
+        chip_of[tag] = chip
+    per_hub, warnings, line = align_hubs(hub_marks, chip_of)
+    seed = None
+    for tag in per_hub:
+        T, ES, _run = line[chip_of[tag]]
+        sd = seed_slot(hub_marks[tag], T, ES)
+        if sd and (seed is None or sd[0] < seed[0]):
+            seed = sd
+    res = analyze(per_hub, None if from_start else seed)
+    return res, warnings, repaired, repaired_hubs
+
+
 def main(argv):
     if len(argv) < 2 or argv[1] in ('-h', '--help'):
         sys.exit(__doc__)
@@ -374,24 +552,9 @@ def main(argv):
         else:
             sys.exit(__doc__)
     windows = windows or [60, 300]
-    per_hub = {}
-    seed = None
-    repaired, repaired_hubs = 0, 0
-    for tag in hub_tiles(rundir):
-        try:
-            marks = load_marks('%s/tiles/%s.mfmk' % (rundir, tag))
-        except OSError:
-            continue
-        marks, nfix = repair_counters(marks)
-        repaired += nfix
-        repaired_hubs += 1 if nfix else 0
-        c = cycles_of(marks)
-        if c:
-            per_hub[tag] = c
-        sd = seed_of(marks)
-        if sd and (seed is None or sd[0] < seed[0]):
-            seed = sd
-    res = analyze(per_hub, None if from_start else seed)
+    res, warnings, repaired, repaired_hubs = load_run(rundir, from_start)
+    for w in warnings:
+        print('WARNING: ' + w)
     if repaired:
         print('repaired %d torn counter marks in %d hubs (carried the previous '
               'counts over them)' % (repaired, repaired_hubs))

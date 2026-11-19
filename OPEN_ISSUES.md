@@ -88,15 +88,6 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
-- aer.py drops hubs whose mark count differs (lost marks), which biases it:
-  run 022401 used only 37 of 140 hubs, and the busy (filled, mark-heavy) hubs
-  are the ones that lose marks, so the sample leans toward sparse hubs with
-  very high AER.  Seen as aer.py 5 min 36.0 AER vs the live line 13.4 (all
-  140 hubs) at the same moment; the last-minute figures agree (1.67 vs 1.60).
-  Fix would be to align hubs by time, like LiveAER does, instead of by mark
-  number.  (AER work is tabled; the per-hub rates computed straight from
-  the tile marks are the better numbers until then.)
-
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
   figure was trimmed (read low while hubs differ); now a plain mean.  Compare
