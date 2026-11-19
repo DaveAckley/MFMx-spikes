@@ -120,9 +120,10 @@ source, comments, docs and commit messages).
 - RESULT, honest (no AER cheating) 3 h soak seam12, run 124337 (10929 s): LIVE AER
   0.956/0.956/0.958 (1m/5m/all) at the end; aer.py over ALL 140 hubs (time-aligned
   since 2026-11-19, see CLOSED_ISSUES): wall AER 0.959 total, running 0.986, duty
-  97%, flat across the three hours (0.967 at 50 min, 0.961 at 100 min, 0.959 at
-  150 min; trailing 0.954-0.956 after the first hour); events per hub spread 0.2%;
-  fill reached 66% by ~6000 s and sat at 60-70%; no bolt stalls, no hang; hub time
+  97%, flat across the three hours (running total 0.973 at 30 min, 0.965 at 1 h,
+  0.960 at 2 h, 0.959 at the end; trailing 0.954-0.957 after the first hour);
+  events per hub spread 0.2%; fill 28% in the first half hour, then 66% and
+  steady; no bolt stalls, no hang; hub time
   max 0.03 s.  The honest AER settles about 0.02 below the early 0.98 as the grid
   fills, no drift after that.  4 of 140 hubs desynced their report stream (display
   only; OPEN_ISSUES "Display tiles freeze").
