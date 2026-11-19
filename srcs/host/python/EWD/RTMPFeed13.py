@@ -231,6 +231,7 @@ class RTMPFeed:
         self.lastBase = None           #< last real image BEFORE overlays
         self.lastSimNanos = 0          #< its sim time
         self.lastInfo = ""             #< its info line
+        self.lastExtra = ""            #< its live-AER line (own line, may be empty)
         self.lastRealMono = 0.0        #< monotonic time it arrived
         self.overlayLock = threading.Lock()
         self.lastWriteT = 0.0          #< monotonic time of last write
@@ -396,7 +397,7 @@ class RTMPFeed:
                     stale = now - self.lastRealMono
                     img = base.copy()
                     sim = self.lastSimNanos + int(stale * 1e9)
-                    self.renderOverlay(img, sim, self.lastInfo, stale)
+                    self.renderOverlay(img, sim, self.lastInfo, stale, self.lastExtra)
                     data = np.ascontiguousarray(img).tobytes()
                     self.lastBytes = data
                     self.writeFrame(data, False)
@@ -527,15 +528,16 @@ class RTMPFeed:
             tx = x0 + (boxw-len(t)*cw)//2       # each line centred
             self.drawTextOnImage(bgrimage,t,(tx,y0+i*ch),font)
 
-    def renderOverlay(self,bgrimage,simnanos,info,stale=None):
+    def renderOverlay(self,bgrimage,simnanos,info,stale=None,extra=""):
         """Burn the overlays (info, LIVE timer, UTC clock, logo) into
         bgrimage.  stale is None for a real frame, else the seconds since
         the last real one (a repeated frame): then a NO NEW DATA line is
-        added."""
+        added.  extra, if not empty, is a line of its own (the live AER)
+        between the info line below and the LIVE line above."""
         with self.overlayLock:
-            self.renderOverlayLocked(bgrimage,simnanos,info,stale)
+            self.renderOverlayLocked(bgrimage,simnanos,info,stale,extra)
 
-    def renderOverlayLocked(self,bgrimage,simnanos,info,stale):
+    def renderOverlayLocked(self,bgrimage,simnanos,info,stale,extra=""):
         now = datetime.datetime.now(datetime.timezone.utc)
         snowd = now.strftime("%Y-%m-%d")
         snowt = now.strftime("%H:%M:%SUTC")
@@ -569,11 +571,17 @@ class RTMPFeed:
         self.drawTextOnImage(bgrimage,info,
                              (dickWidth,self.height-richardBaseheight),
                              self.fontCache.getCachedFont(self.fontCodeLive))
+        lineh = self.fontCodeLiveSize+2
+        liveY = self.height-richardBaseheight-lineh
+        if extra:
+            self.drawTextOnImage(bgrimage,extra,(dickWidth,liveY),
+                                 self.fontCache.getCachedFont(self.fontCodeLive))
+            liveY -= lineh
 
         if simmsec%13579 > 1234:
             self.magicNum = random.randint(0,50)
             self.drawTextOnImage(bgrimage,f"LIVE {el}",
-                                 (dickWidth,self.height-richardBaseheight-self.fontCodeLiveSize-2),
+                                 (dickWidth,liveY),
                                  self.fontCache.getCachedFont(self.fontCodeLive))
         elif self.magicNum < 4:
             mantras = ("living == trying",
@@ -582,7 +590,7 @@ class RTMPFeed:
                        "means to try")
             man = mantras[self.magicNum]
             self.drawTextOnImage(bgrimage,man,
-                                 (dickWidth,self.height-richardBaseheight-self.fontCodeLiveSize-2),
+                                 (dickWidth,liveY),
                                  self.fontCache.getCachedFont(self.fontCodeLive))
             
 
@@ -606,13 +614,14 @@ class RTMPFeed:
         if stale is not None and stale >= 1.5:
             self.drawStaleBanner(bgrimage,stale)
 
-    def sendGraphicsFrame(self,bgrimage,simnanos,info): # fully rendered BGR image as numpy array
+    def sendGraphicsFrame(self,bgrimage,simnanos,info,extra=""): # fully rendered BGR image as numpy array
         # keep the bare image so the keepalive can redraw a fresh overlay
         self.lastBase = bgrimage.copy()
         self.lastSimNanos = simnanos
         self.lastInfo = info
+        self.lastExtra = extra
         self.lastRealMono = time.monotonic()
-        self.renderOverlay(bgrimage, simnanos, info)
+        self.renderOverlay(bgrimage, simnanos, info, None, extra)
         self.framesSentThisSubproc += 1
         data = np.ascontiguousarray(bgrimage).tobytes()
         self.lastBytes = data

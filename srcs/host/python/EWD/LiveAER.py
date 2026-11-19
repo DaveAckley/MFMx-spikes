@@ -1,4 +1,4 @@
-"""LiveAER -- a rough, live mAER for the video overlay.
+"""LiveAER -- a rough, live AER for the video overlay.
 
 Source: MFMx.liveAERSnapshot(), the latest cumulative events (C+E of each
 hub's '.ev' mark) with that mark's own hub clock in ms, kept by the host
@@ -10,9 +10,9 @@ latest mark is does not matter.  Per hub: events gained / seconds, over
   window  the last W seconds of that hub's clock (1 and 5 minutes),
   seed    since the autoseed (the snapshot in which the host first saw the
           '.as' mark is the baseline: everything before it counts as zero).
-mAER = mean over hubs of that rate, per site (138x108 sites per hub), x1000,
-the same wall-clock AER that aer.py calls 'wall'.  A hub that has not logged
-for a while is dropped from the mean (its count shows in the 'h' figure).
+AER = mean over hubs of that rate, per site (138x108 sites per hub), the
+same wall-clock AER that aer.py calls 'wall' (aer.py prints it x1000, as
+mAER).  A hub that has not logged for a while is dropped from the mean (its count shows in the 'h' figure).
 """
 import collections
 import time
@@ -99,15 +99,30 @@ class LiveAER:
     def hubs(self):
         return len(self._fresh(self.clock()))
 
+    @staticmethod
+    def fmt_aer(maer):
+        """mAER -> AER with three significant digits: 123, 12.3, 1.23, 0.123."""
+        if maer is None:
+            return "--"
+        v = maer / 1000.0
+        if v >= 100:
+            return "%d" % round(v)
+        if v >= 10:
+            return "%.1f" % v
+        if v >= 1:
+            return "%.2f" % v
+        return "%.3f" % v
+
     def text(self):
-        """One short line for the overlay, '' until any hub has reported."""
+        """One line for the overlay, '' until any hub has reported:
+        '1m: 1.57 AER  5m: 1.58 AER  all: 1.57 AER  140h'  (all = since
+        the autoseed; h = hubs reporting)."""
         n = self.hubs()
         if n == 0:
             return ""
-
-        def f(v):
-            return "--" if v is None else "%d" % round(v)
-        parts = ["%s/%dm" % (f(self.window_maer(w)), w // 60)
-                 if w % 60 == 0 else "%s/%ds" % (f(self.window_maer(w)), w)
-                 for w in self.windows]
-        return "mAER %s %s/seed %dh" % (" ".join(parts), f(self.seed_maer()), n)
+        parts = []
+        for w in self.windows:
+            label = "%dm" % (w // 60) if w % 60 == 0 else "%ds" % w
+            parts.append("%s: %s AER" % (label, self.fmt_aer(self.window_maer(w))))
+        parts.append("all: %s AER" % self.fmt_aer(self.seed_maer()))
+        return "  ".join(parts) + "  %dh" % n

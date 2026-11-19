@@ -91,18 +91,21 @@ source, comments, docs and commit messages).
   from the `.ae` census).  The window starts at the autoseed (`.as`), or the
   first `.es` with --from-start.  scripts/aer/aer_test.py is its self-test.
   Needs the hub image from this commit or later.
-- LIVE mAER on the stream (rough reference, not a measurement): the host
+- LIVE AER on the stream (rough reference, not a measurement): the host
   transport thread hands every parsed tile mark to LiveAER::noteMark
   (srcs/host/include/LiveAER.h, called from OurTLBs::updateLogBlocks), which
   keeps only the latest cumulative `.ev` events (C+E) of each hub with the
   hub's own clock; `.as` sets a seeded flag.  pybind: MFMx.liveAERSnapshot().
   srcs/host/python/EWD/LiveAER.py turns snapshots (once a second, from
-  Machine._frame_info) into mAER over the last 1 and 5 min and since the
+  Machine._live_line) into AER over the last 1 and 5 min and since the
   autoseed, using each hub's own clock between its marks, so lost or late
-  marks only blur it.  Shown on the video info line and in `status`
-  (`live:`): `mAER 1561/1m 1575/5m 1569/seed 556h` (h = hubs reporting).
+  marks only blur it.  It is a line of its own in the video overlay (between
+  the LIVE line above and the version line below; RTMPFeed13 `extra`) and in
+  `status` (`live:`): `1m: 1.57 AER  5m: 1.58 AER  all: 1.57 AER  140h`
+  (three significant digits; all = since the autoseed; h = hubs reporting,
+  140 = every hub: 35 per chip).  AER is aer.py's wall AER /1000.
   Self-tests: scripts/aer/liveaer_test.py (python), mock selftest (status
-  line), and a standalone g++ check of LiveAER.cpp.  Host build untested.
+  line), and a standalone g++ check of LiveAER.cpp.
 - scripts/cachecensus/cachecensus.py  per-neighbor cache occupancy from the
   `.ac` marks; `--seam CHIPA:DIR:CHIPB` checks seam hubs.
 - srcs/host/tools/run_native_tests.sh  all native tests (ASAN=1, name filter).

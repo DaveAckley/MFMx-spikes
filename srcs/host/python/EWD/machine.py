@@ -70,10 +70,11 @@ class NullFeed:
         self.frames = 0
         self.shape = None
 
-    def sendGraphicsFrame(self, frame, simnanos, info):
+    def sendGraphicsFrame(self, frame, simnanos, info, extra=""):
         self.frames += 1
         self.shape = getattr(frame, "shape", None)
         self.last_info = info
+        self.last_extra = extra
 
     def idle_image(self):
         class _Idle:
@@ -626,28 +627,28 @@ class Machine:
         if self.configured and self.inited and self.released():
             self.slowscan(1)
 
-    def _frame_info(self):
-        """The overlay's info line: version, then the live mAER once any hub
-        has reported (a reference figure; see LiveAER.py).  Never raises: the
-        overlay must not cost a frame."""
-        info = f"mfmxctl/{self.mfmxVersion}"
-        if self.liveaer is not None:
-            try:
-                self.liveaer.update()
-                aer = self.liveaer.text()
-                if aer:
-                    info += "  " + aer
-            except Exception as e:
-                self.liveaer = None
-                self.say(f"live mAER disabled: {e}")
-        return info
+    def _live_line(self):
+        """The live AER line for the overlay ('' until any hub has
+        reported; see LiveAER.py).  Never raises: the overlay must not cost
+        a frame."""
+        if self.liveaer is None:
+            return ""
+        try:
+            self.liveaer.update()
+            return self.liveaer.text()
+        except Exception as e:
+            self.liveaer = None
+            self.say(f"live AER disabled: {e}")
+            return ""
 
     def frame(self):
         if self.feed is None:
             return "no feed"
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
-        self.feed.sendGraphicsFrame(img.asNP(), ns, self._frame_info())
+        self.feed.sendGraphicsFrame(img.asNP(), ns,
+                                    f"mfmxctl/{self.mfmxVersion}",
+                                    self._live_line())
         self.frames_real += 1
 
     def idle_frame(self):
@@ -812,7 +813,7 @@ class Machine:
                          f"{self.frames_real} sim, {self.frames_idle} placeholder")
         if self.liveaer is not None:
             self.liveaer.update()
-            lines.append(f"live: {self.liveaer.text() or 'mAER: no hub has reported'}")
+            lines.append(f"live: {self.liveaer.text() or 'AER: no hub has reported'}")
         return "\n".join(lines)
 
     # ---- shutdown --------------------------------------------------------------------

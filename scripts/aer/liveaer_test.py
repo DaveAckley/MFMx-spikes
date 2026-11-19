@@ -62,8 +62,12 @@ run(300, per_s * 2)
 check('5 minute figure ~2000', abs(aer.window_maer(300) - 2000) < 30,
       aer.window_maer(300))
 txt = aer.text()
-check('text has the figures', txt.startswith('mAER ') and '/1m' in txt
-      and '/5m' in txt and '/seed' in txt and txt.endswith('2h'), txt)
+check('text has the figures', txt.startswith('1m: 2.00 AER  5m: 2.00 AER  '
+      'all: 2.00 AER') and txt.endswith('  2h'), txt)
+f = L.LiveAER.fmt_aer
+check('three significant digits',
+      [f(x) for x in (123456, 12345, 1234, 123.4, None)]
+      == ['123', '12.3', '1.23', '0.123', '--'], [f(x) for x in (123456, 12345, 1234, 123.4)])
 
 # a hub whose clock goes back (restart) is not poisoned
 clk[1] = 100

@@ -1,5 +1,5 @@
 #pragma once  /* -*- C++ -*- */
-#include <cstdint>
+#include "itype.h"
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -20,15 +20,15 @@ namespace MFM {
      measurement. */
   struct LiveAER {
     struct HubEvents {
-      uint32_t mKey;            //< chip<<16 | noc x<<8 | noc y
-      uint64_t mEvents;         //< C+E, cumulative since boot
-      uint64_t mHubMs;          //< that hub's own clock at the mark
+      u32 mKey;            //< chip<<16 | noc x<<8 | noc y
+      u64 mEvents;         //< C+E, cumulative since boot
+      u64 mHubMs;          //< that hub's own clock at the mark
     };
 
     static LiveAER & get() ;
 
-    void noteMark(uint8_t chip, uint8_t x, uint8_t y,
-                  uint64_t hubMs, const std::string & msg) ;
+    void noteMark(u8 chip, u8 x, u8 y,
+                  u64 hubMs, const std::string & msg) ;
 
     /* Latest events of every hub heard from; sets \c seeded. */
     std::vector<HubEvents> snapshot(bool & seeded) ;
@@ -36,11 +36,11 @@ namespace MFM {
     void clear() ;
 
     /* '.ev:' payload -> C+E, false if it is not a good '.ev' mark. */
-    static bool parseEv(const std::string & msg, uint64_t & events) ;
+    static bool parseEv(const std::string & msg, u64 & events) ;
 
   private:
     std::mutex mLock;
-    std::unordered_map<uint32_t,HubEvents> mHubs;
+    std::unordered_map<u32,HubEvents> mHubs;
     bool mSeeded = false;
   };
 }

@@ -7,8 +7,8 @@ marked PROVISIONAL stay until they have gone a few runs without coming back.
 
 ## 2026-11-19  Live mAER on the stream
 Rough live event rate on the video and in `status`, from a host tap on the
-hubs' `.ev` marks (no log-file tailing).  Built and mock-tested; first
-hardware look pending (it is still on OPEN_ISSUES.md as unproven).
+hubs' `.ev` marks (no log-file tailing).  Visible on the stream at first
+build.  Its accuracy check is still on OPEN_ISSUES.md.
 
 ## 2026-11-19  Packet exchange ten times faster (sleep 10M -> 0)
 A "DEBUG give hn a chance" busy-wait of 10,000,000 cycles after EVERY packet
