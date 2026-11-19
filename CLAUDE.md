@@ -117,6 +117,14 @@ source, comments, docs and commit messages).
   one, so use the map of the build that made the run) and the .pe mask from <run>/tiles/TAG.mfmk
   (or --pe).  Parity-checks every atom, so a wrong address shows as WARNING.
   Test: python3 scripts/l1dump/l1grid_test.py.
+- RESULT, honest (no AER cheating) 3 h soak seam12, run 124337 (10929 s): LIVE AER
+  0.956/0.956/0.958 (1m/5m/all) at the end; aer.py (only ONE hub kept: marks differ
+  in count on 139 of 140, see the hub-drop note) wall AER 0.961 total, flat across the
+  three hours (0.987 at 10 min, 0.961 at 3 h; trailing 0.955-0.959 from 40 min on);
+  fill reached 71% by 2400 s and plateaued at 63-73%; duty 95%; no bolt stalls, no
+  hang; hub time max 0.03 s.  The honest AER settles about 0.02 below the early
+  0.98 as the grid fills, no drift after that.  4 of 140 hubs desynced their report
+  stream (display only; OPEN_ISSUES "Display tiles freeze").
 - Report stream health (srcs/host/{include,src}/ZHostDecompressor.*): the per-hub
   compressed atom-report stream has no resync, so one bad byte freezes that hub's
   tile on screen forever while the hub keeps running (run 124337: 4 of 140 hubs

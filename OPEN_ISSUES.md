@@ -20,7 +20,8 @@ ERISC_NOTES.md.
   spin2) and the host report counter frozen (at0e7 #3270179, at2a5 #8387869, at323
   #11332202, at1a3 #804273); one lost/duplicated/corrupt compressed byte or packet
   does that and nothing recovers it.  Healthy hubs reached 13-20 M reports.  Rough
-  rate: 4 breaks in 140 hubs in 2.2 h.  dumpl1 is NOT implicated (the four were
+  rate: 4 breaks in 140 hubs in 2.2 h; the run ended at 10929 s (3 h 02 m) with the
+  same four and no new one after 7783 s, so 4 in 3 h.  dumpl1 is NOT implicated (the four were
   never dumped before they froze; the first dump command was at023+at0a7).
   DONE (this commit): ZHostDecompressor detects it (spin check), logs FIRST-BAD with
   the last 48 decoded bytes and the last 16 packets (car, flags+len, start offset,
