@@ -86,6 +86,13 @@ source, comments, docs and commit messages).
   Python and C++ disagree).  Numbers quoted in docs (137, 959, 1918, 14796) are
   descriptive of the current width, not inputs.  EXCEPTION, guarded: the T6GRID
   size literal in BlockCode.h (hub image static_assert fails until updated).
+- scripts/l1dump/l1grid.py  decodes the T6Grid out of a hub L1 dump (mfmxctl
+  `dumpl1 at023` -> <run>/dumps/N/at023.l1) and checks that the PERMANENT-edge
+  cache rings are EMPTY (exit 1 if not).  Finds theT6Grid via the hub image's
+  linker map (build_cross/srcs/cross/hub.map, or --map/--addr; 0x7276c at width
+  137 in the cross-build checked here) and the .pe mask from <run>/tiles/TAG.mfmk
+  (or --pe).  Parity-checks every atom, so a wrong address shows as WARNING.
+  Test: python3 scripts/l1dump/l1grid_test.py.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no
