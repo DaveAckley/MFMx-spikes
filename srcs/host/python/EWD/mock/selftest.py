@@ -580,14 +580,25 @@ def scenario_cache_policy():
 
 
 def scenario_dumpl1():
-    rc, out = run("dumpl1 0 0 0\nboot\nstart\ndumpl1 0 6 4\ndumpl1 0 7 0\n"
-                  "dumpl1 0\ndumpl1 0 all\nquit\n")
-    check("dumpl1: refused before boot", "not booted" in out.lower() or "boot" in out, out[:300])
-    check("dumpl1: one hub written", "dumpl1 -> /mock/dumps/chip0-hub6-4.l1" in out, out[-600:])
-    check("dumpl1: bad hub reported, shell survives",
-          "dumpl1: FAILED" in out and rc == 0, out[-600:])
-    check("dumpl1: usage", "usage: dumpl1" in out, out[-600:])
-    check("dumpl1: all", "35 hub L1s of chip 0 written" in out, out[-600:])
+    sys.path.insert(0, EWD)
+    import machine as MA
+    seq = [MA.leximit(n) for n in (0, 1, 9, 10, 11, 99, 100, 999)]
+    check("dumpl1: leximited counter", seq == ["10", "11", "19", "210", "211", "299", "3100", "3999"], str(seq))
+    check("dumpl1: tags", MA.parse_tile_range("at023") == ((0, 0), (2, 2), (3, 3))
+          and MA.parse_tile_range("1ag-at2bz") == ((1, 2), (10, 11), (16, 35)),
+          str(MA.parse_tile_range("at023")))
+    rc, out = run("dumpl1 at023\nboot\nstart\ndumpl1 at023,at033\ndumpl1 at023-at047\n"
+                  "dumpl1 at000-at099\ndumpl1 at023 at023\ndumpl1 at1zz\ndumpl1 at047-at023\n"
+                  "dumpl1 junk\ndumpl1\nquit\n")
+    check("dumpl1: two tiles in the first dir", "2 tile L1s written to " in out and "/dumps/10\n" in out, out[-1500:])
+    check("dumpl1: range, next dir", "15 tile L1s written to " in out and "/dumps/11\n" in out, out[-1500:])
+    check("dumpl1: range with non-tiles", "56 tile L1s written" in out and "44 not Tensix tiles" in out
+          and "/dumps/12; 44" in out, out[-1500:])
+    check("dumpl1: duplicates dumped once", "1 tile L1s written to " in out and "/dumps/13\n" in out, out[-1500:])
+    check("dumpl1: chip not in the run", "no such chip: [1]" in out, out[-1500:])
+    check("dumpl1: backwards range and junk refused", "runs backwards" in out and "bad tile tag" in out and rc == 0,
+          out[-1500:])
+    check("dumpl1: usage", "usage: dumpl1" in out, out[-1500:])
 
 
 def scenario_command_file():

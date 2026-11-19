@@ -104,7 +104,7 @@ namespace MFM {
 
     u32 monitorFleet() ; //< return count of new failures
     s32 runSlowScans(u32 count) ; //< return something after count HostBlock scans
-    std::string dumpHubL1(u32 hubx, u32 huby) ; //< whole L1 of a hub to dumps/; path or ""
+    s32 dumpTileL1(u32 x, u32 y, const std::string & path) ; //< 1 written, 0 not a tile, -1 failed
     s32 deployRISCVCodeFromImage(T6Image& img, u8 toTLBI) ;
 
     void BHLOGprintf(const char * fmt, ...) {
@@ -244,7 +244,7 @@ namespace MFM {
       //        py::call_guard<py::gil_scoped_release>());
 
       bh.def("runSlowScans", &Blackhole::runSlowScans,py::call_guard<py::gil_scoped_release>());
-      bh.def("dumpHubL1", &Blackhole::dumpHubL1,py::call_guard<py::gil_scoped_release>());
+      bh.def("dumpTileL1", &Blackhole::dumpTileL1,py::call_guard<py::gil_scoped_release>());
 
       bh.def("getT6Key",[](Blackhole& b, u32 chipnum, u32 col, u32 row) {
         return BHTag(TagType::T6TADR,chipnum, col, row);

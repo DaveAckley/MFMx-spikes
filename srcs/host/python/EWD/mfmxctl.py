@@ -228,17 +228,14 @@ def main(argv=None):
         return f"slowscan -> {m.slowscan(int(a[0]) if a else 1)}"
 
     def c_dumpl1(a):
-        if len(a) == 2 and a[1] == "all":
-            chip = int(a[0])
-            paths = [m.dumpl1(chip, x, y) for y in range(m.HUBS_Y)
-                     for x in range(m.HUBS_X)]
-            bad = paths.count("")
-            return (f"dumpl1: {len(paths) - bad} hub L1s of chip {chip} written"
-                    + (f", {bad} FAILED" if bad else "") + " (see the run's dumps/)")
-        if len(a) != 3:
-            return "usage: dumpl1 CHIP HX HY | dumpl1 CHIP all"
-        path = m.dumpl1(int(a[0]), int(a[1]), int(a[2]))
-        return f"dumpl1 -> {path}" if path else "dumpl1: FAILED (no such hub, or code not deployed yet)"
+        items = [t for w in a for t in w.split(",") if t]
+        if not items:
+            return ("usage: dumpl1 TAG[,TAG..] | TAGLO-TAGHI ...   (TAG like at023: "
+                    "chip digit, NoC0 x and y base 36)")
+        try:
+            return m.dumpl1(items)
+        except ValueError as e:
+            return f"dumpl1: {e}"
 
     def c_grid(a):
         m.need_booted()
@@ -423,7 +420,7 @@ def main(argv=None):
     sh.command("bolt", c_bolt, "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
     sh.command("scan", c_scan, "scan [N]: run slowscans now")
     sh.command("dumpl1", c_dumpl1,
-               "dumpl1 CHIP HX HY | CHIP all: write a hub's whole L1 (1.5MB; 'all' is 35 hubs) to dumps/")
+               "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [alt]: EWControl.doSeed")

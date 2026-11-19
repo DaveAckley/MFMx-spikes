@@ -471,10 +471,14 @@ class Blackhole:
         EthSeamHost.get().chipClosing(self.chip)
         self._change(Step.HAS_CHIP_NUM)
 
-    def dumpHubL1(self, hubx, huby):
-        if self.step < Step.HAS_T6_CODE_DEPLOYED or hubx >= 7 or huby >= 5:
-            return ""
-        return f"/mock/dumps/chip{self.chip}-hub{hubx}-{huby}.l1"
+    def dumpTileL1(self, x, y, path):
+        if self.step < Step.HAS_T6_CODE_DEPLOYED:
+            return -1
+        if not (2 <= y <= 11 and 1 <= x <= 16 and not 8 <= x <= 9):
+            return 0                  # not a Tensix tile (as UxC::isNoC0CoordAT6)
+        with open(path, "wb") as f:
+            f.write(b"mock L1")
+        return 1
 
     def monitorFleet(self):
         return U32_MAX if self.step < Step.HAS_T6_CODE_DEPLOYED else 0

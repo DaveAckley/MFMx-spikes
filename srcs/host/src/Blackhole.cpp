@@ -33,10 +33,10 @@ namespace MFM {
     return tot;
   }
 
-  std::string Blackhole::dumpHubL1(u32 hubx, u32 huby) {
+  s32 Blackhole::dumpTileL1(u32 x, u32 y, const std::string & path) {
     if (mCurrentStep < Step::HAS_T6_CODE_DEPLOYED)
-      return "";
-    return mCodeManager.dumpHubL1(hubx, huby);
+      return -1;
+    return mCodeManager.dumpTileL1(x, y, path);
   }
 
   u32 Blackhole::monitorFleet() {

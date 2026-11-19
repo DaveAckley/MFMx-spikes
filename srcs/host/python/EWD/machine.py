@@ -16,7 +16,6 @@ import os
 import subprocess
 import time
 
-import HubGeometry
 import LiveAER
 
 DEFAULT_TIMEOUTS = {"HOLD_AT_BIRTH": 60.0, "NEW_LEADER": 60.0, "RUN_EVENTS": 10.0}
@@ -129,6 +128,44 @@ def parse_ethseams(specs, chips):
 CACHE_POLICIES = ("supercell", "fourcorners")   # CachePolicyId 0, 1 (CachingPolicy.h)
 
 
+def leximit(n):
+    """Leximited decimal: digit count, then the digits, so names sort in
+    numeric order as plain text: 0..9 -> 10..19, 10..99 -> 210..299,
+    100..999 -> 3100..3999."""
+    s = str(int(n))
+    return f"{len(s)}{s}"
+
+
+B36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+
+def b36(n):
+    return B36[n]
+
+
+def parse_tile_tag(text):
+    """A log-style tile TAG: 'at' (optional), chip digit, NoC0 x and y as
+    base 36 digits, e.g. at023 or 023.  Returns (chip, x, y)."""
+    t = text.strip().lower()
+    if t.startswith("at"):
+        t = t[2:]
+    if len(t) != 3 or t[0] not in B36[:10] or t[1] not in B36 or t[2] not in B36:
+        raise ValueError(f"bad tile tag {text!r}: want atCXY (chip digit, x and y base 36), e.g. at023")
+    return int(t[0]), B36.index(t[1]), B36.index(t[2])
+
+
+def parse_tile_range(text):
+    """TAG, or TAGLO-TAGHI meaning every chip, x and y from LO to HI
+    (each coordinate independently).  Returns ((c0,c1),(x0,x1),(y0,y1))."""
+    lo, sep, hi = text.partition("-")
+    a = parse_tile_tag(lo)
+    b = parse_tile_tag(hi) if sep else a
+    for i, name in enumerate(("chip", "x", "y")):
+        if a[i] > b[i]:
+            raise ValueError(f"bad range {text!r}: {name} runs backwards")
+    return (a[0], b[0]), (a[1], b[1]), (a[2], b[2])
+
+
 def parse_policy(text):
     """'supercell' | 'fourcorners' (any unique prefix; 'corners' too) -> name.
     Raises ValueError."""
@@ -165,6 +202,7 @@ class Machine:
         self.link_resets = link_resets       # preflight: extra tt-smi -r tries
         self.link_poll = 0.5                 # preflight: secs between polls
         self.simDir = mfmx.getSimDir()
+        self.dump_count = 0                   # dumpl1 commands that wrote files
         self.mfmxVersion = mfmx.getVersion()
         snap = getattr(mfmx, "liveAERSnapshot", None)   # absent in old/mock MFMx
         self.liveaer = LiveAER.LiveAER(snap) if snap else None
@@ -645,18 +683,49 @@ class Machine:
         return bool(self.bhs) and all(bh.getStep() >= self.M.Step.HAS_T6_CODE_RUNNING
                                       for bh in self.bhs)
 
-    HUBS_X = HubGeometry.ACTIVE_HUB_WIDTH     # hubs per chip, x
-    HUBS_Y = HubGeometry.ACTIVE_HUB_HEIGHT    # hubs per chip, y
-
-    def dumpl1(self, chip, hubx, huby):
-        """Write the whole L1 of one hub (hub coordinates on the chip) to the
-        run's dumps/ directory.  Reads only; safe while the hub runs.
-        Returns the file path, or '' if it could not be done."""
+    def dumpl1(self, items):
+        """Write the whole L1 of every Tensix tile named by 'items' into a
+        new directory <run>/dumps/N/ (N leximited, one per call), one
+        file per tile named TAG.l1 (TAG as in the logs, e.g. at023).  Each
+        item is a TAG or TAGLO-TAGHI (see parse_tile_range).  Reads only;
+        safe while the tiles run.  Returns a summary line."""
         self.need_booted()
-        for bh in self.bhs:
-            if bh.getChipNumber() == chip:
-                return bh.dumpHubL1(hubx, huby)
-        raise ValueError(f"no chip {chip} in this run")
+        ranges = [parse_tile_range(i) for i in items]
+        todo = []
+        for (c0, c1), (x0, x1), (y0, y1) in ranges:
+            for c in range(c0, c1 + 1):
+                for x in range(x0, x1 + 1):
+                    for y in range(y0, y1 + 1):
+                        if (c, x, y) not in todo:
+                            todo.append((c, x, y))
+        bybh = {bh.getChipNumber(): bh for bh in self.bhs}
+        outdir, wrote, nottile, nochip, failed = None, 0, 0, set(), 0
+        for c, x, y in todo:
+            bh = bybh.get(c)
+            if bh is None:
+                nochip.add(c)
+                continue
+            if outdir is None:
+                outdir = os.path.join(self.simDir, "dumps",
+                                      leximit(self.dump_count))
+                os.makedirs(outdir, exist_ok=True)
+                self.dump_count += 1
+            path = os.path.join(outdir, f"at{c}{b36(x)}{b36(y)}.l1")
+            r = bh.dumpTileL1(x, y, path)
+            if r == 1:
+                wrote += 1
+            elif r == 0:
+                nottile += 1
+            else:
+                failed += 1
+        text = f"dumpl1: {wrote} tile L1s written to {outdir}" if wrote else "dumpl1: nothing written"
+        if nottile:
+            text += f"; {nottile} not Tensix tiles"
+        if failed:
+            text += f"; {failed} FAILED (code not deployed yet, or file error)"
+        if nochip:
+            text += f"; no such chip: {sorted(nochip)}"
+        return text
 
     def tick_slowscan(self):
         # Before the T6s are released their hostblocks hold no valid magic, so

@@ -63,24 +63,14 @@ namespace MFM {
     bytes = 0;
   }
 
-  std::string CodeManager::dumpHubL1(u32 hubx, u32 huby) {
-    u32 tlbi = U32_MAX;
-    for (const auto & kv : mHubTLBIToHubValue) {
-      const U8C & hig = kv.second.mHubInGridCoord;
-      if (hig.x == hubx && hig.y == huby) tlbi = kv.first;
-    }
-    if (tlbi == U32_MAX) {
-      LOGprintf(mChipNum," No hub (%u,%u) to dump\n", hubx, huby);
-      return "";
-    }
-    static u32 seq = 0u;          //< keeps repeat dumps from overwriting
-    BHTag tag(TagType::T6TADR, mChipNum, tlbi);
-    std::string path = getSimDir() + "dumps/" + tag.to_string() + "-" +
-      std::to_string(++seq) + ".l1";
+  s32 CodeManager::dumpTileL1(u32 x, u32 y, const std::string & path) {
+    if (x > 255u || y > 255u || !U8C::isNoC0CoordAT6(U8C((u8) x, (u8) y)))
+      return 0;
+    const u32 tlbi = U8C::makeTLBIFromNoCCoord(U8C((u8) x, (u8) y));
     std::ofstream file(path, std::ios::binary);
     if (!file) {
       LOGprintf(mChipNum," Couldn't write '%s'\n", path.c_str());
-      return "";
+      return -1;
     }
     const u32 CHUNK = 64u * 1024u;      //< words need a 4 byte aligned buffer
     std::vector<u32> buf(CHUNK / 4u);
@@ -89,9 +79,9 @@ namespace MFM {
       file.write((const char *) buf.data(), CHUNK);
     }
     file.close();
-    LOGprintf(mChipNum," Wrote %uB of L1 of hub (%u,%u) tlbi%u to '%s'\n",
-              (u32) MEM_L1_SIZE, hubx, huby, tlbi, path.c_str());
-    return path;
+    LOGprintf(mChipNum," Wrote %uB of L1 of noc(%u,%u) tlbi%u to '%s'\n",
+              (u32) MEM_L1_SIZE, x, y, tlbi, path.c_str());
+    return 1;
   }
 
   u8 * CodeManager::extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 fromTLBI) {

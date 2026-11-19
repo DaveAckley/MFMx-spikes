@@ -31,11 +31,11 @@ namespace MFM {
     u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
     void dumpT6Image(const T6Image & image, u8 fromTLBI) ;
 
-    /** Write the whole L1 of hub (hubx,huby) of this chip (hub
-        coordinates on the chip) to a new file under <simdir>/dumps/
-        and return its path, or "" if there is no such hub or the file
-        could not be written.  Safe while the hub runs (reads only). */
-    std::string dumpHubL1(u32 hubx, u32 huby) ;
+    /** Write the whole L1 (MEM_L1_SIZE bytes) of the tile at NoC0
+        coordinates (x,y) of this chip to 'path'.  Returns 1 if written,
+        0 if (x,y) is not a Tensix tile (nothing done), -1 if the file
+        could not be written.  Reads only: safe while the tile runs. */
+    s32 dumpTileL1(u32 x, u32 y, const std::string & path) ;
 
     void releaseTheHounds() ;
 
