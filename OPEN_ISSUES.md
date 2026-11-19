@@ -69,11 +69,14 @@ ERISC_NOTES.md.
 
 ## Design proposal: PERMANENT array edges (INACCESSIBLE) vs temporary dead bands
 
-STATUS: IMPLEMENTED 2026-11-19, NOT YET RUN on the QB (HubEdges.h, GridManager
-mPermEdges, withPermanentEdges, `.pe:MASK` mark per hub; host test passes, hub
-image cross-builds clean).  To check on the QB: .pe masks (single chip: 0x1..0xf
-on the 20 border hubs, 0 inside), edge-hub ring sites all EMPTY after a run,
-AER/fill at the edges vs run 024650.  Original scope follows.  Four corners is
+STATUS: IMPLEMENTED 2026-11-19 (HubEdges.h, GridManager mPermEdges,
+withPermanentEdges, `.pe:MASK` mark per hub).  RUN on the 4-card QB, run
+080358 (15 min, fourcorners): `.pe` correct on all 140 hubs (96 zero; 12 N,
+12 S, 8 W, 8 E single-bit; 4 corners 3/6/9/c; 44 edge hubs as the host test
+predicts), no errors in the log, live AER final 1.39 (1m).  The AER fell from
+~150 as the grid filled and was flat at the end.  STILL UNCHECKED: edge-hub
+ring sites EMPTY after a run (no dumps taken), edge AER/fill vs run 024650,
+the cropped stream image.  Original scope follows.  Four corners is
 now the default policy (supercell is `policy supercell`).
 
 The MFM rule (user): at a PERMANENT physical edge of the array, random event
