@@ -7,7 +7,7 @@
 
 namespace MFM {
 
-  /* Rough live event rate.  Every hub logs '.ev:C:R:E' (cumulative event
+  /* Rough live event rate.  Every hub logs '.ev:C:R:E.' (cumulative event
      counters, hex) when it stops running events; see PhaseSteppers.cpp.
      OurTLBs::updateLogBlocks hands each parsed tile mark to noteMark(),
      which costs one 4 byte compare for any other mark.  We keep only the

@@ -63,7 +63,7 @@ U64 = 1 << 64
 U32 = 1 << 32
 
 MARK = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.(es|ev):'
-                  r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
+                  r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)(\.?)\}')
 
 
 CENSUS = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.ae:([0-9a-f]+):([0-9a-f]+):'
@@ -84,23 +84,32 @@ def hub_tiles(rundir):
 
 def load_marks(path):
     """The list of (kind, ms, committed, returned, offered) in file order;
-    kind is 'es', 'ev', or 'as' (then committed holds the seed type)."""
+    kind is 'es', 'ev', or 'as' (then committed holds the seed type).  The
+    hub ends es/ev with a '.'; once a file has any, an es/ev WITHOUT one was
+    cropped in transit and its counts are None (repair_counters fixes it)."""
     out = []
+    ended = False
     for line in open(path, errors='replace'):
         m = MARK.search(line)
         if m:
+            ended = ended or bool(m.group(6))
             out.append((m.group(2), int(m.group(1)), int(m.group(3), 16),
-                        int(m.group(4), 16), int(m.group(5), 16)))
+                        int(m.group(4), 16), int(m.group(5), 16),
+                        bool(m.group(6))))
             continue
         m = SEED.search(line)
         if m:
-            out.append(('as', int(m.group(1)), int(m.group(2), 16), 0, 0))
+            out.append(('as', int(m.group(1)), int(m.group(2), 16), 0, 0, True))
             continue
         m = CENSUS.search(line)
         if m:               # '.ae:TOTAL:INTERIOR:BAND:CACHE': keep the hub's own
             out.append(('ae', int(m.group(1)),
-                        int(m.group(3), 16) + int(m.group(4), 16), 0, 0))
-    return out
+                        int(m.group(3), 16) + int(m.group(4), 16), 0, 0, True))
+    if ended:                   # drop the end flag; None counts = cropped
+        return [(k, ms, c, r, o) if ok or k not in ('es', 'ev')
+                else (k, ms, None, None, None)
+                for k, ms, c, r, o, ok in out]
+    return [(k, ms, c, r, o) for k, ms, c, r, o, _ok in out]
 
 
 def repair_counters(marks):
@@ -111,9 +120,12 @@ def repair_counters(marks):
     counts over any mark outside it (nothing is lost: the next good mark
     covers the gap).  Returns (marks, number repaired)."""
     idx = [i for i, m in enumerate(marks) if m[0] in ('es', 'ev')]
-    key = [marks[i][2] + marks[i][3] + marks[i][4] for i in idx]
+    key = [None if marks[i][2] is None
+           else marks[i][2] + marks[i][3] + marks[i][4] for i in idx]
     tails, tail_at, prev = [], [], [None] * len(idx)   # patience LIS
     for j, v in enumerate(key):
+        if v is None:
+            continue                      # cropped: never a good mark
         t = bisect.bisect_right(tails, v)
         if t == len(tails):
             tails.append(v)
@@ -129,7 +141,8 @@ def repair_counters(marks):
         j = prev[j]
     out = list(marks)
     last, fixed = None, 0
-    first_good = next((marks[idx[j]] for j in sorted(good)), None)
+    first_good = next((marks[idx[j]] for j in sorted(good)),
+                      ('', 0, 0, 0, 0))     # nothing good at all: zeros
     for j, i in enumerate(idx):
         if j in good:
             last = marks[i]

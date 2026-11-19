@@ -261,6 +261,35 @@ check('repaired run has the clean totals', fixed == clean, (fixed, clean))
 check('unrepaired run is poisoned', sum(c['committed'] for c in
       analyze_dir(d)['cycles']) > 100 * clean)
 
+# end marker: es/ev end with '.'; once a file has one, a mark without it was
+# cropped (here 'ev' #4 loses its last digits and the dot) and is repaired
+d = make_run(4, 10, 100, 6, 4)
+clean = sum(c['committed'] for c in analyze_dir(d)['cycles'])
+for tag in aer.hub_tiles(d):
+    pth = '%s/tiles/%s.mfmk' % (d, tag)
+    lines, n = open(pth).read().split('\n'), 0
+    for i, line in enumerate(lines):
+        m = aer.MARK.search(line)
+        if m:
+            n += 1
+            ev = [m.group(g) for g in (3, 4, 5)]
+            if tag == 'at00' and m.group(2) == 'ev' and n == 8:
+                ev[2] = ev[2][:1]           # cropped: no '.'
+                lines[i] = line[:m.start(5)] + ev[2] + '}'
+            else:
+                lines[i] = line[:m.start(5)] + ev[2] + '.}'
+    open(pth, 'w').write('\n'.join(lines))
+mk = aer.load_marks('%s/tiles/at00.mfmk' % d)
+check('cropped mark has None counts', sum(1 for m in mk if m[2] is None) == 1,
+      [m for m in mk if m[2] is None])
+per = {}
+for tag in aer.hub_tiles(d):
+    m2, f = aer.repair_counters(aer.load_marks('%s/tiles/%s.mfmk' % (d, tag)))
+    per[tag] = aer.cycles_of(m2)
+check('cropped mark repaired, totals as clean',
+      sum(c['committed'] for c in aer.analyze(per)['cycles']) == clean)
+check('dotted marks parse as before', f == 0)
+
 # the report prints without error and mentions the pieces
 d = make_run(4, 10, 100, 6, 4)
 out = io.StringIO()

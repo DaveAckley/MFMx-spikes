@@ -98,7 +98,8 @@ namespace MFM {
     }
 
     /* .es/.ev: cumulative event counters of this hub's GridManager,
-       COMMITTED:RETURNED:EMPTY (hex, up to 64 bits each).  .es is logged
+       COMMITTED:RETURNED:EMPTY. (hex, up to 64 bits each, then a '.' that
+       is never hex, so a mark cropped in transit shows by lacking it).  .es is logged
        when the hub starts running events, .ev when it stops, so the host
        can compute the average event rate (AER: events per grid site per
        second) over the events-running time and over wall-clock time
@@ -117,7 +118,9 @@ namespace MFM {
       b[n++] = ':';
       n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsReturned);
       b[n++] = ':';
-      fmtHex64(b+n,sizeof(b)-n,gm.mEWsEmptyCenters);
+      n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsEmptyCenters);
+      b[n++] = '.';           // end marker: a cropped mark has no final '.'
+      b[n] = '\0';
       return b;
     }
 

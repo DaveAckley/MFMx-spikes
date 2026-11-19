@@ -10,6 +10,7 @@ namespace MFM {
 
   bool LiveAER::parseEv(const std::string & msg, u64 & events) {
     if (msg.compare(0, 4, ".ev:") != 0) return false;
+    if (msg.back() != '.') return false; // cropped: the hub ends it with '.'
     unsigned long long c = 0, r = 0, e = 0;
     if (sscanf(msg.c_str() + 4, "%llx:%llx:%llx", &c, &r, &e) != 3)
       return false;
