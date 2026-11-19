@@ -231,7 +231,7 @@ def main(argv=None):
         items = [t for w in a for t in w.split(",") if t]
         if not items:
             return ("usage: dumpl1 TAG[,TAG..] | TAGLO-TAGHI ...   (TAG like at023: "
-                    "chip digit, NoC0 x and y base 36)")
+                    "a, t for Tensix, chip digit, NoC0 x and y base 36)")
         try:
             return m.dumpl1(items)
         except ValueError as e:

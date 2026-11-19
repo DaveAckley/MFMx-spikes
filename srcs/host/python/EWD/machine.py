@@ -144,14 +144,17 @@ def b36(n):
 
 
 def parse_tile_tag(text):
-    """A log-style tile TAG: 'at' (optional), chip digit, NoC0 x and y as
-    base 36 digits, e.g. at023 or 023.  Returns (chip, x, y)."""
+    """A log-style tile TAG: 'a' (address), a tile type letter ('t' is
+    Tensix; 'e' ERISC may come later), the chip digit, then NoC0 x and y
+    as base 36 digits, e.g. at023.  Returns (chip, x, y).  The prefix is
+    required: tag format is tag format."""
     t = text.strip().lower()
-    if t.startswith("at"):
-        t = t[2:]
-    if len(t) != 3 or t[0] not in B36[:10] or t[1] not in B36 or t[2] not in B36:
-        raise ValueError(f"bad tile tag {text!r}: want atCXY (chip digit, x and y base 36), e.g. at023")
-    return int(t[0]), B36.index(t[1]), B36.index(t[2])
+    want = f"bad tile tag {text!r}: want atCXY (a, tile type t, chip digit, x and y base 36), e.g. at023"
+    if len(t) != 5 or t[0] != "a" or t[2] not in B36[:10] or t[3] not in B36 or t[4] not in B36:
+        raise ValueError(want)
+    if t[1] != "t":
+        raise ValueError(f"bad tile tag {text!r}: tile type {t[1]!r} is not supported (only t, Tensix)")
+    return int(t[2]), B36.index(t[3]), B36.index(t[4])
 
 
 def parse_tile_range(text):

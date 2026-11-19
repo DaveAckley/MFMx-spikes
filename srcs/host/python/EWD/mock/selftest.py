@@ -585,11 +585,11 @@ def scenario_dumpl1():
     seq = [MA.leximit(n) for n in (0, 1, 9, 10, 11, 99, 100, 999)]
     check("dumpl1: leximited counter", seq == ["10", "11", "19", "210", "211", "299", "3100", "3999"], str(seq))
     check("dumpl1: tags", MA.parse_tile_range("at023") == ((0, 0), (2, 2), (3, 3))
-          and MA.parse_tile_range("1ag-at2bz") == ((1, 2), (10, 11), (16, 35)),
+          and MA.parse_tile_range("at1ag-at2bz") == ((1, 2), (10, 11), (16, 35)),
           str(MA.parse_tile_range("at023")))
     rc, out = run("dumpl1 at023\nboot\nstart\ndumpl1 at023,at033\ndumpl1 at023-at047\n"
                   "dumpl1 at000-at099\ndumpl1 at023 at023\ndumpl1 at1zz\ndumpl1 at047-at023\n"
-                  "dumpl1 junk\ndumpl1\nquit\n")
+                  "dumpl1 junk\ndumpl1 023\ndumpl1 ae011\ndumpl1\nquit\n")
     check("dumpl1: two tiles in the first dir", "2 tile L1s written to " in out and "/dumps/10\n" in out, out[-1500:])
     check("dumpl1: range, next dir", "15 tile L1s written to " in out and "/dumps/11\n" in out, out[-1500:])
     check("dumpl1: range with non-tiles", "56 tile L1s written" in out and "44 not Tensix tiles" in out
@@ -598,6 +598,8 @@ def scenario_dumpl1():
     check("dumpl1: chip not in the run", "no such chip: [1]" in out, out[-1500:])
     check("dumpl1: backwards range and junk refused", "runs backwards" in out and "bad tile tag" in out and rc == 0,
           out[-1500:])
+    check("dumpl1: prefix required, other tile types refused",
+          "bad tile tag '023'" in out and "tile type 'e' is not supported" in out, out[-1500:])
     check("dumpl1: usage", "usage: dumpl1" in out, out[-1500:])
 
 

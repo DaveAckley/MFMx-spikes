@@ -171,7 +171,7 @@ Offline log analyzer, separate from mfmxctl: `scripts/ptrace/ptrace.py RUNDIR`
 then continues with stdin; `--script-exit` quits when the files are used up.
 `source FILE` does the same from the prompt (nested, depth-limited); `echo TEXT`
 annotates; `dumpl1 TAG[,TAG..]` / `dumpl1 TAGLO-TAGHI` writes the whole 1.5MB L1 of each named
-Tensix tile to `<run>/dumps/N/TAG.l1` (TAG as in the logs: `at023` = chip 0, NoC0
+Tensix tile to `<run>/dumps/N/TAG.l1` (TAG as in the logs, prefix required: `at023` = a, Tensix, chip 0, NoC0
 x=2, y=3, x and y base 36; a range runs chip, x and y each from LO to HI, and
 non-Tensix coordinates are skipped and counted; N is a leximited counter, one
 directory per command: 10..19, 210..299, 3100..; reads only, safe while the tiles
