@@ -28,6 +28,14 @@ namespace MFM {
 
     void init(ByteSourceFuncPtr ucompin, void * inctxt, ByteSinkFuncPtr compout, void * outctxt) ;
 
+    /* Back to the state init() left (same source and sink): ring and search
+       trees cleared.  A restarted ENCODER and a fresh DECODER must start from
+       the same state or the stream is garbage, and encode() does not clear
+       them itself.  Call it between an encode() that ended at EOF and the
+       next encode(); the decoder side is simply a new decode() (it clears its
+       own ring). */
+    void reset() ;
+
     bool inputIsEOF() ;
 
     void compressForever() ;

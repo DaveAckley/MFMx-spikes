@@ -97,6 +97,82 @@ namespace MFM {
 
     ACacheBlockPayload & npay = nlb.payload();
     npay.reset();
+    if (mPendingSOF) {          // first car of a restarted stream (we hold mLock)
+      npay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_SOF |
+        (mSOFEpoch ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
+      mPendingSOF = 0u;
+    }
+  }
+
+  //// Stream restart (see EP_ACacheBlock.h)
+  void ACacheBlockL1Control::latchHostFeedback(const ACacheBlockPayload & pay) {
+    AtomicScopeLock guard(mLock);
+    u16 f = (u16) pay.mFlagsAndLen;
+    mHostReq = (f & ACacheBlockPayload::ACBP_FLAG_RESTART_REQ) ? 1u : 0u;
+    mHostReqEpoch = (f & ACacheBlockPayload::ACBP_FLAG_EPOCH) ? 1u : 0u;
+    if (mHostReq) {
+      ACBHostFeedback fb = pay.getFeedback();
+      mHostSpin = fb.mExpectedSpin;
+      mHostSeq = fb.mPacketSeq;
+      mHostConsec = fb.mConsecInvalid;
+    }
+  }
+
+  bool ACacheBlockL1Control::restartWanted() {
+    // T0 asks every step: the common answer (no) must not take the lock.  A
+    // racy read of these bytes is harmless: a stale yes/no is corrected by the
+    // next step, and a yes is rechecked under the lock.
+    memoryFence();
+    if (!mHostReq || mHostReqEpoch == mHandledEpoch) return false;
+    AtomicScopeLock guard(mLock);
+    return mHostReq && mHostReqEpoch != mHandledEpoch;
+  }
+
+  void ACacheBlockL1Control::beginDrain() {
+    AtomicScopeLock guard(mLock);
+    mSOFEpoch = mHostReqEpoch;  // the request we are answering
+    memoryFence();
+    mDraining = 1u;
+  }
+
+  bool ACacheBlockL1Control::isDraining() const {
+    memoryFence();
+    return mDraining != 0u;
+  }
+
+  void ACacheBlockL1Control::finishStream() {
+    AtomicScopeLock guard(mLock);
+    mPendingSOF = 1u;           // set before the car can ship
+    if (mCurrentACacheBlock) {  // the encoder's flush is in it: end it now
+      ACacheBlockPayload & pay = mCurrentACacheBlock->payload();
+      pay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_EOF |
+        ACacheBlockPayload::ACBP_FLAG_CLOSABLE;
+    }
+  }
+
+  bool ACacheBlockL1Control::sofPending() {
+    AtomicScopeLock guard(mLock);
+    return mPendingSOF != 0u;
+  }
+
+  void ACacheBlockL1Control::streamRestarted() {
+    AtomicScopeLock guard(mLock);
+    mHandledEpoch = mSOFEpoch;
+    ++mRestartsDone;
+    logRestart('d',0u);
+    memoryFence();
+    mDraining = 0u;             // T0 may resume
+  }
+
+  // .zq = restart asked for (T0), .zd = restart done (T1): epoch, bytes
+  // compressed so far, our spin, the host's expected spin, packets, bad run.
+  void ACacheBlockL1Control::logRestart(const char what, u32 spinner) {
+    char buf[60];
+    snprintf(buf,sizeof(buf),"%x:%x:%x:%x:%x:%x:%x",
+             (u32) mSOFEpoch,mCompressedBytesPacked,spinner,
+             (u32) mHostSpin,(u32) mHostSeq,(u32) mHostConsec,mRestartsDone);
+    if (what == 'q') { LOGPTAG(.zq,buf); HBPTAG(.zq,buf); }
+    else             { LOGPTAG(.zd,buf); HBPTAG(.zd,buf); }
   }
 
   void ACacheBlockEP::initACacheBlockEP(EndPointAddress srcEPA, bool isin, typename Super::L1Data & l1data) {
@@ -111,6 +187,7 @@ namespace MFM {
     if (crbi.isFull()) return false; // bail if can't notify??
 
     HBPTAG(ABRCV!,carindex);
+    theACacheBlockL1Control.latchHostFeedback(car.payload()); // BEFORE the wipe
     car.openTC();               // open it up
     car.payload().init();       // clean it out
     //    HBPTAG(ABRCV*,car.getTCState());
@@ -212,6 +289,38 @@ namespace MFM {
     }
   }
 
+  bool ACacheBlockPrivateControl::restartStep(HostBlock & hb) {
+    MFM_API_ASSERT_ON_HART(HARTNUM_T0);
+    MFM_API_ASSERT_NONNULL(mACBL1Control);
+    ACacheBlockL1Control & acl1 = *mACBL1Control;
+    if (mRestartPhase == 0u) {
+      if (!acl1.restartWanted()) return false;     // the common case
+      mRestartPhase = 1u;
+      acl1.mSOFEpoch = acl1.mHostReqEpoch;         // for the log line
+      acl1.logRestart('q',mARSpinner);
+    }
+    if (mRestartPhase == 1u) {
+      // Finish the record in flight: only whole records go to the compressor,
+      // so the stream ends on a record boundary.
+      u8 byte;
+      while (!l1dLZBytesIn.isFull() && mARIO.tryGetByte(byte)) {
+        l1dLZBytesIn.add(byte);
+        ++mUncompressedBytesPacked;
+      }
+      if (mARIO.canGetByte()) return true;         // ring full: T1 drains it, try again
+      mARIO.discardObj();
+      acl1.beginDrain();
+      mRestartPhase = 2u;
+      return true;
+    }
+    // phase 2: T1 ends the stream, flushes, has the SOF shipped, resets
+    if (acl1.isDraining()) return true;
+    mRestartPhase = 0u;
+    mState = State::WAIT;                          // fresh frame timing
+    mNextFrameBogoMS = millisElapsed();
+    return false;
+  }
+
   int ACacheBlockPrivateControl::step(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
 
@@ -231,7 +340,7 @@ namespace MFM {
     EACH(10'000,HBNOTE(ACBS12));
     updateCars(hb);
     EACH(10'000,HBNOTE(ACBS13));
-    tryToSendFrame(hb);
+    if (!restartStep(hb)) tryToSendFrame(hb);
     EACH(10'000,HBPTAG(ACBS14,__EACHNUM__));
     return 0;
   }

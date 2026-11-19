@@ -23,12 +23,24 @@ namespace MFM {
         HBXTAG(ubsCallsh,calls+(u32) f);
     }
 
-    if (isReadable) return 0;   // never return eof (0 not a real byte here)
+    // EOF only when T0 has asked for a stream restart (isDraining) and the
+    // ring is empty.  T0 sets the flag AFTER its last byte is in the ring, so
+    // test the flag first and the ring second (and re-try the ring once when
+    // the flag is up): a byte can never be lost to the end of the stream.
+    ACacheBlockL1Control & acl1 = theACacheBlockL1Control;
+    if (isReadable) {           // the EOF test: cheap unless the ring is empty
+      if (!l1dLZBytesIn.isEmpty() || !acl1.isDraining()) return 0;
+      return l1dLZBytesIn.isEmpty() ? -1 : 0;   // flag seen: ring again
+    }
     u8 byte;
     if (l1dLZBytesIn.remove(byte)) {
       return (s32) byte;
     }
-    return -2; // never returns eof?
+    if (acl1.isDraining()) {
+      if (l1dLZBytesIn.remove(byte)) return (s32) byte;
+      return -1;                // the stream ends here
+    }
+    return -2;                  // blocked: nothing yet
   }
 
   static bool compressedByteSink(u8 byte, void * context) {
@@ -54,7 +66,20 @@ namespace MFM {
     }
     void live() {
       HBMARK;
-      mLZComp.compressForever();
+      LOGMARK;
+      ACacheBlockL1Control & acl1 = theACacheBlockL1Control;
+      while (true) {
+        mLZComp.encode();       // runs until T0 ends the stream (restart request)
+        acl1.finishStream();    // last car EOF|CLOSABLE, next car SOF
+        // Do not write a byte of the new stream into the old car: wait for T0
+        // to ship it (it stamps the SOF on the next one, which clears this).
+        while (acl1.sofPending()) {
+          beatTheStandardHeartbeat(theHostBlock);
+          waitALittle();
+        }
+        mLZComp.reset();        // ring and trees as at boot; the host does the same
+        acl1.streamRestarted(); // T0 resumes feeding
+      }
     }
   };
   FAST_LOCAL(FastT1,fT1,1);

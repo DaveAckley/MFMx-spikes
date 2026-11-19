@@ -32,10 +32,19 @@ ERISC_NOTES.md.
   host advanced its expected spin only when the atom's parity was good, so one
   report with a torn/INACCESSIBLE atom wedged every later report (kind 1 would show
   it); now the spin follows the transport and bad atoms are only counted
-  (`bad atoms` in `zhd`).  NEXT: read the FIRST-BAD lines of the next occurrence;
-  then (a) recovery: host resets its decoder and asks the hub to restart its
-  compressor (ACBP_FLAG_IS_SOF "reset rb before reading" exists but nothing sets or
-  honours it; needs hub image changes, untestable off the QB), or (b) find the
+  (`bad atoms` in `zhd`).  RESTART BUILT (UNTESTED ON HARDWARE, hub image changed;
+  test with config/seam15.cmd, which breaks hubs on purpose with `zhd break TAG`):
+  the host asks in the empty cars it returns (flags RESTART_REQ + EPOCH, 6 bytes of
+  feedback: its expected spin, packets, bad run); the hub's NC hart latches it
+  before recvTC wipes the car, T0 finishes the record in flight and sets draining,
+  T1's byte source ends the stream (EOF) once the ring is empty, the encoder
+  flushes, the last car is EOF|CLOSABLE, the next SOF with the epoch echoed, T1 waits
+  for it to ship, lzmfmx::reset(), T0 resumes; the host restarts its decoder thread
+  on the matching SOF and adopts the hub's spin.  The tile freezes for about a second
+  instead of for good.  `zhd restart off` stops the requests.  scripts/lzrestart/
+  run.sh tests the compressor half on the host (restart works; without reset() the
+  encoder HANGS).  Marks: hub `.zq:` asked, `.zd:` done.  STILL OPEN: the cause (a)
+  read the FIRST-BAD lines of the next occurrence; (b) find the
   loss (hub byte/packet overwritten before the host reads it, or a host-side
   race).  Also compare the hub's mCompressedBytesPacked in a dump with the host's
   compressed bytes consumed.  Note for l1grid.py: theT6Grid is at 0x7274c in the

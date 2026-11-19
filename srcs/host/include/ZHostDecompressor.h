@@ -33,6 +33,8 @@ namespace MFM {
     u64 mDesyncAtCBytes = 0u;  //< compressed bytes consumed by then
     u32 mDesyncAtPacket = 0u;  //< compressed packets taken by then
     u32 mDesyncKind = 0u;      //< 1 = whole reports skipped, 2 = garbage
+    u32 mRestarts = 0u;        //< stream restarts completed (the hub answered)
+    bool mRestartPending = false; //< asked for a restart, no answer yet
   };
 
   struct ZHostDecompressor {
@@ -48,6 +50,15 @@ namespace MFM {
     /* Health of every live decompressor (one per hub), for the pybind
        zhdSnapshot() and the 'zhd' mfmxctl command. */
     static std::vector<ZHDHealth> snapshotHealth() ;
+
+    /* Ask the hub to restart its stream when it desyncs (default on).  Off:
+       desyncs are still detected and logged, nothing is requested. */
+    static void setRestartEnabled(bool on) ;
+    static bool restartEnabled() ;
+
+    /* TEST: make the hub's decoder drop one compressed byte, as a lost byte
+       would (mfmxctl 'zhd break TAG').  True if that hub has a decompressor. */
+    static bool injectDrop(u32 chip, u32 tlbi) ;
     ZHostDecompressor() ;
     ~ZHostDecompressor() ;
     void init(const u32 tlbi, const u32 chipnum) ;
@@ -103,6 +114,20 @@ namespace MFM {
     std::atomic<bool> mDesynced{false};
     mutable std::mutex mHealthLock;  //< guards the fields above vs snapshot
     bool mRegistered = false;
+
+    //// Stream restart (ACBP_FLAG_RESTART_REQ in PT_ACacheBlock.h)
+    std::atomic<bool> mRestartRequested{false};  //< until the matching SOF
+    std::atomic<u32> mHostEpoch{0u};             //< toggles per request
+    std::atomic<u32> mRestarts{0u};
+    std::atomic<bool> mInjectDrop{false};  //< TEST: drop the next byte
+    bool mSpinSync = false;  //< adopt the hub's spin from the next good record
+
+    /* Stamp a car we are returning: the restart request (if any) in its flags
+       and where our decoder stands in its payload; the car stays empty. */
+    void stampFeedback(ACacheBlockPayload & pay) const ;
+    void requestRestart() ;
+    bool isRestartSOF(const ACacheBlockPayload & pay) const ;
+    void restartDecoder() ;
 
     void notePacket(u32 car, const ACacheBlockPayload & pay) ;
     void noteGoodReport() ;

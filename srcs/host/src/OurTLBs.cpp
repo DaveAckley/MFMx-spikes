@@ -797,6 +797,7 @@ namespace MFM {
         oc.reset();           // clean the car 
         oc.openTC();          // set state open
         ocp.init();           // init the payload
+        zhd.stampFeedback(ocp); // restart request + where we stand; still empty
         oc.closeTC(ocp.getCurrentPayloadSize());
         oc.setDepartingTC(TCState::OUTBOUND_DEPARTED);
 

@@ -38,7 +38,32 @@ namespace MFM {
     static constexpr u8 ACBL1_T1_INITTED = 0x04;
     u8 mFlags;
 
+    /* Stream restart (see ACBP_FLAG_RESTART_REQ in PT_ACacheBlock.h).  The
+       host asks in the cars it returns (latched by the NC hart in recvTC
+       before the payload is wiped); T0 stops feeding the compressor at a
+       record boundary and sets mDraining; T1's byte source ends the stream
+       (EOF) once the ring is empty, the encoder flushes, T1 marks the last car
+       EOF|CLOSABLE and the next SOF, waits for T0 to ship it, resets the
+       encoder and clears mDraining; T0 then resumes.  All under mLock except
+       the mDraining test T1's source makes per byte. */
+    u8 mHostReq;                //< latest request flag seen in a returned car
+    u8 mHostReqEpoch;           //< and its epoch bit
+    u8 mHandledEpoch;           //< epoch of the last restart we completed
+    u8 mDraining;               //< T0 -> T1: no more input, end the stream
+    u8 mPendingSOF;             //< T1 -> T0: stamp SOF on the next car
+    u8 mSOFEpoch;               //< the epoch that SOF answers
+    u16 mHostSpin, mHostSeq, mHostConsec;  //< the host's feedback, last request
+    u32 mRestartsDone;
+
     void init() ;
+    void latchHostFeedback(const ACacheBlockPayload & pay) ; // NC, BEFORE init()
+    bool restartWanted() ;      //< T0: a request we have not answered
+    void beginDrain() ;         //< T0
+    bool isDraining() const ;   //< T1's source (no lock) and T0
+    void finishStream() ;       //< T1: the encoder has flushed; end the car
+    bool sofPending() ;         //< T1 waits until T0 has shipped the car
+    void streamRestarted() ;    //< T1: encoder reset; T0 may resume
+    void logRestart(const char what, u32 spinner) ;
     void setFlags(u8 flags) ;
     bool testFlags(u8 flags) const ;
     u8 getFlags() const { return mFlags; }
@@ -77,6 +102,9 @@ namespace MFM {
     u32 mNextFrameBogoMS;
     State mState;
     u16 mARSpinner;
+    u8 mRestartPhase;           // 0 none, 1 flush the record in flight, 2 drain
+
+    bool restartStep(HostBlock & hb) ;  // true: restarting, no frame work now
 
     void init(ACacheBlockL1Control & acbl1, DLGridList & dll1) ;
     int step(HostBlock & hb) ;

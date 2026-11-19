@@ -42,7 +42,8 @@ PYBIND11_MODULE(MFMx, m) {
 
   // Health of every hub's compressed atom-report stream (see ZHDHealth):
   // [(chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,
-  //   desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind)]
+  //   desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind,
+  //   restarts, restartPending)]
   m.def("zhdSnapshot", []() {
     py::list hubs;
     for (const auto & h : MFM::ZHostDecompressor::snapshotHealth())
@@ -50,8 +51,20 @@ PYBIND11_MODULE(MFMx, m) {
                                  h.mBadAtoms, h.mConsecInvalid, h.mDesyncs,
                                  h.mDesynced, h.mDesyncAtReport,
                                  h.mDesyncAtCBytes, h.mDesyncAtPacket,
-                                 h.mDesyncKind));
+                                 h.mDesyncKind, h.mRestarts,
+                                 h.mRestartPending));
     return hubs;
+  });
+  // TEST: lose one compressed byte of one hub's report stream; True if it exists.
+  m.def("zhdBreak", [](unsigned chip, unsigned tlbi) {
+    return MFM::ZHostDecompressor::injectDrop(chip, tlbi);
+  });
+  // Whether a desynced hub is asked to restart its stream (default on).
+  m.def("zhdRestartEnable", [](bool on) {
+    MFM::ZHostDecompressor::setRestartEnabled(on);
+  });
+  m.def("zhdRestartEnabled", []() {
+    return MFM::ZHostDecompressor::restartEnabled();
   });
 
   // Expose the BHTag class

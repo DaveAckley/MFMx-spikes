@@ -756,7 +756,7 @@ class Machine:
             return []
         keys = ("chip", "tlbi", "reports", "invalid", "bad_atoms", "consec",
                 "desyncs", "desynced", "at_report", "at_cbytes", "at_packet",
-                "kind")
+                "kind", "restarts", "restart_pending")
         rows = [dict(zip(keys, r)) for r in snap()]
         for r in rows:
             x, y = self.tlbi_to_noc(r["tlbi"])
@@ -770,8 +770,13 @@ class Machine:
         bad = [r for r in rows if r["desynced"]]
         ever = [r for r in rows if r["desyncs"] and not r["desynced"]]
         torn = sum(r["bad_atoms"] for r in rows)
+        restarts = sum(r["restarts"] for r in rows)
+        pend = sum(1 for r in rows if r["restart_pending"])
+        on = getattr(self.M, "zhdRestartEnabled", None)
         out = [f"zhd: {len(rows)} report streams, {len(bad)} desynced"
                f"{f', {len(ever)} recovered' if ever else ''}; "
+               f"{restarts} restarts done, {pend} requested and waiting"
+               f"{'' if on is None else ('' if on() else ' (restart requests OFF)')}; "
                f"{torn} intact reports carried a bad atom (skipped)"]
         for r in (rows if verbose else bad):
             state = "DESYNCED" if r["desynced"] else "ok"
@@ -781,22 +786,67 @@ class Machine:
                        + (f"; broke at report {r['at_report']}, "
                           f"{r['at_cbytes']} compressed bytes, packet "
                           f"{r['at_packet']} ({self.ZHD_KINDS.get(r['kind'], '?')})"
-                          if r["desyncs"] else ""))
+                          if r["desyncs"] else "")
+                       + (f"; {r['restarts']} restarts" if r["restarts"] else "")
+                       + ("; restart requested, waiting for the hub"
+                          if r["restart_pending"] else ""))
         return "\n".join(out)
 
+    @staticmethod
+    def noc_to_tlbi(x, y):
+        """(x,y) NoC0 tile coords -> tlbi, or None if not a Tensix tile."""
+        if not (1 <= x <= 7 or 10 <= x <= 16) or not (2 <= y <= 11):
+            return None
+        return (y - 2) * 14 + (x - 1 if x <= 7 else x - 3)
+
+    def zhd_break(self, tags):
+        """TEST: lose one compressed byte of each named hub's report stream
+        (the host-side decoder drops it, as a real loss would), to exercise
+        desync detection and the restart.  tags: 'at0a7' style."""
+        f = getattr(self.M, "zhdBreak", None)
+        if f is None:
+            return "zhd break: this MFMx has no zhdBreak"
+        out = []
+        for t in tags:
+            try:
+                chip, x, y = parse_tile_tag(t)
+            except ValueError as e:
+                out.append(f"{t}: {e}")
+                continue
+            tlbi = self.noc_to_tlbi(x, y)
+            if tlbi is None:
+                out.append(f"{t}: not a Tensix tile")
+            elif f(chip, tlbi):
+                out.append(f"{t}: one compressed byte will be dropped (bh{chip}:{tlbi})")
+            else:
+                out.append(f"{t}: no report stream there (chip not in the run, or not a hub?)")
+        return "\n".join(out) or "usage: zhd break TAG[,TAG...]"
+
+    def zhd_restart(self, on):
+        """Turn restart requests to desynced hubs on or off (detection stays)."""
+        f = getattr(self.M, "zhdRestartEnable", None)
+        if f is None:
+            return "zhd restart: this MFMx has no zhdRestartEnable"
+        f(bool(on))
+        return f"zhd restart: requests {'ON' if on else 'OFF'}"
+
     def check_zhd(self, every=10.0):
-        """Say it (and log it) when the set of desynced streams changes."""
+        """Say it (and log it) when the desynced set, restarts done or restarts
+        pending change."""
         now = time.monotonic()
         if now - getattr(self, "zhd_checked", -1e9) < every:
             return
         self.zhd_checked = now
         try:
-            bad = tuple(r["tag"] for r in self.zhd_rows() if r["desynced"])
+            rows = self.zhd_rows()
+            bad = (tuple(r["tag"] for r in rows if r["desynced"]),
+                   sum(r["restarts"] for r in rows),
+                   sum(1 for r in rows if r["restart_pending"]))
         except Exception as e:
             self.zhd_checked = float("inf")      # broken: stop asking
             self.say(f"zhd check disabled: {e}")
             return
-        if bad != getattr(self, "zhd_bad", ()):
+        if bad != getattr(self, "zhd_bad", ((), 0, 0)):
             self.zhd_bad = bad
             text = self.zhd_text()
             self.say(text)

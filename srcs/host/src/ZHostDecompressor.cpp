@@ -9,9 +9,27 @@
 namespace MFM {
   u32 ZHostDecompressor::mMade = 0;
 
+  // Thrown inside the decoder thread (from sourceByte) to unwind decode() when
+  // the hub has restarted its stream: the thread resets and decodes again.
+  struct RestartStream { };
+  static std::atomic<bool> theRestartEnabled{true};
+  void ZHostDecompressor::setRestartEnabled(bool on) { theRestartEnabled.store(on); }
+  bool ZHostDecompressor::restartEnabled() { return theRestartEnabled.load(); }
+
   // Every initted decompressor, for snapshotHealth().
   static std::mutex theZHDRegistryLock;
   static std::vector<ZHostDecompressor*> theZHDRegistry;
+
+  bool ZHostDecompressor::injectDrop(u32 chip, u32 tlbi) {
+    std::lock_guard<std::mutex> lock(theZHDRegistryLock);
+    for (ZHostDecompressor * z : theZHDRegistry) {
+      if (z->mChipNum == chip && z->mTLBI == tlbi) {
+        z->mInjectDrop.store(true);
+        return true;
+      }
+    }
+    return false;
+  }
   
   static RGBPix renderPhysicsHACK(P4Atom a) {
     RGBPix c;
@@ -120,6 +138,14 @@ namespace MFM {
         AtomReport ar;
         mHARIO.getObj(ar);        // produced an ar.
         mHARIO.discardBytes();    // get ready to go again
+        if (mSpinSync && ar.mSpin1 == ar.mSpin2) {
+          // First record of a restarted stream: the hub's spin counter kept
+          // running, so take its value as the one we expect now.
+          u64 base = mAtomReportsReceived & ~0xffffull;
+          if (ar.mSpin1 < (mAtomReportsReceived & 0xffffull)) base += 0x10000ull;
+          mAtomReportsReceived = base | ar.mSpin1;
+          mSpinSync = false;
+        }
         u16 spin = (u16) (mAtomReportsReceived&0xffff);
         bool arvalid = ar.isValid(spin);
         bool atomvalid = ar.mAtom.isValid();
@@ -224,6 +250,13 @@ namespace MFM {
       ACacheBlockPayload & pay = acb.payload();
       if (mCurrentBytesRead < pay.getCurrentLength()) { // Anything left?
         if (canread) return 0;  // EOF test? Not EOF.
+        if (mInjectDrop.load() && mCurrentBytesRead + 1u < pay.getCurrentLength()) {
+          mInjectDrop.store(false); // TEST: lose one byte, as a real loss would
+          ++mCurrentBytesRead;
+          ++mCompressedBytesIn;
+          HTprintf("ZHD TEST dropped one compressed byte chip%u t%u (packet #%u, offset %u)\n",
+                   mChipNum,mTLBI,mPacketsIn,mCurrentBytesRead-1u);
+        }
         u32 readfrom = mCurrentBytesRead;
         u8 byte = pay.getByteOrDie(mCurrentBytesRead++);
         ++mCompressedBytesIn;
@@ -283,6 +316,8 @@ namespace MFM {
           ACacheBlockPayload & npay = nacb.payload();
           u32 len = npay.getCurrentLength();
           notePacket(mCurrentCarACB.first, npay);
+          if (isRestartSOF(npay)) // the hub answered our request: new stream
+            throw RestartStream();
           if (false && len > 0)
             KTprintf(mBHTag,"First of new: @%u/%u = 0x%02x\n",
                      (u32) 0,
@@ -322,6 +357,7 @@ namespace MFM {
              mChipNum,mTLBI,mConsecInvalid,(unsigned long long) mAtomReportsReceived);
     mConsecInvalid = 0u;
     mDesynced.store(false);
+    mRestartRequested.store(false);   // it came back by itself
   }
 
   void ZHostDecompressor::noteBadReport(const AtomReport & ar, u16 expected) {
@@ -346,7 +382,59 @@ namespace MFM {
                (unsigned long long) mDesyncAtReport,
                (unsigned long long) mDesyncAtCBytes,mDesyncAtPacket);
       logDesyncDetail("DESYNCED",ar,expected);
+      requestRestart();
     }
+  }
+
+  void ZHostDecompressor::requestRestart() {
+    if (!restartEnabled()) return;
+    mHostEpoch.store(mHostEpoch.load() ^ 1u);
+    mRestartRequested.store(true);
+    HTprintf("ZHD RESTART requested chip%u t%u (epoch %u)\n",
+             mChipNum,mTLBI,mHostEpoch.load());
+    KTprintf(mBHTag,"ZHD RESTART requested (epoch %u)\n",mHostEpoch.load());
+  }
+
+  void ZHostDecompressor::stampFeedback(ACacheBlockPayload & pay) const {
+    ACBHostFeedback fb;
+    fb.mExpectedSpin = (u16) (mAtomReportsReceived & 0xffffull);
+    fb.mPacketSeq = (u16) (mPacketsIn & 0xffffu);
+    fb.mConsecInvalid = (u16) (mConsecInvalid > 0xffffu ? 0xffffu : mConsecInvalid);
+    pay.setFeedback(fb);        // racy reads of our own counters: fine
+    u16 flags = 0u;
+    if (mRestartRequested.load())
+      flags = ACacheBlockPayload::ACBP_FLAG_RESTART_REQ |
+        ((mHostEpoch.load() & 1u) ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
+    pay.mFlagsAndLen = flags;   // the length stays 0: still an empty car
+  }
+
+  bool ZHostDecompressor::isRestartSOF(const ACacheBlockPayload & pay) const {
+    if (!mRestartRequested.load()) return false;
+    u32 fl = pay.getCurrentFlags();
+    if (!(fl & ACacheBlockPayload::ACBP_FLAG_IS_SOF)) return false;
+    bool epoch = (fl & ACacheBlockPayload::ACBP_FLAG_EPOCH) != 0u;
+    return epoch == ((mHostEpoch.load() & 1u) != 0u);   // answers THIS request
+  }
+
+  // In the decoder thread, after RestartStream unwound decode(): start over.
+  // The current car (the SOF one) is still current, unread.
+  void ZHostDecompressor::restartDecoder() {
+    mLZ.reset();                // ring and trees as the hub's encoder has now
+    mHARIO.init(false);         // drop any half record
+    {
+      std::lock_guard<std::mutex> lock(mHealthLock);
+      mConsecInvalid = 0u;
+      mDesynced.store(false);
+      mSpinSync = true;
+    }
+    mRestartRequested.store(false);
+    u32 n = mRestarts.fetch_add(1u) + 1u;
+    HTprintf("ZHD RESTARTED chip%u t%u (#%u) at %llu good reports, %llu compressed bytes\n",
+             mChipNum,mTLBI,n,(unsigned long long) mAtomReportsReceived,
+             (unsigned long long) mCompressedBytesIn);
+    KTprintf(mBHTag,"ZHD RESTARTED #%u at %llu good reports, %llu compressed bytes\n",
+             n,(unsigned long long) mAtomReportsReceived,
+             (unsigned long long) mCompressedBytesIn);
   }
 
   void ZHostDecompressor::logDesyncDetail(const char * what,
@@ -399,6 +487,8 @@ namespace MFM {
     h.mDesyncAtCBytes = mDesyncAtCBytes;
     h.mDesyncAtPacket = mDesyncAtPacket;
     h.mDesyncKind = mDesyncKind;
+    h.mRestarts = mRestarts.load();
+    h.mRestartPending = mRestartRequested.load();
     return h;
   }
 
@@ -435,12 +525,19 @@ namespace MFM {
     KTprintf(mBHTag,"ZHD %p HERE HALLO %u HARIO MADE %u\n",this,tlbi,mMade);
 
     mDecompressorThreadPtr = std::make_unique<std::thread>([this,tlbi]() {
-      try {
-        //HTprintf("ZHDecompThread %p HERE HALLO\n",this);
-        mLZ.decode();
-      }
-      catch (const char * str) {
-        HTprintf("ZHD CATCH %p GUDBYEE %u (%s)\n",this,tlbi,str);
+      for (;;) {
+        try {
+          //HTprintf("ZHDecompThread %p HERE HALLO\n",this);
+          mLZ.decode();
+          break;
+        }
+        catch (const RestartStream &) {
+          restartDecoder();     // the hub restarted its stream: decode afresh
+        }
+        catch (const char * str) {
+          HTprintf("ZHD CATCH %p GUDBYEE %u (%s)\n",this,tlbi,str);
+          break;
+        }
       }
     });    
   }

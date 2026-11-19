@@ -134,6 +134,22 @@ source, comments, docs and commit messages).
   (last 48 decoded bytes + last 16 packets) in the tile log, declares DESYNCED after
   20 in a row.  `zhd [all]` in mfmxctl, MFMx.zhdSnapshot(), misc/*-ZHD.txt on change.
   The spin now advances for every intact report (bad atoms are skipped and counted).
+  STREAM RESTART (2026-11-19; hub image + host changed, untested on hardware): a
+  desynced hub is asked to restart its compressed stream.  Host -> hub in the empty
+  cars the host returns (PT_ACacheBlock.h: RESTART_REQ and EPOCH flags + 6 bytes
+  ACBHostFeedback; EP_ACacheBlock.cpp recvTC latches them BEFORE it wipes the car).
+  Hub: T0 restartStep (finish the record in flight, set draining), T1 source ends
+  the stream (EOF) when drained, encoder flushes, last car EOF|CLOSABLE, next car
+  SOF+epoch (setupNewCar), T1 waits for it to ship then lzmfmx::reset() and
+  streamRestarted().  Host: ZHostDecompressor requestRestart() on DESYNCED, throws
+  RestartStream from sourceByte on the matching SOF, the thread resets and decodes
+  again, adopts the hub's spin (mSpinSync).  Level-triggered request + 1 bit epoch,
+  so late or lost returns are harmless.  lzmfmx: reset(); getNextByteBlocking
+  returns -1 at EOF instead of spinning; encode() on a dirty ring HANGS, always
+  reset().  mfmxctl: `zhd restart on|off`, `zhd break TAG[,TAG..]` (TEST: drop one
+  compressed byte).  config/seam15.cmd breaks hubs on purpose (12 min).  Host
+  test of the compressor: scripts/lzrestart/run.sh.  Hub marks `.zq:` (asked)
+  and `.zd:` (done).
   config/seam14.cmd: two hour soak (seam13 shape, feed started late, no --rtmp) that runs
   `zhd` after every 10 minute block and `zhd all` at the end; the 10 s `zhd` tick is its
   own tick (the seam configs turn slowscan off).

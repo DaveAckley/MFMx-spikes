@@ -396,8 +396,19 @@ def main(argv=None):
             lines.append(f"bh{chip}:{tlbi}  {tag}  {img}")
         return "\n".join(lines)
 
-    sh.command("zhd", lambda a: m.zhd_text(verbose=bool(a and a[0] == "all")),
-               "zhd [all]: report-stream health; lists desynced hubs (all: every hub)")
+    def c_zhd(a):
+        if a and a[0] == "restart":
+            if len(a) != 2 or a[1] not in ("on", "off"):
+                return "usage: zhd restart on|off"
+            return m.zhd_restart(a[1] == "on")
+        if a and a[0] == "break":
+            tags = [t for arg in a[1:] for t in arg.split(",") if t]
+            return m.zhd_break(tags)
+        return m.zhd_text(verbose=bool(a and a[0] == "all"))
+    sh.command("zhd", c_zhd,
+               "zhd [all | restart on|off | break TAG[,TAG..]]: report-stream health (desynced hubs; "
+               "all: every hub); restart: ask desynced hubs to restart their stream (default on); "
+               "break: TEST, lose a byte of that hub's stream")
     sh.command("boot", lambda a: m.boot(),
                "boot: configure + chip reset + QuietBox init (as nu1011 did at startup)")
     sh.command("configure", lambda a: m.configure(), "configure: build layout/images/Blackholes from the dtoml")

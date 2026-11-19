@@ -111,10 +111,26 @@ def liveAERClear():
     pass
 
 
+_zhd_restart = [True]
+
+
+def zhdRestartEnable(on):
+    _zhd_restart[0] = bool(on)
+
+
+def zhdRestartEnabled():
+    return _zhd_restart[0]
+
+
+def zhdBreak(chip, tlbi):
+    return chip == 0                    # the mock has one chip
+
+
 def zhdSnapshot():
     """Report stream health rows (see host ZHostDecompressor.h):
     (chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,
-     desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind).
+     desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind,
+     restarts, restartPending).
     The selftest sets $MFMX_MOCK_ZHD to a JSON list of such rows."""
     import json
     return [tuple(r) for r in json.loads(os.environ.get("MFMX_MOCK_ZHD", "[]"))]

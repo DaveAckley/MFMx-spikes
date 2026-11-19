@@ -47,6 +47,10 @@ namespace MFM {
     for (u32 i = 0; i <= RING_SIZE; ++i) mPar[i] = NIL;
   }
 
+  void lzmfmx::reset() {
+    init(mInPtr,mInCtxt,mOutPtr,mOutCtxt); // the args are copied first
+  }
+
   bool lzmfmx::inputIsEOF() {
     s32 v = mInPtr(true,mInCtxt);
     return v == -1;
@@ -56,8 +60,9 @@ namespace MFM {
     s32 v;
     do {
       if (beatTheStandardHeartbeat(theHostBlock)) EACH(100,LOGPX(mBytesIn));
-    } while ((v = mInPtr(false,mInCtxt)) < 0 && waitALittle());
+    } while ((v = mInPtr(false,mInCtxt)) == -2 && waitALittle()); // -2: blocked
 
+    if (v < 0) return v;        // -1: the source ended the stream (EOF)
     EACH(1'000'000,LOGPTAG(>xLZI,formatCountedByte(__EACHNUM__,v)));
     ++mBytesIn;
     return (s32) v;
@@ -180,8 +185,11 @@ namespace MFM {
       // Slide window by ml positions
       for (u32 i = 0; i < ml; ++i) {
         deleteNode(sid);
-        if (!inputIsEOF()) {
-          u8 c = getNextByteBlocking();
+        // EOF can arrive between the test and the read (a source that ends
+        // the stream on request); a negative read is then the EOF.
+        s32 cs = inputIsEOF() ? -1 : getNextByteBlocking();
+        if (cs >= 0) {
+          u8 c = (u8) cs;
           mRing[sid] = c;
           if (sid < MAX_MATCH - 1) mRing[sid + RING_SIZE] = c;
         } else {

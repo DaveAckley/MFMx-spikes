@@ -175,9 +175,10 @@ Tensix tile to `<run>/dumps/N/TAG.l1` (TAG as in the logs, prefix required: `at0
 x=2, y=3, x and y base 36; a range runs chip, x and y each from LO to HI, and
 non-Tensix coordinates are skipped and counted; N is a leximited counter, one
 directory per command: 10..19, 210..299, 3100..; reads only, safe while the tiles
-run; needs the code deployed); `zhd [all]` shows the health of each hub's compressed
-report stream (a desynced hub's tile is frozen on screen while the hub runs; see
-OPEN_ISSUES); `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
+run; needs the code deployed); `zhd [all | restart on|off | break TAG,..]` shows the
+health of each hub's compressed report stream (a desynced hub's tile freezes on
+screen while the hub runs; a desynced hub is asked to restart its stream unless
+`zhd restart off`; `zhd break` drops one byte on purpose, a test; see OPEN_ISSUES); `waitbolt [SECS]` runs ticks until the pending bolt settles (a new
 `shoot` supersedes a pending one, so scripts want it between shots).  Script
 lines are echoed after the prompt; ticks run between lines; errors do not stop
 the script.  Test: `python3 mock/selftest.py command_file` (7 older selftests

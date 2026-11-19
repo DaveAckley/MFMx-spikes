@@ -610,16 +610,33 @@ def scenario_dumpl1():
 
 def scenario_zhd():
     import json
-    rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2),    # at0e7, desynced
-            (0, 15, 19900001, 0, 3, 0, 0, False, 0, 0, 0, 0),                  # at023, healthy
-            (2, 111, 500, 5, 0, 0, 1, False, 400, 9000, 9, 1)]                 # recovered
-    rc, out = run("boot\nstart\nzhd\nzhd all\nquit\n", env_extra={"MFMX_MOCK_ZHD": json.dumps(rows)})
+    rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2, 0, True),   # at0e7, asked, waiting
+            (0, 15, 19900001, 0, 3, 0, 0, False, 0, 0, 0, 0, 0, False),                 # at023, healthy
+            (2, 111, 500, 5, 0, 0, 1, False, 400, 9000, 9, 1, 1, False)]                # restarted
+    rc, out = run("boot\nstart\nzhd\nzhd all\nzhd restart off\nzhd restart on\nzhd restart maybe\nquit\n",
+                  env_extra={"MFMX_MOCK_ZHD": json.dumps(rows)})
     check("zhd: summary counts", "3 report streams, 1 desynced, 1 recovered" in out
           and "3 intact reports carried a bad atom" in out, out[-900:])
+    check("zhd: restarts done and pending", "1 restarts done, 1 requested and waiting" in out
+          and "restart requested, waiting for the hub" in out, out[-900:])
+    check("zhd: restart switch", "requests OFF" in out and "zhd restart: requests ON" in out
+          and "usage: zhd restart on|off" in out, out[-900:])
     check("zhd: names the desynced hub with the break point",
           "at0e7 bh0:81 DESYNCED" in out and "broke at report 3270179" in out
           and "garbage" in out, out[-900:])
     check("zhd: 'all' lists healthy hubs too", "at023 bh0:15 ok" in out, out[-900:])
+    rc, out = run("boot\nstart\nzhd break at0a7,at323 at023 ae011 at0zz junk\nzhd break\nquit\n")
+    check("zhd break: tags mapped, chip/tile errors named",
+          "at0a7: one compressed byte will be dropped (bh0:" in out
+          and "at323: no report stream there" in out and "at023: one compressed byte" in out
+          and "ae011:" in out and "at0zz: not a Tensix tile" in out and "junk:" in out
+          and "usage: zhd break" in out, out[-900:])
+    sys.path.insert(0, EWD)
+    import machine as MA
+    check("zhd break: noc -> tlbi is the inverse of tlbi -> noc for all 140 tiles",
+          all(MA.Machine.noc_to_tlbi(*MA.Machine.tlbi_to_noc(t)) == t for t in range(140))
+          and MA.Machine.noc_to_tlbi(10, 7) == 77 and MA.Machine.noc_to_tlbi(14, 7) == 81
+          and MA.Machine.noc_to_tlbi(8, 7) is None and MA.Machine.noc_to_tlbi(2, 12) is None)
     rc, out = run("boot\nstart\nzhd\nquit\n")
     check("zhd: no rows is not an error", rc == 0 and "0 report streams" not in out and "no report streams" in out, out[-500:])
 
