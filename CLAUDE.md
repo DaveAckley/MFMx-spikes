@@ -347,6 +347,10 @@ config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at 
 config/seam12.cmd: THREE HOUR four-corners soak (`policy fourcorners`, 18 blocks
 of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
 (Default policy is fourcorners since 2026-11-19; seam6.cmd and seam10.cmd now say `policy supercell` so they stay the supercell baselines.)
+config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
+the command line, `feed on` right after `start` (the RTMP stream does not exist
+during bring-up; experiment against the hls.js freezes at the NO DATA gap, see
+OPEN_ISSUES.md).  Open the viewer after the `feed on` line; refresh once.
 config/seam11.cmd: the seam6 twin with `policy fourcorners` (the four-corners
 prototype; compare with seam6 runs 005507/012507).  Run 022401 (1159c97): CLEAN,
 faster fill (69% vs 49-63% at 690 s), committed events/hub/s +26-32%, spread
