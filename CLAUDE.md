@@ -124,6 +124,9 @@ source, comments, docs and commit messages).
   (last 48 decoded bytes + last 16 packets) in the tile log, declares DESYNCED after
   20 in a row.  `zhd [all]` in mfmxctl, MFMx.zhdSnapshot(), misc/*-ZHD.txt on change.
   The spin now advances for every intact report (bad atoms are skipped and counted).
+  config/seam14.cmd: two hour soak (seam13 shape, feed started late, no --rtmp) that runs
+  `zhd` after every 10 minute block and `zhd all` at the end; the 10 s `zhd` tick is its
+  own tick (the seam configs turn slowscan off).
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

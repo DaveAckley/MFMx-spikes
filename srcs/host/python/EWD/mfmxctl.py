@@ -452,6 +452,7 @@ def main(argv=None):
         return True
     m.start_scan_ticks = start_scan_ticks
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
+    sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
 
     # SIGTERM/SIGHUP take the same orderly exit path as 'quit'

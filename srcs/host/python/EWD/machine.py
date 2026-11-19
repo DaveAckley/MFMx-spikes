@@ -740,6 +740,10 @@ class Machine:
         # still works at any phase.
         if self.configured and self.inited and self.released():
             self.slowscan(1)
+
+    def tick_zhd(self):
+        # Its own tick: the seam configs turn the slowscan tick off.
+        if self.configured and self.inited:
             self.check_zhd()
 
     # ---- report stream health (ZHostDecompressor.h) -------------------------------
