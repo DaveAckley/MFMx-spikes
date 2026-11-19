@@ -83,6 +83,15 @@ source, comments, docs and commit messages).
   scripts/cachepolicy/cachepolicy_test.cpp checks the invariants on the host
   (g++ line in its header): pair agreement, non-overlapping event reach,
   never touching a lent band or an unexchanged cache.
+- Syntax-checking host C++ without the QB (no tt libraries needed): pybind11
+  headers from `pip install --target DIR pybind11`, the generated FileIDs.h
+  and t6-exports.h from a cross build (build_cross), then from srcs/host:
+  `g++ -std=c++17 -fsyntax-only -Iinclude -I../shared/include -I../cross/include
+  -IDIR/pybind11/include -I/usr/include/python3.12 -I<build_cross>
+  -I<build_cross>/srcs/cross -DPROJECT_SOURCE_DIR=/x -DBUILD_HOST
+  -DSPIKE_DIR='"x"' src/FILE.cpp`  (checked: CodeManager, OurTLBs, LiveAER,
+  mfmx_wrapper).  A hint only: the pybind11 version here may differ from the
+  QB's.
 - scripts/xchg/xchg.py  cache exchange timing per hub from the `.xb`/`.xe`
   marks (SAVE in NEW_LEADER, LOAD in RUN_EVENTS: time and packets), with
   --bolts to compare against the host bolt times.  Also prints STALLS from

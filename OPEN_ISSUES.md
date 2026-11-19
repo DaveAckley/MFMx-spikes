@@ -134,8 +134,8 @@ Plan, in order (each step needs a go-ahead):
      virtuals), chosen per run by two HostFlags bits (mfmxctl `policy`),
      used by configureCacheLoaders and the event bounds in Grid.cpp.  Host
      test: scripts/cachepolicy/cachepolicy_test.cpp (all invariants hold for
-     both policies).  Unproven: the host build (could not be compiled here)
-     and everything on hardware.  Risks to watch on the run: array-edge hubs
+     both policies).  Unproven: everything on hardware (the host files
+     syntax-check clean here with pybind11 3.1.0).  Risks to watch on the run: array-edge hubs
      run events over a cache nobody fills (the old leader mode has the same
      exposure); one-way centre diagonals across chips in all four corners.
   3. RUN: config/seam11.cmd (the seam6 twin with `policy fourcorners`); compare duty, bolt times, AER and
