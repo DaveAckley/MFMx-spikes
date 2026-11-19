@@ -158,7 +158,16 @@ Plan, in order (each step needs a go-ahead):
   duty 94% (was 74%), nothing lost (cars out == in == noc, BADC 0, retrain
   0, FEC uncorrected 0, no TIMEOUT).  Remaining non-running time is the
   slowest hub's exchange, about 0.17 s save + 0.24 s load per cycle.  NOW
-  NOW RUNNING (next): 0, seam10.cmd.
+  DONE: 0 (seam10.cmd, run 211051, seam10-10.out): clean hour, 569 cycles,
+  out=in=noc=305668, txfail/nocfail 0, retrain 0, FEC uncorrected 0, BADC 0,
+  no TIMEOUT, STALLS none.  Per packet 0.2 ms (was 0.8), slowest hub 0.005 s
+  SAVE / 0.011 s LOAD, but duty stayed 97% and steady wall AER ~1535-1580
+  (same as 100k).  So sleep 0 buys nothing measurable: the remaining non-
+  running time is the host bolt path (~0.13 s per bolt, 0.12 s of it not the
+  exchange) and the dwell, not the exchange.  Next lever: bolt poll tick /
+  shorter dwell.  One clean hour does not prove 0 is hang-free (100k hung 1
+  in 2).  FEEDSTAT idle dup 150 per 30 s (was 133): keepalive fix works, no
+  viewer lockup in Firefox or ffplay.
   DONE: 100,000 ran a clean hour (run 165950: wall AER 1561-1573 steady, duty 97%,
   slowest hub 0.013 s SAVE / 0.032 s LOAD) after one hang (125641); then 0: another 5 percent of duty, and it makes a
   much shorter `dwell` affordable.  Why the sleep existed is still unknown;
