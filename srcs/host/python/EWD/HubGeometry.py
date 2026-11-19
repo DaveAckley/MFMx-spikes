@@ -4,7 +4,7 @@ The C++ source of truth is srcs/shared/include/DemoGlobal.h (namespace
 DG).  Python cannot see those constants, so this module repeats the
 FORMULAS (never the results): change the inputs in DemoGlobal.h and
 change them here, and scripts/hubgeom/hubgeom_check.sh will fail until
-the two agree.  Do not write 138, 108 and friends anywhere else.
+the two agree.  Do not write 137, 108 and friends anywhere else.
 """
 
 DEMO_GLOBAL_GRID_WIDTH = 1920       # DG::DEMO_GLOBAL_GRID_WIDTH
@@ -22,9 +22,9 @@ ACTIVE_HUB_HEIGHT = QUIETBOX_T6_HEIGHT // 2   # hubs per chip, y
 _naiveW = DEMO_GLOBAL_GRID_WIDTH // CHIP_ARRAY_WIDTH
 _naiveH = DEMO_GLOBAL_GRID_HEIGHT // CHIP_ARRAY_HEIGHT
 
-# Hub SELF region, excluding the cache rings (ceiling division, as in C++)
-T6GRID_BASE_WIDTH = (_naiveW + ACTIVE_HUB_WIDTH - 1) // ACTIVE_HUB_WIDTH
-T6GRID_BASE_HEIGHT = (_naiveH + ACTIVE_HUB_HEIGHT - 1) // ACTIVE_HUB_HEIGHT
+# Hub SELF region, excluding the cache rings (floor division, as in C++)
+T6GRID_BASE_WIDTH = _naiveW // ACTIVE_HUB_WIDTH
+T6GRID_BASE_HEIGHT = _naiveH // ACTIVE_HUB_HEIGHT
 
 # Hub T6Grid including the cache rings
 T6GRID_WIDTH = T6GRID_BASE_WIDTH + 2 * T6GRID_OVERLAP_WIDTH

@@ -96,10 +96,15 @@ namespace MFM::DG {
   static constexpr u32 BLACKHOLE_ACTIVE_HUB_WIDTH = BLACKHOLE_HUBS_WIDTH_2X2;
   static constexpr u32 BLACKHOLE_ACTIVE_HUB_HEIGHT = BLACKHOLE_HUBS_HEIGHT_2X2;
 
+  /* Hub SELF size is the FLOOR of chip size over hubs, so the hubs
+     always FIT in the global grid: 960/7 -> 137 (7*137 = 959 per chip,
+     1918 across the box, 2 blank columns at the right of the 1920 image),
+     540/5 -> 108 exactly.  (WAS ceiling: 138, which overran the image by
+     12 columns and needed a display crop at the right.) */
   static constexpr u32 T6GRID_BASE_WIDTH =
-    (PER_BLACKHOLE_NAIVE_GRID_WIDTH + BLACKHOLE_ACTIVE_HUB_WIDTH - 1u) / BLACKHOLE_ACTIVE_HUB_WIDTH;
+    PER_BLACKHOLE_NAIVE_GRID_WIDTH / BLACKHOLE_ACTIVE_HUB_WIDTH;
   static constexpr u32 T6GRID_BASE_HEIGHT =
-    (PER_BLACKHOLE_NAIVE_GRID_HEIGHT + BLACKHOLE_ACTIVE_HUB_HEIGHT - 1u) / BLACKHOLE_ACTIVE_HUB_HEIGHT;
+    PER_BLACKHOLE_NAIVE_GRID_HEIGHT / BLACKHOLE_ACTIVE_HUB_HEIGHT;
 
   static constexpr u32 T6GRID_OVERLAP_WIDTH = 10; //XXX WAS: T6GRID_BASE_WIDTH/11;
   static constexpr u32 T6GRID_OVERLAP_HEIGHT = 10; //XXX WAS: T6GRID_BASE_HEIGHT/11;
@@ -114,20 +119,21 @@ namespace MFM::DG {
      literals elsewhere in C++ (Python: HubGeometry.py, checked against
      this file by scripts/hubgeom/hubgeom_check.sh).  These catch a
      change to the inputs that breaks an assumption made downstream. */
-  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH >=
+  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH <=
                 DEMO_GLOBAL_GRID_WIDTH,
-                "hubs must cover the global grid width");
-  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT >=
+                "hubs must fit in the global grid width");
+  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT <=
                 DEMO_GLOBAL_GRID_HEIGHT,
-                "hubs must cover the global grid height");
-  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH <
-                DEMO_GLOBAL_GRID_WIDTH +
-                BLACKHOLE_ACTIVE_HUB_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH,
-                "hub width is larger than needed: whole spare columns");
-  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT <
-                DEMO_GLOBAL_GRID_HEIGHT +
-                BLACKHOLE_ACTIVE_HUB_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT,
-                "hub height is larger than needed: whole spare rows");
+                "hubs must fit in the global grid height");
+  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH +
+                BLACKHOLE_ACTIVE_HUB_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH >
+                DEMO_GLOBAL_GRID_WIDTH,
+                "hub width is smaller than needed: a whole spare column "
+                "per hub would fit");
+  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT +
+                BLACKHOLE_ACTIVE_HUB_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT >
+                DEMO_GLOBAL_GRID_HEIGHT,
+                "hub height is smaller than needed");
   static_assert(T6GRID_WIDTH <= 255u && T6GRID_HEIGHT <= 255u,
                 "NgbCacheMgr stores T6Grid sizes in u8 enums");
   static_assert(2u * T6GRID_OVERLAP_WIDTH < T6GRID_BASE_WIDTH &&
@@ -181,11 +187,11 @@ namespace MFM::DG {
      its N and W cache rings cropped away, so a hub's SELF sites land on
      its own global site coordinates: gridc is the hub origin plus the
      T6Grid coord, pixel = gridc - getGlobalGridOffset().  Rings of the first hub row/column (permanent
-     array edges) fall off the top/left; a full QuietBox is
-     QUIETBOX_T6_WIDTH x T6GRID_BASE_WIDTH sites wide (1932 at base
-     width 138), so any excess over the 1920 columns falls off the
-     right.  The
-     hubs are not told: they run all their sites.  False if the site is
+     array edges) fall off the top/left.  A full QuietBox is
+     QUIETBOX_T6_WIDTH x T6GRID_BASE_WIDTH = 1918 sites wide, so the
+     last 2 image columns stay blank (at the old base width 138 it was
+     1932 and the excess fell off the right).  The hubs are not told
+     anything: they run all their sites.  False if the site is
      cropped away at the top/left (the caller skips it); the image's own
      setPixel drops anything past the right/bottom. */
   static bool gridCoordToPixel(U16C gridc, U16C & pix) {

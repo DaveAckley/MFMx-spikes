@@ -104,7 +104,7 @@ Scope (no HostBlock change, no HostFlags bit):
     which of ITS sides have a seam.  (Seams distinguish 01, 23, 02, 13 and
     0123 by chip number + side: five classes, four hub-local shapes.)
  2. Keep the accessible rectangle in the grid (4 u16 in the hub's T6Grid or
-    GridManager, NOT HostBlock): [0,158) minus the 10-wide ring on each
+    GridManager, NOT HostBlock): [0,TW) (158 at the old width, 157 now) minus the 10-wide ring on each
     permanent side.  getAtomOrInaccessible / setAtomOrDrop / matchesEW use it,
     so reads see INACCESSIBLE and writes drop, with no prefilled atoms and no
     new storage.  Cache exchange on such a side is already absent.
