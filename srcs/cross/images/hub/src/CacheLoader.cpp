@@ -44,6 +44,8 @@ namespace MFM {
         // is known to get out.
         LOGPTAG(.pe,(u32) gm.mPermEdges);
         HBPTAG(.pe,(u32) gm.mPermEdges);
+        LOGPTAG(.ee,(u32) EVERY_EVENT_SHIPPED);   // 1 = no-AER-cheating build
+        HBPTAG(.ee,(u32) EVERY_EVENT_SHIPPED);
       }
     }
     if (policy == CP_SUPERCELL)

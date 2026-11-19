@@ -86,6 +86,15 @@ source, comments, docs and commit messages).
   Python and C++ disagree).  Numbers quoted in docs (137, 959, 1918, 14796) are
   descriptive of the current width, not inputs.  EXCEPTION, guarded: the T6GRID
   size literal in BlockCode.h (hub image static_assert fails until updated).
+- NO AER CHEATING build (hub Grid.h, compile time, default OFF): `#define
+  MFMX_EVERY_EVENT 1` (or -DMFMX_EVERY_EVENT=1) and rebuild.  The hub then
+  draws ONE random center per event request, empty or not, and ships it to an
+  EWP (EWP physics already returns an EMPTY-center window unchanged), instead
+  of drawing up to 100 and crediting each empty hit as a free event
+  (mEWsEmptyCenters).  mEWsEmptyCenters stays 0, so aer.py/live AER (committed
+  + empty) count only round-tripped events: no empty-grid AER inflation after
+  the seed.  The hubs log `.ee:1` (0 in a normal build) next to `.cp`.  Before
+  the autoseed fires nothing is shipped in either mode.  Not yet run.
 - scripts/l1dump/l1grid.py  decodes the T6Grid out of a hub L1 dump (mfmxctl
   `dumpl1 at023` -> <run>/dumps/N/at023.l1) and checks that the PERMANENT-edge
   cache rings are EMPTY (exit 1 if not).  Finds theT6Grid via the hub image's

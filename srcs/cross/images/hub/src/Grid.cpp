@@ -125,6 +125,12 @@ namespace MFM {
     ewbounds.start.y = eb.y0;   //inclusive
     ewbounds.stop.y = eb.y1;    //exclusive
 
+    if (EVERY_EVENT_SHIPPED) {  // no AER cheating: empty centers get shipped too
+      found = selectRandomSite(ewbounds);
+      SNAP(10,HBPTAG(SEEKT,found));
+      return true;
+    }
+
     // Each miss is an event at an empty center and counts toward AER, so a
     // big limit makes the AER of a sparse grid (e.g. right after the seed)
     // huge and warps comparisons: 100 keeps that distortion modest.
@@ -260,7 +266,7 @@ namespace MFM {
     if (!lgmc.isEPSuspReq() && seekRandomNonEmptySite(center)) {
       SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
-      ++mEWsOffered;            // a real (non-empty) event shipped
+      ++mEWsOffered;            // an event shipped (non-empty, or any in EVERY_EVENT mode)
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;
