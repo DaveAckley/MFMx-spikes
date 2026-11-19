@@ -5,6 +5,8 @@
 #include "EwpBlock.h"
 #include "DemoGlobal.h"
 #include "CachingPolicy.h" // supercell vs four corners event bounds
+#include "HubEdges.h"      // permanent array edges
+#include "EthSeam.h"
 
 namespace MFM {
 
@@ -34,6 +36,16 @@ namespace MFM {
                                               hubInChipCoord.y);
     mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
     
+    // PERMANENT EDGES: a side with no neighbor hub on this chip or across a
+    // live seam is a real array edge (HubEdges.h), not a dead band.
+    {
+      EthSeam::SeamTable seams;
+      EthSeam::decodeSeamMask(hb.getEthSeamMask(), seams);
+      mPermEdges = HubEdges::permanentEdges(seams, ct6);
+      LOGPTAG(.pe,(u32) mPermEdges);   // dotted: survives HBF_NO_UTAG
+      HBPTAG(.pe,(u32) mPermEdges);
+    }
+
     // INIT SELECT AUTOSEEDING (the host can switch a whole chip off,
     // HBF_NO_AUTOSEED, to check that atoms really cross the seams)
     if (ct6.x >= 5 && ct6.y >= 5 &&
@@ -102,9 +114,11 @@ namespace MFM {
     pc.weLead = s == SCStatus::WE_LEAD;       // (supercell policy only)
     pc.peerLeads = false;
     const EventBounds eb =
-      CachingPolicies::bounds(cachePolicyFromHostFlags(theHostBlock.mHostFlags),
-                              (u8) lgmc.mSuperCellLeader,
-                              pc);
+      CachingPolicies::withPermanentEdges(
+        CachingPolicies::bounds(cachePolicyFromHostFlags(theHostBlock.mHostFlags),
+                                (u8) lgmc.mSuperCellLeader,
+                                pc),
+        mPermEdges);
     U16CRange ewbounds;
     ewbounds.start.x = eb.x0;   //inclusive
     ewbounds.stop.x = eb.x1;    //exclusive
@@ -137,13 +151,12 @@ namespace MFM {
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {
-    T6Grid & g = *mT6GridPtr;
     S16C scenter(center);
     //    HBPTAG(scMEW@,center);
     for (u32 sn = 0u; sn < EventWindow::ATOM_COUNT; ++sn) {
       S16C offc = siteNumberToOffset(sn);
       U16C gridc(scenter.x+offc.x,scenter.y+offc.y);
-      const P4Atom ga = g.getAtomOrInaccessible(gridc);
+      const P4Atom ga = getAtomOrInaccessible(gridc);
       const P4Atom ea = ew.getAtom(sn);
       if (ga != ea) {
         //LOGPTAG(NoMEW@,sn);
@@ -156,13 +169,26 @@ namespace MFM {
   }
 
   void GridManager::readEW(EventWindow & ew,U16C center) {
-    T6Grid & g = *mT6GridPtr;
     S16C scenter(center);
     for (u32 sn = 0u; sn < EventWindow::ATOM_COUNT; ++sn) {
       S16C offc = siteNumberToOffset(sn);
       U16C gridc(scenter.x+offc.x,scenter.y+offc.y);
-      ew.getAtom(sn) = g.getAtomOrInaccessible(gridc);
+      ew.getAtom(sn) = getAtomOrInaccessible(gridc);
     }
+  }
+
+  bool GridManager::isAccessible(U16C gridc) const {
+    if (!isValidT6GridC(gridc)) return false;
+    if ((mPermEdges & HubEdges::PE_W) && gridc.x < T6Grid::SELF_ORIGIN.x) return false;
+    if ((mPermEdges & HubEdges::PE_E) && gridc.x >= T6Grid::SELF_MAX.x) return false;
+    if ((mPermEdges & HubEdges::PE_N) && gridc.y < T6Grid::SELF_ORIGIN.y) return false;
+    if ((mPermEdges & HubEdges::PE_S) && gridc.y >= T6Grid::SELF_MAX.y) return false;
+    return true;
+  }
+
+  P4Atom GridManager::getAtomOrInaccessible(U16C gridc) const {
+    if (!isAccessible(gridc)) return P4Atom::makeInaccessibleAtom();
+    return mT6GridPtr->getAtom(gridc);
   }
 
   bool GridManager::setAtom(U16C gridc, const P4Atom atom) {
@@ -172,6 +198,7 @@ namespace MFM {
   
   bool GridManager::setAtomOrDrop(U16C gridc, const P4Atom atom) {
     T6Grid & g = *mT6GridPtr;
+    if (!isAccessible(gridc)) return false;   // permanent-edge ring: dropped
     if (g.setAtomOrDrop(gridc,atom)) {
       bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
       if (b) EACH(1'000'000,LOGPTAG(oldATOM,gridc));

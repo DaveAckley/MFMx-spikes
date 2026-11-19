@@ -295,6 +295,12 @@ namespace MFM {
     
     bool seekRandomNonEmptySite(U16C & found) ;
 
+    /* Sites in the cache ring of a PERMANENT array edge (HubEdges.h) are
+       INACCESSIBLE: events read INACCESSIBLE_TYPE there, writes are
+       dropped, so those caches stay EMPTY from init and never change. */
+    bool isAccessible(U16C gridc) const ;
+    P4Atom getAtomOrInaccessible(U16C gridc) const ;
+
     bool setAtom(U16C gridc, const P4Atom a) ;
     bool setAtomOrDrop(U16C gridc, const P4Atom a) ;
 
@@ -310,6 +316,7 @@ namespace MFM {
       return mSuperCellLeaderCode;
     }
 
+    u8 mPermEdges;              //< HubEdges::PE_* sides with no neighbor hub
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;

@@ -70,6 +70,18 @@ source, comments, docs and commit messages).
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
 - scripts/feed/keepalive_test.py  simulates the RTMPFeed keepalive pacing
   (old vs new rule, repeats per 30 s).
+- srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
+  (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
+  it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no
+  neighbor hub.  GridManager::init stores them in mPermEdges (no HostBlock
+  field, no HostFlags bit) and logs `.pe:MASK` (hex) once per hub; the cache
+  ring on such a side is INACCESSIBLE (GridManager::isAccessible /
+  getAtomOrInaccessible: events read INACCESSIBLE_TYPE, setAtomOrDrop drops
+  writes, so those caches stay EMPTY from init), and
+  CachingPolicies::withPermanentEdges() lets event centers run to the last
+  real site on such a side (a temporary dead band keeps the window-radius
+  clearance).  scripts/hubedges/hubedges_test.cpp checks all nine layouts
+  (g++ line in its header; needs srcs/shared/src/S8C.cpp).
 - srcs/shared/include/CachingPolicy.h  the CACHING POLICY: per Dir8 whether a
   hub sends its edge sites, receives into its cache, or does nothing, and the
   event bounds; CP_SUPERCELL (original: NEW_LEADER arg = leader code in each

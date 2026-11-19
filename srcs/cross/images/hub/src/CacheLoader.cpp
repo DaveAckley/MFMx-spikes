@@ -6,6 +6,7 @@
 #include "DemoGlobal.h"
 #include "Printf.h"      //< for snprintf
 #include "CachingPolicy.h" //< supercell vs four corners
+#include "HubEdges.h"      //< neighbor hub existence
 
 namespace MFM {
   CacheLoaders theL1CacheLoaders;
@@ -68,41 +69,14 @@ namespace MFM {
 
       S8C d8nREGV = S8C::makeS8CFromDir8(d8);
 
-      /*  /-CT6V-\= /-REGV-\ * /--UCT6/UREG---\  */
-      S8C d8nCT6V = d8nREGV * S8C(uct6_per_ureg);
-
-      /*  /-CT6C-\=  /-CT6C---\  + /-CT6V-\  */
-      S8C d8nCT6C = S8C(ourCT6C) + d8nCT6V;
-
       // Does that neighbor hub exist?  On this chip, yes.  Off this chip
       // it exists only across a live eth-seam: in a Dir4 direction, or
       // diagonally through the two-hop corner crossing (InterHub.cpp,
       // EthSeam.h PART 5).  Anywhere else its loader stays unused.
-      U8C ud8nCT6C;
-      bool onChip = d8nCT6C.toU8C(ud8nCT6C) &&
-        U8C::makeNoC0CoordFromCT6Coord(ud8nCT6C) != U8C::UxC_MAX_VAL;
-      if (!onChip) {
-        bool seamHere;
-        if ((d8 & 1u) != 0u) {
-          EthSeam::DiagSend ds;
-          seamHere = EthSeam::diagSend(seams,
-                                       d8,
-                                       ourCT6C.x,
-                                       ourCT6C.y,
-                                       EthSeam::CELL_C2X2,
-                                       ds);
-        } else {
-          EthSeam::DestDir4 dest;
-          seamHere = EthSeam::destDir4(seams,
-                                       dir8ToDir4CW(d8),
-                                       ourCT6C.x,
-                                       ourCT6C.y,
-                                       EthSeam::CELL_C2X2,
-                                       dest);
-        }
-        if (!seamHere) continue;                // off chip, no seam
+      if (!HubEdges::neighborExists(d8, seams, ourCT6C))
+        continue;                               // off chip, no seam
+      if (!HubEdges::neighborOnChip(d8, ourCT6C))
         LOGPTAG(SEAMLDR,dir8ToByteString(d8));
-      }
 
       // Their place in its 2x2 supercell, counting hubs GLOBALLY across
       // chips (DemoGlobal.h): a neighbor on another chip is just the next

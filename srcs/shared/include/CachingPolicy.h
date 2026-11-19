@@ -3,6 +3,7 @@
 #include "MDist.h"         //< for Dir8, Corner4
 #include "NgbCacheMgr.h"   //< for the grid and band sizes
 #include "HostFlags.h"
+#include "HubEdges.h"     //< HubEdges::PE_* permanent-edge bits
 
 namespace MFM {
 
@@ -170,6 +171,23 @@ namespace MFM {
     static EventBounds bounds(CachePolicyId id, u8 arg, const PolicyCtx & c) {
       return id == CP_FOURCORNERS ? FourCornersPolicy::bounds(arg, c)
                                   : SuperCellPolicy::bounds(arg, c);
+    }
+
+    /* A PERMANENT edge (no neighbor hub, HubEdges.h) is not a dead band:
+       event centers run right up to its last real site, whatever the
+       policy said for that side (the window then reaches into the
+       INACCESSIBLE ring).  Sides with a neighbor keep the policy's
+       bounds, which stay a full window radius clear of temporary bands. */
+    static EventBounds withPermanentEdges(EventBounds b, u8 permEdges) {
+      enum : u16 {
+        OW = NgbCacheMgr::OW, OH = NgbCacheMgr::OH,
+        TW = NgbCacheMgr::TW, TH = NgbCacheMgr::TH,
+      };
+      if (permEdges & HubEdges::PE_W) b.x0 = OW;
+      if (permEdges & HubEdges::PE_E) b.x1 = (u16) (TW - OW);
+      if (permEdges & HubEdges::PE_N) b.y0 = OH;
+      if (permEdges & HubEdges::PE_S) b.y1 = (u16) (TH - OH);
+      return b;
     }
   };
 }
