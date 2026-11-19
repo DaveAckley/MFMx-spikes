@@ -551,6 +551,10 @@ def scenario_feed_command():
     rc, out = run("feed\nboot\nstart\nfeed on\nwait 1.0\nfeed status\nfeed off\nfeed st\nquit\n")
     check("feed: starts with no feed", "feed: none" in out or "frame tick off" in out, out[:400])
     check("feed: 'feed on' enables frames", "feed on:" in out and "frame tick on" in out, out[-500:])
+    # live mAER: the mock MFMx has a fake snapshot; status shows the line
+    _rc, lout = run("boot\nstart\nfeed on\nwait 2.5\nstatus\nquit\n")
+    check("live: status shows a mAER line", "live: mAER " in lout, lout[-600:])
+    check("live: hubs counted (2h)", " 2h" in lout, lout[-600:])
     check("feed: 'feed off' stops the tick", "feed frames stopped" in out and rc == 0, out[-500:])
 
 

@@ -4,6 +4,7 @@
 #include "TC.h"
 #include "BHLog.h"
 #include "XMark.h"
+#include "LiveAER.h" // live mAER tap in updateLogBlocks
 #include "PHASER.h"
 
 // use the source AHAX ?
@@ -685,6 +686,8 @@ namespace MFM {
               else*/ EACH(1'000'000,HTprintf("upLBKTK (%u,%u) PARS\n",addr.x,addr.y));
             U8C noc = U8C::makeNoCCoordFromTLBI(tlbi);
             while (xm.parseFromIStream(is,noc,mDevChipNum,lb.mTicksBase)) {
+              LiveAER::get().noteMark(mDevChipNum, noc.x, noc.y,
+                                      xm.mTickStamp, xm.mMsg); //< live mAER
               xm.formatToOStream();
             }
           }

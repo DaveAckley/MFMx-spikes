@@ -16,6 +16,8 @@ import os
 import subprocess
 import time
 
+import LiveAER
+
 DEFAULT_TIMEOUTS = {"HOLD_AT_BIRTH": 60.0, "NEW_LEADER": 60.0, "RUN_EVENTS": 10.0}
 FALLBACK_TIMEOUT = 30.0
 
@@ -145,6 +147,8 @@ class Machine:
         self.link_poll = 0.5                 # preflight: secs between polls
         self.simDir = mfmx.getSimDir()
         self.mfmxVersion = mfmx.getVersion()
+        snap = getattr(mfmx, "liveAERSnapshot", None)   # absent in old/mock MFMx
+        self.liveaer = LiveAER.LiveAER(snap) if snap else None
         self.bhs, self.qb, self.ewc, self.im = [], None, None, None
         self.seams = []                      # parsed ethseams of the active layout
         self.e1image = ""                    # E1 router image for the seams
@@ -622,12 +626,28 @@ class Machine:
         if self.configured and self.inited and self.released():
             self.slowscan(1)
 
+    def _frame_info(self):
+        """The overlay's info line: version, then the live mAER once any hub
+        has reported (a reference figure; see LiveAER.py).  Never raises: the
+        overlay must not cost a frame."""
+        info = f"mfmxctl/{self.mfmxVersion}"
+        if self.liveaer is not None:
+            try:
+                self.liveaer.update()
+                aer = self.liveaer.text()
+                if aer:
+                    info += "  " + aer
+            except Exception as e:
+                self.liveaer = None
+                self.say(f"live mAER disabled: {e}")
+        return info
+
     def frame(self):
         if self.feed is None:
             return "no feed"
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
-        self.feed.sendGraphicsFrame(img.asNP(), ns, f"mfmxctl/{self.mfmxVersion}")
+        self.feed.sendGraphicsFrame(img.asNP(), ns, self._frame_info())
         self.frames_real += 1
 
     def idle_frame(self):
@@ -790,6 +810,9 @@ class Machine:
         if self.feed is not None:
             lines.append(f"feed: {type(self.feed).__name__}  frames sent: "
                          f"{self.frames_real} sim, {self.frames_idle} placeholder")
+        if self.liveaer is not None:
+            self.liveaer.update()
+            lines.append(f"live: {self.liveaer.text() or 'mAER: no hub has reported'}")
         return "\n".join(lines)
 
     # ---- shutdown --------------------------------------------------------------------

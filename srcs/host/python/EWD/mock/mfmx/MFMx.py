@@ -37,6 +37,7 @@ class _Mock:
 
     def __init__(self):
         self.ntiles = 140
+        self.t_start = time.monotonic()      # liveAERSnapshot's clock
         self.rng = random.Random(1234)
         self.clock = time.monotonic
         self.sleep = time.sleep
@@ -94,6 +95,18 @@ if API not in ("async", "legacy", "fire"):
 
 
 # ---------------------------------------------------------------- module funcs
+def liveAERSnapshot():
+    """Two fake hubs doing 1000 mAER, seeded after 2 s (see host LiveAER.h)."""
+    t = time.monotonic() - _mock.t_start
+    ms = int(t * 1000)
+    ev = int(t * 138 * 108)
+    return (t > 2.0, [(0x80000203, ev, ms), (0x80010203, ev, ms + 777)])
+
+
+def liveAERClear():
+    pass
+
+
 def getSimDir():
     if _mock.simdir is None:
         d = os.environ.get("MFMX_MOCK_SIMDIR") or tempfile.mkdtemp(prefix="mfmx-mock-")

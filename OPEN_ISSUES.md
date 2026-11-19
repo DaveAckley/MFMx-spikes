@@ -63,7 +63,6 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
-- ZHD counter zero-init (61cb6de): `#N` in HAR lines should now be small.
 - Atom CONTENTS match across seams (content-hash slice; user: pass on it
   indefinitely while things look good).
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
@@ -174,8 +173,13 @@ Plan, in order (each step needs a go-ahead):
   for event time per cycle; duty is about 74 percent.
 - `loadPacket` ships every site including EMPTY atoms (full cars regardless
   of occupancy): bandwidth/latency opportunity in the RUN_EVENTS cache load.
-- AER phase 2: live mAER in the lower-left text area (tail the marks once
-  per cycle; verify log files are flushed in real time first).
+- AER phase 2 (live mAER on the video, host tap, no log files): BUILT, UNPROVEN
+  on hardware (the host module could not be compiled here: LiveAER.cpp and the
+  Python side are tested standalone, the OurTLBs/pybind hooks are not).  First
+  real run: check the overlay shows `mAER <1m>/1m <5m>/5m <seed>/seed Nh`, that
+  the figures sit near aer.py's wall AER (about 1570) after a few minutes, and
+  that Nh is the hub count (about 560, fewer if marks are lost).  Known limit:
+  .ev marks are LOGPTAG kind and lossy, so the figure is rough.
 - FEEDSTAT per-tick timing.
 - ACB ship rate (BOGOMS_PER_FRAME, EP_ACacheBlock.cpp) is a low-priority
   knob.  To check ACB is not crowding IH, add a dotted `.ab` mark at the

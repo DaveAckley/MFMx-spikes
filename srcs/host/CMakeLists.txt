@@ -20,6 +20,7 @@ target_sources(MFMx PRIVATE
     src/HostUtils.cpp
     src/ImageManager.cpp
     src/Layout.cpp
+    src/LiveAER.cpp
     src/OurMutex.cpp
     src/OurTLBs.cpp
     src/QuietBox.cpp
