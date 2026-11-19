@@ -21,7 +21,7 @@ SITES_PER_HUB = 138 * 108       # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 WINDOWS = (60, 300)             # seconds
 STALE_SECS = 90.0               # host seconds without a new mark
 BAD_RUN = 3                     # backwards samples in a row we believe
-TRIM = 0.05                     # fraction dropped at each end of the hubs
+MAX_AER = 1000.0                # a hub rate above this is a torn mark
 MIN_SPAN_FRAC = 0.5             # a window needs this much of itself filled
 
 
@@ -76,15 +76,15 @@ class LiveAER:
 
     @staticmethod
     def _mean_maer(rates):
-        """Trimmed mean of the per-hub rates (events/s): marks are lossy and
-        a few come torn, and a single wild hub must not move the figure."""
-        rates = sorted(r for r in rates if r >= 0)
+        """Mean of the per-hub rates (events/s), as aer.py sums every event.
+        NOT trimmed: while the grid fills, hubs differ hugely (sparse hubs
+        burn cheap empty draws at 50+ AER, full ones run near 1.5) and the
+        high ones are real.  Only impossible rates (torn marks that slipped
+        through) are dropped."""
+        cap = MAX_AER * SITES_PER_HUB
+        rates = [r for r in rates if 0 <= r <= cap]
         if not rates:
             return None
-        cut = int(len(rates) * TRIM) if len(rates) >= 20 else 0
-        if cut == 0 and len(rates) >= 20:
-            cut = 1
-        rates = rates[cut:len(rates) - cut]
         return 1000.0 * sum(rates) / len(rates) / SITES_PER_HUB
 
     def window_maer(self, secs):

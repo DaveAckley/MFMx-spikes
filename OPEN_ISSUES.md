@@ -47,6 +47,12 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
+- Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
+  aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
+  figure was trimmed (read low while hubs differ); now a plain mean.  Compare
+  again with misc/mfmxctl-LIVEAER.txt on the next run (aer.py's total starts
+  at the autoseed; the live line's t counts from mfmxctl start).
+
 - Atom CONTENTS match across seams (content-hash slice; user: pass on it
   indefinitely while things look good).
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
@@ -151,6 +157,10 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   itself is by design (lossy DLGridList), not a bug.
 
 ## Cleanup / nice to have
+
+- Link preflight needed 3 extra chip resets (43.8 s) in run 012507:
+  eth7 bh0/bh1, eth4 bh1/bh3, eth13 not Up after 12 s each time.  It
+  recovered by itself; watch whether it is getting worse.
 
 - First-NEW_LEADER `once` hack in `workOnEnteringNewLeaderB` is probably
   removable (zero-initialized loaders make the first save a no-op).

@@ -114,8 +114,9 @@ source, comments, docs and commit messages).
   averages; three significant digits).  mfmxctl logs the line once a minute to misc/mfmxctl-LIVEAER.txt
   and the last one as `live AER final:` in the shutdown output (so it is in
   the .out), to compare with aer.py afterwards.  AER is aer.py's wall AER
-  /1000.  It ignores counters that go backwards (torn marks) and takes a 5%
-  trimmed mean over hubs.  While the grid fills the figure is HIGH (empty
+  /1000.  It ignores counters that go backwards (torn marks) and rates above
+  1000 AER, and takes the PLAIN mean over hubs (a trimmed mean read low:
+  while the grid fills, sparse hubs run at 50+ AER and full ones at 1.5).  While the grid fills the figure is HIGH (empty
   draws are cheap: about 30 AER at 54% fill after 12 min, about 1.6 at steady
   state).
   Self-tests: scripts/aer/liveaer_test.py (python), mock selftest (status

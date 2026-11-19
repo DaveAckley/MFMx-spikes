@@ -107,5 +107,26 @@ check('torn marks among 40 hubs: 1m figure unmoved',
       w1 and abs(w1 - 1000) < 30, w1)
 check('torn marks among 40 hubs: all figure unmoved',
       abs(aer.seed_maer() - 1000) < 30, aer.seed_maer())
+
+# bimodal hubs (a filling grid): 30 full hubs at 1.5 AER, 10 sparse ones at 60;
+# the figure is the plain mean (aer.py counts every event), not a trimmed one
+state = {'seeded': True, 'hubs': []}
+t = [0.0]
+aer = L.LiveAER(lambda: (state['seeded'], list(state['hubs'])),
+                clock=lambda: t[0], gap=0.0)
+evs = {k: 0 for k in range(40)}
+clk = {k: 0 for k in range(40)}
+for step in range(80):
+    t[0] += 6
+    snap = []
+    for k in range(40):
+        evs[k] += int(S * 6 * (60 if k < 10 else 1.5))
+        clk[k] += 6000
+        snap.append((k, evs[k], clk[k]))
+    state['hubs'] = snap
+    aer.update()
+want = (10 * 60 + 30 * 1.5) / 40 * 1000
+check('bimodal hubs: plain mean, not trimmed',
+      abs(aer.window_maer(60) - want) < want * 0.02, (aer.window_maer(60), want))
 print('FAILURES: %d' % fails)
 sys.exit(1 if fails else 0)
