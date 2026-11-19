@@ -52,6 +52,7 @@ Reported:
                   sites of the hubs' own regions)
   --from-start    start the window at the first '.es', not at the autoseed
 """
+import bisect
 import re
 import statistics
 import sys
@@ -100,6 +101,43 @@ def load_marks(path):
             out.append(('ae', int(m.group(1)),
                         int(m.group(3), 16) + int(m.group(4), 16), 0, 0))
     return out
+
+
+def repair_counters(marks):
+    """Marks arrive torn now and then (a truncated or garbled hex field), and
+    a counter that goes backwards turns into a ~2**64 delta.  The counters are
+    cumulative, so the es/ev marks of one hub must never decrease: keep the
+    longest non-decreasing subsequence (by C+R+E) and carry the previous good
+    counts over any mark outside it (nothing is lost: the next good mark
+    covers the gap).  Returns (marks, number repaired)."""
+    idx = [i for i, m in enumerate(marks) if m[0] in ('es', 'ev')]
+    key = [marks[i][2] + marks[i][3] + marks[i][4] for i in idx]
+    tails, tail_at, prev = [], [], [None] * len(idx)   # patience LIS
+    for j, v in enumerate(key):
+        t = bisect.bisect_right(tails, v)
+        if t == len(tails):
+            tails.append(v)
+            tail_at.append(j)
+        else:
+            tails[t] = v
+            tail_at[t] = j
+        prev[j] = tail_at[t - 1] if t else None
+    good = set()
+    j = tail_at[-1] if tail_at else None
+    while j is not None:
+        good.add(j)
+        j = prev[j]
+    out = list(marks)
+    last, fixed = None, 0
+    first_good = next((marks[idx[j]] for j in sorted(good)), None)
+    for j, i in enumerate(idx):
+        if j in good:
+            last = marks[i]
+        else:
+            ref = last if last is not None else first_good
+            out[i] = (marks[i][0], marks[i][1], ref[2], ref[3], ref[4])
+            fixed += 1
+    return out, fixed
 
 
 def cycles_of(marks):
@@ -321,11 +359,15 @@ def main(argv):
     windows = windows or [60, 300]
     per_hub = {}
     seed = None
+    repaired, repaired_hubs = 0, 0
     for tag in hub_tiles(rundir):
         try:
             marks = load_marks('%s/tiles/%s.mfmk' % (rundir, tag))
         except OSError:
             continue
+        marks, nfix = repair_counters(marks)
+        repaired += nfix
+        repaired_hubs += 1 if nfix else 0
         c = cycles_of(marks)
         if c:
             per_hub[tag] = c
@@ -333,6 +375,9 @@ def main(argv):
         if sd and (seed is None or sd[0] < seed[0]):
             seed = sd
     res = analyze(per_hub, None if from_start else seed)
+    if repaired:
+        print('repaired %d torn counter marks in %d hubs (carried the previous '
+              'counts over them)' % (repaired, repaired_hubs))
     report(res, sites or res['hubs'] * SITES_PER_HUB, windows, series,
            verbose)
 

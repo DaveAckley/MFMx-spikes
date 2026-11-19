@@ -231,6 +231,36 @@ check('counters past 2**32 are not truncated',
       sum(c['committed'] for c in res['cycles']) == 2 * 600 * 4, str(
           [c['committed'] for c in res['cycles']]))
 
+# torn counters: one dips low, one spikes high; totals must match a clean run
+d = make_run(4, 10, 100, 6, 4)
+clean = sum(c['committed'] for c in analyze_dir(d)['cycles'])
+for tag, k, mode in (('at00', 3, 'low'), ('at01', 5, 'high')):
+    pth = '%s/tiles/%s.mfmk' % (d, tag)
+    lines, n = open(pth).read().split('\n'), 0
+    for i, line in enumerate(lines):
+        m = aer.MARK.search(line)
+        if m and m.group(2) == 'ev':
+            n += 1
+            if n == k:
+                c = int(m.group(3), 16)
+                lines[i] = mark('ev', int(m.group(1)),
+                                1 if mode == 'low' else c + (1 << 36),
+                                int(m.group(4), 16), int(m.group(5), 16)
+                                ).rstrip()
+    open(pth, 'w').write('\n'.join(lines))
+per, nfix = {}, 0
+for tag in aer.hub_tiles(d):
+    mk, f = aer.repair_counters(aer.load_marks('%s/tiles/%s.mfmk' % (d, tag)))
+    nfix += f
+    c = aer.cycles_of(mk)
+    if c:
+        per[tag] = c
+fixed = sum(c['committed'] for c in aer.analyze(per)['cycles'])
+check('torn counters repaired (2 marks)', nfix == 2, nfix)
+check('repaired run has the clean totals', fixed == clean, (fixed, clean))
+check('unrepaired run is poisoned', sum(c['committed'] for c in
+      analyze_dir(d)['cycles']) > 100 * clean)
+
 # the report prints without error and mentions the pieces
 d = make_run(4, 10, 100, 6, 4)
 out = io.StringIO()

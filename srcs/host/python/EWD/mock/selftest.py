@@ -553,8 +553,8 @@ def scenario_feed_command():
     check("feed: 'feed on' enables frames", "feed on:" in out and "frame tick on" in out, out[-500:])
     # live mAER: the mock MFMx has a fake snapshot; status shows the line
     _rc, lout = run("boot\nstart\nfeed on\nwait 2.5\nstatus\nquit\n")
-    check("live: status shows the AER line", "live: 1m: " in lout and "all: " in lout, lout[-600:])
-    check("live: hubs counted (2h)", " 2h" in lout, lout[-600:])
+    check("live: status shows the AER line", "live: 2 hubs, est. AER: 1m: " in lout and "all: " in lout, lout[-600:])
+    check("live: hubs counted", "live: 2 hubs" in lout, lout[-600:])
     check("feed: 'feed off' stops the tick", "feed frames stopped" in out and rc == 0, out[-500:])
 
 

@@ -5,6 +5,13 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-19  aer.py poisoned by torn counter marks
+Run 002202 read 22,110,145,435,224 mAER: a hub log with a truncated hex field
+(counter went backwards, delta mod 2**64).  aer.py now repairs those marks
+(9 of them in 9 hubs in that run; true figure 107 AER total, 30 AER over the
+last minute while the grid was still only 54 percent full).  The live AER
+got the same guard.
+
 ## 2026-11-19  Live mAER on the stream
 Rough live event rate on the video and in `status`, from a host tap on the
 hubs' `.ev` marks (no log-file tailing).  Visible on the stream at first

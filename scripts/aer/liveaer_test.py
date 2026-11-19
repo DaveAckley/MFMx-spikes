@@ -62,8 +62,7 @@ run(300, per_s * 2)
 check('5 minute figure ~2000', abs(aer.window_maer(300) - 2000) < 30,
       aer.window_maer(300))
 txt = aer.text()
-check('text has the figures', txt.startswith('1m: 2.00 AER  5m: 2.00 AER  '
-      'all: 2.00 AER') and txt.endswith('  2h'), txt)
+check('text has the figures', txt == '2 hubs, est. AER: 1m: 2.00, 5m: 2.00, all: 2.00', txt)
 f = L.LiveAER.fmt_aer
 check('three significant digits',
       [f(x) for x in (123456, 12345, 1234, 123.4, None)]
@@ -80,5 +79,33 @@ check('hub restart: still ~2000', abs(aer.window_maer(60) - 2000) < 100,
 state['hubs'] = []
 t[0] += 200
 check('silent hubs dropped', aer.hubs() == 0 and aer.text() == '', aer.text())
+
+# torn marks among many hubs: one low, one absurdly high; figure stays put
+state = {'seeded': True, 'hubs': []}
+t = [0.0]
+aer = L.LiveAER(lambda: (state['seeded'], list(state['hubs'])),
+                clock=lambda: t[0], gap=0.0)
+NH = 40
+evs = {k: 0 for k in range(NH)}
+clk = {k: 1000 * k for k in range(NH)}
+for step in range(80):                    # 80 marks x 6 s = 480 s
+    t[0] += 6
+    snap = []
+    for k in range(NH):
+        evs[k] += int(S * 6)              # 1000 mAER each
+        clk[k] += 6000
+        v = evs[k]
+        if step in (40, 41) and k == 3:
+            v = 7                         # torn low
+        if step == 50 and k == 5:
+            v = evs[k] * 1000             # torn high
+        snap.append((k, v, clk[k]))
+    state['hubs'] = snap
+    aer.update()
+w1 = aer.window_maer(60)
+check('torn marks among 40 hubs: 1m figure unmoved',
+      w1 and abs(w1 - 1000) < 30, w1)
+check('torn marks among 40 hubs: all figure unmoved',
+      abs(aer.seed_maer() - 1000) < 30, aer.seed_maer())
 print('FAILURES: %d' % fails)
 sys.exit(1 if fails else 0)

@@ -89,7 +89,10 @@ source, comments, docs and commit messages).
   mEWsEmptyCenters in Grid.cpp).  Reports wall and running AER, duty, obsolete
   fraction, trailing windows, --series, and a diag (non-empty-only mAER, fill
   from the `.ae` census).  The window starts at the autoseed (`.as`), or the
-  first `.es` with --from-start.  scripts/aer/aer_test.py is its self-test.
+  first `.es` with --from-start.  Torn counter marks (a hub log now and then
+  has a truncated hex field) are repaired first (repair_counters: longest
+  non-decreasing run, previous counts carried over), else one makes a ~2**64
+  delta and the totals read 1e13 mAER.  scripts/aer/aer_test.py is its self-test.
   Needs the hub image from this commit or later.
 - LIVE AER on the stream (rough reference, not a measurement): the host
   transport thread hands every parsed tile mark to LiveAER::noteMark
@@ -101,9 +104,13 @@ source, comments, docs and commit messages).
   autoseed, using each hub's own clock between its marks, so lost or late
   marks only blur it.  It is a line of its own in the video overlay (between
   the LIVE line above and the version line below; RTMPFeed13 `extra`) and in
-  `status` (`live:`): `1m: 1.57 AER  5m: 1.58 AER  all: 1.57 AER  140h`
-  (three significant digits; all = since the autoseed; h = hubs reporting,
-  140 = every hub: 35 per chip).  AER is aer.py's wall AER /1000.
+  `status` (`live:`): `140 hubs, est. AER: 1m: 1.57, 5m: 1.58, all: 1.57`
+  (three significant digits; all = since the autoseed; the hub count is the
+  hubs reporting, 140 = every hub: 35 per chip).  AER is aer.py's wall AER
+  /1000.  It ignores counters that go backwards (torn marks) and takes a 5%
+  trimmed mean over hubs.  While the grid fills the figure is HIGH (empty
+  draws are cheap: about 30 AER at 54% fill after 12 min, about 1.6 at steady
+  state).
   Self-tests: scripts/aer/liveaer_test.py (python), mock selftest (status
   line), and a standalone g++ check of LiveAER.cpp.
 - scripts/cachecensus/cachecensus.py  per-neighbor cache occupancy from the

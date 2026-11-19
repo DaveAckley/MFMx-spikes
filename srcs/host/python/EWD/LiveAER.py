@@ -20,6 +20,8 @@ import time
 SITES_PER_HUB = 138 * 108       # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 WINDOWS = (60, 300)             # seconds
 STALE_SECS = 90.0               # host seconds without a new mark
+BAD_RUN = 3                     # backwards samples in a row we believe
+TRIM = 0.05                     # fraction dropped at each end of the hubs
 MIN_SPAN_FRAC = 0.5             # a window needs this much of itself filled
 
 
@@ -32,6 +34,7 @@ class LiveAER:
         self.gap = gap                    # min host secs between snapshots
         self.hist = {}                    # key -> deque of (events, ms, host_t)
         self.seed_base = None             # key -> (events, ms) at first sight
+        self.bad = {}                     # key -> backwards samples in a row
         self.last = None
 
     def update(self):
@@ -48,6 +51,17 @@ class LiveAER:
                 continue                  # no new mark from this hub
             if h and ms < h[-1][1]:
                 h.clear()                 # hub restarted: its clock went back
+                self.bad[key] = 0
+            elif h and ev < h[-1][0]:
+                # counters only grow: a torn mark.  Skip it, unless the next
+                # few agree with it (then the earlier one was the torn one).
+                self.bad[key] = self.bad.get(key, 0) + 1
+                if self.bad[key] < BAD_RUN:
+                    continue
+                h.clear()
+                self.bad[key] = 0
+            else:
+                self.bad[key] = 0
             h.append((ev, ms, now))
             while len(h) >= 2 and h[1][1] <= ms - keep:
                 h.popleft()               # keep one anchor older than a window
@@ -62,8 +76,15 @@ class LiveAER:
 
     @staticmethod
     def _mean_maer(rates):
+        """Trimmed mean of the per-hub rates (events/s): marks are lossy and
+        a few come torn, and a single wild hub must not move the figure."""
+        rates = sorted(r for r in rates if r >= 0)
         if not rates:
             return None
+        cut = int(len(rates) * TRIM) if len(rates) >= 20 else 0
+        if cut == 0 and len(rates) >= 20:
+            cut = 1
+        rates = rates[cut:len(rates) - cut]
         return 1000.0 * sum(rates) / len(rates) / SITES_PER_HUB
 
     def window_maer(self, secs):
@@ -115,14 +136,14 @@ class LiveAER:
 
     def text(self):
         """One line for the overlay, '' until any hub has reported:
-        '1m: 1.57 AER  5m: 1.58 AER  all: 1.57 AER  140h'  (all = since
-        the autoseed; h = hubs reporting)."""
+        '140 hubs, est. AER: 1m: 1.57, 5m: 1.58, all: 1.57'  (all = since
+        the autoseed)."""
         n = self.hubs()
         if n == 0:
             return ""
         parts = []
         for w in self.windows:
             label = "%dm" % (w // 60) if w % 60 == 0 else "%ds" % w
-            parts.append("%s: %s AER" % (label, self.fmt_aer(self.window_maer(w))))
-        parts.append("all: %s AER" % self.fmt_aer(self.seed_maer()))
-        return "  ".join(parts) + "  %dh" % n
+            parts.append("%s: %s" % (label, self.fmt_aer(self.window_maer(w))))
+        parts.append("all: %s" % self.fmt_aer(self.seed_maer()))
+        return "%d hubs, est. AER: %s" % (n, ", ".join(parts))
