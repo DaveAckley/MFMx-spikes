@@ -14,8 +14,11 @@ ERISC_NOTES.md.
   27 s, fixed-looking after 3516d21 (keepalive pacing, idle dup 133 -> 150 per
   30 s) and about three clean viewings (Firefox + ffplay) that then looked
   like a fix.  So the pacing was at best a contributing factor.  A page
-  refresh recovers it, so frames are still being produced.  Next: this run's
-  misc/mfmxctl-FEEDSTAT.txt (dup near 150? maxgap?), the mediamtx log around
+  refresh recovers it, so frames are still being produced.  FEEDSTAT of that
+  run (005507): the feed was HEALTHY through bring-up (idle dup 150-151 per
+  30 s, maxgap 0.00 s, maxwrite 0.02-0.06 s), then real 153 per 30 s: the
+  freeze is NOT the feed pacing; suspect the player (hls.js) or mediamtx.
+  Next: the mediamtx log around
   the freeze (`journalctl -u mediamtx --since .. --until ..`, mask pass=),
   and run ffplay AND Firefox together from the start: if only Firefox stalls
   it is the player (hls.js) or its buffer, not the feed.
