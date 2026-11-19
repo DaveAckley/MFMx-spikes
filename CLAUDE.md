@@ -108,9 +108,10 @@ source, comments, docs and commit messages).
   autoseed, using each hub's own clock between its marks, so lost or late
   marks only blur it.  It is a line of its own in the video overlay (between
   the LIVE line above and the version line below; RTMPFeed13 `extra`) and in
-  `status` (`live:`): `140 hubs, est. AER: 1m: 1.57, 5m: 1.58, all: 1.57`
-  (three significant digits; all = since the autoseed; the hub count is the
-  hubs reporting, 140 = every hub: 35 per chip).  AER is aer.py's wall AER
+  `status` (`live:`): `[140] est. AER: 1.57, 1.58, 1.57`
+  ([N] = hubs reporting, 140 = every hub: 35 per chip; then the last 1 minute,
+  last 5 minutes and all since the autoseed, in that order like top's load
+  averages; three significant digits).  AER is aer.py's wall AER
   /1000.  It ignores counters that go backwards (torn marks) and takes a 5%
   trimmed mean over hubs.  While the grid fills the figure is HIGH (empty
   draws are cheap: about 30 AER at 54% fill after 12 min, about 1.6 at steady

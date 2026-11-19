@@ -135,15 +135,13 @@ class LiveAER:
         return "%.3f" % v
 
     def text(self):
-        """One line for the overlay, '' until any hub has reported:
-        '140 hubs, est. AER: 1m: 1.57, 5m: 1.58, all: 1.57'  (all = since
-        the autoseed)."""
+        """One short line for the overlay, '' until any hub has reported:
+        '[140] est. AER: 1.57, 1.58, 1.57'.  [N] is the hubs reporting; the
+        three figures are the last 1 minute, the last 5 minutes and all (since
+        the autoseed), in that order, like the load averages of top."""
         n = self.hubs()
         if n == 0:
             return ""
-        parts = []
-        for w in self.windows:
-            label = "%dm" % (w // 60) if w % 60 == 0 else "%ds" % w
-            parts.append("%s: %s" % (label, self.fmt_aer(self.window_maer(w))))
-        parts.append("all: %s" % self.fmt_aer(self.seed_maer()))
-        return "%d hubs, est. AER: %s" % (n, ", ".join(parts))
+        figs = [self.fmt_aer(self.window_maer(w)) for w in self.windows]
+        figs.append(self.fmt_aer(self.seed_maer()))
+        return "[%d] est. AER: %s" % (n, ", ".join(figs))

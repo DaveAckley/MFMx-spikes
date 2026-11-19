@@ -62,7 +62,7 @@ run(300, per_s * 2)
 check('5 minute figure ~2000', abs(aer.window_maer(300) - 2000) < 30,
       aer.window_maer(300))
 txt = aer.text()
-check('text has the figures', txt == '2 hubs, est. AER: 1m: 2.00, 5m: 2.00, all: 2.00', txt)
+check('text has the figures', txt == '[2] est. AER: 2.00, 2.00, 2.00', txt)
 f = L.LiveAER.fmt_aer
 check('three significant digits',
       [f(x) for x in (123456, 12345, 1234, 123.4, None)]
