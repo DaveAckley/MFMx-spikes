@@ -18,6 +18,14 @@ ERISC_NOTES.md.
   run (005507): the feed was HEALTHY through bring-up (idle dup 150-151 per
   30 s, maxgap 0.00 s, maxwrite 0.02-0.06 s), then real 153 per 30 s: the
   freeze is NOT the feed pacing; suspect the player (hls.js) or mediamtx.
+  MORE DATA 2026-11-19 (width137 builds): three more freezes, all at the NO
+  DATA banner with the seconds counter stuck at 13, 13 and 14 s, two of them
+  during bring-up (runs 113217 pre-start, honest11, seam12) and one right after
+  fullscreening the video (the fullscreen and the closed JS console were
+  probably coincidence); Esc did nothing, a page refresh fixed each.  All
+  five known freezes (13, 13, 14, 27, 46 s) are in the NO DATA gap at
+  bring-up, so the player (hls.js) seems not to resume after a gap in frames.
+  Not yet checked: whether a long gap is created host-side at bring-up.
   Next: the mediamtx log around
   the freeze (`journalctl -u mediamtx --since .. --until ..`, mask pass=),
   and run ffplay AND Firefox together from the start: if only Firefox stalls
