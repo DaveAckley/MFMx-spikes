@@ -8,6 +8,17 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
+  page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
+  seam6 run on c18fc98; no ffplay was connected that time.  Earlier: freeze at
+  27 s, fixed-looking after 3516d21 (keepalive pacing, idle dup 133 -> 150 per
+  30 s) and about three clean viewings (Firefox + ffplay) that then looked
+  like a fix.  So the pacing was at best a contributing factor.  A page
+  refresh recovers it, so frames are still being produced.  Next: this run's
+  misc/mfmxctl-FEEDSTAT.txt (dup near 150? maxgap?), the mediamtx log around
+  the freeze (`journalctl -u mediamtx --since .. --until ..`, mask pass=),
+  and run ffplay AND Firefox together from the start: if only Firefox stalls
+  it is the player (hls.js) or its buffer, not the feed.
 - HANG (seen once, run 125641 at PACKET_SLEEP_CYCLES=100,000; 1 hang in 4
   later and earlier long runs): cycle 250, bolt #500 RUN_EVENTS TIMEOUT.  10
   of 140 hubs on bh1 never acked: a cross of column x=12 and row y=9 around

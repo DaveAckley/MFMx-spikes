@@ -31,13 +31,5 @@ clean (cars out == in == noc, txfail/nocfail 0, no retrain, FEC uncorrected
     bottleneck (what is left is the host bolt path and the dwell).
 Tools born on the way: `.xb/.xe` marks, scripts/xchg/xchg.py, scripts/aer/.
 
-## 2026-11-19  Video stream lockup at bring-up (PROVISIONAL)
-"NO NEW DATA 27s", cured by a page refresh.  The keepalive repeated frames
-12 percent slow (dup 133 per 30 s instead of 153), so the stream ran slow and
-a ~3 s player buffer drained.  Fixed in 3516d21 (repeats counted from when
-the previous one was DUE).  Idle dup is now 150; Firefox and ffplay stayed up
-through bring-up.  Reopen if it recurs (then check the player and mediamtx
-log).  ffplay's "duplicated MOOV atom" message is harmless.
-
 ## 2026-11-19  ZHD counter zero-init
 `#N` in the HAR lines is now a sane running count (61cb6de).
