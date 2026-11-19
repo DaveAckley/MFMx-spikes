@@ -153,6 +153,22 @@ namespace MFM::DG {
   static constexpr U16C getGlobalGridSize() {
     return U16C(DEMO_GLOBAL_GRID_WIDTH,DEMO_GLOBAL_GRID_HEIGHT);
   }
+  /* DISPLAY ONLY.  A hub's T6Grid is drawn into the 1920x1080 image with
+     its N and W cache rings cropped away, so a hub's SELF sites land on
+     its own global site coordinates: gridc is the hub origin plus the
+     T6Grid coord, pixel = gridc - getGlobalGridOffset().  Rings of the first hub row/column (permanent
+     array edges) fall off the top/left; a full QuietBox is 14 x 138 =
+     1932 sites wide, so the last 12 columns fall off the right.  The
+     hubs are not told: they run all their sites.  False if the site is
+     cropped away at the top/left (the caller skips it); the image's own
+     setPixel drops anything past the right/bottom. */
+  static bool gridCoordToPixel(U16C gridc, U16C & pix) {
+    if (gridc.x < T6GRID_OVERLAP_WIDTH || gridc.y < T6GRID_OVERLAP_HEIGHT)
+      return false;
+    pix = U16C((u16) (gridc.x - T6GRID_OVERLAP_WIDTH),
+               (u16) (gridc.y - T6GRID_OVERLAP_HEIGHT));
+    return true;
+  }
   static constexpr U16C getGlobalGridOffset() { return U16C(T6GRID_OVERLAP_WIDTH,T6GRID_OVERLAP_HEIGHT); }
   static constexpr U16C getSingleT6GridBaseSize() { return U16C(T6GRID_BASE_WIDTH,T6GRID_BASE_HEIGHT); } //< EXCLUDING caches
   static constexpr U16C getSingleT6GridSize() { return U16C(T6GRID_WIDTH,T6GRID_HEIGHT); } //< including caches

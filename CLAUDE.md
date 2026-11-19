@@ -70,6 +70,13 @@ source, comments, docs and commit messages).
   0-1-3-2; E/W links x=6,7,10,11; N/S links x=3,4,12,13.
 - scripts/feed/keepalive_test.py  simulates the RTMPFeed keepalive pacing
   (old vs new rule, repeats per 30 s).
+- DISPLAY CROP (DemoGlobal.h gridCoordToPixel): hub T6Grids are drawn into the
+  1920x1080 image minus their N/W cache rings (pixel = hub origin + grid coord
+  - 10), so hub origins sit at multiples of 138 x 108 (the cross marks), the
+  permanent-edge rings of the first hub row/column are not shown, and a full
+  QuietBox (chip pitch 966, 14 x 138 = 1932 sites) loses its last 12 columns
+  off the right edge; 10 x 108 = 1080 fits exactly.  Display only: the hubs run
+  all their sites, and qb.setSimAtom keeps its old coordinates.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

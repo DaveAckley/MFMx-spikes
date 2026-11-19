@@ -513,7 +513,8 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
         }
         {
-          U16C pixc = t6origin+atomc;
+          U16C pixc;
+          if (!DG::gridCoordToPixel(t6origin+atomc, pixc)) continue; // N/W rings cropped
           bgr.setPixel(pixc, c);
           EACH(10'000'000,Eprintf("RITE2@%u(%u,%u) = #%02x%02x%02x\n", __EACHNUM__, pixc.x,pixc.y, c.mRGB[0],c.mRGB[1],c.mRGB[2]));
           //RGBPix reread = bgr.getPixel(pixc);

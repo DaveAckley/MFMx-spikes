@@ -137,7 +137,7 @@ namespace MFM {
                        t6i.mT6GridOrigin.y + ar.mCoord.y);
 
             if (qb.mDrawGrid) {
-              U16C nocacheo = o + DG::getGlobalGridOffset() + U16C(4,4); // (4,4) to get into EW center range
+              U16C nocacheo = o + U16C(4,4); // hub origin (rings are cropped from the image), (4,4) to get into EW center range
               RGBPix fg(255,255,255), bg(0,0,0);
               /*
               std::string label = mBHTag.to_string() + "\n" +
@@ -159,7 +159,9 @@ namespace MFM {
               });
             
             RGBPix color = renderPhysicsHACK(ar.mAtom);
-            bgr.setPixel(gridc,color);
+            U16C pixc;
+            if (DG::gridCoordToPixel(gridc,pixc)) // N/W rings cropped, DG.h
+              bgr.setPixel(pixc,color);
             qb.setSimAtom(gridc,ar.mAtom);
           }
         }
