@@ -129,11 +129,15 @@ CACHE_POLICIES = ("supercell", "fourcorners")   # CachePolicyId 0, 1 (CachingPol
 
 
 def leximit(n):
-    """Leximited decimal: digit count, then the digits, so names sort in
-    numeric order as plain text: 0..9 -> 10..19, 10..99 -> 210..299,
-    100..999 -> 3100..3999."""
+    """Leximited decimal: names sort in numeric order as plain text.  Up to
+    8 digits it is <LEN><DIGITS>: 0..9 -> 10..19, 10..99 -> 210..299,
+    100..999 -> 3100..3999.  Longer than that it is 9<LEX LEN><DIGITS>,
+    the length itself leximited: 9 digits -> 919<DIGITS>, 10 digits ->
+    9210<DIGITS>, 100 digits -> 93100<DIGITS>."""
     s = str(int(n))
-    return f"{len(s)}{s}"
+    if len(s) <= 8:
+        return f"{len(s)}{s}"
+    return "9" + leximit(len(s)) + s
 
 
 B36 = "0123456789abcdefghijklmnopqrstuvwxyz"

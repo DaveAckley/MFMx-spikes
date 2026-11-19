@@ -584,6 +584,10 @@ def scenario_dumpl1():
     import machine as MA
     seq = [MA.leximit(n) for n in (0, 1, 9, 10, 11, 99, 100, 999)]
     check("dumpl1: leximited counter", seq == ["10", "11", "19", "210", "211", "299", "3100", "3999"], str(seq))
+    big = [MA.leximit(n) for n in (10**7, 10**8 - 1, 10**8, 10**9, 10**99)]
+    check("dumpl1: leximited beyond 8 digits",
+          big == ["81" + "0" * 7, "8" + "9" * 8, "919" + "1" + "0" * 8,
+                  "9210" + "1" + "0" * 9, "93100" + "1" + "0" * 99], str(big[:4]))
     check("dumpl1: tags", MA.parse_tile_range("at023") == ((0, 0), (2, 2), (3, 3))
           and MA.parse_tile_range("at1ag-at2bz") == ((1, 2), (10, 11), (16, 35)),
           str(MA.parse_tile_range("at023")))
