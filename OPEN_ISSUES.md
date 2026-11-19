@@ -8,15 +8,11 @@ ERISC_NOTES.md.
 
 ## Bugs
 
-- Video stream locks up at bring-up ("NO NEW DATA 27s", a page refresh fixes
-  it).  Suspect: while idle (bring-up, about 107 s) the keepalive sent about
-  4.5 repeats/s instead of 5.1 (FEEDSTAT dup 133-136 per 30 s vs 153), so the
-  stream ran 12 percent slow and drained a ~3 s player buffer in about 27 s.
-  Cause: each repeat was due one period after the previous one STARTED, and
-  the 39 ms poll plus 70 ms render quantized it to about 226 ms.  Fixed:
-  due now counts from when the previous repeat was DUE (repeatBase).
-  Unproven on hardware: expect dup near 153 per 30 s during bring-up and no
-  lockup.  If it still locks up, look at the player/media server instead.
+- Video stream lockup at bring-up: PROVISIONALLY SOLVED (user call, runs
+  211051 and later).  Keepalive repeats were paced 12 percent slow (dup 133 per
+  30 s vs 153); fixed in 3516d21 (repeatBase); idle dup now 150, and Firefox
+  and ffplay stayed up through bring-up.  Reopen only if it recurs; then look
+  at the player/mediamtx log.  ffplay's "duplicated MOOV atom" is harmless.
 - HANG at PACKET_SLEEP_CYCLES=100,000 (run 125641, seam9-10.out): cycle 250,
   bolt #500 RUN_EVENTS TIMEOUT 10.2 s; 130/140 hubs on bh1 acked, 10 lamers
   (TLBI 23,51,79,99,101,103,105,107,109,135 = at1c3 at1c5 at1c7 at129 at149
@@ -57,8 +53,9 @@ ERISC_NOTES.md.
   seams out=in=noc=304890, txfail 0, nocfail 0, no .xw stall (STALLS: none).
   So the hang is intermittent: 1 hang in 2 runs (246 and 565 cycles).  Still
   unexplained and still possible at 100k; the .xw heartbeat, sweep-on-timeout
-  and HB-ring fixes remain unproven on a real hang.  Keep 100k for further
-  runs on 3516d21 or later to catch it.
+  and HB-ring fixes remain unproven on a real hang.  PACKET_SLEEP_CYCLES is now 0 for all
+  further runs (user decision after run 211051); the diagnostics (.xw, sweep on
+  timeout, HB ring) stay in; revisit only if a hang recurs.
 
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
