@@ -74,9 +74,13 @@ withPermanentEdges, `.pe:MASK` mark per hub).  RUN on the 4-card QB, run
 080358 (15 min, fourcorners): `.pe` correct on all 140 hubs (96 zero; 12 N,
 12 S, 8 W, 8 E single-bit; 4 corners 3/6/9/c; 44 edge hubs as the host test
 predicts), no errors in the log, live AER final 1.39 (1m).  The AER fell from
-~150 as the grid filled and was flat at the end.  STILL UNCHECKED: edge-hub
-ring sites EMPTY after a run (no dumps taken), edge AER/fill vs run 024650,
-the cropped stream image.  Original scope follows.  Four corners is
+~150 as the grid filled and was flat at the end.  RING CHECK DONE, run 113217 (width 137, first dumpl1 + l1grid.py): hub at023
+(NW corner, .pe:3) had its N and W rings 100% EMPTY (0 of 1570 and 0 of 1280
+sites) while SELF was 97.8% occupied and the S/E cache strips were 60-90% full;
+live AER final 1.50, no errors; `.pe` masks identical to run 080358.  The
+cropped stream image was judged good by eye (crosses 137 apart, blank strip at
+the right).  STILL UNCHECKED: edge AER/fill vs run 024650 (needs dumps of an
+interior hub and an edge hub in the same run).  Original scope follows.  Four corners is
 now the default policy (supercell is `policy supercell`).
 
 The MFM rule (user): at a PERMANENT physical edge of the array, random event
