@@ -95,7 +95,7 @@ check('xw: last beat', last and last['ms'] == 2000 and last['kind'] == 1
       and last['need'] == 0xa and last['ldr'] == 4, last)
 out = []
 xchg.say_stalls({'at1c9': (last, n)}, out.append)
-check('xw: report names waited dirs', 'NE,SE' in ' '.join(out), out)
+check('xw: report names waited dirs (0xa = NW,SW)', 'NW,SW' in ' '.join(out), out)
 out = []
 xchg.say_stalls({}, out.append)
 check('xw: none', 'none' in out[0], out)

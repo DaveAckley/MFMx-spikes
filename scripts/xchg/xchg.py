@@ -13,7 +13,7 @@ exchange phase of every supercycle:
   .xw:K:MS:N:L:IN:OUT   HEARTBEAT, once a second while NOT ready (a phase
                normally ends in well under 1 s, so any .xw is a stall):
                MS ms into the phase, N hex mask of Dir8s still wanting a
-               packet (bit 0 = D8_NT, clockwise), L mask of Dir8s whose peer
+               packet (bit 0 = D8_NT, counter-clockwise: NT NW WT SW ST SE ET NE), L mask of Dir8s whose peer
                is the leader, IN / OUT 8 hex digits: car ring lengths per
                Dir8 (COMM2COMP / COMP2COMM).  Printed as 'STALLS'.
 where P (hex) is the number of packets this hub loaded or unloaded in the
@@ -44,7 +44,7 @@ XB = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xb:([0-9a-f]+)\}')
 XE = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xe:([0-9a-f]+):([0-9a-f]+)\}')
 XW = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xw:([0-9a-f]+):([0-9a-f]+):'
                 r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
-DIRS = ('NT', 'NE', 'ET', 'SE', 'ST', 'SW', 'WT', 'NW')
+DIRS = ('NT', 'NW', 'WT', 'SW', 'ST', 'SE', 'ET', 'NE')   # MDist.h Dir8 order
 BOLT = re.compile(r'bolt #\d+ (NEW_LEADER|RUN_EVENTS)\(.*\) CONSENSUS '
                   r'([0-9.]+)s')
 NAMES = ('SAVE', 'LOAD')
