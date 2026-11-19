@@ -106,11 +106,17 @@ Scope (no HostBlock change, no HostFlags bit):
     policy value (4 toward, 24 / 134 / 104 away).  A per-side override on the
     EventBounds that CachingPolicies::bounds() returns, so it applies to
     supercell too.  Add the permanent flags to cachepolicy_test.cpp.
- 4. Decide the read semantics: the spec says reads return EMPTY plus a
-    separate isAccessible(); today physics sees the INACCESSIBLE atom type
-    and checks it (DREG does).  Either keep that or add
-    EventWindow::isAccessible(sn) and have readEW load EMPTY for them with
-    writeEW dropping; swap() with an inaccessible site currently refuses.
+ 4. DECIDED (user, 2026-11-19), the MFM/T2 rule: physics MAY call
+    isAccessible(sn); if it just touches an inaccessible site anyway, a read
+    returns EMPTY and a write is silently discarded.  swap() with an
+    inaccessible site keeps returning false.  So: add
+    EventWindow::isAccessible(sn) (a 41-bit mask filled by readEW), readEW
+    loads EMPTY for those sites (physics no longer sees INACCESSIBLE_TYPE as a
+    type; DREG's explicit check becomes an optional isAccessible call), and
+    writeEW discards writes to them.  Consequence wanted by the user: the
+    caches along permanent edges are never used, so they stay EMPTY from
+    initialisation and never change (nothing exports into them, nothing
+    writes into them, events never reach them with a write).
  5. Host/AER: the viewer already draws INACCESSIBLE (EWControl, ZHostDecompressor);
     AER sites stay 138x108 per hub.  Edge events now run over partly
     inaccessible windows (still count as events).  Expect a small AER/density
