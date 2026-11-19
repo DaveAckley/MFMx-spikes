@@ -27,8 +27,9 @@ def check(name, cond, detail=""):
         fails.append(name)
 
 
-def run(script, api="async", extra_args=(), timeout=90):
-    env = dict(os.environ, MFMX_MOCK_API=api, MFMX_MOCK_SIMDIR=tempfile.mkdtemp(prefix="selftest-"))
+def run(script, api="async", extra_args=(), timeout=90, env_extra=None):
+    env = dict(os.environ, MFMX_MOCK_API=api, MFMX_MOCK_SIMDIR=tempfile.mkdtemp(prefix="selftest-"),
+               **(env_extra or {}))
     p = subprocess.run([sys.executable, CTL, "--mock", *extra_args], input=script,
                        capture_output=True, text=True, timeout=timeout, env=env)
     return p.returncode, p.stdout + p.stderr
@@ -605,6 +606,22 @@ def scenario_dumpl1():
     check("dumpl1: prefix required, other tile types refused",
           "bad tile tag '023'" in out and "tile type 'e' is not supported" in out, out[-1500:])
     check("dumpl1: usage", "usage: dumpl1" in out, out[-1500:])
+
+
+def scenario_zhd():
+    import json
+    rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2),    # at0e7, desynced
+            (0, 15, 19900001, 0, 3, 0, 0, False, 0, 0, 0, 0),                  # at023, healthy
+            (2, 111, 500, 5, 0, 0, 1, False, 400, 9000, 9, 1)]                 # recovered
+    rc, out = run("boot\nstart\nzhd\nzhd all\nquit\n", env_extra={"MFMX_MOCK_ZHD": json.dumps(rows)})
+    check("zhd: summary counts", "3 report streams, 1 desynced, 1 recovered" in out
+          and "3 intact reports carried a bad atom" in out, out[-900:])
+    check("zhd: names the desynced hub with the break point",
+          "at0e7 bh0:81 DESYNCED" in out and "broke at report 3270179" in out
+          and "garbage" in out, out[-900:])
+    check("zhd: 'all' lists healthy hubs too", "at023 bh0:15 ok" in out, out[-900:])
+    rc, out = run("boot\nstart\nzhd\nquit\n")
+    check("zhd: no rows is not an error", rc == 0 and "0 report streams" not in out and "no report streams" in out, out[-500:])
 
 
 def scenario_hubgeom():

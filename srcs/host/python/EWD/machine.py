@@ -740,6 +740,63 @@ class Machine:
         # still works at any phase.
         if self.configured and self.inited and self.released():
             self.slowscan(1)
+            self.check_zhd()
+
+    # ---- report stream health (ZHostDecompressor.h) -------------------------------
+    ZHD_KINDS = {0: "?", 1: "reports skipped", 2: "garbage"}
+
+    def zhd_rows(self):
+        """Per-hub report stream health: dicts, [] if the module lacks it."""
+        snap = getattr(self.M, "zhdSnapshot", None)    # absent in old/mock MFMx
+        if snap is None:
+            return []
+        keys = ("chip", "tlbi", "reports", "invalid", "bad_atoms", "consec",
+                "desyncs", "desynced", "at_report", "at_cbytes", "at_packet",
+                "kind")
+        rows = [dict(zip(keys, r)) for r in snap()]
+        for r in rows:
+            x, y = self.tlbi_to_noc(r["tlbi"])
+            r["tag"] = f"at{r['chip']}{b36(x)}{b36(y)}"
+        return sorted(rows, key=lambda r: (r["chip"], r["tlbi"]))
+
+    def zhd_text(self, verbose=False):
+        rows = self.zhd_rows()
+        if not rows:
+            return "zhd: no report streams (module has no zhdSnapshot, or none up)"
+        bad = [r for r in rows if r["desynced"]]
+        ever = [r for r in rows if r["desyncs"] and not r["desynced"]]
+        torn = sum(r["bad_atoms"] for r in rows)
+        out = [f"zhd: {len(rows)} report streams, {len(bad)} desynced"
+               f"{f', {len(ever)} recovered' if ever else ''}; "
+               f"{torn} intact reports carried a bad atom (skipped)"]
+        for r in (rows if verbose else bad):
+            state = "DESYNCED" if r["desynced"] else "ok"
+            out.append(f"  {r['tag']} bh{r['chip']}:{r['tlbi']} {state}: "
+                       f"{r['reports']} good reports, {r['invalid']} bad, "
+                       f"{r['bad_atoms']} bad atoms"
+                       + (f"; broke at report {r['at_report']}, "
+                          f"{r['at_cbytes']} compressed bytes, packet "
+                          f"{r['at_packet']} ({self.ZHD_KINDS.get(r['kind'], '?')})"
+                          if r["desyncs"] else ""))
+        return "\n".join(out)
+
+    def check_zhd(self, every=10.0):
+        """Say it (and log it) when the set of desynced streams changes."""
+        now = time.monotonic()
+        if now - getattr(self, "zhd_checked", -1e9) < every:
+            return
+        self.zhd_checked = now
+        try:
+            bad = tuple(r["tag"] for r in self.zhd_rows() if r["desynced"])
+        except Exception as e:
+            self.zhd_checked = float("inf")      # broken: stop asking
+            self.say(f"zhd check disabled: {e}")
+            return
+        if bad != getattr(self, "zhd_bad", ()):
+            self.zhd_bad = bad
+            text = self.zhd_text()
+            self.say(text)
+            self.logkt("ZHD", f"{self._run_secs():.0f}s {text}")
 
     def _run_secs(self):
         return (time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns) / 1e9

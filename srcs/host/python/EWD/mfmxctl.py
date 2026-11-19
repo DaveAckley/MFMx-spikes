@@ -396,6 +396,8 @@ def main(argv=None):
             lines.append(f"bh{chip}:{tlbi}  {tag}  {img}")
         return "\n".join(lines)
 
+    sh.command("zhd", lambda a: m.zhd_text(verbose=bool(a and a[0] == "all")),
+               "zhd [all]: report-stream health; lists desynced hubs (all: every hub)")
     sh.command("boot", lambda a: m.boot(),
                "boot: configure + chip reset + QuietBox init (as nu1011 did at startup)")
     sh.command("configure", lambda a: m.configure(), "configure: build layout/images/Blackholes from the dtoml")

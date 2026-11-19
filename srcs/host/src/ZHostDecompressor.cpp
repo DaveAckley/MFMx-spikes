@@ -8,6 +8,10 @@
 
 namespace MFM {
   u32 ZHostDecompressor::mMade = 0;
+
+  // Every initted decompressor, for snapshotHealth().
+  static std::mutex theZHDRegistryLock;
+  static std::vector<ZHostDecompressor*> theZHDRegistry;
   
   static RGBPix renderPhysicsHACK(P4Atom a) {
     RGBPix c;
@@ -67,6 +71,16 @@ namespace MFM {
   }
 
   ZHostDecompressor::~ZHostDecompressor() {
+    if (mRegistered) {
+      std::lock_guard<std::mutex> lock(theZHDRegistryLock);
+      for (size_t i = 0; i < theZHDRegistry.size(); ++i) {
+        if (theZHDRegistry[i] == this) {
+          theZHDRegistry.erase(theZHDRegistry.begin() + i);
+          break;
+        }
+      }
+      mRegistered = false;
+    }
     // Destroying a joinable std::thread calls std::terminate, which used
     // to abort the process at exit (one thread per hub).
     stopThread();
@@ -92,6 +106,7 @@ namespace MFM {
       //EACH(1,KTprintf(mBHTag,"<xLZO:%u%u 0x%02x\n",countDecimalDigits(__EACHNUM__),__EACHNUM__,byte));
 
       // consumed a byte. 
+      mOutHist[mOutHistPos++ % OUT_HISTORY] = byte;
       mUncompressedBytesOut++;
       //EACH(1,KTprintf(mBHTag,"HRUB:#%u 0x%02x\n",mUncompressedBytesOut,byte));
       /*EACH(10'000,KTprintf(mBHTag,"AT ZBSink %p %u/%u = %0.1f%%  %0.1fx\n",this,
@@ -108,8 +123,18 @@ namespace MFM {
         u16 spin = (u16) (mAtomReportsReceived&0xffff);
         bool arvalid = ar.isValid(spin);
         bool atomvalid = ar.mAtom.isValid();
-        if (arvalid && atomvalid) {
+        // The spin tracks the TRANSPORT: it advances for every report that
+        // arrived intact, whether or not its atom is any good (the hub can
+        // read an atom while it is changing).  It used to advance only for
+        // good atoms, so one torn atom made every later report look bad.
+        if (arvalid) {
+          noteGoodReport();
           ++mAtomReportsReceived;
+          if (!atomvalid) ++mBadAtoms;   // skipped, not drawn
+        } else {
+          noteBadReport(ar,spin);
+        }
+        if (arvalid && atomvalid) {
           BGRImageHD & bgr = QuietBox::getT6GridImage() ;
           QuietBox& qb = QuietBox::get();
 
@@ -257,6 +282,7 @@ namespace MFM {
           ACacheBlock & nacb = *mCurrentCarACB.second; 
           ACacheBlockPayload & npay = nacb.payload();
           u32 len = npay.getCurrentLength();
+          notePacket(mCurrentCarACB.first, npay);
           if (false && len > 0)
             KTprintf(mBHTag,"First of new: @%u/%u = 0x%02x\n",
                      (u32) 0,
@@ -271,6 +297,119 @@ namespace MFM {
     return -2;                  // blocked, try again
   }
   
+  void ZHostDecompressor::notePacket(u32 car, const ACacheBlockPayload & pay) {
+    PacketRec & r = mPktHist[mPacketsIn % PKT_HISTORY];
+    ++mPacketsIn;
+    u32 len = pay.getCurrentLength();
+    r.mSeq = mPacketsIn;
+    r.mCar = car;
+    r.mFlagsAndLen = pay.mFlagsAndLen;
+    r.mStartOffset = mCompressedBytesIn;
+    for (u32 i = 0u; i < 4u; ++i) {
+      r.mHead[i] = i < len ? pay.mCData[i] : 0u;
+      r.mTail[i] = len >= 4u ? pay.mCData[len-4u+i] : 0u;
+    }
+    if (len >= ACacheBlockPayload::ACBP_BUFFER_SIZE) // never valid: see isValid
+      KTprintf(mBHTag,"ZHD BADPKT #%u car%u len %u flags 0x%04x\n",
+               mPacketsIn,car,len,pay.getCurrentFlags());
+  }
+
+  void ZHostDecompressor::noteGoodReport() {
+    if (mConsecInvalid == 0u) return; // the common case: nothing to do
+    std::lock_guard<std::mutex> lock(mHealthLock);
+    // Only reachable if a stream comes back by itself (a recovery).
+    KTprintf(mBHTag,"ZHD RESYNC chip%u t%u after %u bad reports, now #%llu\n",
+             mChipNum,mTLBI,mConsecInvalid,(unsigned long long) mAtomReportsReceived);
+    mConsecInvalid = 0u;
+    mDesynced.store(false);
+  }
+
+  void ZHostDecompressor::noteBadReport(const AtomReport & ar, u16 expected) {
+    std::lock_guard<std::mutex> lock(mHealthLock);
+    ++mInvalidTotal;
+    ++mConsecInvalid;
+    if (mConsecInvalid == 1u) {
+      // First bad report of an episode: capture everything now, while
+      // the packet and output history still end at the break.
+      mDesyncAtReport = mAtomReportsReceived;
+      mDesyncAtCBytes = mCompressedBytesIn;
+      mDesyncAtPacket = mPacketsIn;
+      // Both spins equal and merely not the expected one: whole reports
+      // were skipped (or repeated).  Otherwise the bytes are misaligned.
+      mDesyncKind = (ar.mSpin1 == ar.mSpin2) ? 1u : 2u;
+      logDesyncDetail("FIRST-BAD",ar,expected);
+    } else if (mConsecInvalid == DESYNC_THRESHOLD) {
+      ++mDesyncs;
+      mDesynced.store(true);
+      HTprintf("ZHD DESYNC chip%u t%u (%s) at report #%llu, %llu compressed bytes, packet #%u\n",
+               mChipNum,mTLBI,mDesyncKind == 1u ? "reports skipped" : "garbage",
+               (unsigned long long) mDesyncAtReport,
+               (unsigned long long) mDesyncAtCBytes,mDesyncAtPacket);
+      logDesyncDetail("DESYNCED",ar,expected);
+    }
+  }
+
+  void ZHostDecompressor::logDesyncDetail(const char * what,
+                                          const AtomReport & ar, u16 expected) {
+    constexpr u32 OBJ = AtomReportIO::OBJ_SIZE;
+    KTprintf(mBHTag,"ZHD %s chip%u t%u #%llu: expected spin 0x%04x got 0x%04x/0x%04x "
+             "coord (%u,%u) kind %u, %llu compressed B in (%u packets), "
+             "%llu decoded B out (%llu mod %u)\n",
+             what,mChipNum,mTLBI,(unsigned long long) mAtomReportsReceived,
+             expected,ar.mSpin1,ar.mSpin2,ar.mCoord.x,ar.mCoord.y,mDesyncKind,
+             (unsigned long long) mCompressedBytesIn,mPacketsIn,
+             (unsigned long long) mUncompressedBytesOut,
+             (unsigned long long) (mUncompressedBytesOut % OBJ),OBJ);
+    if (what[0] != 'F') return;   // the history only for the first bad one
+    {
+      std::string hex;
+      char b[4];
+      u32 n = mUncompressedBytesOut < OUT_HISTORY ? (u32) mUncompressedBytesOut
+                                                  : OUT_HISTORY;
+      for (u32 i = 0u; i < n; ++i) {
+        snprintf(b,sizeof(b),"%02x ",mOutHist[(mOutHistPos - n + i) % OUT_HISTORY]);
+        hex += b;
+      }
+      KTprintf(mBHTag,"ZHD last %u decoded bytes (oldest first): %s\n",n,hex.c_str());
+    }
+    u32 n = mPacketsIn < PKT_HISTORY ? mPacketsIn : PKT_HISTORY;
+    for (u32 i = 0u; i < n; ++i) {
+      const PacketRec & r = mPktHist[(mPacketsIn - n + i) % PKT_HISTORY];
+      KTprintf(mBHTag,"ZHD pkt#%u car%u flags 0x%04x len %u start %llu head %02x%02x%02x%02x tail %02x%02x%02x%02x\n",
+               r.mSeq,r.mCar,r.mFlagsAndLen & ACacheBlockPayload::ACBP_FLAGS_MASK,
+               r.mFlagsAndLen & ACacheBlockPayload::ACBP_LEN_MASK,
+               (unsigned long long) r.mStartOffset,
+               r.mHead[0],r.mHead[1],r.mHead[2],r.mHead[3],
+               r.mTail[0],r.mTail[1],r.mTail[2],r.mTail[3]);
+    }
+  }
+
+  ZHDHealth ZHostDecompressor::health() const {
+    std::lock_guard<std::mutex> lock(mHealthLock);
+    ZHDHealth h;
+    h.mChip = mChipNum;
+    h.mTLBI = mTLBI;
+    h.mReports = mAtomReportsReceived;       // racy read of a counter: fine
+    h.mInvalid = mInvalidTotal;
+    h.mBadAtoms = mBadAtoms;       // racy read, like mReports
+    h.mConsecInvalid = mConsecInvalid;
+    h.mDesyncs = mDesyncs;
+    h.mDesynced = mDesynced.load();
+    h.mDesyncAtReport = mDesyncAtReport;
+    h.mDesyncAtCBytes = mDesyncAtCBytes;
+    h.mDesyncAtPacket = mDesyncAtPacket;
+    h.mDesyncKind = mDesyncKind;
+    return h;
+  }
+
+  std::vector<ZHDHealth> ZHostDecompressor::snapshotHealth() {
+    std::lock_guard<std::mutex> lock(theZHDRegistryLock);
+    std::vector<ZHDHealth> out;
+    out.reserve(theZHDRegistry.size());
+    for (const ZHostDecompressor * z : theZHDRegistry) out.push_back(z->health());
+    return out;
+  }
+
   void ZHostDecompressor::init(const u32 tlbi, const u32 chipnum) {
     if (mDecompressorThreadPtr) // already initted?
       HOST_FATAL(ILLEGAL_STATE,"Thread already running"); // uwack
@@ -284,6 +423,12 @@ namespace MFM {
     mTLBI = tlbi;
     mChipNum = chipnum;
     mBHTag = BHTag(TagType::T6TADR, (u8) mChipNum, (u32) mTLBI);
+
+    if (!mRegistered) {
+      std::lock_guard<std::mutex> lock(theZHDRegistryLock);
+      theZHDRegistry.push_back(this);
+      mRegistered = true;
+    }
 
     mLZ.init(ZHByteSource, this, ZHByteSink, this);
     //    HTprintf("ZHD %s HERE HALLO %u HARIO MADE %u\n",mBHTag.to_string().c_str(),tlbi,mMade);

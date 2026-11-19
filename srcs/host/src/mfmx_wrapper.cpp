@@ -9,6 +9,7 @@
 #include "BGRImage.h" 
 #include "QuietBox.h" 
 #include "LiveAER.h" // live mAER feed
+#include "ZHostDecompressor.h" // report stream health
 #include "EthSeamHostPy.h" // eth-seam E1 management
 #include "t6-exports.h" // for getMFMxModuleVersion()
 
@@ -38,6 +39,20 @@ PYBIND11_MODULE(MFMx, m) {
     return py::make_tuple(seeded, hubs);
   });
   m.def("liveAERClear", []() { MFM::LiveAER::get().clear(); });
+
+  // Health of every hub's compressed atom-report stream (see ZHDHealth):
+  // [(chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,
+  //   desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind)]
+  m.def("zhdSnapshot", []() {
+    py::list hubs;
+    for (const auto & h : MFM::ZHostDecompressor::snapshotHealth())
+      hubs.append(py::make_tuple(h.mChip, h.mTLBI, h.mReports, h.mInvalid,
+                                 h.mBadAtoms, h.mConsecInvalid, h.mDesyncs,
+                                 h.mDesynced, h.mDesyncAtReport,
+                                 h.mDesyncAtCBytes, h.mDesyncAtPacket,
+                                 h.mDesyncKind));
+    return hubs;
+  });
 
   // Expose the BHTag class
   MFM::BHTag::pybindings(m);

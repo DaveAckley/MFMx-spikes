@@ -112,10 +112,18 @@ source, comments, docs and commit messages).
 - scripts/l1dump/l1grid.py  decodes the T6Grid out of a hub L1 dump (mfmxctl
   `dumpl1 at023` -> <run>/dumps/N/at023.l1) and checks that the PERMANENT-edge
   cache rings are EMPTY (exit 1 if not).  Finds theT6Grid via the hub image's
-  linker map (build_cross/srcs/cross/hub.map, or --map/--addr; 0x7276c at width
-  137 in the cross-build checked here) and the .pe mask from <run>/tiles/TAG.mfmk
+  linker map (build_cross/srcs/cross/hub.map, or --map/--addr; the address moves
+  with every hub build: 0x7276c in the first width-137 build, 0x7274c in the honest
+  one, so use the map of the build that made the run) and the .pe mask from <run>/tiles/TAG.mfmk
   (or --pe).  Parity-checks every atom, so a wrong address shows as WARNING.
   Test: python3 scripts/l1dump/l1grid_test.py.
+- Report stream health (srcs/host/{include,src}/ZHostDecompressor.*): the per-hub
+  compressed atom-report stream has no resync, so one bad byte freezes that hub's
+  tile on screen forever while the hub keeps running (run 124337: 4 of 140 hubs
+  in 2.2 h; OPEN_ISSUES).  The decompressor now counts bad spins, logs FIRST-BAD
+  (last 48 decoded bytes + last 16 packets) in the tile log, declares DESYNCED after
+  20 in a row.  `zhd [all]` in mfmxctl, MFMx.zhdSnapshot(), misc/*-ZHD.txt on change.
+  The spin now advances for every intact report (bad atoms are skipped and counted).
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

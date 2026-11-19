@@ -8,6 +8,38 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- Display tiles freeze ("stuck" hubs): FOUND 2026-11-19 in the 3 h honest seam12
+  (run 124337), diagnostics and a related fix added, cause of the stream break
+  NOT yet known.  Four of 140 hubs stopped updating on screen: at1a3 (~1993 s run
+  clock), at0e7 (~2575 s), at2a5 (~5698 s), at323 (~7783 s).  The hubs themselves
+  kept running (mTotalChanges climbing in dumps 11-14, fill moving), AER stayed
+  ~0.96.  Cause of the freeze: each hub's atom reports reach the host as an LZ
+  stream (lzmfmx, 348 B window, no resync marker) decoded by ZHostDecompressor; the
+  host counts reports and rejects any whose 16 bit spin differs from the count.
+  After the break the tile logs show garbage records (HAR@(4048,20224), spin1 !=
+  spin2) and the host report counter frozen (at0e7 #3270179, at2a5 #8387869, at323
+  #11332202, at1a3 #804273); one lost/duplicated/corrupt compressed byte or packet
+  does that and nothing recovers it.  Healthy hubs reached 13-20 M reports.  Rough
+  rate: 4 breaks in 140 hubs in 2.2 h.  dumpl1 is NOT implicated (the four were
+  never dumped before they froze; the first dump command was at023+at0a7).
+  DONE (this commit): ZHostDecompressor detects it (spin check), logs FIRST-BAD with
+  the last 48 decoded bytes and the last 16 packets (car, flags+len, start offset,
+  head/tail bytes) in the tile log, declares DESYNCED after 20 in a row, and
+  classifies it (kind 1: whole reports skipped, spins consistent; kind 2: garbage,
+  byte misalignment); pybind `MFMx.zhdSnapshot()`; mfmxctl `zhd [all]`; a 10 s tick
+  says and logs (misc/*-ZHD.txt) when the desynced set changes.  Also fixed: the
+  host advanced its expected spin only when the atom's parity was good, so one
+  report with a torn/INACCESSIBLE atom wedged every later report (kind 1 would show
+  it); now the spin follows the transport and bad atoms are only counted
+  (`bad atoms` in `zhd`).  NEXT: read the FIRST-BAD lines of the next occurrence;
+  then (a) recovery: host resets its decoder and asks the hub to restart its
+  compressor (ACBP_FLAG_IS_SOF "reset rb before reading" exists but nothing sets or
+  honours it; needs hub image changes, untestable off the QB), or (b) find the
+  loss (hub byte/packet overwritten before the host reads it, or a host-side
+  race).  Also compare the hub's mCompressedBytesPacked in a dump with the host's
+  compressed bytes consumed.  Note for l1grid.py: theT6Grid is at 0x7274c in the
+  honest build (0x7276c was the older build): pass --map from the run's own build.
+
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
   page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
   seam6 run on c18fc98; no ffplay was connected that time.  Earlier: freeze at

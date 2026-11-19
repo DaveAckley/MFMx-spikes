@@ -111,6 +111,15 @@ def liveAERClear():
     pass
 
 
+def zhdSnapshot():
+    """Report stream health rows (see host ZHostDecompressor.h):
+    (chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,
+     desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind).
+    The selftest sets $MFMX_MOCK_ZHD to a JSON list of such rows."""
+    import json
+    return [tuple(r) for r in json.loads(os.environ.get("MFMX_MOCK_ZHD", "[]"))]
+
+
 def getSimDir():
     if _mock.simdir is None:
         d = os.environ.get("MFMX_MOCK_SIMDIR") or tempfile.mkdtemp(prefix="mfmx-mock-")
