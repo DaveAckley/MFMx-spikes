@@ -39,6 +39,11 @@ namespace MFM {
         saidPolicy = true;
         LOGPTAG(.cp,(u32) policy);   // dotted: survives HBF_NO_UTAG
         HBPTAG(.cp,(u32) policy);
+        // GridManager::init also logs .pe, but init-time marks never reach
+        // the log (run 073346 had no .pe at all); repeat it here, where .cp
+        // is known to get out.
+        LOGPTAG(.pe,(u32) gm.mPermEdges);
+        HBPTAG(.pe,(u32) gm.mPermEdges);
       }
     }
     if (policy == CP_SUPERCELL)

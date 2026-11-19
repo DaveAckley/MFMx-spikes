@@ -81,7 +81,8 @@ source, comments, docs and commit messages).
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no
   neighbor hub.  GridManager::init stores them in mPermEdges (no HostBlock
-  field, no HostFlags bit) and logs `.pe:MASK` (hex) once per hub; the cache
+  field, no HostFlags bit) and logs `.pe:MASK` (hex) once per hub (from
+  configureCacheLoaders next to `.cp`: init-time marks do not reach the log); the cache
   ring on such a side is INACCESSIBLE (GridManager::isAccessible /
   getAtomOrInaccessible: events read INACCESSIBLE_TYPE, setAtomOrDrop drops
   writes, so those caches stay EMPTY from init), and
