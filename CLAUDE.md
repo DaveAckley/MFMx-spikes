@@ -95,7 +95,7 @@ source, comments, docs and commit messages).
   + empty) count only round-tripped events: no empty-grid AER inflation after
   the seed.  The hubs log `.ee:1` (0 in a normal build) next to `.cp`.  Before
   the autoseed fires nothing is shipped in either mode.
-  RESULT, run 20261119-121915 (seam11, 4 cards, 1920x1080 = about 2.07M sites, hub
+  RESULT, run 20261119-121915 (seam11, 4 cards, 1918x1080 = 2,071,440 sites (140 hubs x 14796; the stream image is 1920x1080, 2 blank columns), hub
   width 137, fourcorners, FB1, `.ee:1` on all 140 hubs, 14.3 min): live AER
   final 0.973 (1 min), 0.976 (5 min), 0.979 (whole run), flat from the first
   reading (0.982) to the end; aer.py (110 of 140 hubs kept) wall 0.996, running
@@ -103,7 +103,7 @@ source, comments, docs and commit messages).
   old-mode run 113217).  Old mode, run 113217 last 60 s: wall 1.52 but
   NON-EMPTY-ONLY 1.007 at 72% fill, so the honest bound was always about
   1.0 and the extra was free empty-draw credit (about 1/fill).  Honest
-  reading: ~1 AER on an HD-size grid, with cross-hub and cross-card events,
+  reading: ~1 AER on a 1918x1080 (nearly HD) grid, with cross-hub and cross-card events,
   FB1 physics (cheap; heavier physics lowers it).  NOTE the grid fills MUCH
   more slowly now (fill 3-9% after 14 min, versus 72% by ~12 min in old mode):
   the old mode gave sparse grids a 1/fill time warp.  Use `seed` or a longer
