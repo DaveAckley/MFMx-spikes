@@ -50,8 +50,9 @@ source, comments, docs and commit messages).
   HBPTAG back to back.  Slowscan prints with Eprintf (stderr): capture
   stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):
-  * Fixed a bug or finished an item: delete or update its entry in
-    OPEN_ISSUES.md (and any note in HANDOFF.md) in the SAME commit.
+  * Fixed a bug or finished an item: MOVE its entry from OPEN_ISSUES.md to
+    CLOSED_ISSUES.md (dated, measured numbers kept, story cut), or just
+    update it if still open; any note in HANDOFF.md too, in the SAME commit.
   * Found a bug or idea and did not fix it: add it to OPEN_ISSUES.md before
     the turn ends; chat is not a record.
   * Changed behaviour, an option or a command: update the CLAUDE.md map or
@@ -74,6 +75,7 @@ source, comments, docs and commit messages).
   --bolts to compare against the host bolt times.  Also prints STALLS from
   the `.xw` heartbeat marks (a hub waiting over 1 s).  Self-test xchg_test.py.
 - OPEN_ISSUES.md  the one list of open bugs, unproven things and ideas.
+- CLOSED_ISSUES.md  what got done, newest first (entries move here from OPEN_ISSUES.md).
 - srcs/host/python/EWD/HANDOFF.md  mfmxctl usage, command files (seamtest,
   seamcycle, seamlong, seamns), selftest, ptrace and eth-seam sections.
 - scripts/ptrace/README.txt  packet-trace analyzer (reads RUNDIR/tiles).
