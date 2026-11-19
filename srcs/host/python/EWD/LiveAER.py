@@ -17,7 +17,7 @@ mAER).  A hub that has not logged for a while is dropped from the mean (its coun
 import collections
 import time
 
-SITES_PER_HUB = 138 * 108       # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
+from HubGeometry import SITES_PER_HUB   # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 WINDOWS = (60, 300)             # seconds
 STALE_SECS = 90.0               # host seconds without a new mark
 BAD_RUN = 3                     # backwards samples in a row we believe

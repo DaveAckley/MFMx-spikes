@@ -28,6 +28,8 @@ import random
 import tempfile
 import time
 
+import HubGeometry   # EWD/ is on the path when the mock is used
+
 MAX_BLACKHOLES = 4
 U32_MAX = 0xFFFFFFFF
 
@@ -101,7 +103,7 @@ def liveAERSnapshot():
     """Two fake hubs doing 1000 mAER, seeded after 2 s (see host LiveAER.h)."""
     t = time.monotonic() - _mock.t_start
     ms = int(t * 1000)
-    ev = int(t * 138 * 108)
+    ev = int(t * HubGeometry.SITES_PER_HUB)
     return (t > 2.0, [(0x80000203, ev, ms), (0x80010203, ev, ms + 777)])
 
 

@@ -1,6 +1,7 @@
 #from unidecode import unidecode
 import random
 import FontCache
+import HubGeometry
 from PIL import ImageFont, ImageDraw, Image
 import os
 import time
@@ -172,8 +173,8 @@ class RTMPFeed:
                                                        (0xef,0x2f,0x04), (0x12,0x14,0x12), preload=False)
 
         # NO DATA banner: big, centred; font as 11 chars over 3 grid tiles.  A tile of the
-        # rendered grid is 138 x 108 px (the cross marks in EWControl.cpp).
-        self.staleTilePx = (138,108)
+        # rendered grid is a hub base size in px (the cross marks in EWControl.cpp).
+        self.staleTilePx = (HubGeometry.T6GRID_BASE_WIDTH, HubGeometry.T6GRID_BASE_HEIGHT)
         self.staleTiles = 3
         self.staleText = "NO DATA"
         self.staleSizeChars = 11       # font sized as for "NO NEW DATA"

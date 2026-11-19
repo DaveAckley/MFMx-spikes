@@ -110,6 +110,30 @@ namespace MFM::DG {
   static constexpr u32 PER_BLACKHOLE_GRID_WIDTH = BLACKHOLE_ACTIVE_HUB_WIDTH * T6GRID_BASE_WIDTH;
   static constexpr u32 PER_BLACKHOLE_GRID_HEIGHT = BLACKHOLE_ACTIVE_HUB_HEIGHT * T6GRID_BASE_HEIGHT;
 
+  /* GEOMETRY GUARDS.  Hub sizes are derived above, never repeated as
+     literals elsewhere in C++ (Python: HubGeometry.py, checked against
+     this file by scripts/hubgeom/hubgeom_check.sh).  These catch a
+     change to the inputs that breaks an assumption made downstream. */
+  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH >=
+                DEMO_GLOBAL_GRID_WIDTH,
+                "hubs must cover the global grid width");
+  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT >=
+                DEMO_GLOBAL_GRID_HEIGHT,
+                "hubs must cover the global grid height");
+  static_assert(PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH <
+                DEMO_GLOBAL_GRID_WIDTH +
+                BLACKHOLE_ACTIVE_HUB_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH,
+                "hub width is larger than needed: whole spare columns");
+  static_assert(PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT <
+                DEMO_GLOBAL_GRID_HEIGHT +
+                BLACKHOLE_ACTIVE_HUB_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT,
+                "hub height is larger than needed: whole spare rows");
+  static_assert(T6GRID_WIDTH <= 255u && T6GRID_HEIGHT <= 255u,
+                "NgbCacheMgr stores T6Grid sizes in u8 enums");
+  static_assert(2u * T6GRID_OVERLAP_WIDTH < T6GRID_BASE_WIDTH &&
+                2u * T6GRID_OVERLAP_HEIGHT < T6GRID_BASE_HEIGHT,
+                "cache rings must leave room for a SELF region");
+
   static std::string dumpConstants() {
     std::string ret = "";
 #define XX(C) ret += std::string(XSTR_MACRO(C)) + " = " + std::to_string(C) + "\n"
@@ -157,8 +181,10 @@ namespace MFM::DG {
      its N and W cache rings cropped away, so a hub's SELF sites land on
      its own global site coordinates: gridc is the hub origin plus the
      T6Grid coord, pixel = gridc - getGlobalGridOffset().  Rings of the first hub row/column (permanent
-     array edges) fall off the top/left; a full QuietBox is 14 x 138 =
-     1932 sites wide, so the last 12 columns fall off the right.  The
+     array edges) fall off the top/left; a full QuietBox is
+     QUIETBOX_T6_WIDTH x T6GRID_BASE_WIDTH sites wide (1932 at base
+     width 138), so any excess over the 1920 columns falls off the
+     right.  The
      hubs are not told: they run all their sites.  False if the site is
      cropped away at the top/left (the caller skips it); the image's own
      setPixel drops anything past the right/bottom. */
@@ -191,8 +217,9 @@ namespace MFM::DG {
     return getChipPositionInArray(chipnumber) * getChipSites();
   }
 
-  /* HUBS ARE GLOBALLY CONTIGUOUS.  A chip is 7 x 5 hubs of 138 x 108
-     sites, and chip origins are multiples of that, so hub columns and
+  /* HUBS ARE GLOBALLY CONTIGUOUS.  A chip is BLACKHOLE_ACTIVE_HUB_WIDTH x
+     BLACKHOLE_ACTIVE_HUB_HEIGHT hubs (7 x 5) of T6GRID_BASE_WIDTH x
+     T6GRID_BASE_HEIGHT sites, and chip origins are multiples of that, so hub columns and
      rows simply continue from one chip to the next.  The hub grid is
      divided into 2x2 supercells, and each hub's place in its supercell
      must be counted in GLOBAL hub coordinates.  Counting per chip is

@@ -77,6 +77,13 @@ source, comments, docs and commit messages).
   QuietBox (chip pitch 966, 14 x 138 = 1932 sites) loses its last 12 columns
   off the right edge; 10 x 108 = 1080 fits exactly.  Display only: the hubs run
   all their sites, and qb.setSimAtom keeps its old coordinates.
+- HUB GEOMETRY has ONE source: DemoGlobal.h (DG::T6GRID_BASE_WIDTH etc, with
+  static_assert guards).  C++ derives from it (EWControl cross marks too).
+  Python derives from srcs/host/python/EWD/HubGeometry.py (SITES_PER_HUB,
+  base/ring sizes; used by LiveAER, aer.py, RTMPFeed13, the mock).  Never write
+  138/108/158/128 as literals; run scripts/hubgeom/hubgeom_check.sh (fails if
+  Python and C++ disagree).  Numbers quoted in docs (138, 966, 1932, 14904) are
+  descriptive of the current width, not inputs.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

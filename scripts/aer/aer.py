@@ -48,16 +48,20 @@ Reported:
   trailing        the same over the last N seconds, at the end of the run
   --series S      total-so-far and trailing-S figures every S seconds
   --window W      trailing windows to print (default 60 and 300 s)
-  --sites N       override the site count (default: hubs * 138 * 108, the
+  --sites N       override the site count (default: hubs * SITES_PER_HUB, the
                   sites of the hubs' own regions)
   --from-start    start the window at the first '.es', not at the autoseed
 """
 import bisect
 import re
+import os
 import statistics
 import sys
 
-SITES_PER_HUB = 138 * 108   # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
+# Hub geometry lives in one place (see HubGeometry.py there).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                '..', '..', 'srcs', 'host', 'python', 'EWD'))
+from HubGeometry import SITES_PER_HUB   # T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 SLACK = 2                   # cycles a hub may be short before it is dropped
 U64 = 1 << 64
 U32 = 1 << 32

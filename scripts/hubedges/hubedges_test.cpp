@@ -95,17 +95,26 @@ int main() {
   CHECK(countEdgeHubs({0, 1, 2, 3}, {s01, s23, s02, s13}) == 44,
         "2x2 edge hubs");
 
-  // bounds
-  const EventBounds none = CachingPolicies::withPermanentEdges({4, 24, 134, 104}, 0);
-  CHECK(none.x0 == 4 && none.y0 == 24 && none.x1 == 134 && none.y1 == 104,
+  // bounds (geometry from NgbCacheMgr, so a hub size change needs no edit)
+  const u16 OW = NgbCacheMgr::OW, OH = NgbCacheMgr::OH;
+  const u16 TW = NgbCacheMgr::TW, TH = NgbCacheMgr::TH;
+  const u16 R = 4;   //< event window radius
+  const EventBounds none = CachingPolicies::withPermanentEdges(
+      {R, (u16) (OH + R * 3), (u16) (TW - OW - R), (u16) (TH - OH - R)}, 0);
+  CHECK(none.x0 == R && none.y0 == OH + R * 3 && none.x1 == TW - OW - R &&
+        none.y1 == TH - OH - R,
         "no permanent edge leaves the bounds alone");
-  const EventBounds w = CachingPolicies::withPermanentEdges({24, 24, 134, 104},
-                                                           HubEdges::PE_W);
-  CHECK(w.x0 == 10 && w.y0 == 24 && w.x1 == 134 && w.y1 == 104,
+  const EventBounds w = CachingPolicies::withPermanentEdges(
+      {(u16) (OW + R * 3), (u16) (OH + R * 3), (u16) (TW - OW - R),
+       (u16) (TH - OH - R)}, HubEdges::PE_W);
+  CHECK(w.x0 == OW && w.y0 == OH + R * 3 && w.x1 == TW - OW - R &&
+        w.y1 == TH - OH - R,
         "west edge: x0 is the first real site only");
-  const EventBounds all = CachingPolicies::withPermanentEdges({4, 4, 154, 124},
+  const EventBounds all = CachingPolicies::withPermanentEdges(
+      {R, R, (u16) (TW - R), (u16) (TH - R)},
       HubEdges::PE_N | HubEdges::PE_W | HubEdges::PE_S | HubEdges::PE_E);
-  CHECK(all.x0 == 10 && all.y0 == 10 && all.x1 == 148 && all.y1 == 118,
+  CHECK(all.x0 == OW && all.y0 == OH && all.x1 == TW - OW &&
+        all.y1 == TH - OH,
         "all four edges: the whole self region");
   // every policy and argument: with a W edge the lowest centre is 10, the
   // other sides are untouched, and the other axis is unchanged
@@ -115,7 +124,7 @@ int main() {
       pc.weLead = true; pc.peerLeads = false; pc.noLeader = false;
       EventBounds b = CachingPolicies::bounds((CachePolicyId) pol, (u8) arg, pc);
       EventBounds e = CachingPolicies::withPermanentEdges(b, HubEdges::PE_E);
-      CHECK(e.x1 == 148 && e.x0 == b.x0 && e.y0 == b.y0 && e.y1 == b.y1,
+      CHECK(e.x1 == TW - OW && e.x0 == b.x0 && e.y0 == b.y0 && e.y1 == b.y1,
             "policy %u arg %u: east edge only changes x1", pol, arg);
     }
   }

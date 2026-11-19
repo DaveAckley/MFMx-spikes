@@ -414,7 +414,8 @@ namespace MFM {
       for (idx.x = 0u; idx.x < size.x; ++idx.x) {
         if (false && idx.x % 100 == 0 && idx.y % 100 == 0)
           bgr.setPixel(idx, c);
-        if (idx.x % 138 == 0 && idx.y % 108 == 0)  // hub origins (N/W rings cropped)
+        if (idx.x % DG::T6GRID_BASE_WIDTH == 0 &&
+            idx.y % DG::T6GRID_BASE_HEIGHT == 0)  // hub origins (rings cropped)
           bgr.drawCross(idx, 10, qb.mDrawGrid ? c : t);
       }
     }
