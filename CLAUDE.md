@@ -89,8 +89,12 @@ source, comments, docs and commit messages).
   mEWsEmptyCenters in Grid.cpp).  Reports wall and running AER, duty, obsolete
   fraction, trailing windows, --series, and a diag (non-empty-only mAER, fill
   from the `.ae` census).  The window starts at the autoseed (`.as`), or the
-  first `.es` with --from-start.  Torn counter marks (a hub log now and then
-  has a truncated hex field) are repaired first (repair_counters: longest
+  first `.es` with --from-start.  The hub ends .es/.ev with a '.'
+  (`.ev:C:R:E.`, never hex): a mark without it was cropped in transit (aer.py
+  then treats its counts as bad; runs from older hub images have no dots and
+  are read as before; the live AER needs the dot, so host and hub image go
+  together).  Torn counter marks (a hub log now and then has a truncated hex
+  field) are repaired first (repair_counters: longest
   non-decreasing run, previous counts carried over), else one makes a ~2**64
   delta and the totals read 1e13 mAER.  scripts/aer/aer_test.py is its self-test.
   Needs the hub image from this commit or later.
