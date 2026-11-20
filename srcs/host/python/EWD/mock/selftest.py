@@ -514,6 +514,36 @@ def scenario_abbrev():
     check("abbrev: unknown still unknown", "unknown command 'zzz'" in out)
 
 
+def scenario_abbrev_args():
+    FASTB = FAST
+    rc, out = run("boot\nstart\nq c\n")
+    check("args: 'q c' is quit close", "close chips: bh0 -> HAS_CHIP_NUM" in out, out[-400:])
+    rc, out = run("boot\nstart\nq x\nquit\n")
+    check("args: unknown quit option is refused, not a plain quit",
+          "unknown quit option 'x'" in out and "close chips" not in out, out[-400:])
+    rc, out = run("boot\ngrid of\ngrid o\ngrid on\ngrid\nquit\n")
+    check("args: grid of -> off, o ambiguous, on -> on",
+          "mDrawGrid False" in out and "ambiguous grid 'o'" in out and "mDrawGrid True" in out, out[-600:])
+    rc, out = run("boot\nbolt di of\nbolt di ON\nbolt di x\nquit\n")
+    check("args: bolt diagnose on|off abbreviated, case blind, junk refused",
+          "diagnose-on-timeout False" in out and "diagnose-on-timeout True" in out
+          and "unknown bolt diagnose 'x'" in out, out[-600:])
+    rc, out = run("boot\ncy l ra\ncy b d\ncy b p\ncy b q\ncy l 3\nquit\n")
+    check("args: cycle leader random/N, birth done|pending",
+          "next leader: random" in out and "treated as done" in out and "will be sent first" in out
+          and "unknown cycle birth 'q'" in out and "leader 3" in out, out[-700:])
+    rc, out = run("boot\nstart\nzhd r of\nzhd re on\nzhd r maybe\nzhd a\nzhd zz\nquit\n")
+    check("args: zhd sub/value abbreviations, junk refused",
+          "requests OFF" in out and "requests ON" in out and "unknown zhd restart 'maybe'" in out
+          and "unknown zhd subcommand 'zz'" in out, out[-700:])
+    rc, out = run("boot\nstart\n" + FASTB + "shoot hold 0\nwait 0.8\nshoot new_l 2 1\nwait 0.8\nshoot ru 3\nquit\n")
+    check("args: bolt names abbreviated (hold, new_l; 'ru' ambiguous or unique, never silent junk)",
+          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1) CONSENSUS" in out, out[-700:])
+    rc, out = run("boot\nstart\nseed al\nseed zz\nnuke b\nnuke zz\nquit\n")
+    check("args: seed/nuke options abbreviated, junk refused",
+          "unknown seed option 'zz'" in out and "unknown nuke option 'zz'" in out, out[-700:])
+
+
 def scenario_feed_placeholder():
     rc, out = run("feed on\nwait 1.0\n# PRE\nstatus\nboot\nstart\nwait 1.0\n# POST\nstatus\nquit\n")
     s = sections(out)
@@ -620,7 +650,7 @@ def scenario_zhd():
     check("zhd: restarts done and pending", "1 restarts done, 1 requested and waiting" in out
           and "restart requested, waiting for the hub" in out, out[-900:])
     check("zhd: restart switch", "requests OFF" in out and "zhd restart: requests ON" in out
-          and "usage: zhd restart on|off" in out, out[-900:])
+          and "unknown zhd restart 'maybe'" in out, out[-900:])
     check("zhd: names the desynced hub with the break point",
           "at0e7 bh0:81 DESYNCED" in out and "broke at report 3270179" in out
           and "garbage" in out, out[-900:])

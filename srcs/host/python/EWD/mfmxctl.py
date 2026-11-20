@@ -129,7 +129,7 @@ def main(argv=None):
     from mfmx import MFMx          # real module, or the mock (see setup_paths)
     import Config
     from machine import Machine, NullFeed, fmt_ints
-    from shell import Shell
+    from shell import Shell, AbbrevError
     from sequencer import SuperCycle
 
     sh = Shell(prompt="mfmx> ")
@@ -164,11 +164,25 @@ def main(argv=None):
         if len(args_) < n:
             raise ValueError(f"usage: {usage}")
 
+    def kw(word, choices, what):
+        """A keyword argument, abbreviated like a command: exact match, else the
+        unique choice `word` is a prefix of (case blind); AbbrevError otherwise."""
+        return sh.resolve(word.lower(), choices, what)
+
     def c_shoot(a):
         if not a:
             return ("usage: shoot CMD [int args...]\ncommands: "
                     + ", ".join(m.cmd_names() if m.inited else ["(boot first)"]))
-        b = m.fire(a[0].upper(), [int(x, 0) for x in a[1:]])
+        bolt = a[0].upper()
+        if m.inited:
+            try:
+                bolt = kw(bolt, [n.lower() for n in m.cmd_names()], "bolt command").upper()
+            except AbbrevError as e:
+                if not str(e).startswith("ambiguous"):
+                    pass            # unknown: m.fire explains and lists the real names
+                else:
+                    raise
+        b = m.fire(bolt, [int(x, 0) for x in a[1:]])
         return (f"fired bolt #{b.seq} {b.cmd} nonce={b.nonce}; "
                 f"timeout {b.timeout:g}s (result is reported when it completes)"
                 if m.async_api else None)
@@ -186,7 +200,7 @@ def main(argv=None):
             return f"{a[1].upper()} timeout {float(a[2]):g}s"
         if a[0] == "diagnose":
             need(a, 2, "bolt diagnose on|off")
-            m.diagnose = a[1] == "on"
+            m.diagnose = kw(a[1], ("on", "off"), "bolt diagnose") == "on"
             return f"diagnose-on-timeout {m.diagnose}"
         raise ValueError("usage: bolt [hist | timeout CMD SECS | diagnose on|off]")
 
@@ -201,7 +215,7 @@ def main(argv=None):
         names = [n for n in P.__members__ if n != "STEP_COUNT"]
         if want.isdigit():
             ph = P(int(want))
-        elif want.upper() in names:
+        elif want.upper() in names:     # exact on purpose: setStep is not a place for guessing
             ph = getattr(P, want.upper())
         else:
             raise ValueError(f"unknown step {want!r}; exact names are:\n  " + "\n  ".join(names))
@@ -240,20 +254,22 @@ def main(argv=None):
     def c_grid(a):
         m.need_booted()
         if a:
-            m.qb.mDrawGrid = a[0] == "on"
+            m.qb.mDrawGrid = kw(a[0], ("on", "off"), "grid") == "on"
         return f"mDrawGrid {m.qb.mDrawGrid}"
 
     def c_seed(a):
         m.need_booted()
-        t = 1 if not (a and a[0] == "alt") or m.alt_decay is None else int(m.alt_decay)
+        alt = bool(a) and kw(a[0], ("alt",), "seed option") == "alt"
+        t = 1 if not alt or m.alt_decay is None else int(m.alt_decay)
         r = m.ewc.doSeed(t)
         m.logkt("SEED", r)
         return r
 
     def c_nuke(a):
         m.need_booted()
-        r = m.ewc.doNuke(bool(a and a[0] == "big"))
-        m.logkt("NUKE" if a and a[0] == "big" else "nuke", r)
+        big = bool(a) and kw(a[0], ("big",), "nuke option") == "big"
+        r = m.ewc.doNuke(big)
+        m.logkt("NUKE" if big else "nuke", r)
         return r
 
     def c_cycle(a):
@@ -267,14 +283,16 @@ def main(argv=None):
             cyc.reset()
             return "cycle reset (counters, leader memory, birth-hold flag)"
         if sub == "leader":
-            return cyc.set_leader(None if len(a) < 2 or a[1] == "random" else a[1])
+            n = None if len(a) < 2 or (not a[1].isdigit() and
+                                       kw(a[1], ("random",), "cycle leader") == "random") else a[1]
+            return cyc.set_leader(n)
         if sub == "first":
             need(a, 2, "cycle first N")
             cyc.first_leader = int(a[1])
             return f"first leader {cyc.first_leader}"
         if sub == "birth":
             need(a, 2, "cycle birth done|pending")
-            cyc.held = a[1] == "done"
+            cyc.held = kw(a[1], ("done", "pending"), "cycle birth") == "done"
             return f"HOLD_AT_BIRTH {'treated as done' if cyc.held else 'will be sent first'}"
         raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
                          "leader N|random|first N|birth done|pending]")
@@ -319,7 +337,7 @@ def main(argv=None):
         return b.describe(time.monotonic())
 
     def c_quit(a):
-        state["close"] = bool(a and "close".startswith(a[0].lower()))  # q c = quit close
+        state["close"] = bool(a) and kw(a[0], ("close",), "quit option") == "close"
         sh.stop()
 
     def c_mock(a):
@@ -359,7 +377,7 @@ def main(argv=None):
                     "  tlbi lamers      -- TLBIs from last bolt's lamer set")
         bh_by_chip = {bh.getChipNumber(): bh for bh in m.bhs}
         pairs = []  # list of (chip, tlbi)
-        if a[0] == "lamers":
+        if a[0][:1].isalpha() and kw(a[0], ("lamers",), "tlbi option") == "lamers":
             b = m.bolt
             if b is None:
                 return "no bolt yet"
@@ -397,14 +415,15 @@ def main(argv=None):
         return "\n".join(lines)
 
     def c_zhd(a):
-        if a and a[0] == "restart":
-            if len(a) != 2 or a[1] not in ("on", "off"):
+        sub = kw(a[0], ("all", "restart", "break"), "zhd subcommand") if a else None
+        if sub == "restart":
+            if len(a) != 2:
                 return "usage: zhd restart on|off"
-            return m.zhd_restart(a[1] == "on")
-        if a and a[0] == "break":
+            return m.zhd_restart(kw(a[1], ("on", "off"), "zhd restart") == "on")
+        if sub == "break":
             tags = [t for arg in a[1:] for t in arg.split(",") if t]
             return m.zhd_break(tags)
-        return m.zhd_text(verbose=bool(a and a[0] == "all"))
+        return m.zhd_text(verbose=sub == "all")
     sh.command("zhd", c_zhd,
                "zhd [all | restart on|off | break TAG[,TAG..]]: report-stream health (desynced hubs; "
                "all: every hub); restart: ask desynced hubs to restart their stream (default on); "

@@ -182,6 +182,11 @@ ERISC_NOTES.md.
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
   but unused (the autoseed type follows `decay N`, default 5).
+- mfmxctl argument abbreviation: DONE (see git log).  Keyword arguments now resolve like
+  commands (unique prefix, case blind, ambiguous/unknown refused): quit close, grid on|off,
+  bolt diagnose on|off, cycle leader random / birth done|pending, zhd all|restart|break and
+  restart on|off, tlbi lamers, seed alt, nuke big, shoot BOLTNAME.  `step NAME` stays EXACT on
+  purpose (setStep).  Tests: mock/selftest.py scenario abbrev_args.
 - mfmxctl segfault at exit after `quit` WITHOUT close (2026-11-20, seam14-14 stopped
   at 3684 s by typing `q c`; before b71c52d `q c` did not mean `quit close`, so
   chips were left HAS_T6_CODE_RUNNING).  Shutdown printed "quietbox shutdown: ok"
