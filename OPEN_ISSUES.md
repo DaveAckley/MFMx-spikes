@@ -323,6 +323,44 @@ Plan, in order (each step needs a go-ahead):
      cars out == in == noc against the leader baseline (run 030230 etc.).
   4. Later: 8 codes (Dir4 mixed in) if the exchange is still the limit.
 
+## Design idea: physics failure recovery, nuke, xray (2026-11-20, NOT started)
+
+Parked on purpose: do not build ahead of the stream-break frontier.
+
+Why it is cheap here: the EWP hart (HB) is the only one that runs physics, on
+`Physics::mFastEW`, a COPY of `ewt.mOld` (Physics.cpp doTransition).  `mOld` is
+never written, so the pre-event window always survives.  The grid exists only
+on HUB images.
+
+Today: `FAIL` -> `FATAL` -> `BHANG()` (FATAL.h) wedges the hart and the car is
+never returned.  PHY_DREG has one such site (swap failure).  Also doTransition
+copies `mFastEW` into `mNew` even when physics returns false ("succeed or
+fail"), so a half-modified window would be committed.  Unknown center types are
+already erased (the `default:` case); INACCESSIBLE center returns false
+unchanged.
+
+Plan (user decision: keep FAIL pristine):
+1. A separate macro for physics, e.g. `PHYSICS_FAIL(code)` / `EWT_FAIL(code)`,
+   that records the code and longjmps to a guard; FAIL stays the hart-wedging
+   assert for real bugs.  Shared asserts (EventWindow::getAtom) stay FAIL.
+2. `setjmp` once per event in doTransition (tens of cycles on RV32, 14 words
+   saved; roll our own if newlib setjmp is not linked).  Locals read after the
+   jump are `volatile`; no non-trivial destructors or held locks in the frames
+   jumped over.
+3. On a jump or a `false` return: mNew = mOld, center atom 0 = empty (the MFM
+   response: erase the center, leave the EW otherwise unchanged), count it.
+4. A `PHYSFAIL` mark (FAILCode, center type) in LOG and HB; counter in the AER /
+   live output so hidden bugs stay visible.
+Not covered: wild pointers / illegal instructions (needs a trap handler),
+infinite loops (needs a step budget or the heartbeat watchdog).
+
+Then `nuke` and `xray` have something to test against.  Nuke idea: a bolt
+carrying the blast center in simulation coords (a hub's CT6 coord from mNoC0 in
+the HostBlock, / cell size * tile size, 2x2 cells so far) and a nominal radius;
+every hub decides from its own position, landing after saveCaches and before
+the next loadCaches.  Hub site pitch is 137 x 108 (not 138).  Xray flips bits
+in grid store with low probability and needs physics-fail recovery first.
+
 ## Speed / measurement ideas (not started)
 
 (The exchange itself is done, see CLOSED_ISSUES.md: duty 97%.  What is left
