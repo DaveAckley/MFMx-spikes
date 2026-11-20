@@ -501,6 +501,7 @@ namespace MFM {
 
   void OurTLBs::TLBInfo::setDeployedImage(const T6Image & img) {
     mDeployedImage = &img;
+    mCarsOutMask = 0u;  // new image: no cars are out
     {
       ImageBlockAddr * ibap = img.getImageBlockAddrForBlockCodeIfAny(BlockCode::BC_T6GRID);
       if (ibap && ibap->isValid()) {
@@ -782,6 +783,7 @@ namespace MFM {
       if (!prbi.add(ZHostDecompressor::CarACB(car,&ac)))
         break;
 
+      tin.mCarsOutMask |= (1u << car);
       tin.advanceACacheBlockIndex(); // check next car
     }
 
@@ -793,7 +795,17 @@ namespace MFM {
         MFM_API_ASSERT_NONNULL(buf.second);
         ACacheBlockStg::CAR_TYPE & oc = *buf.second;
         ACacheBlockPayload & ocp = oc.payload();
-      
+
+        // A return for a car the hub already has back would zero the
+        // length of a car being filled.  Refuse it and say so.
+        if (!(tin.mCarsOutMask & (1u << car))) {
+          ++tin.mDupReturns;
+          HTprintf("DUPRET tlbi%u car%u (%u so far)\n",
+                   tlbi, car, tin.mDupReturns);
+          continue;
+        }
+        tin.mCarsOutMask &= ~(1u << car);
+
         oc.reset();           // clean the car 
         oc.openTC();          // set state open
         ocp.init();           // init the payload

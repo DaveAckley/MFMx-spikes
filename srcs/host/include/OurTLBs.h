@@ -165,6 +165,11 @@ namespace MFM {
 
       u32 mACBPacketsReceived;
 
+      // Cars handed to ZHD and not yet returned (bit per car), and
+      // returns refused because the car was not out (duplicates).
+      u32 mCarsOutMask;
+      u32 mDupReturns;
+
       //Moved to HubValue: ZHostDecompressor mZHD; // everybody gets one, at least for now..
 
       void setDeployedImage(const T6Image & img) ;

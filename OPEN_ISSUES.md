@@ -585,3 +585,17 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 - Possible `sleep SECS` mfmxctl command (offered, not requested).
 - FB4's renderer colours by hidden counter mStg[1]; a seed mix (DReg/FB1)
   would add variety.
+
+## seam16-12 (ccf1e2d, 1 h, 2 breaks: chip2 t15, chip1 t129; 2026-11-20)
+- `.zl` first anomaly on BOTH broken hubs (at223 car4, at14b car3): length
+  found 0, flags 0, while 0x1d2 / 0x230 bytes were expected, 11-12 ms into the
+  car.  `.zs` recvcurrent = 0 on both, so NOT recvTC on the current car.
+  A whole-word zero (flags 0, len 0) is exactly what a host return stamps
+  (stampFeedback, no restart pending).  The later `.zl ... 4400 ...` lines are
+  the hub's own restart SOF|EPOCH car (recovery), not a clue.  Plain
+  `.zl:3de:3da:0:...` floods are noise (full car, 3de vs 3da): ignore.
+- Leading suspect now: a duplicate/late host return write.  Host change
+  (OurTLBs updateACacheBlocks): per-TLBI mCarsOutMask; a return for a car not
+  out is refused and logged `DUPRET tlbi car (n)` (also the fix if right).
+  Next run: any DUPRET in the host log = found; breaks with none = look at the
+  hub's own length writers again.
