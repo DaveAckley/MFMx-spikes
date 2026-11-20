@@ -50,6 +50,8 @@ fi
 # Hub geometry has one C++ source (DemoGlobal.h) and a Python copy of its
 # formulas (HubGeometry.py).  Refuse to build if they disagree.
 echo
+echo "=== STEP 0: BUILDING $(git describe --always --dirty --abbrev=7 2>/dev/null || echo 'unknown-version') ==="
+git log -1 --format='    %h %ci %s' 2>/dev/null || true
 echo "=== STEP 0: CHECKING HUB GEOMETRY (C++ vs PYTHON) ==="
 scripts/hubgeom/hubgeom_check.sh || { echo "STOPPING: fix HubGeometry.py or DemoGlobal.h"; exit 4; }
 
