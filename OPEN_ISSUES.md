@@ -182,6 +182,16 @@ ERISC_NOTES.md.
 - mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
 - `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
   but unused (the autoseed type follows `decay N`, default 5).
+- mfmxctl segfault at exit after `quit` WITHOUT close (2026-11-20, seam14-14 stopped
+  at 3684 s by typing `q c`; before b71c52d `q c` did not mean `quit close`, so
+  chips were left HAS_T6_CODE_RUNNING).  Shutdown printed "quietbox shutdown: ok"
+  then "Segmentation fault (core dumped)".  No core file was found (apport
+  pipes cores and usually skips unpackaged executables; ulimit -c may be 0).
+  Unconfirmed guess: the no-close exit path, with code still deployed while the
+  process tears down; not from the new hub instrumentation (host unchanged since
+  5794297).  Not investigated: `quit close` exits clean.  To chase it: run
+  mfmxctl with `python3 -X faulthandler` (or PYTHONFAULTHANDLER=1) and quit with
+  plain `q`; compare with `q c`.  Low priority.
 
 ## Unproven on hardware
 
