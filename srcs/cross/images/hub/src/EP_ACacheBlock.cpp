@@ -175,7 +175,10 @@ namespace MFM {
     snprintf(buf,sizeof(buf),"%x:%x:%x:%x:%x:%x:%x",
              (u32) mSOFEpoch,mCompressedBytesPacked,spinner,
              (u32) mHostSpin,(u32) mHostSeq,(u32) mHostConsec,mRestartsDone);
-    if (what == 'q') { LOGPTAG(.zq,buf); HBPTAG(.zq,buf); }
+    if (what == 'q') {
+      LOGPTAG(.zq,buf); HBPTAG(.zq,buf);
+      LOGPTAG(.zs,mShadowBad); HBPTAG(.zs,mShadowBad); // cars that failed the seal check
+    }
     else             { LOGPTAG(.zd,buf); HBPTAG(.zd,buf); }
   }
 

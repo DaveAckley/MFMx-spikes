@@ -133,6 +133,7 @@ namespace MFM {
     void restartDecoder() ;
 
     void notePacket(u32 car, const ACacheBlockPayload & pay) ;
+    void explainBadPacket(u32 car, const ACacheBlockPayload & pay);
     void noteGoodReport() ;
     void noteBadReport(const AtomReport & ar, u16 expected) ;
     void logDesyncDetail(const char * what, const AtomReport & ar, u16 expected) ;

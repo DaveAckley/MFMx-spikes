@@ -363,7 +363,43 @@ namespace MFM {
                    mChipNum,mTLBI,mPacketsIn,car,mNextSeq,seq,
                    (int) (s16) (u16) (seq - mNextSeq),mPktSeqBad);
       }
-      if (sumok) { mHaveSeq = true; mNextSeq = (u16) (seq + 1u); }
+      if (!sumok && mPktSumBad == 1u && len > ACacheBlockPayload::ACBP_TRAILER_SIZE)
+        explainBadPacket(car,pay);
+      // The seq of a bad-sum packet is probably fine (the break in seam14-12
+      // had it right): follow it so one bad sum does not also look like a
+      // lost packet.
+      if (len >= ACacheBlockPayload::ACBP_TRAILER_SIZE) {
+        mHaveSeq = true; mNextSeq = (u16) (seq + 1u);
+      }
+    }
+  }
+
+  /* First bad checksum on this hub: the shadow sum (write time, from the hub)
+     against the sum of the bytes as they arrived.  If ONE byte changed by d,
+     Fletcher's a differs by d and b by d*(n-i) (mod 255), i = its offset:
+     list the offsets that fit, then dump the whole packet. */
+  void ZHostDecompressor::explainBadPacket(u32 car, const ACacheBlockPayload & pay) {
+    u32 len = pay.getCurrentLength();
+    u32 n = len - ACacheBlockPayload::ACBP_TRAILER_SIZE;
+    u16 shadow = (u16) (pay.mCData[n+2u] | (pay.mCData[n+3u] << 8));
+    u16 got = ACacheBlockPayload::checksum(pay.mCData,n);
+    u32 da = ((shadow & 0xff) + 255u - (got & 0xff)) % 255u;
+    u32 db = ((shadow >> 8) + 255u - (got >> 8)) % 255u;
+    KTprintf(mBHTag,"ZHD PKTWHY chip%u t%u car%u n=%u shadow 0x%04x arrived 0x%04x da=%u db=%u\n",
+             mChipNum,mTLBI,car,n,shadow,got,da,db);
+    u32 shown = 0u;
+    for (u32 i = 0u; i < n && shown < 6u; ++i)
+      if (da != 0u && (da * (n - i)) % 255u == db) {
+        KTprintf(mBHTag,"ZHD PKTWHY one byte off at offset %u (intended minus arrived = %u mod 255)\n",i,da);
+        ++shown;
+      }
+    if (!shown)
+      KTprintf(mBHTag,"ZHD PKTWHY not a single changed byte (or da=0)\n");
+    for (u32 i = 0u; i < len; i += 32u) {   // the packet, 32 bytes a line
+      char buf[100]; u32 k = 0u;
+      for (u32 j = i; j < len && j < i + 32u; ++j)
+        k += snprintf(buf+k,sizeof(buf)-k,"%02x",pay.mCData[j]);
+      KTprintf(mBHTag,"ZHD PKTDUMP chip%u t%u +%u %s\n",mChipNum,mTLBI,i,buf);
     }
   }
 

@@ -74,6 +74,20 @@ ERISC_NOTES.md.
   join, before the hub sealed it.  Host reader, sink retry and lzmfmx reviewed: no
   fault.  Trailer sum is now a write-time SHADOW sum (see CLAUDE.md) to catch memory
   damage between sink and seal; next break should say which side of that it is.
+  SEAM14-12 RESULT (2 h, shadow-sum build, run 004004): ONE natural break (at0e7
+  chip0 t81, packet 78458, 7 bytes into the packet, restarted OK).  The break
+  packet had `ZHD PKTSUM BAD CHECKSUM` (seq 12921 = 78457 mod 65536, so the seq
+  was right): the car's bytes differ from the hub's write-time shadow sum.  So
+  the damage is a changed byte INSIDE the packet after the sink accepted it
+  (hub memory/seal, NoC/transit, or the host copy), not a bad encoder input.  No
+  `.SHADOWBAD` mark was in the dump (not proof the seal check passed: marks can
+  wrap or not be exported).  The PKTSEQ at the next packet was a host artifact
+  (mNextSeq was not advanced past a bad-sum packet): fixed.  Next run adds
+  `ZHD PKTWHY` (trailer sum vs arrived sum, and for a single changed byte its
+  offset: Fletcher da/db) + `ZHD PKTDUMP` of the whole first bad packet per hub,
+  and a hub `.zs` mark (mShadowBad) next to `.zq`.  Compare the dump with the
+  other bad-looking bytes; if the hub saw the car fine at seal, suspect transit
+  or the host copy; if `.zs` > 0, hub memory/seal.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
