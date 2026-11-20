@@ -539,13 +539,14 @@ def scenario_abbrev_args():
     rc, out = run("boot\nstart\n" + FASTB + "shoot hold 0\nwait 0.8\nshoot new_l 2 1\nwait 0.8\nshoot ru 3\nquit\n")
     check("args: bolt names abbreviated (hold, new_l; 'ru' ambiguous or unique, never silent junk)",
           "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1) CONSENSUS" in out, out[-700:])
-    rc, out = run("boot\nstart\nseed 3\nseed al 25\nseed 0\nseed 5000\nquit\n")
-    check("args: seed N seeds N sites, count bounded",
-          "seeded 3/3 type 1" in out and "seeded 25/25 type" in out
-          and out.count("seed count must be 1..1000") == 2, out[-700:])
-    rc, out = run("boot\nstart\nseed al\nseed zz\nnuke b\nnuke zz\nquit\n")
-    check("args: seed/nuke options abbreviated, junk refused",
-          "unknown seed option 'zz'" in out and "unknown nuke option 'zz'" in out, out[-700:])
+    rc, out = run("boot\ndecay 7\nstart\nseed 3\nseed 25 2\nseed\nseed 0\nseed 5000\nseed al\nseed 1 2 3\nquit\n")
+    check("args: seed COUNT [TYPE] (default decay type), bounded, junk refused",
+          "seeded 3/3 type 7" in out and "seeded 25/25 type 2" in out
+          and out.count("seed count must be 1..1000") == 2
+          and out.count("usage: seed [COUNT [TYPE]]") == 2, out[-900:])
+    rc, out = run("boot\nstart\nnuke b\nnuke zz\nquit\n")
+    check("args: nuke options abbreviated, junk refused",
+          "unknown nuke option 'zz'" in out, out[-700:])
 
 
 def scenario_tick_abbrev():
