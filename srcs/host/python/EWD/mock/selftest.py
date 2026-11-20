@@ -544,6 +544,14 @@ def scenario_abbrev_args():
           "unknown seed option 'zz'" in out and "unknown nuke option 'zz'" in out, out[-700:])
 
 
+def scenario_tick_abbrev():
+    rc, out = run("tick sl of\ntick\ntick sl on\ntick zz on\ntick sl x\ntick fr\nquit\n")
+    check("tick: name and on/off abbreviated, junk refused",
+          "slowscan: off every" in out and "slowscan: on every" in out
+          and "no such tick 'zz'" in out and "usage: tick NAME on|off|period SECS|now" in out,
+          out[-700:])
+
+
 def scenario_feed_placeholder():
     rc, out = run("feed on\nwait 1.0\n# PRE\nstatus\nboot\nstart\nwait 1.0\n# POST\nstatus\nquit\n")
     s = sections(out)
@@ -601,6 +609,10 @@ def scenario_cache_policy():
     check("policy: status shows it", "cache policy: fourcorners\n" in out, out[-900:])
     check("policy: refused after the code is deployed",
           "set it before 'start'" in out, out[-500:])
+    rc, out = run("policy corners\npolicy fourcornersish\npolicy\nquit\n")
+    check("policy: only unique prefixes of the real names (no 'corners' alias)",
+          out.count("want one of supercell, fourcorners") == 2
+          and "cache policy: fourcorners (applied" in out, out[-500:])
     rc, out = run("policy fourcorners\npolicy bogus\npolicy\nquit\n")
     check("policy: bad name explained, shell survives",
           "want one of supercell, fourcorners" in out and rc == 0, out[-500:])

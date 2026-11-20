@@ -126,6 +126,17 @@ ERISC_NOTES.md.
   = stale read (and the sealed sum is the post-fence one now); post == copy sum !=
   car = car changed after it was copied; post != copy sum = bookkeeping: bytes
   counted but not stored.
+  SEAM14-14 RESULT (stopped 3684 s, c6cd563, run 073742): 2 breaks (chip0 t109
+  packet 63682 first bad +9; chip1 t135 packet 15223 first bad +2, kind "reports
+  skipped", value 0x015c = 348 = the LZ ring size/NIL), both restarted, both PKTSUM
+  bad, both `.zx` ndiff 0 (car == byte copy at explain time); 3 of 3 hubs with a
+  `.zx` so far.  All 7 breaks since the trailer: bad checksum 7/7, first bad
+  record 2..9 bytes into the packet, no single inserted-byte/suffix/prefix model
+  fits.  Still open: stale T0 reads of mShadowA/B or of the car (the `.zx` compare
+  ran after LOG/HB marks that may fence), vs lost bytes in the accounting.  A host
+  return into the departed car between crbo.add and setupNewCar looks too short a
+  window.  972503a's `.zw` mark (before/after fence, byte-copy sum, car sum) is the
+  discriminator: run it for the full 2 h.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close

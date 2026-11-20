@@ -335,12 +335,19 @@ class Shell:
             return "\n".join(
                 f"  {t.name:10s} {'on ' if t.enabled else 'off'} every {t.period:g}s  "
                 f"ran {t.count}x  {t.help}" for t in self.ticks.values()) or "no ticks"
-        t = self.ticks.get(args[0])
-        if t is None:
+        try:
+            t = self.ticks[self.resolve(args[0], tuple(self.ticks), "tick")]
+        except AbbrevError as e:
+            if str(e).startswith("ambiguous"):
+                return str(e)
             return f"no such tick {args[0]!r} (have: {', '.join(self.ticks)})"
         if len(args) < 2:
             return f"{t.name}: {'on' if t.enabled else 'off'} every {t.period:g}s"
-        what = args[1]
+        try:
+            what = self.resolve(args[1].lower(), ("on", "off", "period", "now"), "tick option")
+        except AbbrevError as e:
+            return str(e) if str(e).startswith("ambiguous") else \
+                "usage: tick NAME on|off|period SECS|now"
         if what in ("on", "off"):
             t.enabled = what == "on"
             t.errors = 0

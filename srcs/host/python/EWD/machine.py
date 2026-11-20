@@ -174,11 +174,9 @@ def parse_tile_range(text):
 
 
 def parse_policy(text):
-    """'supercell' | 'fourcorners' (any unique prefix; 'corners' too) -> name.
+    """'supercell' | 'fourcorners' (any unique prefix, nothing else) -> name.
     Raises ValueError."""
     t = str(text).strip().lower()
-    if t in ("corners", "4corners", "fourcorner", "four-corners", "four"):
-        return "fourcorners"
     hits = [p for p in CACHE_POLICIES if t and p.startswith(t)]
     if len(hits) != 1:
         raise ValueError(f"cache policy '{text}': want one of "
