@@ -319,7 +319,7 @@ def main(argv=None):
         return b.describe(time.monotonic())
 
     def c_quit(a):
-        state["close"] = bool(a and a[0] == "close")
+        state["close"] = bool(a and "close".startswith(a[0].lower()))  # q c = quit close
         sh.stop()
 
     def c_mock(a):
