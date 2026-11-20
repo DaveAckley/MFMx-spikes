@@ -146,6 +146,18 @@ ERISC_NOTES.md.
   first 16 folds vs the same 16-byte prefix summed from the byte copy / the car.
   N != DLEN = counted-not-stored (or stored twice); EARLY != COPYPRE = the first
   bytes are where the accounting diverges (breaks start 2..9 bytes in).
+  seam14-15 (972503a, 1h13m, MFMX-20261120-103729): 2 breaks, both recovered (0
+  desynced at the end): chip1 ct6 6,7 pkt#66884 (`.zw:d691:d691:7c87:7c87`) and
+  chip3 ct6 10,7 pkt#13335 (`.zw:1f6b:1f6b:1b24:1b24`).  Both `.zs:1:0`, `.zx`
+  ndiff 0: same signature as the first (no stale read; copy == car; running sum
+  differs).  Brute force over the two full PKTDUMPs: no omitted/duplicated run
+  (len<60) or prefix/suffix trim explains the running sum beyond chance (2 and 1
+  hits); PKTWHY's "one byte off at offset N" list is NOT evidence (any da/db pair
+  has a solution every 255/gcd bytes).  Needs `.zn` (a060a9e).
+  HYGIENE (not done): T0 writes mShadowBad/mShadowStale (unlocked, in the ship path)
+  next to T1-owned mShadowA/B/N in the same L1Control cache line; with a non-coherent
+  write-back L0 that can clobber T1's fields AFTER the first bad packet.  Could
+  corrupt later `.zw` readings; move T0-written counters to another line.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
