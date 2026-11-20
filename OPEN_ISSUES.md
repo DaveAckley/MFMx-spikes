@@ -361,6 +361,55 @@ every hub decides from its own position, landing after saveCaches and before
 the next loadCaches.  Hub site pitch is 137 x 108 (not 138).  Xray flips bits
 in grid store with low probability and needs physics-fail recovery first.
 
+## Design idea: use the Tensix SIMD / FPU / packers (2026-11-20, NOT started)
+
+MFMx uses none of the per-tile custom h/w (32 lane SFPU, matrix unit,
+unpackers/packers).  Parked: ideas only, no code.
+
+Key point (user): real physics span 3 to 5+ orders of magnitude in instruction
+count, so today's AER (DReg/FB1 are nearly free) mostly measures the FLOOR, as
+if physics cost nothing.  Heavier EWTs often do "find the closest atom in the
+EW matching this filter, ties broken uniformly at random".  That is the
+workload to accelerate, and to benchmark against.
+
+Per event, the general SFPU path is probably a loss: unpack -> queue
+instructions through a TRISC -> pack has a fixed latency comparable to a cheap
+scalar event, and 41 atoms do not fill 32 lanes.  It can win when the EW stays
+resident across MANY queries, i.e. a query library, not accelerated user code.
+
+Proposal: an EW query API in the physics code with a scalar reference and an
+accelerated kernel behind the same signature, e.g. `ew.nearest(filter, tie)`,
+`ew.count(filter)`, `ew.randomMatch(filter)`, `ew.fill(region, atom)`.
+- nearest-match: lanes = EW sites in distance order (a static key per site);
+  compare (atom & mask) == value gives a match mask; the min key over matches
+  is the nearest distance class; a matmul of the mask with a site x distance
+  class indicator matrix gives the tie count per class in one shot; then ONE
+  RNG draw r < count and select the r-th set bit (scalar bit trick, or a
+  prefix count in lanes).  Scalar reservoir sampling needs a draw per match.
+- Cross-lane min/count may be awkward on the SFPU: lay the EW out transposed
+  so the reduction runs across rows (elementwise min), or hand the bitmask to
+  the scalar side after the compare.
+- Test like the LZ stress harness: random EWs and filters, scalar vs
+  accelerated, any mismatch fails.
+
+Other fits (all unmeasured): bulk grid ops on hubs (nuke = masked clear, xray =
+per lane RNG + masked XOR, strided cache edge copies by the packers); observables
+(census / density maps, 5x5 neighborhood counts as banded matmul; fits observation,
+not asynchronous events; also the spread metric for the dwell experiment); the
+report stream (32 wide LZ match scan, or better, dirty bit filtering before the
+compressor, which needs no special h/w).
+
+Unknowns: whether non-TRISC harts (the physics hart is B) may issue Tensix
+instructions; which TRISCs each image uses; no tt-metal LLK here, so kernels
+would be hand written from the public ISA documentation; precision of the
+matrix unit formats (counts are fine, full 32 bit atom bits go on the SFPU).
+
+First steps: (1) cycle counters (rdcycle) around doTransition and the EWP wait,
+and on the hub compress/ship path, to find the real bottleneck; (2) a synthetic
+heavy element (the nearest-match query with a tunable filter and EW density) so
+AER can see physics cost; (3) the scalar query library with a differential
+test; only then (4) an SFPU kernel behind it, xray/nuke as the first bulk user.
+
 ## Speed / measurement ideas (not started)
 
 (The exchange itself is done, see CLOSED_ISSUES.md: duty 97%.  What is left
