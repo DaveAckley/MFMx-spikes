@@ -137,7 +137,7 @@ ERISC_NOTES.md.
   return into the departed car between crbo.add and setupNewCar looks too short a
   window.  972503a's `.zw` mark (before/after fence, byte-copy sum, car sum) is the
   discriminator: run it for the full 2 h.
-  FIRST `.zw` HIT (seam16-era run, hub ct6 10,7 chip 3?): `.zw:1f6b:1f6b:1b24:1b24`,
+  FIRST `.zw` HIT (run on 972503a, mark prefix "3 10,7"): `.zw:1f6b:1f6b:1b24:1b24`,
   `.zs:1:0`, `.zx:3416:3da:0:0`: sum identical before/after the fence (not a stale
   read), byte copy == car (ndiff 0), but the RUNNING sum matches neither: it folded a
   different set of bytes than the packet holds (da=0x47, db=4).  Fence-before-read
