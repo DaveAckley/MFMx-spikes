@@ -154,10 +154,12 @@ ERISC_NOTES.md.
   (len<60) or prefix/suffix trim explains the running sum beyond chance (2 and 1
   hits); PKTWHY's "one byte off at offset N" list is NOT evidence (any da/db pair
   has a solution every 255/gcd bytes).  Needs `.zn` (a060a9e).
-  HYGIENE (not done): T0 writes mShadowBad/mShadowStale (unlocked, in the ship path)
-  next to T1-owned mShadowA/B/N in the same L1Control cache line; with a non-coherent
-  write-back L0 that can clobber T1's fields AFTER the first bad packet.  Could
-  corrupt later `.zw` readings; move T0-written counters to another line.
+  RETRACTED: an earlier note feared T0's unlocked mShadowBad/mShadowStale writes
+  clobbering T1's mShadowA/B through a non-coherent write-back L0.  _BUD.S (exit_setup)
+  sets DisLowCash on ALL harts, so there is no L0 to clobber or go stale; only
+  memory-system ORDERING between harts' stores remains possible.  Also tried on the
+  two dumps: T0's reset of the sum landing late (a,b reset at different folds, started
+  from the previous packet's final sums): no hit beyond chance.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
