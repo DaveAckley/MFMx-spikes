@@ -171,6 +171,16 @@ ERISC_NOTES.md.
   (store/reload) of the first and last payload bytes after init() before crbi.add,
   and a fence + commit of the last data byte before crbo.add on the ship path.  VERIFY:
   one hour of seam16.cmd should show 0 breaks (old build: ~4).  Diagnostics kept.
+  seam16-11 (4a9da0f, the fence fix): STILL BREAKS (`.zn:617:3da:...`, 573 extra
+  folds).  So the late-memset-landing theory is wrong or incomplete.  Timescale
+  argument: a hub fills a packet in ~65 ms (15 KB/s), so losing 573 bytes means the
+  length was reset ~38 ms into the fill, far too late for posted stores of a 1KB
+  memset.  Only recvTC's init() and setupNewCar's reset() write the length besides
+  addByte, so either a recvTC ran on the car being filled (duplicate/stray arrival),
+  or the host's return write landed on it.  Next build adds `.zl:found:expected:flags:
+  car:ms` (length not where our last byte left it, at the first byte after the
+  jump), `.zr:car:state:flags` (recvTC on the CURRENT car), and `.zs:bad:stale:
+  lenjumps:recvcurrent`.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close

@@ -53,7 +53,19 @@ namespace MFM {
     ACacheBlock & acb = *mCurrentACacheBlock;
     ACacheBlockPayload & pay = acb.payload();
     u32 wasused = pay.getCurrentLength();
+    if (wasused != mExpectLen) {  // someone else changed the length under us
+      ++mLenJumps;
+      if (mLenJumpsThisCar < 3u) {
+        ++mLenJumpsThisCar;     // .zl:found:expected:flags:car:ms since setup
+        char lb[60];
+        snprintf(lb,sizeof(lb),"%x:%x:%x:%x:%x",wasused,(u32) mExpectLen,
+                 pay.getCurrentFlags(),(u32) mCurrentCarIndex,
+                 millisElapsed() - mBaseTicks);
+        LOGPTAG(.zl,lb); HBPTAG(.zl,lb);
+      }
+    }
     bool ret = pay.addByte(byte);
+    if (ret) mExpectLen = (u16) pay.getCurrentLength();
     if (ret) {
       ++mCompressedBytesPacked;
       ACacheBlockPayload::fletcherStep(mShadowA,mShadowB,byte);
@@ -107,6 +119,8 @@ namespace MFM {
     npay.reset();
     mShadowA = mShadowB = 0u;   // fresh car, fresh shadow sum
     mShadowN = mShadowEarly = 0u;
+    mExpectLen = 0u;            // reset() above zeroed the length
+    mLenJumpsThisCar = 0u;
     if (mPendingSOF) {          // first car of a restarted stream (we hold mLock)
       npay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_SOF |
         (mSOFEpoch ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
@@ -206,8 +220,9 @@ namespace MFM {
              (u32) mHostSpin,(u32) mHostSeq,(u32) mHostConsec,mRestartsDone);
     if (what == 'q') {
       LOGPTAG(.zq,buf); HBPTAG(.zq,buf);
-      char sb[30];              // cars that failed the seal check : stale reads
-      snprintf(sb,sizeof(sb),"%x:%x",mShadowBad,mShadowStale);
+      char sb[40];              // cars that failed the seal check : stale reads
+      snprintf(sb,sizeof(sb),"%x:%x:%x:%x",mShadowBad,mShadowStale,
+               mLenJumps,mRecvCurrent);
       LOGPTAG(.zs,sb); HBPTAG(.zs,sb);
     }
     else             { LOGPTAG(.zd,buf); HBPTAG(.zd,buf); }
@@ -226,6 +241,18 @@ namespace MFM {
 
     HBPTAG(ABRCV!,carindex);
     theACacheBlockL1Control.latchHostFeedback(car.payload()); // BEFORE the wipe
+    {                           // are we about to wipe the car T1 is filling?
+      ACacheBlockL1Control & cl1 = theACacheBlockL1Control;
+      if (cl1.mCurrentACacheBlock && carindex == cl1.mCurrentCarIndex) {
+        ++cl1.mRecvCurrent;
+        if (cl1.mRecvCurrent <= 5u) {   // .zr:car:state:flags
+          char rb[40];
+          snprintf(rb,sizeof(rb),"%x:%x:%x",(u32) carindex,
+                   (u32) car.getTCState(),(u32) car.payload().mFlagsAndLen);
+          LOGPTAG(.zr,rb); HBPTAG(.zr,rb);
+        }
+      }
+    }
     car.openTC();               // open it up
     car.payload().init();       // clean it out
     // The wipe is a ~1KB memset of posted stores, but the index add below is a
