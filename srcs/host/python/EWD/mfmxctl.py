@@ -259,11 +259,24 @@ def main(argv=None):
 
     def c_seed(a):
         m.need_booted()
-        alt = bool(a) and kw(a[0], ("alt",), "seed option") == "alt"
+        alt, n = False, 1
+        for w in a:
+            if w.isdigit():
+                n = int(w)
+            else:
+                alt = kw(w, ("alt",), "seed option") == "alt"
+        if not 1 <= n <= 1000:
+            return "seed count must be 1..1000"
         t = 1 if not alt or m.alt_decay is None else int(m.alt_decay)
-        r = m.ewc.doSeed(t)
-        m.logkt("SEED", r)
-        return r
+        res = []
+        for _ in range(n):
+            r = m.ewc.doSeed(t)
+            m.logkt("SEED", r)
+            res.append(r)
+        if n == 1:
+            return res[0]
+        bad = [r for r in res if r.startswith("Bad")]
+        return f"seeded {n - len(bad)}/{n} type {t}" + (f"; failed: {bad[:3]}" if bad else "")
 
     def c_nuke(a):
         m.need_booted()
@@ -455,7 +468,7 @@ def main(argv=None):
                "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
-    sh.command("seed", c_seed, "seed [alt]: EWControl.doSeed")
+    sh.command("seed", c_seed, "seed [alt] [N]: EWControl.doSeed, N random sites (1..1000)")
     sh.command("nuke", c_nuke, "nuke [big]: EWControl.doNuke")
     sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")
