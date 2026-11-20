@@ -171,7 +171,10 @@ ERISC_NOTES.md.
   (store/reload) of the first and last payload bytes after init() before crbi.add,
   and a fence + commit of the last data byte before crbo.add on the ship path.  VERIFY:
   one hour of seam16.cmd should show 0 breaks (old build: ~4).  Diagnostics kept.
-  seam16-11 (4a9da0f, the fence fix): STILL BREAKS (`.zn:617:3da:...`, 573 extra
+  seam16-11 (4a9da0f, the fence fix, MFMX-20261120-142553, 3735 s): 1 break (chip2
+  ct6 12,3 car3 pkt#35139) vs 4 in 3743 s for seam16-10 (a060a9e): Poisson P(<=1|4)=0.09,
+  not established as an improvement.  The one break is STILL the N>DLEN kind
+  (`.zn:617:3da:...`, 573 extra
   folds).  So the late-memset-landing theory is wrong or incomplete.  Timescale
   argument: a hub fills a packet in ~65 ms (15 KB/s), so losing 573 bytes means the
   length was reset ~38 ms into the fill, far too late for posted stores of a 1KB
