@@ -201,7 +201,9 @@ namespace MFM {
              (u32) mHostSpin,(u32) mHostSeq,(u32) mHostConsec,mRestartsDone);
     if (what == 'q') {
       LOGPTAG(.zq,buf); HBPTAG(.zq,buf);
-      LOGPTAG(.zs,mShadowBad); HBPTAG(.zs,mShadowBad); // cars that failed the seal check
+      char sb[30];              // cars that failed the seal check : stale reads
+      snprintf(sb,sizeof(sb),"%x:%x",mShadowBad,mShadowStale);
+      LOGPTAG(.zs,sb); HBPTAG(.zs,sb);
     }
     else             { LOGPTAG(.zd,buf); HBPTAG(.zd,buf); }
   }
@@ -295,8 +297,27 @@ namespace MFM {
         ACacheBlockPayload & opay = olb.payload();
         HBPTAG(SHIPH,opay.getCurrentPayloadSize());
         HBPTAG(SHIPR,opay.getBytesRemaining());
+        // The shadow sums were written by T1 under mLock; we read them here
+        // with no lock.  Read once, fence (flush our non-coherent L0), read
+        // again: a difference is a stale read, and the post-fence value is the
+        // one to trust.
+        u16 a0 = *(volatile u16 *) &acl1.mShadowA;
+        u16 b0 = *(volatile u16 *) &acl1.mShadowB;
+        memoryFence();
+        u16 a1 = *(volatile u16 *) &acl1.mShadowA;
+        u16 b1 = *(volatile u16 *) &acl1.mShadowB;
+        if (a0 != a1 || b0 != b1) ++acl1.mShadowStale;
         // seq + shadow checksum, counted in the length
-        if (!opay.sealTrailer(mPktSeq,acl1.mShadowA,acl1.mShadowB)) {
+        if (!opay.sealTrailer(mPktSeq,a1,b1)) {
+          {                     // the evidence: run sums before/after the fence,
+            char wb[60];        // sum of the byte copy, sum of the car now
+            u32 dl = opay.getDataLength();
+            u16 arr = ACacheBlockPayload::checksum(acl1.mShadowCar,dl);
+            u16 car = ACacheBlockPayload::checksum(opay.mCData,dl);
+            snprintf(wb,sizeof(wb),"%x:%x:%x:%x",(u32) ((b0<<8)|a0),
+                     (u32) ((b1<<8)|a1),(u32) arr,(u32) car);
+            LOGPTAG(.zw,wb); HBPTAG(.zw,wb);
+          }
           ++acl1.mShadowBad;    // car differs from what the sink accepted
           LOGPTAG(SHADOWBAD,mPktSeq);
           HBPTAG(SHADOWBAD,mPktSeq);

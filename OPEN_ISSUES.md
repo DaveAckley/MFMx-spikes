@@ -107,6 +107,25 @@ ERISC_NOTES.md.
   sum differs, logs hub marks `.zx` (seq:datalen:bytes differing:first offset)
   and up to five `.zy` (offset:meant:found).  Read those against the host's
   feedback struct (u16 spin, u16 seq, u16 consec at offset 0) and the flags word.
+  SEAM14-14 (partial, 43 min, c6cd563, chip1 t135 at1cb): hub `.zx` = seq 0x3b76,
+  data 986, ndiff 0, first 0: the byte-for-byte compare of the car against the
+  byte copy of what the sink accepted found NO difference, yet `.zs:1` (the seal
+  check on the RUNNING shadow sum failed) and the host's PKTSUM failed.  So the
+  car holds exactly the bytes the sink accepted; what disagrees is the running
+  sum.  That retires "damage after the sink accepted" (the wipe-race idea in
+  recvTC is NOT supported by this one) and leaves: (1) T0 read stale
+  mShadowA/B (no fence after readyToClose's unlock; a false positive that the
+  host still sees because the stale sum was sealed), (2) a byte accepted but
+  later overwritten (accepted twice into one index: a lost byte, the sum counts
+  it, car and copy do not), (3) a damaged car that read back clean the second
+  time.  Offline tests on the seam14-13 packet dumps: no single inserted byte,
+  suffix, prefix or zeroed-start model fits (insertion fits none consistently
+  near the packet start).  Next build logs `.zw` (running sum before fence : after
+  fence : sum of the byte copy : sum of the car) on every bad seal, and `.zs` is
+  now `badcount:stalecount` (seal reads a fence changed).  Reading it: pre != post
+  = stale read (and the sealed sum is the post-fence one now); post == copy sum !=
+  car = car changed after it was copied; post != copy sum = bookkeeping: bytes
+  counted but not stored.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
