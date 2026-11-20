@@ -68,6 +68,12 @@ ERISC_NOTES.md.
   packetizing (T0->T1 ring, sink/car swap bookkeeping) or the decoder.  scripts/
   lzrestart/stress.sh (8 x 25 x 32 MB of report-like records with random source
   blocks and sink refusals): no mismatch in ~6 GB, so lzmfmx logic itself looks sound.
+  SEAM14-11 RESULT (2 h, trailer build): 2 natural breaks (at2e3 chip2 t25 packet
+  5981, at123 chip1 t15 packet 78496), both restarted OK; 0 bad checksum, 0 bad seq;
+  first bad record 11 and 1 byte into the packet, so the damage is at the packet
+  join, before the hub sealed it.  Host reader, sink retry and lzmfmx reviewed: no
+  fault.  Trailer sum is now a write-time SHADOW sum (see CLAUDE.md) to catch memory
+  damage between sink and seal; next break should say which side of that it is.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close

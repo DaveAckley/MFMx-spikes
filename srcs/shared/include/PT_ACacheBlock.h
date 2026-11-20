@@ -64,16 +64,29 @@ namespace MFM {
       return (u16) ((b << 8) | a);
     }
 
-    /** Hub, at close: append the trailer (counts toward the length). */
-    void sealTrailer(u16 seq) {
+    /** One Fletcher-16 step; the hub folds each byte in as the sink accepts
+        it, so the trailer sum is of what was MEANT to be stored. */
+    static void fletcherStep(u16 & a, u16 & b, u8 byte) {
+      a = (u16) ((a + byte) % 255u);
+      b = (u16) ((b + a) % 255u);
+    }
+
+    /** Hub, at close: append the trailer (counts toward the length).  The
+        sum is the SHADOW sum kept at write time (a,b), not recomputed from
+        the car, so memory damage between write and host read shows up as a
+        bad checksum.  Returns false if it differs from the car's current
+        contents (damage before sealing). */
+    bool sealTrailer(u16 seq, u16 a, u16 b) {
       u32 len = getCurrentLength();
-      if (len + ACBP_TRAILER_SIZE > ACBP_BUFFER_SIZE) return; // cannot happen
-      u16 sum = checksum(mCData,len);
+      if (len + ACBP_TRAILER_SIZE > ACBP_BUFFER_SIZE) return true; // cannot happen
+      u16 sum = (u16) ((b << 8) | a);
+      bool same = sum == checksum(mCData,len);
       mCData[len+0u] = (u8) (seq & 0xff);
       mCData[len+1u] = (u8) (seq >> 8);
       mCData[len+2u] = (u8) (sum & 0xff);
       mCData[len+3u] = (u8) (sum >> 8);
       mFlagsAndLen += ACBP_TRAILER_SIZE;  // len cannot overflow into flags
+      return same;
     }
 
     /** Host: false if there is no room for a trailer or the checksum fails;

@@ -54,6 +54,8 @@ namespace MFM {
     u8 mSOFEpoch;               //< the epoch that SOF answers
     u16 mHostSpin, mHostSeq, mHostConsec;  //< the host's feedback, last request
     u32 mRestartsDone;
+    u16 mShadowA, mShadowB;     //< Fletcher sums of the bytes the sink accepted
+    u32 mShadowBad;             //< cars whose contents differed at seal time
 
     void init() ;
     void latchHostFeedback(const ACacheBlockPayload & pay) ; // NC, BEFORE init()

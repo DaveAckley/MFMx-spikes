@@ -52,7 +52,10 @@ namespace MFM {
     ACacheBlockPayload & pay = acb.payload();
     u32 wasused = pay.getCurrentLength();
     bool ret = pay.addByte(byte);
-    if (ret) ++mCompressedBytesPacked;
+    if (ret) {
+      ++mCompressedBytesPacked;
+      ACacheBlockPayload::fletcherStep(mShadowA,mShadowB,byte);
+    }
     {
       if (ret /*true wasused < 3 || wasused > 990-3*/) {
         u32 nowused = pay.getCurrentLength();
@@ -97,6 +100,7 @@ namespace MFM {
 
     ACacheBlockPayload & npay = nlb.payload();
     npay.reset();
+    mShadowA = mShadowB = 0u;   // fresh car, fresh shadow sum
     if (mPendingSOF) {          // first car of a restarted stream (we hold mLock)
       npay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_SOF |
         (mSOFEpoch ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
@@ -264,7 +268,13 @@ namespace MFM {
         ACacheBlockPayload & opay = olb.payload();
         HBPTAG(SHIPH,opay.getCurrentPayloadSize());
         HBPTAG(SHIPR,opay.getBytesRemaining());
-        opay.sealTrailer(mPktSeq++);  // seq + checksum, counted in the length
+        // seq + shadow checksum, counted in the length
+        if (!opay.sealTrailer(mPktSeq,acl1.mShadowA,acl1.mShadowB)) {
+          ++acl1.mShadowBad;    // car differs from what the sink accepted
+          LOGPTAG(SHADOWBAD,mPktSeq);
+          HBPTAG(SHADOWBAD,mPktSeq);
+        }
+        ++mPktSeq;
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
         if (false) {
           if (opay.getCurrentPayloadSize() < 4)

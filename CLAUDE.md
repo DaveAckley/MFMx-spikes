@@ -161,6 +161,12 @@ source, comments, docs and commit messages).
   were wrong before packetizing (T0->T1 ring, compressor) or the decoder.  Fixed
   also: the `ZHD BADPKT` spam (a full packet was flagged).  Flag day: hub and host
   must both be the new build.
+  SEAM14-11 (2 h, trailer build): 2 natural breaks, 0 bad checksum/seq, first bad
+  record 11 and 1 byte into a packet: damage is at the packet join, before sealing.
+  So the trailer sum is now a SHADOW sum: the hub folds each byte in as the sink
+  accepts it (ACacheBlockL1Control mShadowA/B, reset in setupNewCar) and seals THAT,
+  not a recompute; hub also marks `.SHADOWBAD` if the car differs at seal time.  A
+  PKTSUM now means damage anywhere after the sink accepted the byte.  Flag day again.
   config/seam14.cmd: two hour soak (seam13 shape, feed started late, no --rtmp) that runs
   `zhd` after every 10 minute block and `zhd all` at the end; the 10 s `zhd` tick is its
   own tick (the seam configs turn slowscan off).
