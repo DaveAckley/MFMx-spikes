@@ -43,7 +43,23 @@ ERISC_NOTES.md.
   on the matching SOF and adopts the hub's spin.  The tile freezes for about a second
   instead of for good.  `zhd restart off` stops the requests.  scripts/lzrestart/
   run.sh tests the compressor half on the host (restart works; without reset() the
-  encoder HANGS).  Marks: hub `.zq:` asked, `.zd:` done.  STILL OPEN: the cause (a)
+  encoder HANGS).  Marks: hub `.zq:` asked, `.zd:` done.
+  SEAM14 RESULT (2026-11-19, run 160322, 2 h, old detection build, no restart):
+  3 of 140 hubs desynced: at029 (chip0 t99) packet 70464, report 5306382, kind 2;
+  at2a3 (chip2 t21) packet 114229, report 8709980, kind 2; at225 (chip2 t43)
+  packet 130967, report 9891230, kind 2.  All three broke inside the FIRST 4-6
+  BYTES of a packet (compressed bytes in = packet start + 4, +4, +6), the decoded
+  output was 20 B aligned, the atom of the bad record looked sane and the coord/
+  spin that follow it were garbage.  Chance of that by luck ~ (6/990)^3, so the
+  damage is at a packet JOIN: the head of a packet, or a byte lost/duplicated
+  between the tail of one and the head of the next.  All packets were full (len
+  990, flags 0).  at2a3 re-synced by luck twice (RESYNC after 1.7 M bad reports)
+  and re-broke each time (same chip, same tile).  Rate: 3 in 2 h (4 in 3 h before).
+  aer.py on the full 2 h run: wall 960.2, running 987.7 mAER, flat after 1 h.
+  STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
+  (closeTC runs outside mLock) vs T1 writeByte, and the host copy of the payload
+  head; (a0) NEW: the restart build should show whether the break repeats at a
+  join (its FIRST-BAD block prints the same offsets); (a)
   read the FIRST-BAD lines of the next occurrence; (b) find the
   loss (hub byte/packet overwritten before the host reads it, or a host-side
   race).  Also compare the hub's mCompressedBytesPacked in a dump with the host's
