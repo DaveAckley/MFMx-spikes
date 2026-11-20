@@ -56,6 +56,8 @@ ERISC_NOTES.md.
   990, flags 0).  at2a3 re-synced by luck twice (RESYNC after 1.7 M bad reports)
   and re-broke each time (same chip, same tile).  Rate: 3 in 2 h (4 in 3 h before).
   aer.py on the full 2 h run: wall 960.2, running 987.7 mAER, flat after 1 h.
+  NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
+  it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
   (closeTC runs outside mLock) vs T1 writeByte, and the host copy of the payload
   head; (a0) NEW: the restart build should show whether the break repeats at a

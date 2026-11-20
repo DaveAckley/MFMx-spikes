@@ -101,6 +101,9 @@ namespace MFM {
     };
     PacketRec mPktHist[PKT_HISTORY];
     u32 mPacketsIn = 0u;
+    u32 mPktSumBad = 0u, mPktSeqBad = 0u; //< hub trailer checks (notePacket)
+    bool mHaveSeq = false;
+    u16 mNextSeq = 0u;
     u8 mOutHist[OUT_HISTORY];  //< ring of the last decoded bytes
     u32 mOutHistPos = 0u;
     u32 mConsecInvalid = 0u;

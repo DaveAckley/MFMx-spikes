@@ -103,6 +103,7 @@ namespace MFM {
     State mState;
     u16 mARSpinner;
     u8 mRestartPhase;           // 0 none, 1 flush the record in flight, 2 drain
+    u16 mPktSeq;                // next packet's sequence number (trailer)
 
     bool restartStep(HostBlock & hb) ;  // true: restarting, no frame work now
 

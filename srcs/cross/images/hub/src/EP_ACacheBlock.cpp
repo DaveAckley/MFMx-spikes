@@ -60,7 +60,7 @@ namespace MFM {
         char buf[40];
         snprintf(buf,40,"#%u @%u:%u 0x%02x",idx,wasused,nowused,byte);
         if (!ret) SNAP(2,LOGPTAG(sWBC>,buf));
-        else if ((idx % 990) > 980 || (idx % 990) <  20)
+        else if ((idx % 986) > 976 || (idx % 986) <  20)
           EACH(100'000,LOGPTAG(ARCB,buf));
         //EACH(1,LOGPTAG(ARCB,buf));
       }
@@ -264,6 +264,7 @@ namespace MFM {
         ACacheBlockPayload & opay = olb.payload();
         HBPTAG(SHIPH,opay.getCurrentPayloadSize());
         HBPTAG(SHIPR,opay.getBytesRemaining());
+        opay.sealTrailer(mPktSeq++);  // seq + checksum, counted in the length
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
         if (false) {
           if (opay.getCurrentPayloadSize() < 4)

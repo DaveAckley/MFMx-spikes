@@ -150,6 +150,17 @@ source, comments, docs and commit messages).
   compressed byte).  config/seam15.cmd breaks hubs on purpose (12 min).  Host
   test of the compressor: scripts/lzrestart/run.sh.  Hub marks `.zq:` (asked)
   and `.zd:` (done).
+  PACKET TRAILER (2026-11-19, after seam14 broke 3 hubs within 6 bytes of a packet
+  start; hub image + host changed, untested on hardware): every car the hub closes
+  now ends with u16 seq + u16 Fletcher-16 of the data (PT_ACacheBlock.h sealTrailer,
+  called by T0 before closeTC; data space 986 B, len still 990).  The host
+  (notePacket) checks them: tile log `ZHD PKTSUM` (checksum bad: packet damaged in
+  transit or host copy) and `ZHD PKTSEQ` (a packet lost/repeated), first 20 per hub,
+  counts in the DESYNC/FIRST-BAD lines.  Reading the next break: PKTSUM/PKTSEQ before
+  it = damage at the packet (NoC/host side); neither, yet still desynced = the bytes
+  were wrong before packetizing (T0->T1 ring, compressor) or the decoder.  Fixed
+  also: the `ZHD BADPKT` spam (a full packet was flagged).  Flag day: hub and host
+  must both be the new build.
   config/seam14.cmd: two hour soak (seam13 shape, feed started late, no --rtmp) that runs
   `zhd` after every 10 minute block and `zhd all` at the end; the 10 s `zhd` tick is its
   own tick (the seam configs turn slowscan off).

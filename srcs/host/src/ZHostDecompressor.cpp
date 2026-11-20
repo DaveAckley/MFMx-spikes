@@ -248,9 +248,9 @@ namespace MFM {
     if (mCurrentCarACB.second) {
       ACacheBlock & acb = *mCurrentCarACB.second; // We do.
       ACacheBlockPayload & pay = acb.payload();
-      if (mCurrentBytesRead < pay.getCurrentLength()) { // Anything left?
+      if (mCurrentBytesRead < pay.getDataLength()) { // Anything left? (not the trailer)
         if (canread) return 0;  // EOF test? Not EOF.
-        if (mInjectDrop.load() && mCurrentBytesRead + 1u < pay.getCurrentLength()) {
+        if (mInjectDrop.load() && mCurrentBytesRead + 1u < pay.getDataLength()) {
           mInjectDrop.store(false); // TEST: lose one byte, as a real loss would
           ++mCurrentBytesRead;
           ++mCompressedBytesIn;
@@ -262,7 +262,7 @@ namespace MFM {
         ++mCompressedBytesIn;
         {
           u32 idx = mCompressedBytesIn-1;
-          if ((idx % 990) > 980 || (idx % 990) <  20)
+          if ((idx % 986) > 976 || (idx % 986) <  20)
         //EACH(1,KTprintf(mBHTag,"HRCB:#%llu 0x%02x %u/%u\n",
           EACH(100'000,KTprintf(mBHTag,"HRCB:#%llu 0x%02x %u/%u\n",
                           idx, byte,
@@ -344,9 +344,27 @@ namespace MFM {
       r.mHead[i] = i < len ? pay.mCData[i] : 0u;
       r.mTail[i] = len >= 4u ? pay.mCData[len-4u+i] : 0u;
     }
-    if (len >= ACacheBlockPayload::ACBP_BUFFER_SIZE) // never valid: see isValid
+    if (len > ACacheBlockPayload::ACBP_BUFFER_SIZE) // cannot be
       KTprintf(mBHTag,"ZHD BADPKT #%u car%u len %u flags 0x%04x\n",
                mPacketsIn,car,len,pay.getCurrentFlags());
+    {                           // the hub's integrity trailer
+      u16 seq = 0u;
+      bool sumok = pay.checkTrailer(seq);
+      bool seqok = !mHaveSeq || seq == mNextSeq;
+      if (!sumok) {
+        ++mPktSumBad;
+        if (mPktSumBad <= 20u)
+          KTprintf(mBHTag,"ZHD PKTSUM chip%u t%u pkt#%u car%u BAD CHECKSUM (seq %u) len %u, %u so far\n",
+                   mChipNum,mTLBI,mPacketsIn,car,seq,len,mPktSumBad);
+      } else if (!seqok) {
+        ++mPktSeqBad;
+        if (mPktSeqBad <= 20u)
+          KTprintf(mBHTag,"ZHD PKTSEQ chip%u t%u pkt#%u car%u expected seq %u got %u (%d), %u so far\n",
+                   mChipNum,mTLBI,mPacketsIn,car,mNextSeq,seq,
+                   (int) (s16) (u16) (seq - mNextSeq),mPktSeqBad);
+      }
+      if (sumok) { mHaveSeq = true; mNextSeq = (u16) (seq + 1u); }
+    }
   }
 
   void ZHostDecompressor::noteGoodReport() {
@@ -442,12 +460,13 @@ namespace MFM {
     constexpr u32 OBJ = AtomReportIO::OBJ_SIZE;
     KTprintf(mBHTag,"ZHD %s chip%u t%u #%llu: expected spin 0x%04x got 0x%04x/0x%04x "
              "coord (%u,%u) kind %u, %llu compressed B in (%u packets), "
-             "%llu decoded B out (%llu mod %u)\n",
+             "%llu decoded B out (%llu mod %u), packets: %u bad checksum %u bad seq\n",
              what,mChipNum,mTLBI,(unsigned long long) mAtomReportsReceived,
              expected,ar.mSpin1,ar.mSpin2,ar.mCoord.x,ar.mCoord.y,mDesyncKind,
              (unsigned long long) mCompressedBytesIn,mPacketsIn,
              (unsigned long long) mUncompressedBytesOut,
-             (unsigned long long) (mUncompressedBytesOut % OBJ),OBJ);
+             (unsigned long long) (mUncompressedBytesOut % OBJ),OBJ,
+             mPktSumBad,mPktSeqBad);
     if (what[0] != 'F') return;   // the history only for the first bad one
     {
       std::string hex;

@@ -42,8 +42,56 @@ namespace MFM {
     static constexpr u16 ACBP_FLAG_RESTART_REQ = 0x0800;
     static constexpr u16 ACBP_FLAG_EPOCH =       0x0400;
 
+    /* Per packet integrity trailer.  The hub appends it when it closes a car:
+       u16 packet sequence number, u16 checksum of the data bytes before it
+       (both little endian).  It rides at the end of the data, counted in the
+       length, and the compressor never gets to fill that space.  The host
+       checks it to tell a packet damaged in transit (checksum, or a missing
+       or repeated packet: sequence) from a stream broken before it was
+       packetized (trailer fine, decoder desyncs anyway). */
+    static constexpr u16 ACBP_TRAILER_SIZE = 4;
+    static constexpr u16 ACBP_DATA_SIZE = ACBP_BUFFER_SIZE - ACBP_TRAILER_SIZE;
+
     u16 mFlagsAndLen;
     u8 mCData[ACBP_BUFFER_SIZE];
+
+    static u16 checksum(const u8 * data, u32 len) { // Fletcher-16
+      u32 a = 0u, b = 0u;
+      for (u32 i = 0u; i < len; ++i) {
+        a = (a + data[i]) % 255u;
+        b = (b + a) % 255u;
+      }
+      return (u16) ((b << 8) | a);
+    }
+
+    /** Hub, at close: append the trailer (counts toward the length). */
+    void sealTrailer(u16 seq) {
+      u32 len = getCurrentLength();
+      if (len + ACBP_TRAILER_SIZE > ACBP_BUFFER_SIZE) return; // cannot happen
+      u16 sum = checksum(mCData,len);
+      mCData[len+0u] = (u8) (seq & 0xff);
+      mCData[len+1u] = (u8) (seq >> 8);
+      mCData[len+2u] = (u8) (sum & 0xff);
+      mCData[len+3u] = (u8) (sum >> 8);
+      mFlagsAndLen += ACBP_TRAILER_SIZE;  // len cannot overflow into flags
+    }
+
+    /** Host: false if there is no room for a trailer or the checksum fails;
+        seq is set when there is a trailer. */
+    bool checkTrailer(u16 & seq) const {
+      u32 len = getCurrentLength();
+      if (len < ACBP_TRAILER_SIZE) return false;
+      u32 dlen = len - ACBP_TRAILER_SIZE;
+      seq = (u16) (mCData[dlen] | (mCData[dlen+1u] << 8));
+      u16 sum = (u16) (mCData[dlen+2u] | (mCData[dlen+3u] << 8));
+      return sum == checksum(mCData,dlen);
+    }
+
+    /** Host: the compressed bytes, not counting the trailer. */
+    u32 getDataLength() const {
+      u32 len = getCurrentLength();
+      return len >= ACBP_TRAILER_SIZE ? len - ACBP_TRAILER_SIZE : 0u;
+    }
 
     bool addByte(u8 byte) {
       static bool wasblocked;
@@ -83,7 +131,10 @@ namespace MFM {
 
     u32 getCurrentFlags() const { return mFlagsAndLen & ACBP_FLAGS_MASK; }
 
-    u32 getBytesRemaining() const { return ACBP_BUFFER_SIZE - getCurrentLength(); }
+    u32 getBytesRemaining() const { // data space left (trailer excluded)
+      u32 len = getCurrentLength();
+      return len >= ACBP_DATA_SIZE ? 0u : ACBP_DATA_SIZE - len;
+    }
 
     u32 getCurrentPayloadSize() const {
       return &mCData[getCurrentLength()] - (u8*) this;
