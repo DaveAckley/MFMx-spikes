@@ -117,7 +117,6 @@ namespace MFM {
     u32 dlen = pay.getDataLength();
     u32 ndiff = 0u, first = 0u;
     char buf[60];
-    u32 k = 0u;
     for (u32 i = 0u; i < dlen && i < sizeof(mShadowCar); ++i) {
       if (pay.mCData[i] == mShadowCar[i]) continue;
       if (ndiff++ == 0u) first = i;
@@ -127,7 +126,7 @@ namespace MFM {
     u32 shown = 0u;
     for (u32 i = 0u; i < dlen && i < sizeof(mShadowCar) && shown < 5u; ++i) {
       if (pay.mCData[i] == mShadowCar[i]) continue;
-      k = snprintf(buf,sizeof(buf),"%x:%x:%x",i,(u32) mShadowCar[i],(u32) pay.mCData[i]);
+      snprintf(buf,sizeof(buf),"%x:%x:%x",i,(u32) mShadowCar[i],(u32) pay.mCData[i]);
       LOGPTAG(.zy,buf); HBPTAG(.zy,buf);
       ++shown;
     }
