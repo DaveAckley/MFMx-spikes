@@ -56,6 +56,18 @@ ERISC_NOTES.md.
   990, flags 0).  at2a3 re-synced by luck twice (RESYNC after 1.7 M bad reports)
   and re-broke each time (same chip, same tile).  Rate: 3 in 2 h (4 in 3 h before).
   aer.py on the full 2 h run: wall 960.2, running 987.7 mAER, flat after 1 h.
+  SEAM15 RESULT (run 202246, 12 min, restart + trailer build): RESTART WORKS on
+  hardware.  at0a7 (injected twice, epochs 1 then 0) and at063 (chip0 t19, NATURAL
+  break at packet 1136, report 87649, 5 bytes into the packet again) all desynced,
+  were asked to restart, answered with SOF and resumed within ~10-30 s; zhd ended 0
+  desynced, 3 restarts, hub marks .zq/.zd paired.  at323 and at2e9 were also named
+  in `zhd break` but no TEST line appeared for them (unexplained: check the tag ->
+  (chip,tlbi) mapping with `zhd break` interactively).  The natural break had
+  0 bad checksums and 0 bad seq over 1136 packets: the packet arrived exactly as the
+  hub sealed it, so the damage is NOT in transit.  Remaining suspects: hub before
+  packetizing (T0->T1 ring, sink/car swap bookkeeping) or the decoder.  scripts/
+  lzrestart/stress.sh (8 x 25 x 32 MB of report-like records with random source
+  blocks and sink refusals): no mismatch in ~6 GB, so lzmfmx logic itself looks sound.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close
