@@ -5,7 +5,8 @@
 # trailer investigation, OPEN_ISSUES.md) faster.  Atom tracking across the
 # grid is meaningless here.  Normally run with MFMX_EVERY_EVENT 1 (Grid.h; the
 # hubs log .ee:1) so empty centers cost a round trip like everything else.
-# Everything else is seam14: two hours, 'zhd' every 10 minutes, no --rtmp:
+# Everything else is seam14, but ONE hour (6 x 10 minutes; seam14 is two hours),
+# 'zhd' every 10 minutes, no --rtmp:
 #   python mfmxctl.py --layout seam4 --boot -s config/seam16.cmd --script-exit --abort-on-error
 # Afterwards
 #   python3 scripts/aer/aer.py MFMX-<date>-<time> --series 600
@@ -21,30 +22,6 @@ seams
 status
 zhd
 cycle start
-wait 600
-seams
-status
-zhd
-wait 600
-seams
-status
-zhd
-wait 600
-seams
-status
-zhd
-wait 600
-seams
-status
-zhd
-wait 600
-seams
-status
-zhd
-wait 600
-seams
-status
-zhd
 wait 600
 seams
 status
