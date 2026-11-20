@@ -55,6 +55,7 @@ namespace MFM {
     if (ret) {
       ++mCompressedBytesPacked;
       ACacheBlockPayload::fletcherStep(mShadowA,mShadowB,byte);
+      if (wasused < sizeof(mShadowCar)) mShadowCar[wasused] = byte;
     }
     {
       if (ret /*true wasused < 3 || wasused > 990-3*/) {
@@ -105,6 +106,30 @@ namespace MFM {
       npay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_SOF |
         (mSOFEpoch ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
       mPendingSOF = 0u;
+    }
+  }
+
+  /* The car does not hold what the sink accepted (the shadow sum said so).
+     Compare byte for byte (the trailer is already appended: the data bytes
+     only) and log: .zx = seq, bytes that differ, first differing offset, then
+     up to five (offset:meant:found) triples.  Both LOG and HB marks. */
+  void ACacheBlockL1Control::explainShadow(const ACacheBlockPayload & pay, u16 seq) {
+    u32 dlen = pay.getDataLength();
+    u32 ndiff = 0u, first = 0u;
+    char buf[60];
+    u32 k = 0u;
+    for (u32 i = 0u; i < dlen && i < sizeof(mShadowCar); ++i) {
+      if (pay.mCData[i] == mShadowCar[i]) continue;
+      if (ndiff++ == 0u) first = i;
+    }
+    snprintf(buf,sizeof(buf),"%x:%x:%x:%x",(u32) seq,dlen,ndiff,first);
+    LOGPTAG(.zx,buf); HBPTAG(.zx,buf);
+    u32 shown = 0u;
+    for (u32 i = 0u; i < dlen && i < sizeof(mShadowCar) && shown < 5u; ++i) {
+      if (pay.mCData[i] == mShadowCar[i]) continue;
+      k = snprintf(buf,sizeof(buf),"%x:%x:%x",i,(u32) mShadowCar[i],(u32) pay.mCData[i]);
+      LOGPTAG(.zy,buf); HBPTAG(.zy,buf);
+      ++shown;
     }
   }
 
@@ -276,6 +301,7 @@ namespace MFM {
           ++acl1.mShadowBad;    // car differs from what the sink accepted
           LOGPTAG(SHADOWBAD,mPktSeq);
           HBPTAG(SHADOWBAD,mPktSeq);
+          acl1.explainShadow(opay,mPktSeq);
         }
         ++mPktSeq;
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car

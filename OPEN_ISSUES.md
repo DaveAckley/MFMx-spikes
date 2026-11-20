@@ -88,6 +88,25 @@ ERISC_NOTES.md.
   and a hub `.zs` mark (mShadowBad) next to `.zq`.  Compare the dump with the
   other bad-looking bytes; if the hub saw the car fine at seal, suspect transit
   or the host copy; if `.zs` > 0, hub memory/seal.
+  SEAM14-13 RESULT (2 h, 5794297, run 030333): 4 natural breaks (chip2 t101,
+  chip2 t109, chip3 t51, chip3 t129), all restarted OK.  EVERY break packet had
+  PKTSUM BAD CHECKSUM, seq right, and each hub's `.zs` = 1: THE HUB ITSELF saw
+  the car differ from the bytes the sink accepted, at seal time.  So the damage
+  is on the hub, between sink accept (T1 write under mLock) and T0's seal;
+  not transit, not the host, not the encoder.  The first bad record is 4, 4, 9,
+  3 bytes into the packet.  The single-byte offsets that fit the Fletcher da/db
+  are all >= 35 (not near the start), so it is NOT one changed byte: several
+  bytes, probably near the packet start, changed.  Candidate mechanisms: a
+  second writer into the car memory (a late/duplicate host return packet
+  landing in a car the hub is already filling: the host stamps 6 feedback bytes
+  at offset 0 and the flags word in every returned car, stampFeedback), or the
+  NC hart's recvTC wipe (openTC) of a car index that is also the current car.
+  The packet's first bytes in PKTDUMP do not equal the host's feedback fields at
+  the time, but the feedback was stamped at an earlier return.  Next build
+  keeps a byte copy of what the sink accepted (mShadowCar) and at seal, if the
+  sum differs, logs hub marks `.zx` (seq:datalen:bytes differing:first offset)
+  and up to five `.zy` (offset:meant:found).  Read those against the host's
+  feedback struct (u16 spin, u16 seq, u16 consec at offset 0) and the flags word.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close

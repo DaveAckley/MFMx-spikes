@@ -56,6 +56,8 @@ namespace MFM {
     u32 mRestartsDone;
     u16 mShadowA, mShadowB;     //< Fletcher sums of the bytes the sink accepted
     u32 mShadowBad;             //< cars whose contents differed at seal time
+    u8 mShadowCar[ACacheBlockPayload::ACBP_DATA_SIZE]; //< the bytes the sink accepted, as meant
+    void explainShadow(const ACacheBlockPayload & pay, u16 seq) ; //< T0, at seal: log the diffs
 
     void init() ;
     void latchHostFeedback(const ACacheBlockPayload & pay) ; // NC, BEFORE init()
