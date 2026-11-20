@@ -160,6 +160,17 @@ ERISC_NOTES.md.
   memory-system ORDERING between harts' stores remains possible.  Also tried on the
   two dumps: T0's reset of the sum landing late (a,b reset at different folds, started
   from the previous packet's final sums): no hit beyond chance.
+  seam16-10 (a060a9e, stress seeding, MFMX-20261120-120906): 4 breaks in 41 min (10x
+  the old rate), all recovered.  `.zn` N vs DLEN: 1253/986, 1062/986, 1443/986 (extra
+  folds, early sum != stored prefix, copy == car) and one with N == DLEN but the CAR
+  differing from the copy in 7 bytes from offset 2 (`.zx:...:7:2`).  Reading: the
+  car was wiped under T1 after T0 handed it over: recvTC's payload().init() (memset
+  of ~1KB, NC hart) is followed by crbi.add with no fence, the index becomes visible
+  first, T0 pops+resets, T1 fills, the tail of the wipe lands (zeroed bytes, or the
+  length reset so the sink's early bytes are lost).  FIX (this build): fence + commit
+  (store/reload) of the first and last payload bytes after init() before crbi.add,
+  and a fence + commit of the last data byte before crbo.add on the ship path.  VERIFY:
+  one hour of seam16.cmd should show 0 breaks (old build: ~4).  Diagnostics kept.
   NEXT RUN carries a per packet seq+checksum trailer (CLAUDE.md PACKET TRAILER):
   it separates damage in the packet from damage before packetizing.
   STILL OPEN: the cause (a) look at the car handoff at a packet join, hub T0 close

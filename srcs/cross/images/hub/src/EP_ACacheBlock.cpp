@@ -228,6 +228,20 @@ namespace MFM {
     theACacheBlockL1Control.latchHostFeedback(car.payload()); // BEFORE the wipe
     car.openTC();               // open it up
     car.payload().init();       // clean it out
+    // The wipe is a ~1KB memset of posted stores, but the index add below is a
+    // single committed word that can become visible FIRST: T0 would then pop
+    // the car, reset it and let T1 start filling it while the tail of the
+    // wipe still lands (bytes zeroed or the length reset under T1's feet, seen
+    // as .zn N > DLEN).  So: fence, then commit (store+reload) the first and
+    // last bytes of the payload, then announce the car.
+    {
+      ACacheBlockPayload & wp = car.payload();
+      u8 * wb = (u8 *) &wp;
+      memoryFence();
+      writeCommitL1<u8>(&wb[sizeof(wp) - 1],0u);
+      writeCommitL1<u8>(&wb[0],0u);
+      memoryFence();
+    }
     //    HBPTAG(ABRCV*,car.getTCState());
     //    HBPTAG(crbi,&crbi);
     //    HBPX(crbi.isEmpty());
@@ -339,6 +353,13 @@ namespace MFM {
         }
         ++mPktSeq;
         olb.closeTC(opay.getCurrentPayloadSize()); // close the car
+        {                       // trailer and close must be in L1 before the
+          u32 dl2 = opay.getCurrentLength();        // car is announced
+          memoryFence();
+          if (dl2 > 0u && dl2 <= sizeof(opay.mCData))
+            writeCommitL1<u8>(&opay.mCData[dl2 - 1],opay.mCData[dl2 - 1]);
+          memoryFence();
+        }
         if (false) {
           if (opay.getCurrentPayloadSize() < 4)
             LOGPTAG(SHIPFRMS,acl1.mCurrentCarIndex);
