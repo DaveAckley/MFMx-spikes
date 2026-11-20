@@ -26,6 +26,8 @@ namespace MFM {
     HBXTAG(ACBFlagsNow,(u32) mFlags);
   }
 
+  static constexpr u32 EARLY_FOLDS = 16u; // prefix length for the .zn early-sum check
+
   bool ACacheBlockL1Control::testFlags(u8 flags) const {
     memoryFence();
     return (mFlags & flags);
@@ -55,6 +57,8 @@ namespace MFM {
     if (ret) {
       ++mCompressedBytesPacked;
       ACacheBlockPayload::fletcherStep(mShadowA,mShadowB,byte);
+      if (++mShadowN == EARLY_FOLDS)
+        mShadowEarly = (u16) ((mShadowB << 8) | mShadowA);
       if (wasused < sizeof(mShadowCar)) mShadowCar[wasused] = byte;
     }
     {
@@ -102,6 +106,7 @@ namespace MFM {
     ACacheBlockPayload & npay = nlb.payload();
     npay.reset();
     mShadowA = mShadowB = 0u;   // fresh car, fresh shadow sum
+    mShadowN = mShadowEarly = 0u;
     if (mPendingSOF) {          // first car of a restarted stream (we hold mLock)
       npay.mFlagsAndLen |= ACacheBlockPayload::ACBP_FLAG_IS_SOF |
         (mSOFEpoch ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
@@ -314,6 +319,15 @@ namespace MFM {
             u32 dl = opay.getDataLength();
             u16 arr = ACacheBlockPayload::checksum(acl1.mShadowCar,dl);
             u16 car = ACacheBlockPayload::checksum(opay.mCData,dl);
+            // fold count vs length, and the sum after the first EARLY_FOLDS
+            // folds vs the same prefix of the byte copy and of the car
+            char nb[60];
+            u32 pre = dl < EARLY_FOLDS ? dl : EARLY_FOLDS;
+            snprintf(nb,sizeof(nb),"%x:%x:%x:%x:%x",(u32) acl1.mShadowN,dl,
+                     (u32) acl1.mShadowEarly,
+                     (u32) ACacheBlockPayload::checksum(acl1.mShadowCar,pre),
+                     (u32) ACacheBlockPayload::checksum(opay.mCData,pre));
+            LOGPTAG(.zn,nb); HBPTAG(.zn,nb);
             snprintf(wb,sizeof(wb),"%x:%x:%x:%x",(u32) ((b0<<8)|a0),
                      (u32) ((b1<<8)|a1),(u32) arr,(u32) car);
             LOGPTAG(.zw,wb); HBPTAG(.zw,wb);
