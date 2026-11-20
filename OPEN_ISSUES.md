@@ -401,8 +401,12 @@ compressor, which needs no special h/w).
 
 Which hart drives it (user idea): the hub's compression hart (T1) is a hart the
 image "owns"; the EWP image could likewise use a free T hart as a Tensix driver.
-Checked: ImageHartTasks.inc for EWP lists only `b`, so T0/T1/T2 do nothing
-there today.  The TRISCs are also the harts wired to the Tensix front end
+Harts per image (user): T2 is the PRNG server (Mersenne twister) on ALL images,
+T0 does timing/timestamping (could be repurposed per image, not yet), T1 is the
+hub's compressor and so FREE in the EWP image (ImageHartTasks.inc lists only
+`b`).  So T1 is the Tensix driver candidate; the tie-break draw comes from the
+T2 mailbox (one draw per query), while per-lane RNG for xray could use the SFPU's
+own random instruction (weaker than MT; check quality before trusting it).  The TRISCs are also the harts wired to the Tensix front end
 (thread 0 unpack, 1 math, 2 pack), so a T hart is the native driver.  Shape: B
 runs the scalar physics and hands the EW (in L1, no copy) to T1 through a
 mailbox (cf. MAILBOX_BASE_T2, preloadT2Mailbox); T1 runs the kernel and posts the
