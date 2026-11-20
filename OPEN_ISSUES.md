@@ -399,8 +399,18 @@ not asynchronous events; also the spread metric for the dwell experiment); the
 report stream (32 wide LZ match scan, or better, dirty bit filtering before the
 compressor, which needs no special h/w).
 
-Unknowns: whether non-TRISC harts (the physics hart is B) may issue Tensix
-instructions; which TRISCs each image uses; no tt-metal LLK here, so kernels
+Which hart drives it (user idea): the hub's compression hart (T1) is a hart the
+image "owns"; the EWP image could likewise use a free T hart as a Tensix driver.
+Checked: ImageHartTasks.inc for EWP lists only `b`, so T0/T1/T2 do nothing
+there today.  The TRISCs are also the harts wired to the Tensix front end
+(thread 0 unpack, 1 math, 2 pack), so a T hart is the native driver.  Shape: B
+runs the scalar physics and hands the EW (in L1, no copy) to T1 through a
+mailbox (cf. MAILBOX_BASE_T2, preloadT2Mailbox); T1 runs the kernel and posts the
+result.  The hand-off (write + poll, tens of cycles) argues for offloading only
+heavy queries or whole batches, not cheap ones.  One hart driving all three
+stages loses the unpack/math/pack overlap; acceptable at first.
+
+Unknowns: how a single TRISC best sequences all three Tensix stages; no tt-metal LLK here, so kernels
 would be hand written from the public ISA documentation; precision of the
 matrix unit formats (counts are fine, full 32 bit atom bits go on the SFPU).
 
