@@ -53,14 +53,21 @@ namespace MFM {
     ACacheBlock & acb = *mCurrentACacheBlock;
     ACacheBlockPayload & pay = acb.payload();
     u32 wasused = pay.getCurrentLength();
-    if (wasused != mExpectLen) {  // someone else changed the length under us
+    // A full car (data space filled, trailer appended: +4) is not a jump.
+    bool fulltrailer = (wasused == (u32) mExpectLen + 4u) &&
+      ((u32) mExpectLen == ACacheBlockPayload::ACBP_DATA_SIZE);
+    if (wasused != mExpectLen && !fulltrailer) {  // length moved under us
       ++mLenJumps;
       if (mLenJumpsThisCar < 3u) {
         ++mLenJumpsThisCar;     // .zl:found:expected:flags:car:ms since setup
-        char lb[60];
-        snprintf(lb,sizeof(lb),"%x:%x:%x:%x:%x",wasused,(u32) mExpectLen,
-                 pay.getCurrentFlags(),(u32) mCurrentCarIndex,
-                 millisElapsed() - mBaseTicks);
+        // .zl:found:expected:flags:car:ms since setup:ms since this
+        //   car's last recvTC:recvTC count for this car
+        char lb[80];
+        u32 ci = ((u32) mCurrentCarIndex) & 7u;
+        snprintf(lb,sizeof(lb),"%x:%x:%x:%x:%x:%x:%x",wasused,
+                 (u32) mExpectLen,pay.getCurrentFlags(),(u32) mCurrentCarIndex,
+                 millisElapsed() - mBaseTicks,
+                 millisElapsed() - mRecvMs[ci],mRecvN[ci]);
         LOGPTAG(.zl,lb); HBPTAG(.zl,lb);
       }
     }
@@ -252,6 +259,12 @@ namespace MFM {
           LOGPTAG(.zr,rb); HBPTAG(.zr,rb);
         }
       }
+    }
+    {                           // when did this car last come back? (.zl)
+      ACacheBlockL1Control & rl1 = theACacheBlockL1Control;
+      u32 ri = ((u32) carindex) & 7u;
+      rl1.mRecvMs[ri] = millisElapsed();
+      ++rl1.mRecvN[ri];
     }
     car.openTC();               // open it up
     car.payload().init();       // clean it out

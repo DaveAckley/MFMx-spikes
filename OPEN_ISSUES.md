@@ -610,3 +610,12 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   Host change: OurTLBs::writeToWordsOrdered (payload, readback, footer,
   readback, header LAST) for the ACB return.  Host only; DUPRET stays.
   Next run: breaks gone = confirmed; else look at hub-side writers again.
+- Timing of the 5 zero events (seam16-12/13): 1,1,3,11,12 ms after setup,
+  106..560 of 986 bytes (11-57%); a full car takes 20-60 ms (mode ~30), the
+  fill is bursty.  Weakly early (p ~0.06 by bytes), no constant delay.
+  setupNewCar's reset is under mLock, so it cannot interleave with a write.
+  Hub diagnostic added: `.zl:found:expected:flags:car:ms-since-setup:
+  ms-since-this-car's-last-recvTC:recvTC-count-for-car` (two new fields).
+  The full-car 3de/3da noise is no longer logged or counted.  Reading: a
+  roughly constant ms-since-recvTC = a late wipe/return landing; unrelated
+  to it = a hub-side writer.  Needs a HUB rebuild.

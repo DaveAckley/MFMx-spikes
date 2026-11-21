@@ -60,6 +60,8 @@ namespace MFM {
     u16 mExpectLen;             //< payload length our own last accepted byte left
     u8 mLenJumpsThisCar;        //< length found moved under us, this car (log cap)
     u32 mLenJumps;              //< times the length was not where we left it (.zl)
+    u32 mRecvMs[8];             //< millisElapsed() at each car's last recvTC
+    u32 mRecvN[8];              //< recvTC calls per car
     u32 mRecvCurrent;           //< recvTC calls on the car we are filling (should be 0)
     u32 mShadowBad;             //< cars whose contents differed at seal time
     u32 mShadowStale;           //< seal reads of the shadow sums that a fence changed
