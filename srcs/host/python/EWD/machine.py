@@ -540,8 +540,13 @@ class Machine:
                            f"{'/'.join(str(n) for n in counts.values())} acked; "
                            "cycle will begin at NEW_LEADER")
             else:
+                # Do NOT re-fire: tiles that already hold it assert
+                # ILLEGAL_STATE and wedge.  Stragglers show up as lamers of
+                # the first NEW_LEADER instead.
+                self.hold_settled = True
                 out.append(f"HOLD_AT_BIRTH phase: only {counts} acked "
-                           f"(expected {self.t6s}/chip); cycle will re-fire it")
+                           f"(expected {self.t6s}/chip); NOT re-firing it, "
+                           "cycle will begin at NEW_LEADER and name any laggards")
         out.append(self.write_pkts())
         return "\n".join(out)
 

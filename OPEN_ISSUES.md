@@ -15,10 +15,11 @@ ERISC_NOTES.md.
   `MFM_API_ASSERT(ecmd != nextCmd,ILLEGAL_STATE)` in
   `PhaseStepper::_switchToExiting` (fidl 88:99) and wedged (NC hart in BHANG,
   other harts in acquireLockASM).  Mitigation: start() now waits up to 60 s
-  and logs `HOLD_AT_BIRTH ack wait`.  STILL OPEN: the re-fire fallback is
-  unsafe whenever any hub acked; a hub should tolerate (ack) a repeat of the
-  command it already occupies, or the sequencer should wait instead of
-  re-firing.  Also the stuck report printed no fail file/line (no `STUCK?`
+  and logs `HOLD_AT_BIRTH ack wait`.  The 60 s wait did NOT cure it (seam21 retry, onPhases 0/0/0/0
+  after the freeze), so start() no longer re-fires at all: a partial ack count
+  now just skips HOLD_AT_BIRTH and the first NEW_LEADER names the laggards.
+  STILL OPEN: why some tiles never ack at OW=20.  A hub should also tolerate
+  (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
   lines) for this wedge.
 
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
