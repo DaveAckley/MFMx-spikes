@@ -78,8 +78,8 @@ source, comments, docs and commit messages).
   QuietBox is 1918 sites wide, so the last 2 image columns stay blank and
   nothing falls off the right; 5 x 108 x 2 = 1080 fits exactly.  Display only:
   qb.setSimAtom keeps its old coordinates.
-- CACHE WIDTH / L1 (2026-11-21): ring OW = OH = 15 (was 10): hub grid 167 x 138,
-  T6Grid 276556 bytes (BlockCode.h literal, the hub static_asserts it) plus the
+- CACHE WIDTH / L1 (2026-11-21): ring OW = OH = 20 (15 in ef39772..44b7998, 10 before): hub grid 177 x 148,
+  T6Grid 314356 bytes (BlockCode.h literal, the hub static_asserts it) plus the
   4 bytes/site DLGridList; the hub linker L1 is now 3/4 of L1 (_BUD.ld.in; was
   1/2, ~42 KB free at OW=10, hub.map: LiveB 321 KB, EP_InterHub 200 KB, .text
   160 KB).  Dead area is OW-independent (the lent band is lost, the borrowed one
@@ -429,6 +429,7 @@ config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks
 config/seam18.cmd: ONE hour cache ELISION soak (`events honest`, `elide on`,
 `cycle repeat on`; see OPEN_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
 and `cycle repeat [on|off]` are new (2026-11-21), as is `events [shortcut|honest]`.
+config/seam21.cmd: ONE hour elision soak at OW=OH=20, seam20's setup (compare with it).
 config/seam20.cmd: ONE hour elision soak at OW=OH=15 (044edf1), seam18's setup.
 config/seam19.cmd: 20 min seam18 twin whose hub `.xe` marks carry per-Dir8 packet
 counts (`xchg.py RUNDIR --dirs`); seam18 showed SAVE packets -47% but LOAD only -11%.
