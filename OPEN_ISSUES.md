@@ -631,6 +631,9 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   between.  The host picks a random corner DIFFERENT from the previous one each
   NEW_LEADER: 1/3 adjacent cw, 1/3 adjacent ccw (one band shared each), 1/3
   opposite (none), so the expected saving is 2/9 (~22%) of exchange traffic;
-  never the same corner.  Excluding opposite corners would make it 1/3.  Not
+  never the same corner.  Excluding opposite corners would make it 1/3.
+  PLAN if built: the host would pick 0..3 uniformly each time and let the
+  corner repeat: 1/4 same (all 3 bands shared, no exchange that phase), 1/2
+  adjacent (1 band), 1/4 opposite (0): expected 1.25 of 3 bands = ~42%.  Not
   worth it while exchange is not the bottleneck (duty ~97%, slowest hub
   ~0.2 s).  Parked; no work started.
