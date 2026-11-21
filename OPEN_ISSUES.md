@@ -643,3 +643,9 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   header/footer in either order).  The per-hub windows are write-combining
   (OurTLBs.cpp configureL1Window wc=true).  Clean 3 h again = readbacks were
   not needed.  If breaks return, put the readback back.
+- seam17 (3 h, 5525f96, two-readback ordered return): no `.zw` (user grep).  With
+  seam16-14 that is 4 clean hours on the fix; the unfixed stress rate was
+  ~3 breaks/h (~12 expected), so chance is far below 1%.  Run directory not
+  yet copied for the full check (DESYNC/PKTSUM/DUPRET/.zl/ZHD file).  Entry
+  stays OPEN until the fences-only build (243bc0a) also runs clean for 3 h,
+  then move it to CLOSED_ISSUES.md.
