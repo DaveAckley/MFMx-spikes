@@ -628,6 +628,9 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   SAVE back and the next LOAD are a round trip to the same hub, so both could
   be skipped (lender keeps avoiding the band, borrower keeps it).  Needs the
   corner sequence known to both ends and no change to either side's reach in
-  between.  Saves ~1/3 of exchange traffic for adjacent rotation.  Not
+  between.  The host picks a random corner DIFFERENT from the previous one each
+  NEW_LEADER: 1/3 adjacent cw, 1/3 adjacent ccw (one band shared each), 1/3
+  opposite (none), so the expected saving is 2/9 (~22%) of exchange traffic;
+  never the same corner.  Excluding opposite corners would make it 1/3.  Not
   worth it while exchange is not the bottleneck (duty ~97%, slowest hub
   ~0.2 s).  Parked; no work started.
