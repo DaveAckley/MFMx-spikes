@@ -65,6 +65,15 @@ ERISC_NOTES.md.
   mfmxctl with `python3 -X faulthandler` (or PYTHONFAULTHANDLER=1) and quit with
   plain `q`; compare with `q c`.  Low priority.
 
+- NRIUtils.h stepsE/stepsW look wrong for a wrap in X (found 2026-11-21, not fixed):
+  `stepsE` wraps with 12 (the row count) where the NoC0 grid is 17 columns wide,
+  and `stepsW` wraps with `16u - d0.y + s0.y` (y coordinates in an x distance).
+  Only preferNoC() uses them (hop-count choice between NoC0 and NoC1, so a
+  wrong pick costs hops, not correctness; stepsN/stepsS model the 12-row torus).
+  Also ERISC_SEAM_DESIGN.md says NoC1 "would be chosen most of the time" for an
+  ETH tile: with the Y wrap the lower rows prefer NoC0, so only the upper rows
+  pick NoC1.
+
 ## Unproven on hardware
 
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
