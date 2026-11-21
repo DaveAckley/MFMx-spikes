@@ -637,3 +637,9 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   adjacent (1 band), 1/4 opposite (0): expected 1.25 of 3 bands = ~42%.  Not
   worth it while exchange is not the bottleneck (duty ~97%, slowest hub
   ~0.2 s).  Parked; no work started.
+- seam16-14 (1 h) and seam17 (3 h, 5525f96) ran with NO breaks and no `.zw`
+  with the ordered return that did two readbacks.  Next experiment (this
+  commit): FENCES ONLY (store fence between payload and footer, no readbacks;
+  header/footer in either order).  The per-hub windows are write-combining
+  (OurTLBs.cpp configureL1Window wc=true).  Clean 3 h again = readbacks were
+  not needed.  If breaks return, put the readback back.

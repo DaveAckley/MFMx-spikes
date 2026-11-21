@@ -349,11 +349,15 @@ namespace MFM {
   */
 
   // Like writeToWords, but the packet only becomes "complete" (header ==
-  // footer) at the very end.  Payload and ankle words go first, then a
-  // readback (a PCIe read cannot pass earlier posted writes), then the
-  // footer, another readback, and the header LAST.  Without this the hub
-  // can see header+footer and reuse the car while payload words (flags 0,
-  // len 0) are still in flight and land in the middle of its next fill.
+  // footer, and ankle) after everything else has been issued.  Payload and
+  // ankle words go first, then a store fence (the windows are write
+  // combining: the CPU may evict its buffers in any order; the fence makes
+  // the payload leave first, and PCIe keeps posted writes in order), then
+  // the footer and the header.  Header and footer may land in either order:
+  // neither alone looks complete.  Without this the hub could see header ==
+  // footer and reuse the car while payload words (flags 0, len 0) were still
+  // in flight and landed in the middle of its next fill.  (The first version,
+  // 4573687, also did two readbacks; seam17 ran clean with those.)
   void OurTLBs::writeToWordsOrdered(u32 tlbi, u32 destAddr, u32 * words, u32 wordCount) {
     if (wordCount < 3u) {
       writeToWords(tlbi, destAddr, words, wordCount);
@@ -364,12 +368,12 @@ namespace MFM {
     volatile u32 * dst = (volatile u32 *) (tlbBase + destOffsetWords);
     for (u32 i = 1u; i + 1u < wordCount; ++i)
       dst[i] = words[i];
+#if defined(__x86_64__) || defined(__i386__)
+    __builtin_ia32_sfence();        // order the write-combining buffers
+#endif
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    (void) dst[wordCount - 2u];     // flush posted writes
     dst[wordCount - 1u] = words[wordCount - 1u];   // footer
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-    (void) dst[wordCount - 1u];     // flush
-    dst[0] = words[0];              // header last: now it is complete
+    dst[0] = words[0];              // header: now it is complete
   }
 
   void OurTLBs::writeToWords(u32 tlbi, u32 destAddr, u32 * words, u32 wordCount) {
