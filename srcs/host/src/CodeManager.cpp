@@ -170,6 +170,8 @@ namespace MFM {
     hb->mHostFlags |= HostFlags::HBF_NO_UTAG; // XXX STOP RANDOM TAG LOGGING
     hb->mHostFlags |= HostFlags::HBF_STAG_PTRACE; // XXX TRY TO INCLUDE PACKET TRACE LOGGING
     hb->mHostFlags |= cachePolicyToHostFlags((CachePolicyId) mCachePolicy); // supercell or four corners
+    if (mEveryEvent) hb->mHostFlags |= HostFlags::HBF_EVERY_EVENT; // honest AER
+    if (mElideCaches) hb->mHostFlags |= HostFlags::HBF_ELIDE_CACHES; // keep shared bands
     hb->mCommonArgs[0] = time(0); // per-run nonce
     hb->mCommonArgs[1] = mStartDecayType; // optional start symbol behavior selection
     hb->mHBMagic = HostBlock::HBMAGIC;

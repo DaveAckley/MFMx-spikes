@@ -14,6 +14,7 @@
 # policy they really ran.  Policy is set before 'start' (applied at deploy).
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

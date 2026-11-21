@@ -86,15 +86,16 @@ source, comments, docs and commit messages).
   Python and C++ disagree).  Numbers quoted in docs (137, 959, 1918, 14796) are
   descriptive of the current width, not inputs.  EXCEPTION, guarded: the T6GRID
   size literal in BlockCode.h (hub image static_assert fails until updated).
-- NO AER CHEATING build (hub Grid.h, compile time, default OFF): `#define
-  MFMX_EVERY_EVENT 1` (or -DMFMX_EVERY_EVENT=1) and rebuild.  The hub then
-  draws ONE random center per event request, empty or not, and ships it to an
-  EWP (EWP physics already returns an EMPTY-center window unchanged), instead
-  of drawing up to 100 and crediting each empty hit as a free event
-  (mEWsEmptyCenters).  mEWsEmptyCenters stays 0, so aer.py/live AER (committed
-  + empty) count only round-tripped events: no empty-grid AER inflation after
-  the seed.  The hubs log `.ee:1` (0 in a normal build) next to `.cp`.  Before
-  the autoseed fires nothing is shipped in either mode.
+- NO AER CHEATING mode (RUN TIME since 2026-11-21; mfmxctl `events honest`
+  or `--events honest`, default `shortcut`; set before `start`; host flag
+  HBF_EVERY_EVENT, Blackhole.setEveryEvent): the hub then draws ONE random
+  center per event request, empty or not, and ships it to an EWP (EWP physics
+  already returns an EMPTY-center window unchanged), instead of drawing up to
+  100 and crediting each empty hit as a free event (mEWsEmptyCenters).
+  mEWsEmptyCenters stays 0, so aer.py/live AER (committed + empty) count only
+  round-tripped events: no empty-grid AER inflation after the seed.  The hubs
+  log `.ee:1` (0 in shortcut mode) next to `.cp`.  Configs seam11..seam17 say
+  `events honest`.  Before the autoseed fires nothing is shipped in either mode.
   RESULT, run 20261119-121915 (seam11, 4 cards, 1918x1080 = 2,071,440 sites (140 hubs x 14796; the stream image is 1920x1080, 2 blank columns), hub
   width 137, fourcorners, FB1, `.ee:1` on all 140 hubs, 14.3 min): live AER
   final 0.973 (1 min), 0.976 (5 min), 0.979 (whole run), flat from the first
@@ -175,6 +176,10 @@ source, comments, docs and commit messages).
   hub reused a car and a late payload write zeroed its length mid-fill.  Host fix
   OurTLBs::writeToWordsOrdered (payload, store fence, footer, header); 7 clean stress
   hours.  Marks .zl/.zr/.zs/.zn/.zw and host DUPRET stay in.
+- CACHE ELISION (four corners, 2026-11-21, UNPROVEN): with `elide on` a hub does not
+  save and reload the bands whose role is unchanged between the previous and the
+  next corner (CachingPolicies::keepAcross, CacheLoaders::mKeepMask, `.xk` mark);
+  `cycle repeat on` picks the corner uniformly 0..3.  Off by default.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no
@@ -412,6 +417,9 @@ of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
 (Default policy is fourcorners since 2026-11-19; seam6.cmd and seam10.cmd now say `policy supercell` so they stay the supercell baselines.)
 config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks of
 10 min, `zhd` after each) for counting stream breaks per hour.
+config/seam18.cmd: ONE hour cache ELISION soak (`events honest`, `elide on`,
+`cycle repeat on`; see OPEN_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
+and `cycle repeat [on|off]` are new (2026-11-21), as is `events [shortcut|honest]`.
 config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
 the command line, `feed on` right after `start` (the RTMP stream does not exist
 during bring-up; experiment against the hls.js freezes at the NO DATA gap, see

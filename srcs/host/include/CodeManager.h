@@ -22,10 +22,14 @@ namespace MFM {
       , mLastTLBISlowScanned(U32_MAX)
       , mStartDecayType(U16_MAX)
       , mCachePolicy(0)
+      , mEveryEvent(false)
+      , mElideCaches(false)
     {
     }
     void setStartDecayType(u16 val) { mStartDecayType = val; }
     void setCachePolicy(u8 val) { mCachePolicy = val; } //< CachePolicyId, applied at deploy
+    void setEveryEvent(bool on) { mEveryEvent = on; }   //< HBF_EVERY_EVENT, applied at deploy
+    void setElideCaches(bool on) { mElideCaches = on; } //< HBF_ELIDE_CACHES, applied at deploy
     s32 deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) ;
 
     u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
@@ -101,6 +105,8 @@ namespace MFM {
     u32 mLastTLBISlowScanned;
     u16 mStartDecayType;
     u8 mCachePolicy;             //< CachePolicyId for the hubs' HostFlags
+    bool mEveryEvent;            //< honest AER: HBF_EVERY_EVENT for the hubs
+    bool mElideCaches;           //< keep shared bands: HBF_ELIDE_CACHES for the hubs
   };
 }
 

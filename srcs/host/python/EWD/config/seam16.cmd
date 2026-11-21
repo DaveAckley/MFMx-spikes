@@ -3,8 +3,8 @@
 # the four autoseeding hubs per chip.  Busy hubs mean full ACBs sooner, which
 # should surface stream breaks (and the PKTSUM / .zw / .zs diagnostics of the
 # trailer investigation, OPEN_ISSUES.md) faster.  Atom tracking across the
-# grid is meaningless here.  Normally run with MFMX_EVERY_EVENT 1 (Grid.h; the
-# hubs log .ee:1) so empty centers cost a round trip like everything else.
+# grid is meaningless here.  The `events honest` line below makes empty centers cost a round trip like
+# everything else (hubs log .ee:1).
 # Everything else is seam14, but ONE hour (6 x 10 minutes; seam14 is two hours),
 # 'zhd' every 10 minutes, no --rtmp:
 #   python mfmxctl.py --layout seam4 --boot -s config/seam16.cmd --script-exit --abort-on-error
@@ -13,6 +13,7 @@
 #   grep -h "ZHD" MFMX-<date>-<time>/misc/*ZHD.txt
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

@@ -20,6 +20,7 @@
 # build) shows whether the hub itself is fine (scripts/l1dump/l1grid.py).
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

@@ -38,6 +38,7 @@ class SuperCycle:
         self.rng = rng or random.Random()
         self.dwell = tuple(dwell)
         self.first_leader = first_leader
+        self.repeat = False         # four corners: pick 0..3 uniformly, repeats allowed
         self.hold_args = tuple(hold_args)
         self.late_poll = 0.5
         self.reset()
@@ -172,6 +173,8 @@ class SuperCycle:
             return n
         if self.leader is None:
             return self.first_leader
+        if self.repeat and getattr(self.m, "policy", None) == "fourcorners":
+            return self.rng.randrange(NLEADERS)
         return self.rng.choice([l for l in range(NLEADERS) if l != self.leader])
 
     def _begin(self):

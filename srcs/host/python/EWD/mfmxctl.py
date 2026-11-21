@@ -55,9 +55,14 @@ def parse_args(argv):
     ap.add_argument("--no-chip-reset", action="store_true", help="skip 'tt-smi -r' during boot")
     ap.add_argument("--tt-smi", default=TT_SMI_DEFAULT)
     ap.add_argument("--decay", type=int, default=None, help="start decay type (was argv[1])")
+    ap.add_argument("--events", default="shortcut",
+                    help="AER mode: shortcut (default; empty draws are free events) or "
+                         "honest (every drawn center is shipped)")
+    ap.add_argument("--elide", action="store_true",
+                    help="keep the cache bands shared by consecutive corners instead of "
+                         "saving and reloading them (four corners only)")
     ap.add_argument("--policy", default="fourcorners",
                     help="cache policy: fourcorners (default) or supercell")
-    ap.add_argument("--alt-decay", type=int, default=None, help="alt seed type (was argv[2])")
     ap.add_argument("--link-wait", type=float, default=12.0,
                     help="boot preflight: seconds to wait for every declared "
                          "eth-seam link to report Up after a chip reset")
@@ -139,8 +144,8 @@ def main(argv=None):
     cfg = Config.Config(os.path.join(HERE, "mfmxctl.py"), args.config)
     m = Machine(MFMx, cfg, sh.say, script_dir=HERE, logprefix=args.log_prefix,
                 t6s_per_chip=args.t6s_per_chip, verbose=args.verbose,
-                decay=args.decay, alt_decay=args.alt_decay, tt_smi=args.tt_smi,
-                policy=args.policy,
+                decay=args.decay, tt_smi=args.tt_smi,
+                policy=args.policy, events=args.events, elide=args.elide,
                 # --mock skips the real reset unless a fake --tt-smi is given
                 # (the selftests use /bin/true to exercise the preflight)
                 reset_chips=not (args.no_chip_reset or
@@ -238,6 +243,27 @@ def main(argv=None):
         return (f"cache policy: {m.policy} (applied at next 'start'; "
                 f"one of {', '.join(CACHE_POLICIES)})")
 
+    def c_events(a):
+        from machine import EVENT_MODES, parse_events
+        if a:
+            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
+                                              for _c, p in m.steps()):
+                return ("the events mode is applied when the code is deployed "
+                        "(at 'start'): set it before 'start'")
+            m.events = parse_events(a[0])
+        return (f"events mode: {m.events} (applied at next 'start'; "
+                f"one of {', '.join(EVENT_MODES)})")
+
+    def c_elide(a):
+        if a:
+            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
+                                              for _c, p in m.steps()):
+                return ("cache elision is applied when the code is deployed "
+                        "(at 'start'): set it before 'start'")
+            m.elide = kw(a[0], ("on", "off"), "elide option") == "on"
+        return (f"cache elision: {'on' if m.elide else 'off'} (applied at next 'start'; "
+                "four corners only)")
+
     def c_scan(a):
         return f"slowscan -> {m.slowscan(int(a[0]) if a else 1)}"
 
@@ -285,7 +311,7 @@ def main(argv=None):
 
     def c_cycle(a):
         sub = sh.resolve(a[0], ("status", "start", "hold", "step", "stop", "retry", "reset",
-                                "leader", "first", "birth"), "cycle subcommand") if a else "status"
+                                "leader", "first", "birth", "repeat"), "cycle subcommand") if a else "status"
         if sub == "status":
             return cyc.status()
         if sub in ("start", "hold", "step", "stop", "retry"):
@@ -293,6 +319,11 @@ def main(argv=None):
         if sub == "reset":
             cyc.reset()
             return "cycle reset (counters, leader memory, birth-hold flag)"
+        if sub == "repeat":
+            if len(a) > 1:
+                cyc.repeat = kw(a[1], ("on", "off"), "cycle repeat") == "on"
+            return (f"cycle repeat: {'on' if cyc.repeat else 'off'} (a corner may repeat; "
+                    "four corners only)")
         if sub == "leader":
             n = None if len(a) < 2 or (not a[1].isdigit() and
                                        kw(a[1], ("random",), "cycle leader") == "random") else a[1]
@@ -451,6 +482,8 @@ def main(argv=None):
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
     sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
+    sh.command("events", c_events, "events [shortcut|honest]: show/set the AER mode (before 'start')")
+    sh.command("elide", c_elide, "elide [on|off]: keep bands shared by consecutive corners (before 'start')")
     sh.command("policy", c_policy, "policy [fourcorners|supercell]: show/set the cache policy (before 'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")

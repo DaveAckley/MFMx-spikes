@@ -39,6 +39,8 @@ class _Mock:
 
     def __init__(self):
         self.ntiles = 140
+        self.last_elide = None               # last setElideCaches() value
+        self.last_every_event = None         # last setEveryEvent() value
         self.last_policy = None              # last setCachePolicy() value
         self.t_start = time.monotonic()      # liveAERSnapshot's clock
         self.rng = random.Random(1234)
@@ -89,7 +91,7 @@ class _Mock:
                 f"lamers={ {c: sorted(s) for c, s in self.lamers.items()} } "
                 f"cmd_lamers={ {k: sorted(s) for k, s in self.cmd_lamers.items()} } "
                 f"slow={self.slow} legacy_timeout={self.legacy_timeout} api={API} "
-                f"policy={self.last_policy}")
+                f"policy={self.last_policy} every_event={self.last_every_event} elide={self.last_elide}")
 
 
 _mock = _Mock()
@@ -465,6 +467,14 @@ class Blackhole:
 
     def setStartDecayType(self, t):
         self.decay = int(t)
+
+    def setElideCaches(self, on):
+        self.elide_caches = bool(on)
+        _mock.last_elide = bool(on)
+
+    def setEveryEvent(self, on):
+        self.every_event = bool(on)
+        _mock.last_every_event = bool(on)
 
     def setCachePolicy(self, p):
         self.policy = int(p)

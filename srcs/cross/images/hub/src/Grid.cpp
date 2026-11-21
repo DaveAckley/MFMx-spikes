@@ -125,7 +125,7 @@ namespace MFM {
     ewbounds.start.y = eb.y0;   //inclusive
     ewbounds.stop.y = eb.y1;    //exclusive
 
-    if (EVERY_EVENT_SHIPPED) {  // no AER cheating: empty centers get shipped too
+    if (everyEventShipped()) {  // no AER cheating: empty centers get shipped too
       found = selectRandomSite(ewbounds);
       SNAP(10,HBPTAG(SEEKT,found));
       return true;
@@ -266,7 +266,7 @@ namespace MFM {
     if (!lgmc.isEPSuspReq() && seekRandomNonEmptySite(center)) {
       SNAP(10,HBNOTE(readEW));
       readEW(ewt.mOld,center);
-      ++mEWsOffered;            // an event shipped (non-empty, or any in EVERY_EVENT mode)
+      ++mEWsOffered;            // an event shipped (non-empty, or any in honest mode)
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
       ewt.mHiddenYPos = center.y;

@@ -47,6 +47,19 @@ namespace MFM {
     CacheLoader mCacheLoaders[CACHELOADER_COUNT];
     u8 mConfiguredSCL;
     u32 mPacketsMoved;          //< packets loaded or unloaded since cleared (.xe mark)
+    u8 mKeepMask;               //< bit per loader: kept across this SAVE and the next LOAD (elision)
+    u8 mHaveLoaded;             //< a LOAD has completed: the borrowers hold real caches
+
+    /* CACHE ELISION (four corners, host flag HBF_ELIDE_CACHES).  A direction
+       whose role is the same under the previous corner and the next one
+       (both ends see the same role, the corner is the same everywhere) needs
+       neither the SAVE of this NEW_LEADER nor the LOAD of the next
+       RUN_EVENTS: the borrower keeps its cache, the lender keeps its sites
+       untouched (it stays clear of the band it lends).  Computed once at the
+       start of each SAVE from the new corner.  Nothing is kept before a LOAD
+       has happened. */
+    void setKeepMaskFor(s32 nextCorner) ;
+    bool isKept(u32 idx) const { return (mKeepMask & (1u << idx)) != 0u; }
 
     void configureCacheLoaders(u8 scleader) ;
 
@@ -68,6 +81,7 @@ namespace MFM {
 
     bool allReadyToAck() const {
       for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+        if (isKept(i)) continue;
         if (get(i).needsAnotherPacket()) return false;
       }
       return true;

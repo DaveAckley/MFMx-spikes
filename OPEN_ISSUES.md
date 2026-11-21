@@ -49,13 +49,10 @@ ERISC_NOTES.md.
       so the latest marks survive (racy against slowscan's read, accepted).
   On a recurrence: find which hub waits on whom from the `.xw` marks, then
   read the slowscan sweep in all.mfmk.
-- mfmxctl `status` line prints api=legacy under firePHASER (mislabel).
-- `create(50)` seed switch in `GridManager::seekRandomNonEmptySite` is computed
-  but unused (the autoseed type follows `decay N`, default 5).
 - mfmxctl argument abbreviation: DONE (see git log).  Keyword arguments now resolve like
   commands (unique prefix, case blind, ambiguous/unknown refused): quit close, grid on|off,
   bolt diagnose on|off, cycle leader random / birth done|pending, zhd all|restart|break and
-  restart on|off, tlbi lamers, seed alt, nuke big, shoot BOLTNAME.  `step NAME` stays EXACT on
+  restart on|off, tlbi lamers, seed [COUNT [TYPE]], nuke big, shoot BOLTNAME.  `step NAME` stays EXACT on
   purpose (setStep).  Tests: mock/selftest.py scenario abbrev_args.
 - mfmxctl segfault at exit after `quit` WITHOUT close (2026-11-20, seam14-14 stopped
   at 3684 s by typing `q c`; before b71c52d `q c` did not mean `quit close`, so
@@ -144,7 +141,7 @@ Scope (no HostBlock change, no HostFlags bit):
     EMPTY.  Wanted consequence: the caches along permanent edges are never
     used, so they stay EMPTY from initialisation and never change.
  5. Host/AER: the viewer already draws INACCESSIBLE (EWControl, ZHostDecompressor);
-    AER sites stay 138x108 per hub.  Edge events now run over partly
+    AER sites stay 137x108 per hub.  Edge events now run over partly
     inaccessible windows (still count as events).  Expect a small AER/density
     change on single-chip runs (the ring is no longer a stash).
 Risks: a seam link down at deploy would look like a permanent edge (preflight
@@ -200,14 +197,14 @@ QUADRANT: NW, NE, SW or SE.  In a NW cycle EVERY hub
   - receives (loads) its W band, its N band and its NW corner cache;
   - sends (saves back) the matching E band, S band and SE corner to the hubs
     that borrow them;
-  - runs events over its own 138x108 area shifted by (-10,-10), i.e. including
+  - runs events over its own 137x108 area shifted by (-10,-10), i.e. including
     the three borrowed caches and excluding the three lent bands.
 Event areas tile the plane as same-size rectangles that slide by +-10 in x and
 y each cycle.  The other three quadrants are mirrors.
 
 Expected effects:
   1. Constant traffic: every interior hub moves exactly one long band
-     (138x10), one short band (10x108) and one 10x10 corner, in and out, every
+     (137x10), one short band (10x108) and one 10x10 corner, in and out, every
      cycle.  About a third of a leader's volume today, and no lopsidedness:
      less hub-to-hub variance, so shorter and tighter consensus times, and a
      higher duty (now about 74%).  loadPacket ships empty sites too, so the
@@ -398,20 +395,26 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 - FB4's renderer colours by hidden counter mStg[1]; a seed mix (DReg/FB1)
   would add variety.
 
-## IDEA: elide cache exchange for bands shared by consecutive corners (2026-11-20)
-- Four-corners: a hub borrows 3 pieces toward its corner (corner cache + two
-  edge bands) and lends the 3 opposite.  Consecutive phases whose corners are
-  ADJACENT share one borrowed band (and one lent band); the same corner
-  shares all three; the OPPOSITE corner shares none.  For a shared band the
-  SAVE back and the next LOAD are a round trip to the same hub, so both could
-  be skipped (lender keeps avoiding the band, borrower keeps it).  Needs the
-  corner sequence known to both ends and no change to either side's reach in
-  between.  The host picks a random corner DIFFERENT from the previous one each
-  NEW_LEADER: 1/3 adjacent cw, 1/3 adjacent ccw (one band shared each), 1/3
-  opposite (none), so the expected saving is 2/9 (~22%) of exchange traffic;
-  never the same corner.  Excluding opposite corners would make it 1/3.
-  PLAN if built: the host would pick 0..3 uniformly each time and let the
-  corner repeat: 1/4 same (all 3 bands shared, no exchange that phase), 1/2
-  adjacent (1 band), 1/4 opposite (0): expected 1.25 of 3 bands = ~42%.  Not
-  worth it while exchange is not the bottleneck (duty ~97%, slowest hub
-  ~0.2 s).  Parked; no work started.
+## Cache elision: BUILT 2026-11-21, UNPROVEN on hardware
+- Four corners, host flag HBF_ELIDE_CACHES (mfmxctl `elide on`, `--elide`;
+  default off) and `cycle repeat on` (corner picked 0..3 uniformly, repeats
+  allowed, four corners only; default off = random different corner).  A
+  direction whose role (send sites / receive caches) is the same under the
+  previous and the next corner is neither SAVEd at that NEW_LEADER nor LOADed
+  at the next RUN_EVENTS: CachingPolicies::keepAcross, CacheLoaders::
+  setKeepMaskFor (decided once per SAVE, nothing kept before the first LOAD
+  completed), hub mark `.xk:MASK` (hex, one bit per Dir8 loader, only when
+  nonzero).  Same corner keeps all 6 exchanged directions, adjacent corners 2,
+  opposite 0 (scripts/cachepolicy/cachepolicy_test.cpp checks that and that
+  both ends of a link agree).  Uniform choice: expected ~42% of the exchange
+  traffic saved (1/4 same, 1/2 adjacent, 1/4 opposite).
+- RISKS to check on the first runs (config/seam18.cmd, one hour):
+  (1) the lender's lent sites stay STALE until the band is next saved, so the
+  display and the `.an/.ae` census of a lent band lag by the number of phases
+  it is kept; (2) atom CONTENTS in kept bands are not proven (the SITE_RANGES of
+  adjacent bands overlap at the corner squares, two neighbors hold copies of
+  those cells; this already holds without elision, see the content-hash slice
+  parked above); (3) the first cycle and any run with `policy supercell` keep
+  nothing.  Compare with a seam16/17 run of the same length: xchg.py packets
+  per phase (expect ~42% fewer), AER, duty, no stream breaks, cars in == out ==
+  noc, cachecensus on the seams.

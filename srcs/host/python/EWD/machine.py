@@ -184,12 +184,28 @@ def parse_policy(text):
     return hits[0]
 
 
+EVENT_MODES = ("shortcut", "honest")
+
+
+def parse_events(text):
+    """'shortcut' | 'honest' (any unique prefix, nothing else) -> name.
+    shortcut: the hub credits every empty draw as a free event (cheating
+    AER).  honest: every drawn center is shipped, empty or not."""
+    t = str(text).strip().lower()
+    hits = [e for e in EVENT_MODES if t and e.startswith(t)]
+    if len(hits) != 1:
+        raise ValueError(f"events mode '{text}': want one of "
+                         f"{', '.join(EVENT_MODES)}")
+    return hits[0]
+
+
 class Machine:
     def __init__(self, mfmx, config, say, *, script_dir, logprefix="mfmxctl",
-                 t6s_per_chip=140, verbose=False, decay=None, alt_decay=None,
+                 t6s_per_chip=140, verbose=False, decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
                  extra_bindirs=(), slowscan_gap=0.2, layout=None,
-                 link_wait=12.0, link_resets=5, policy="fourcorners"):
+                 link_wait=12.0, link_resets=5, policy="fourcorners",
+                 events="shortcut", elide=False):
         self.M = mfmx
         self.config = config
         self.say = say
@@ -197,8 +213,10 @@ class Machine:
         self.logprefix = logprefix
         self.t6s = t6s_per_chip
         self.verbose = verbose
-        self.decay, self.alt_decay = decay, alt_decay
+        self.decay = decay
         self.policy = parse_policy(policy)   # caching policy, applied at next 'start'
+        self.events = parse_events(events)   # shortcut|honest AER, applied at next 'start'
+        self.elide = bool(elide)             # keep bands shared by consecutive corners (hub flag)
         self.tt_smi, self.do_reset = tt_smi, reset_chips
         self.extra_bindirs = list(extra_bindirs)
         self.slowscan_gap = slowscan_gap
@@ -464,7 +482,17 @@ class Machine:
                 bh.setStartDecayType(int(self.decay))
             if hasattr(bh, "setCachePolicy"):
                 bh.setCachePolicy(CACHE_POLICIES.index(self.policy))
-            elif self.policy != "supercell":
+            if hasattr(bh, "setEveryEvent"):
+                bh.setEveryEvent(self.events == "honest")
+            elif self.events != "shortcut":
+                raise RuntimeError(f"this MFMx module cannot set the events mode "
+                                   f"(wanted {self.events}); rebuild the host")
+            if hasattr(bh, "setElideCaches"):
+                bh.setElideCaches(self.elide)
+            elif self.elide:
+                raise RuntimeError("this MFMx module cannot set cache elision; "
+                                   "rebuild the host")
+            if not hasattr(bh, "setCachePolicy") and self.policy != "supercell":
                 raise RuntimeError(f"this MFMx module cannot set the cache policy "
                                    f"(wanted {self.policy}); rebuild the host")
             t = time.monotonic()
@@ -1025,8 +1053,10 @@ class Machine:
     def status(self):
         lines = []
         lines.append(f"cache policy: {self.policy}")
+        lines.append(f"events mode: {self.events}")
+        lines.append(f"cache elision: {'on' if self.elide else 'off'}")
         lines.append(f"booted: configured={self.configured} inited={self.inited} "
-                     f"api={'async' if self.async_api else 'legacy' if self.inited else '-'}")
+                     f"api={'async' if self.async_api else 'firePHASER' if self.has_fire_phaser else 'legacy' if self.inited else '-'}")
         if self.bhs:
             lines.append("steps: " + "  ".join(f"bh{c}={self.pname(p)}" for c, p in self.steps()))
         if self.inited:

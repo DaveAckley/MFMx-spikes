@@ -168,6 +168,22 @@ namespace MFM {
                                   : SuperCellPolicy::plan(arg, d8, c);
     }
 
+    /* CACHE ELISION: may direction d8 stay put across a change of argument
+       from prev to next?  Only when the role (send sites / receive caches)
+       is the same under both and is not NONE: the borrower keeps its cache,
+       the lender its (untouched) sites, and neither the SAVE nor the next
+       LOAD is needed.  Four corners only: every hub computes the same answer
+       for its end of a link, and the opposite end gets the opposite role. */
+    static bool keepAcross(CachePolicyId id, u8 prev, u8 next, Dir8 d8) {
+      if (id != CP_FOURCORNERS) return false;
+      PolicyCtx c;
+      c.weLead = false;
+      c.peerLeads = false;
+      c.noLeader = false;
+      const DirPlan was = plan(id, prev, d8, c);
+      return was != DirPlan::NONE && was == plan(id, next, d8, c);
+    }
+
     static EventBounds bounds(CachePolicyId id, u8 arg, const PolicyCtx & c) {
       return id == CP_FOURCORNERS ? FourCornersPolicy::bounds(arg, c)
                                   : SuperCellPolicy::bounds(arg, c);

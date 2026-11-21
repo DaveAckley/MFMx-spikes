@@ -9,7 +9,7 @@ namespace MFM {
     HBF_NO_AUTOSEED =     0x08, //< this chip does not autoseed its grid
     HBF_CACHEPOL0 =       0x10, //< cache policy id, bit 0 (CachingPolicy.h)
     HBF_CACHEPOL1 =       0x20, //< cache policy id, bit 1 (0 = supercell)
-    HBF_RSV6 =            0x40,
-    HBF_RSV7 =            0x80
+    HBF_EVERY_EVENT =     0x40, //< no AER cheating: ship every drawn center (mfmxctl 'events honest')
+    HBF_ELIDE_CACHES =    0x80  //< keep bands shared by consecutive corners (mfmxctl 'elide on')
   };
 }

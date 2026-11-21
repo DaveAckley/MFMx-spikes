@@ -44,8 +44,8 @@ namespace MFM {
         // is known to get out.
         LOGPTAG(.pe,(u32) gm.mPermEdges);
         HBPTAG(.pe,(u32) gm.mPermEdges);
-        LOGPTAG(.ee,(u32) EVERY_EVENT_SHIPPED);   // 1 = no-AER-cheating build
-        HBPTAG(.ee,(u32) EVERY_EVENT_SHIPPED);
+        LOGPTAG(.ee,(u32) everyEventShipped());   // 1 = no AER cheating
+        HBPTAG(.ee,(u32) everyEventShipped());
       }
     }
     if (policy == CP_SUPERCELL)
@@ -131,12 +131,30 @@ namespace MFM {
     }
   }
 
+  void CacheLoaders::setKeepMaskFor(s32 nextCorner) {
+    mKeepMask = 0u;
+    HostBlock & hb = theHostBlock;
+    if ((hb.mHostFlags & HostFlags::HBF_ELIDE_CACHES) == 0u) return;
+    if (!mHaveLoaded) return;                    // nothing held yet
+    if (nextCorner < 0 || nextCorner > 3) return;
+    const CachePolicyId policy = cachePolicyFromHostFlags(hb.mHostFlags);
+    if (policy != CP_FOURCORNERS) return;        // only four corners shares bands
+    for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+      const CacheLoader & cl = get(i);
+      if (cl.isThatUnused()) continue;           // no neighbor that way
+      if (CachingPolicies::keepAcross(policy, mConfiguredSCL, (u8) nextCorner,
+                                      (Dir8) i))
+        mKeepMask |= (u8) (1u << i);
+    }
+  }
+
   void CacheLoaders::loadCaches() {
     MFM_API_ASSERT_ON_HART(HARTNUM_B);
 
     GridManager & gm = fB.mGridManager;
 
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+      if (isKept(i)) continue;                   // elided: borrower still holds it
       CacheLoader & cl = get(i);
       if (cl.isThatAFollower())
         cl.unloadPacketIfNeeded(gm);
@@ -165,6 +183,7 @@ namespace MFM {
     GridManager & gm = fB.mGridManager;
 
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
+      if (isKept(i)) continue;                   // elided: stays with the borrower
       CacheLoader & cl = get(i);
       SNAP(20,LOGPTAG(CLS$U,i));
       if (cl.isThatAFollower())       // we lead: send our caches to them

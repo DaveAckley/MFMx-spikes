@@ -136,7 +136,7 @@ namespace MFM {
        (scripts/xchg/xchg.py). */
     static constexpr u32 XCHG_BEAT_MS = 1000u;  //< .xw heartbeat period
 
-    static bool xchgStep(u32 kind) {
+    static bool xchgStep(u32 kind, s32 nextCorner = -1) {
       static bool begun[2];
       static u32 beganMs;       //< when this phase began (millisElapsed)
       static u32 lastBeatMs;    //< when we last logged a heartbeat
@@ -145,6 +145,13 @@ namespace MFM {
         theL1CacheLoaders.mPacketsMoved = 0;
         beganMs = lastBeatMs = millisElapsed();
         LOGPTAG(.xb,kind);
+        if (kind == 0u) {       // SAVE: decide what the next corner lets us keep
+          theL1CacheLoaders.setKeepMaskFor(nextCorner);
+          if (theL1CacheLoaders.mKeepMask != 0u) {
+            LOGPTAG(.xk,(u32) theL1CacheLoaders.mKeepMask);
+            HBPTAG(.xk,(u32) theL1CacheLoaders.mKeepMask);
+          }
+        }
       }
       if (kind == 0u) theL1CacheLoaders.saveCaches();
       else theL1CacheLoaders.loadCaches();
@@ -163,6 +170,7 @@ namespace MFM {
       }
       if (ready) {
         begun[kind] = false;
+        if (kind == 1u) theL1CacheLoaders.mHaveLoaded = 1u;   // caches now held
         char b[32];
         snprintf(b,sizeof(b),"%x:%x",kind,theL1CacheLoaders.mPacketsMoved);
         LOGPTAG(.xe,b);
@@ -197,7 +205,7 @@ namespace MFM {
           LOGPTAG(SAVE_CACHES,arg);
           HBPTAG(BOLTR_SAV$,(u32) arg);
         });
-      return xchgStep(0u);
+      return xchgStep(0u,arg);
     }
 
     bool workOnExitingNewLeaderB() {

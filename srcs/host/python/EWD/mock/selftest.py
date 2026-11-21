@@ -604,6 +604,46 @@ def scenario_feed_command():
     check("feed: 'feed off' stops the tick", "feed frames stopped" in out and rc == 0, out[-500:])
 
 
+def scenario_events_mode():
+    rc, out = run("events\nevents honest\nevents s\nevents hon\nboot\nstart\n"
+                  "mock\nstatus\nevents shortcut\nquit\n")
+    check("events: default is shortcut", "events mode: shortcut (applied at next" in out, out[:400])
+    check("events: honest accepted (and prefix 'hon')",
+          "events mode: honest (applied" in out, out[:600])
+    check("events: chips told at start (mock saw every_event=True)",
+          "every_event=True" in out, out[-900:])
+    check("events: status shows it", "events mode: honest\n" in out, out[-900:])
+    check("events: refused after the code is deployed",
+          "events mode is applied when the code is deployed" in out, out[-500:])
+    rc, out = run("events bogus\nevents\nquit\n")
+    check("events: bad name explained, shell survives",
+          "want one of shortcut, honest" in out and rc == 0, out[-500:])
+    rc, out = run("boot\nstart\nmock\nquit\n")
+    check("events: default run tells chips every_event=False",
+          "every_event=False" in out, out[-500:])
+    rc, out = run("boot\nstart\nmock\nquit\n", extra_args=("--events", "honest"))
+    check("events: --events honest tells chips every_event=True",
+          "every_event=True" in out, out[-500:])
+
+
+def scenario_elide_and_repeat():
+    rc, out = run("elide\nelide on\nelide of\nelide on\nboot\nstart\nmock\n"
+                  "status\nelide off\nquit\n")
+    check("elide: default is off", "cache elision: off (applied at next" in out, out[:400])
+    check("elide: on accepted", "cache elision: on (applied" in out, out[:600])
+    check("elide: chips told at start (mock saw elide=True)", "elide=True" in out, out[-900:])
+    check("elide: status shows it", "cache elision: on\n" in out, out[-900:])
+    check("elide: refused after the code is deployed",
+          "cache elision is applied when the code is deployed" in out, out[-500:])
+    rc, out = run("boot\nstart\nmock\nquit\n")
+    check("elide: default run tells chips elide=False", "elide=False" in out, out[-500:])
+    rc, out = run("boot\nstart\nmock\nquit\n", extra_args=("--elide",))
+    check("elide: --elide tells chips elide=True", "elide=True" in out, out[-500:])
+    rc, out = run("cycle repeat\ncycle repeat on\ncycle rep of\ncycle repeat bogus\nquit\n")
+    check("cycle repeat: default off, on accepted, bad value refused",
+          "cycle repeat: off" in out and "cycle repeat: on" in out and rc == 0, out[-600:])
+
+
 def scenario_cache_policy():
     rc, out = run("policy\npolicy fourcorners\npolicy supercell\npolicy four\n"
                   "boot\nstart\nmock\nstatus\npolicy supercell\nquit\n")

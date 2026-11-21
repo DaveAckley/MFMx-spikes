@@ -1,5 +1,6 @@
 #pragma once  /* -*- C++ -*- */
 #include "T6Grid.h"
+#include "HostBlock.h" // everyEventShipped() reads the host flags
 #include "PT_Ewp.h"
 #include "S16C.h"
 #include "UxC.h" // For U16C
@@ -9,20 +10,20 @@
 #include "EP_ACacheBlock.h"
 
 namespace MFM {
-  /* "NO AER CHEATING" MODE (compile time, default OFF).  Normally a hub
-     draws up to 100 random centers per event request, counts each EMPTY
-     one as a free "act of physics" (mEWsEmptyCenters, credited to AER)
-     and ships only the first occupied one.  With MFMX_EVERY_EVENT=1 the
-     hub draws ONE center, empty or not, packs the event window, ships it
+  /* "NO AER CHEATING" MODE (run time, host flag HBF_EVERY_EVENT, set by the
+     mfmxctl `events honest` command or --events honest; default shortcut).
+     In shortcut mode a hub draws up to 100 random centers per event request,
+     counts each EMPTY one as a free "act of physics" (mEWsEmptyCenters,
+     credited to AER) and ships only the first occupied one.  In honest mode
+     the hub draws ONE center, empty or not, packs the event window, ships it
      to an EWP, and the unchanged window comes back to be applied like any
      other: every event costs a full round trip, mEWsEmptyCenters stays 0,
-     and the empty-grid AER inflation after the seed disappears.  Flip it
-     by editing the #define below (or -DMFMX_EVERY_EVENT=1) and rebuilding;
-     the hubs log `.ee:1` (0 otherwise) next to `.cp`. */
-#ifndef MFMX_EVERY_EVENT
-#define MFMX_EVERY_EVENT 0
-#endif
-  static constexpr bool EVERY_EVENT_SHIPPED = (MFMX_EVERY_EVENT != 0);
+     and the empty-grid AER inflation after the seed disappears.  The hubs
+     log `.ee:1` (honest) or `.ee:0` next to `.cp`. */
+  extern HostBlock theHostBlock;
+  static inline bool everyEventShipped() {
+    return (theHostBlock.mHostFlags & HostFlags::HBF_EVERY_EVENT) != 0u;
+  }
 
 #define LOGDL2D(sa,tag,d) do { d.log(GET_FILE_ID(__FILE__),__LINE__,sa,""#tag); } while (0)
   struct DL2D {

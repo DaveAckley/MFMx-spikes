@@ -105,6 +105,34 @@ int main() {
       }
     }
   }
+  // CACHE ELISION: what may stay put when the corner changes prev -> next.
+  // Same corner keeps all 6 exchanged directions, adjacent corners keep 2
+  // (one borrowed band and the matching lent band), opposite corners none;
+  // the two ends of a link agree (a kept direction's opposite is kept); the
+  // supercell policy keeps nothing.
+  for (u8 prev = 0; prev < 4; ++prev) for (u8 next = 0; next < 4; ++next) {
+    int kept = 0;
+    for (int d = 0; d < 8; ++d) {
+      bool k = CachingPolicies::keepAcross(CP_FOURCORNERS, prev, next, (Dir8) d);
+      bool o = CachingPolicies::keepAcross(CP_FOURCORNERS, prev, next,
+                                           oppositeDir8((Dir8) d));
+      kept += k;
+      CHECK(k == o, "keep: the two ends of dir %d disagree (%u->%u)", d, prev, next);
+      if (k) {
+        PolicyCtx c = { false, false, false };
+        DirPlan pp = CachingPolicies::plan(CP_FOURCORNERS, prev, (Dir8) d, c);
+        DirPlan nn = CachingPolicies::plan(CP_FOURCORNERS, next, (Dir8) d, c);
+        DirPlan qp = CachingPolicies::plan(CP_FOURCORNERS, prev, oppositeDir8((Dir8) d), c);
+        CHECK(pp == nn && pp != DirPlan::NONE, "keep: role changed on dir %d", d);
+        CHECK(qp != DirPlan::NONE && qp != pp,
+              "keep: dir %d peer end not the opposite role (%u->%u)", d, prev, next);
+      }
+      CHECK(!CachingPolicies::keepAcross(CP_SUPERCELL, prev, next, (Dir8) d),
+            "supercell must keep nothing");
+    }
+    int want = prev == next ? 6 : ((prev + 2) & 3) == next ? 0 : 2;
+    CHECK(kept == want, "keep %u->%u kept %d dirs (want %d)", prev, next, kept, want);
+  }
   // before the first argument both policies stay clear of every cache
   PolicyCtx none = { false, false, true };
   for (int pol = 0; pol < CP_COUNT; ++pol) {

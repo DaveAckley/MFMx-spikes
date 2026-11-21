@@ -16,6 +16,7 @@
 #   python3 scripts/xchg/xchg.py MFMX-<date>-<time> --bolts seam13-NN.out
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

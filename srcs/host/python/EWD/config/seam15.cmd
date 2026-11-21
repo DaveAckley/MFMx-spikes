@@ -20,6 +20,7 @@
 #   grep -h "\.z[qd]:" MFMX-<date>-<time>/tiles/at0a7.mfmk
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

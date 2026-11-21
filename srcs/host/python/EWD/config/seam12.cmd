@@ -19,6 +19,7 @@
 # 'quit close' at the prompt (works during a wait) or pkill -TERM -f mfmxctl.py.
 tick slowscan off
 policy fourcorners
+events honest
 decay 4
 dwell 4 8
 start

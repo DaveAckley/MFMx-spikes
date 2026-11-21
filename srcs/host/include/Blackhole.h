@@ -98,6 +98,12 @@ namespace MFM {
     void setCachePolicy(u8 policy) {          //< 0 supercell, 1 fourcorners (CachingPolicy.h)
       mCodeManager.setCachePolicy(policy);
     }
+    void setEveryEvent(bool on) {             //< honest AER (HBF_EVERY_EVENT)
+      mCodeManager.setEveryEvent(on);
+    }
+    void setElideCaches(bool on) {            //< cache elision (HBF_ELIDE_CACHES)
+      mCodeManager.setElideCaches(on);
+    }
     Step changeStep(Step newStep) ;
     Step getStep() const { return mCurrentStep; }
     const char * nameOfCurrentStep() const { return nameOfStep(mCurrentStep); }
@@ -208,6 +214,8 @@ namespace MFM {
       bh.def("getChipNumber", &Blackhole::getChipNumber,py::call_guard<py::gil_scoped_release>());
       bh.def("setStartDecayType", &Blackhole::setStartDecayType,py::call_guard<py::gil_scoped_release>());
       bh.def("setCachePolicy", &Blackhole::setCachePolicy,py::call_guard<py::gil_scoped_release>());
+      bh.def("setEveryEvent", &Blackhole::setEveryEvent,py::call_guard<py::gil_scoped_release>());
+      bh.def("setElideCaches", &Blackhole::setElideCaches,py::call_guard<py::gil_scoped_release>());
       //      bh.def("getStep", [](Blackhole& b) { return (u32) b.getStep(); },py::call_guard<py::gil_scoped_release>());
       bh.def("getStep", &Blackhole::getStep,py::call_guard<py::gil_scoped_release>());
       bh.def("setStep", [](Blackhole& b, int j ) {
