@@ -645,7 +645,7 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   not needed.  If breaks return, put the readback back.
 - seam17 (3 h, 5525f96, two-readback ordered return): no `.zw` (user grep).  With
   seam16-14 that is 4 clean hours on the fix; the unfixed stress rate was
-  ~3 breaks/h (~12 expected), so chance is far below 1%.  Run directory not
-  yet copied for the full check (DESYNC/PKTSUM/DUPRET/.zl/ZHD file).  Entry
+  ~3 breaks/h (~12 expected), so chance is far below 1%.  Full check done on seam17-10 / MFMX-20261120-224938
+  (10937 s, AER 0.942/0.948/0.949): no DESYNC/PKTSUM/DUPRET/.zl/.zw, no ZHD file.  Entry
   stays OPEN until the fences-only build (243bc0a) also runs clean for 3 h,
   then move it to CLOSED_ISSUES.md.
