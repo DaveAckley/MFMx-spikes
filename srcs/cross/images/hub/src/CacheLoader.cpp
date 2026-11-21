@@ -19,7 +19,13 @@ namespace MFM {
     U8C ldrREGV_of_SCLC = U8C::makeSuperCellCoordFromLeaderCode((u32) arg);
 
     /// FIND LEADER DIR8(S) AND CONFIGURE CACHELOADERS
+    // init() zeroes the whole struct; the elision state is decided at SAVE
+    // (setKeepMaskFor) and must survive into the following LOAD.
+    const u8 keepMask = mKeepMask;
+    const u8 haveLoaded = mHaveLoaded;
     theL1CacheLoaders.init();
+    mKeepMask = keepMask;
+    mHaveLoaded = haveLoaded;
 
     mConfiguredSCL = arg;
 

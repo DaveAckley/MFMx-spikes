@@ -413,11 +413,15 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   opposite 0 (scripts/cachepolicy/cachepolicy_test.cpp checks that and that
   both ends of a link agree).  Uniform choice: expected ~42% of the exchange
   traffic saved (1/4 same, 1/2 adjacent, 1/4 opposite).
-- seam18-10 (7de4ea4, 1 h): clean, but only SAVE shrank (-47% packets per hub
-  cycle vs seam17-11, every hub); LOAD -11%, flat across keep masks (hub at043:
-  mask 0 -> LOAD 17.0, mask 0x5c -> 17.0 while SAVE went 24.7 -> 0).  Unexplained.
-  Hub `.xe` marks now carry per-Dir8 counts: run config/seam19.cmd, then
-  `xchg.py RUNDIR --dirs` (which directions carry LOAD traffic; do kept ones?).
+- BUG FOUND 2026-11-21 (seam19-10 per-direction counts): in 7de4ea4..d4efa62
+  configureCacheLoaders() (NEW_LEADER exit) called init(), which zeroed
+  mKeepMask, so the kept directions were skipped at SAVE but LOADed in full:
+  SAVE -47% packets, LOAD unchanged.  Worse, a kept band's SAVE was skipped
+  and then its LOAD overwrote the borrower's cache from the lender's sites, so
+  atom changes made in the cache during the events were dropped.  seam18 and
+  seam19 therefore do NOT test elision (their stream/AER results stand).
+  Fixed: mKeepMask and mHaveLoaded survive init().  Expect LOAD packets in
+  kept directions to be 0 in the next `xchg.py --dirs` table (seam19.cmd).
 - RISKS to check on the first runs (config/seam18.cmd, one hour):
   (1) the lender's lent sites stay STALE until the band is next saved, so the
   display and the `.an/.ae` census of a lent band lag by the number of phases
