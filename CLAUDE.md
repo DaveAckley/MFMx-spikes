@@ -429,6 +429,7 @@ config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks
 config/seam18.cmd: ONE hour cache ELISION soak (`events honest`, `elide on`,
 `cycle repeat on`; see OPEN_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
 and `cycle repeat [on|off]` are new (2026-11-21), as is `events [shortcut|honest]`.
+config/seam20.cmd: ONE hour elision soak at OW=OH=15 (044edf1), seam18's setup.
 config/seam19.cmd: 20 min seam18 twin whose hub `.xe` marks carry per-Dir8 packet
 counts (`xchg.py RUNDIR --dirs`); seam18 showed SAVE packets -47% but LOAD only -11%.
 config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
