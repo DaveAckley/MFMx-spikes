@@ -405,6 +405,8 @@ config/seam9.cmd: ONE HOUR version (sleep 100k experiment).  Run 125641 HUNG at 
 config/seam12.cmd: THREE HOUR four-corners soak (`policy fourcorners`, 18 blocks
 of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
 (Default policy is fourcorners since 2026-11-19; seam6.cmd and seam10.cmd now say `policy supercell` so they stay the supercell baselines.)
+config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks of
+10 min, `zhd` after each) for counting stream breaks per hour.
 config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
 the command line, `feed on` right after `start` (the RTMP stream does not exist
 during bring-up; experiment against the hls.js freezes at the NO DATA gap, see
