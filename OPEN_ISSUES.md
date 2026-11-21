@@ -8,6 +8,19 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- Duplicate HOLD_AT_BIRTH wedges every hub (2026-11-21, seam21 at OW=20): the
+  host's start() waited only 5 s for all hubs to ack the pre-start
+  HOLD_AT_BIRTH; one bh2 hub was late (139/140), so the cycle re-fired
+  HOLD_AT_BIRTH and every hub that already held it hit
+  `MFM_API_ASSERT(ecmd != nextCmd,ILLEGAL_STATE)` in
+  `PhaseStepper::_switchToExiting` (fidl 88:99) and wedged (NC hart in BHANG,
+  other harts in acquireLockASM).  Mitigation: start() now waits up to 60 s
+  and logs `HOLD_AT_BIRTH ack wait`.  STILL OPEN: the re-fire fallback is
+  unsafe whenever any hub acked; a hub should tolerate (ack) a repeat of the
+  command it already occupies, or the sequencer should wait instead of
+  re-firing.  Also the stuck report printed no fail file/line (no `STUCK?`
+  lines) for this wedge.
+
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
   page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
   seam6 run on c18fc98; no ffplay was connected that time.  Earlier: freeze at

@@ -520,13 +520,19 @@ class Machine:
                 out.append(f"bh{bh.getChipNumber()} -> {self.pname(bh.getStep())} "
                            f"({time.monotonic() - t:.1f}s)")
             # Poll for acks: T6s run birth code, see HOLD_AT_BIRTH, ack, and HOLD.
-            deadline = time.monotonic() + 5.0
+            # A re-fire is NOT harmless: a hub that already took the first
+            # HOLD_AT_BIRTH asserts ILLEGAL_STATE (_switchToExiting, same cmd)
+            # and wedges.  Hub init grows with the grid (5 s was too tight at
+            # OW=20: one hub late -> re-fire -> every hub wedged), so wait long.
+            t0 = time.monotonic()
+            deadline = t0 + 60.0
             counts = {}
             while time.monotonic() < deadline:
                 counts = self._parse_on_phases()
                 if counts and all(n >= self.t6s for n in counts.values()):
                     break
                 time.sleep(0.1)
+            out.append(f"HOLD_AT_BIRTH ack wait: {time.monotonic() - t0:.1f}s")
             all_acked = bool(counts) and all(n >= self.t6s for n in counts.values())
             if all_acked:
                 self.hold_settled = True
