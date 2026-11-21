@@ -106,6 +106,7 @@ namespace MFM {
       writeToWords(tlbi, destByteAddr, (u32 *) bytes, byteCount/4u);
     }
     void writeToWords(u32 tlbi, u32 destByteAddr, u32 * words, u32 wordCount) ;
+    void writeToWordsOrdered(u32 tlbi, u32 destByteAddr, u32 * words, u32 wordCount) ;
 
     //    bool writeP4Atom(U16C gridAddress,const P4Atom atom) ;
 

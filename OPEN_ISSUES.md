@@ -599,3 +599,14 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   out is refused and logged `DUPRET tlbi car (n)` (also the fix if right).
   Next run: any DUPRET in the host log = found; breaks with none = look at the
   hub's own length writers again.
+
+## seam16-13 (1329e35, 1 h, 3 breaks; 2026-11-20)
+- NO DUPRET: duplicate host returns refuted.  All 3 broken hubs again show
+  `.zl` found 0 / flags 0 mid-fill, `.zs` recvcurrent 0.  Remaining theory:
+  the host return (header, payload prefix, footer) can complete at the hub
+  OUT OF ORDER (posted/WC writes across a 64 B line): hub sees header ==
+  footer, wipes and reuses the car, then the late payload words (flags 0,
+  len 0) land mid-fill.  Rare because only returns straddling a line.
+  Host change: OurTLBs::writeToWordsOrdered (payload, readback, footer,
+  readback, header LAST) for the ACB return.  Host only; DUPRET stays.
+  Next run: breaks gone = confirmed; else look at hub-side writers again.

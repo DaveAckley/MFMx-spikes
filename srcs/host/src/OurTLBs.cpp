@@ -1,3 +1,4 @@
+#include <atomic>
 #include "OurTLBs.h"
 #include <cstring>
 //#include "BaseCar.h"
@@ -346,6 +347,30 @@ namespace MFM {
     return false;
   }
   */
+
+  // Like writeToWords, but the packet only becomes "complete" (header ==
+  // footer) at the very end.  Payload and ankle words go first, then a
+  // readback (a PCIe read cannot pass earlier posted writes), then the
+  // footer, another readback, and the header LAST.  Without this the hub
+  // can see header+footer and reuse the car while payload words (flags 0,
+  // len 0) are still in flight and land in the middle of its next fill.
+  void OurTLBs::writeToWordsOrdered(u32 tlbi, u32 destAddr, u32 * words, u32 wordCount) {
+    if (wordCount < 3u) {
+      writeToWords(tlbi, destAddr, words, wordCount);
+      return;
+    }
+    u32 * tlbBase = (u32*) ((char*) mMapAllT6 + tlbi*AHAX_CONSTANT2M);
+    u32 destOffsetWords = (destAddr&AHAX_CONSTANT2M_MASK)>>2u;
+    volatile u32 * dst = (volatile u32 *) (tlbBase + destOffsetWords);
+    for (u32 i = 1u; i + 1u < wordCount; ++i)
+      dst[i] = words[i];
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    (void) dst[wordCount - 2u];     // flush posted writes
+    dst[wordCount - 1u] = words[wordCount - 1u];   // footer
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    (void) dst[wordCount - 1u];     // flush
+    dst[0] = words[0];              // header last: now it is complete
+  }
 
   void OurTLBs::writeToWords(u32 tlbi, u32 destAddr, u32 * words, u32 wordCount) {
     u32 * tlbBase = (u32*) ((char*) mMapAllT6 + tlbi*AHAX_CONSTANT2M);
@@ -829,7 +854,7 @@ namespace MFM {
                        destByteAddr);
           }
 
-          writeToWords(tlbi, destByteAddr, (u32*) &oc, wordcount); 
+          writeToWordsOrdered(tlbi, destByteAddr, (u32*) &oc, wordcount);
           if (false)
             HTprintf("BH%u RETURNING ACB EMPTY TO T%d car%u 0x%08x @ (%d,%d)\n",
                      mDevChipNum,
