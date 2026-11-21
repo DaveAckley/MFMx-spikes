@@ -1,6 +1,7 @@
 #include "EwpBlock.h"
 #include "HartTasks.h" // for HTFuncPtr
 #include "T6CellO.h"
+#include "T6PhaseLockedLoop.h" // for thePLL
 
 namespace MFM {
   
@@ -72,7 +73,14 @@ namespace MFM {
 
       // Set up our endpoint: Destination { EWHUB, ourtypeidx }
       myEwpEPNC.configureDest(fAll.mNoC0, fCOINC.mHubNoC0, { BC_EWHUB, fCOINC.mCellO.mImageTypeIndex });
-      myEwpEPNC.activate();
+      // Do NOT activate here.  Activating starts the car handshake: this EWP
+      // processes its initial cars and writes them into the HUB's car storage.
+      // If the hub has not finished its own EwpBlock init yet (its init got
+      // slower with the bigger grid), the hub's theEwpL1Data.reset() wipes
+      // those arrivals, the handshake is lost and the cell never runs an
+      // event (seam21: 68 of 140 hubs idle), or an arrival lands mid-init
+      // and trips getAnkleOrDie (hub at14b).  We activate in LIVE, at the
+      // first RUN_EVENTS, when every tile has acked HOLD_AT_BIRTH.
       ret = RC_0_SELF_UP; // XXX?
       LOGMARK;
 
@@ -83,6 +91,10 @@ namespace MFM {
 
       //// LIFE
       //      SNAP(5,HBMARK);
+      if (unlikely(!myEwpEPNC.isActive())) {
+        if (!thePLL.ifOccupying(PBCmd::RUN_EVENTS)) return ret; // hub may not be up
+        myEwpEPNC.activate();
+      }
       if (myEwpEPNC.updateOps()) {
         //        HBMARK;
       }
