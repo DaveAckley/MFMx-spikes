@@ -42,10 +42,16 @@ namespace MFM {
 
   static constexpr u32 NRI_NOC_CMD_CTRL = 0x40;
 
-  inline u8 stepsN(U8C s0, U8C d0) { return (s0.y >= d0.y) ? s0.y - d0.y : 12u - d0.y + s0.y; }
-  inline u8 stepsW(U8C s0, U8C d0) { return (s0.x >= d0.x) ? s0.x - d0.x : 16u - d0.y + s0.y; }
-  inline u8 stepsS(U8C s0, U8C d0) { return (s0.y <= d0.y) ? d0.y - s0.y : 12u - s0.y + d0.y; }
-  inline u8 stepsE(U8C s0, U8C d0) { return (s0.x <= d0.x) ? d0.x - s0.x : 12u - s0.x + d0.x; }
+  /* The Blackhole NoC is a torus: 17 columns (x 0..16) by 12 rows (y 0..11).
+     steps?(s0,d0) is the hop count from s0 to d0 going that way, wrapping
+     when the destination is behind us. */
+  static constexpr u8 NOC_COLS = 17u;
+  static constexpr u8 NOC_ROWS = 12u;
+
+  inline u8 stepsN(U8C s0, U8C d0) { return (s0.y >= d0.y) ? s0.y - d0.y : NOC_ROWS - d0.y + s0.y; }
+  inline u8 stepsW(U8C s0, U8C d0) { return (s0.x >= d0.x) ? s0.x - d0.x : NOC_COLS - d0.x + s0.x; }
+  inline u8 stepsS(U8C s0, U8C d0) { return (s0.y <= d0.y) ? d0.y - s0.y : NOC_ROWS - s0.y + d0.y; }
+  inline u8 stepsE(U8C s0, U8C d0) { return (s0.x <= d0.x) ? d0.x - s0.x : NOC_COLS - s0.x + d0.x; }
 
   u32 preferNoC(U8C sourceNoC0, U8C destNoC0) ; // return 0 or 1 for noc with least hops s->d
 

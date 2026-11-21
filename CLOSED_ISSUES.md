@@ -28,6 +28,14 @@ refuses a return for a car that is not out).  PROVISIONAL until a few more
 long runs stay clean.  Still unexplained: unstressed at323/at2e9 `zhd break`
 no-show (see OPEN_ISSUES if it comes back).
 
+## 2026-11-21  NRIUtils stepsE/stepsW wrap constants
+`stepsE` wrapped with 12 (rows) instead of the 17 columns, and `stepsW` wrapped
+with `16 - d0.y + s0.y` (y mixed into an x distance).  Only preferNoC() used
+them, so a wrong choice cost hops, not correctness.  Now NOC_COLS 17 and
+NOC_ROWS 12 constants; checked on the host: for every pair of tiles E+W steps
+sum to 17 (N+S to 12) unless same column (row), all in range.  Untested on
+hardware (changes which NoC some X-wrapping writes take).
+
 ## 2026-11-19  aer.py poisoned by torn counter marks
 Run 002202 read 22,110,145,435,224 mAER: a hub log with a truncated hex field
 (counter went backwards, delta mod 2**64).  aer.py now repairs those marks

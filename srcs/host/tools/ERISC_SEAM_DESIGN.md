@@ -211,7 +211,7 @@ Change (commit "T6 side: ETH-tile destination ..."; MFMx source, deliberately it
 - cross/include/NRIUtils.h, cross/src/NRIUtils.cpp: `NRI3::initiateWriteToEthL1(sourcenoc0, src, wordCount, destnoc0, destaddr)`: the
   initiateWriteToT6 register sequence (NIU cmd buf 3, hart NC) with ETH-appropriate asserts (dest must be an ETH coord, destaddr < MEM_ETH_SIZE,
   16-byte alignment rule) and ALWAYS NoC0 instead of preferNoC().  Why NoC0 only: preferNoC picks the shorter of NoC0 (E,S) / NoC1 (W,N); an ETH
-  tile is north of every T6, so NoC1 would be chosen most of the time, and NoC1 -> ETH tile has NOT been exercised on hardware (stage 3a used NoC0
+  tile is north of every T6, so NoC1 would be chosen for the upper rows (the torus wrap makes the lower rows prefer NoC0), and NoC1 -> ETH tile has NOT been exercised on hardware (stage 3a used NoC0
   only).  MFMx passes NoC0 coordinates to NIU1 as well, which works for T6 destinations because firmware's coordinate translation makes both NoCs
   uniform (user notes, Dec 2025); whether that translation covers the ETH row identically is untested.  An opt-in NoC1 experiment (t6pp control
   word for the NIU base + ethfwd flag) would settle it; then the function could use preferNoC.
