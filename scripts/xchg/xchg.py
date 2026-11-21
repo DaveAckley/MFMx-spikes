@@ -4,7 +4,8 @@
 See also /CLAUDE.md, /OPEN_ISSUES.md (four-corners design, measurement step),
 scripts/aer/aer.py.
 
-usage: xchg.py RUNDIR [--bolts OUTFILE] [-v]
+usage: xchg.py RUNDIR [--bolts OUTFILE] [--dirs] [-v]
+  --dirs  also the per-Dir8 packet table (.xe per-direction field, .xk mask)
 
 Each hub logs (hub image, PhaseSteppers.cpp, xchgStep) around each cache
 exchange phase of every supercycle:
@@ -41,7 +42,9 @@ SLACK = 2                   # cycles a hub may be short before it is dropped
 TILE = re.compile(r'TILE chip=(\d+) tlbi=(\d+) noc=\d+,\d+ tag=(\w+) '
                   r'img=(\w+)')
 XB = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xb:([0-9a-f]+)\}')
-XE = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xe:([0-9a-f]+):([0-9a-f]+)\}')
+XE = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xe:([0-9a-f]+):([0-9a-f]+)'
+                r'(?::([0-9a-f]{16}))?\}')
+XK = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xk:(\d+)\}')
 XW = re.compile(r'\{[^ ]+ (\d+) \d+ [0-9,]+ \w+ \.xw:([0-9a-f]+):([0-9a-f]+):'
                 r'([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):([0-9a-f]+)\}')
 DIRS = ('NT', 'NW', 'WT', 'SW', 'ST', 'SE', 'ET', 'NE')   # MDist.h Dir8 order
@@ -76,6 +79,55 @@ def load_phases(path):
                                int(m.group(3), 16)))
                 began[k] = None
     return out
+
+
+def load_dirs(path):
+    """[(keepmask, save_per_dir, load_per_dir)] per cycle of one hub, from the
+    .xk mark (decimal; absent = nothing kept) and the per-Dir8 byte string
+    of .xe (hubs older than that give no cycles).  A cycle is one SAVE
+    (.xe:0) followed by the next LOAD (.xe:1)."""
+    out = []
+    mask, save = 0, None
+    for line in open(path, errors='replace'):
+        m = XK.search(line)
+        if m:
+            mask = int(m.group(2))
+            continue
+        m = XE.search(line)
+        if not m or m.group(4) is None:
+            continue
+        per = [int(m.group(4)[2 * i:2 * i + 2], 16) for i in range(8)]
+        if int(m.group(2), 16) & 1 == 0:
+            save = per
+        elif save is not None:
+            out.append((mask, save, per))
+            save, mask = None, 0
+    return out
+
+
+def say_dirs(per_hub_dirs, say=print):
+    """Mean packets per cycle in each Dir8, split by whether elision kept it."""
+    acc = {}                # (dir, kept) -> [n, save sum, load sum]
+    for cycles in per_hub_dirs.values():
+        for mask, save, load in cycles:
+            for d in range(8):
+                a = acc.setdefault((d, bool(mask >> d & 1)), [0, 0, 0])
+                a[0] += 1
+                a[1] += save[d]
+                a[2] += load[d]
+    if not acc:
+        say('per-direction: no .xe per-Dir8 field (hub image too old?)')
+        return
+    say('per-direction packets per hub-cycle, by Dir8 and whether the keep '
+        'mask held it (kept: SAVE and LOAD both skipped):')
+    say('  dir  kept?  cycles   SAVE   LOAD')
+    for d in range(8):
+        for kept in (False, True):
+            a = acc.get((d, kept))
+            if a:
+                say('  %s   %-5s %7d %6.2f %6.2f'
+                    % (DIRS[d], 'yes' if kept else 'no', a[0],
+                       a[1] / a[0], a[2] / a[0]))
 
 
 def load_stalls(path):
@@ -190,20 +242,27 @@ def main(argv):
         sys.exit(__doc__)
     rundir = argv[1]
     bolts = None
+    want_dirs = False
     i = 2
     while i < len(argv):
         if argv[i] == '--bolts' and i + 1 < len(argv):
             bolts = bolt_means(argv[i + 1])
             i += 2
+        elif argv[i] == '--dirs':
+            want_dirs = True
+            i += 1
         elif argv[i] == '-v':
             i += 1
         else:
             sys.exit(__doc__)
     per_hub = {}
     stalls = {}
+    dirs = {}
     for tag in hub_tags(rundir):
         try:
             per_hub[tag] = load_phases('%s/tiles/%s.mfmk' % (rundir, tag))
+            if want_dirs:
+                dirs[tag] = load_dirs('%s/tiles/%s.mfmk' % (rundir, tag))
             d, n = load_stalls('%s/tiles/%s.mfmk' % (rundir, tag))
             if d:
                 stalls[tag] = (d, n)
@@ -212,6 +271,8 @@ def main(argv):
     res, dropped = analyze(per_hub)
     report(res, dropped, bolts)
     say_stalls(stalls)
+    if want_dirs:
+        say_dirs(dirs)
 
 
 if __name__ == '__main__':

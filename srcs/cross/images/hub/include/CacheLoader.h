@@ -47,6 +47,7 @@ namespace MFM {
     CacheLoader mCacheLoaders[CACHELOADER_COUNT];
     u8 mConfiguredSCL;
     u32 mPacketsMoved;          //< packets loaded or unloaded since cleared (.xe mark)
+    u8 mMovedPerDir[CACHELOADER_COUNT]; //< same, per Dir8, saturating at 255 (.xe mark)
     u8 mKeepMask;               //< bit per loader: kept across this SAVE and the next LOAD (elision)
     u8 mHaveLoaded;             //< a LOAD has completed: the borrowers hold real caches
 
@@ -59,6 +60,10 @@ namespace MFM {
        start of each SAVE from the new corner.  Nothing is kept before a LOAD
        has happened. */
     void setKeepMaskFor(s32 nextCorner) ;
+    void countMoved(u32 idx) {
+      if (mMovedPerDir[idx] != 255u) ++mMovedPerDir[idx];
+    }
+
     bool isKept(u32 idx) const { return (mKeepMask & (1u << idx)) != 0u; }
 
     void configureCacheLoaders(u8 scleader) ;

@@ -99,5 +99,28 @@ check('xw: report names waited dirs (0xa = NW,SW)', 'NW,SW' in ' '.join(out), ou
 out = []
 xchg.say_stalls({}, out.append)
 check('xw: none', 'none' in out[0], out)
+# --- per-direction field (.xe 4th field) and .xk mask
+dp = d + '/dirs.mfmk'
+with open(dp, 'w') as f:
+    # cycle 1: nothing kept; cycle 2: dir 1 and 3 kept (decimal 10)
+    f.write('{32:1 1 0 2,3 hb .xe:0:5:0300000002000000}\n')
+    f.write('{32:1 2 0 2,3 hb .xe:1:3:0100000002000000}\n')
+    f.write('{32:1 3 0 2,3 hb .xk:10}\n')
+    f.write('{32:1 4 0 2,3 hb .xe:0:2:0000000002000000}\n')
+    f.write('{32:1 5 0 2,3 hb .xe:1:3:0100000002000000}\n')
+    f.write('{32:1 6 0 2,3 hb .xe:1:1:0000000000000000}\n')   # stray LOAD
+cy = xchg.load_dirs(dp)
+check('dirs: two cycles, stray LOAD ignored', len(cy) == 2, cy)
+check('dirs: masks', [c[0] for c in cy] == [0, 10], cy)
+check('dirs: per-dir bytes', cy[0][1][:2] == [3, 0] and cy[0][1][4] == 2
+      and cy[0][2][0] == 1, cy[0])
+out = []
+xchg.say_dirs({'at0a': cy}, out.append)
+check('dirs: table mentions kept rows', any(' NW ' in l and 'yes' in l
+                                            for l in out), out)
+old = d + '/old.mfmk'
+with open(old, 'w') as f:
+    f.write('{32:1 1 0 2,3 hb .xe:0:5}\n{32:1 2 0 2,3 hb .xe:1:3}\n')
+check('dirs: old hub marks give no cycles', xchg.load_dirs(old) == [])
 print('FAILURES: %d' % fails)
 sys.exit(1 if fails else 0)

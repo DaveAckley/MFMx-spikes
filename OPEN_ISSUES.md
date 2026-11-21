@@ -408,11 +408,16 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   previous and the next corner is neither SAVEd at that NEW_LEADER nor LOADed
   at the next RUN_EVENTS: CachingPolicies::keepAcross, CacheLoaders::
   setKeepMaskFor (decided once per SAVE, nothing kept before the first LOAD
-  completed), hub mark `.xk:MASK` (hex, one bit per Dir8 loader, only when
+  completed), hub mark `.xk:MASK` (decimal, one bit per Dir8 loader, only when
   nonzero).  Same corner keeps all 6 exchanged directions, adjacent corners 2,
   opposite 0 (scripts/cachepolicy/cachepolicy_test.cpp checks that and that
   both ends of a link agree).  Uniform choice: expected ~42% of the exchange
   traffic saved (1/4 same, 1/2 adjacent, 1/4 opposite).
+- seam18-10 (7de4ea4, 1 h): clean, but only SAVE shrank (-47% packets per hub
+  cycle vs seam17-11, every hub); LOAD -11%, flat across keep masks (hub at043:
+  mask 0 -> LOAD 17.0, mask 0x5c -> 17.0 while SAVE went 24.7 -> 0).  Unexplained.
+  Hub `.xe` marks now carry per-Dir8 counts: run config/seam19.cmd, then
+  `xchg.py RUNDIR --dirs` (which directions carry LOAD traffic; do kept ones?).
 - RISKS to check on the first runs (config/seam18.cmd, one hour):
   (1) the lender's lent sites stay STALE until the band is next saved, so the
   display and the `.an/.ae` census of a lent band lag by the number of phases

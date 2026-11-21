@@ -219,7 +219,10 @@ source, comments, docs and commit messages).
 - scripts/xchg/xchg.py  cache exchange timing per hub from the `.xb`/`.xe`
   marks (SAVE in NEW_LEADER, LOAD in RUN_EVENTS: time and packets), with
   --bolts to compare against the host bolt times.  Also prints STALLS from
-  the `.xw` heartbeat marks (a hub waiting over 1 s).  Self-test xchg_test.py.
+  the `.xw` heartbeat marks (a hub waiting over 1 s).  `.xe:K:P:HEX16` also
+  carries the packets moved per Dir8 (8 bytes); `--dirs` tabulates them by
+  direction and by whether the `.xk` keep mask held that direction.
+  Self-test xchg_test.py.
 - OPEN_ISSUES.md  the one list of open bugs, unproven things and ideas.
 - CLOSED_ISSUES.md  what got done, newest first (entries move here from OPEN_ISSUES.md).
 - srcs/host/python/EWD/HANDOFF.md  mfmxctl usage, command files (seamtest,
@@ -420,6 +423,8 @@ config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks
 config/seam18.cmd: ONE hour cache ELISION soak (`events honest`, `elide on`,
 `cycle repeat on`; see OPEN_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
 and `cycle repeat [on|off]` are new (2026-11-21), as is `events [shortcut|honest]`.
+config/seam19.cmd: 20 min seam18 twin whose hub `.xe` marks carry per-Dir8 packet
+counts (`xchg.py RUNDIR --dirs`); seam18 showed SAVE packets -47% but LOAD only -11%.
 config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
 the command line, `feed on` right after `start` (the RTMP stream does not exist
 during bring-up; experiment against the hls.js freezes at the NO DATA gap, see

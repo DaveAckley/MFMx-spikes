@@ -238,6 +238,7 @@ namespace MFM {
     LOGPTAG(cstat,ihb.packetStatus(strTag4(&ihb)));
     crbo.add(carindex);
     ++theL1CacheLoaders.mPacketsMoved;
+    theL1CacheLoaders.countMoved(mDir8);
     sleepCycles(PACKET_SLEEP_CYCLES); // DEBUG give hn a chacne
   }
 
@@ -265,6 +266,7 @@ namespace MFM {
       LOGPTAG(UNLA,formatIHBlockBuf32(b32,ihb,mDir8,carindex));
     crbo.add(carindex);
     ++theL1CacheLoaders.mPacketsMoved;
+    theL1CacheLoaders.countMoved(mDir8);
     sleepCycles(PACKET_SLEEP_CYCLES);
   }
 

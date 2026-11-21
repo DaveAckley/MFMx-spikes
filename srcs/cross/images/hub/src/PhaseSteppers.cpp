@@ -131,7 +131,8 @@ namespace MFM {
 
     /* .xb:K at the first call of an exchange phase, .xe:K:P (hex) when
        this hub is ready to ack.  K is 0 for SAVE (NEW_LEADER) and 1 for
-       LOAD (RUN_EVENTS); P is the packets this hub loaded or unloaded.
+       LOAD (RUN_EVENTS); P is the packets this hub loaded or unloaded,
+       then 8 bytes of hex (2 digits each, Dir8 order) split P by direction.
        The marks' own ms stamps give the hub's time in the phase
        (scripts/xchg/xchg.py). */
     static constexpr u32 XCHG_BEAT_MS = 1000u;  //< .xw heartbeat period
@@ -143,6 +144,8 @@ namespace MFM {
       if (!begun[kind]) {
         begun[kind] = true;
         theL1CacheLoaders.mPacketsMoved = 0;
+        memset_s(theL1CacheLoaders.mMovedPerDir, '\0',
+                 sizeof(theL1CacheLoaders.mMovedPerDir));
         beganMs = lastBeatMs = millisElapsed();
         LOGPTAG(.xb,kind);
         if (kind == 0u) {       // SAVE: decide what the next corner lets us keep
@@ -171,8 +174,12 @@ namespace MFM {
       if (ready) {
         begun[kind] = false;
         if (kind == 1u) theL1CacheLoaders.mHaveLoaded = 1u;   // caches now held
-        char b[32];
-        snprintf(b,sizeof(b),"%x:%x",kind,theL1CacheLoaders.mPacketsMoved);
+        char b[48];
+        int n = snprintf(b,sizeof(b),"%x:%x:",kind,
+                         theL1CacheLoaders.mPacketsMoved);
+        for (u32 i = 0; i < CacheLoaders::CACHELOADER_COUNT; ++i)   // per Dir8
+          n += snprintf(b+n,sizeof(b)-n,"%02x",
+                        (u32) theL1CacheLoaders.mMovedPerDir[i]);
         LOGPTAG(.xe,b);
       }
       return ready;
