@@ -126,7 +126,7 @@ source, comments, docs and commit messages).
   steady; no bolt stalls, no hang; hub time
   max 0.03 s.  The honest AER settles about 0.02 below the early 0.98 as the grid
   fills, no drift after that.  4 of 140 hubs desynced their report stream (display
-  only; OPEN_ISSUES "Display tiles freeze").
+  only; CLOSED_ISSUES "Compressed report stream breaks").
 - Report stream health (srcs/host/{include,src}/ZHostDecompressor.*): the per-hub
   compressed atom-report stream has no resync, so one bad byte freezes that hub's
   tile on screen forever while the hub keeps running (run 124337: 4 of 140 hubs
@@ -170,6 +170,11 @@ source, comments, docs and commit messages).
   config/seam14.cmd: two hour soak (seam13 shape, feed started late, no --rtmp) that runs
   `zhd` after every 10 minute block and `zhd all` at the end; the 10 s `zhd` tick is its
   own tick (the seam configs turn slowscan off).
+  STREAM BREAK CAUSE FOUND AND FIXED (2026-11-21, PROVISIONAL, CLOSED_ISSUES): the host's
+  return write of an ACB car could land out of order (write-combining window), so the
+  hub reused a car and a late payload write zeroed its length mid-fill.  Host fix
+  OurTLBs::writeToWordsOrdered (payload, store fence, footer, header); 7 clean stress
+  hours.  Marks .zl/.zr/.zs/.zn/.zw and host DUPRET stay in.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

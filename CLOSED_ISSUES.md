@@ -5,6 +5,29 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-21  Compressed report stream breaks (PROVISIONAL)
+Cause: the host's return write of an empty ACB car (header, payload prefix,
+footer, through a write-combining PCIe window into the hub's L1) could become
+visible at the hub out of order.  The hub saw header == footer, wiped and
+reused the car, and the late payload words (flags 0, length 0) landed in the
+middle of its next fill, so the car held bytes the compressor never sent: LZ
+desync, the hub shows one packet with a bad shadow checksum (.zw/.zn, .zl with
+found length 0 mid-fill, recvcurrent 0).  Not the hub's recvTC wipe on the
+current car, not a duplicate host return (DUPRET never fired), not transit.
+Fix (host only, OurTLBs::writeToWordsOrdered for the ACB return): payload and
+ankle words first, a store fence, then footer and header (4573687 had two
+readbacks, 243bc0a fences only).  Results on the 140 hubs x 4 chips stress
+(config/seam16.cmd and seam17.cmd, `seed 25 4`, ~3 breaks per hour before):
+seam16-14 1 h clean, seam17-10 3 h clean (readbacks), seam17-11 3 h clean
+(fences only, 10934 s, AER 0.945/0.949/0.949): 7 clean hours, no DESYNC, no
+PKTSUM, no .zl/.zw, no ZHD file.  Before: seam16-10 4, seam16-12 2, seam16-13
+3 breaks in an hour each; unstressed 4 hubs in 3 h (seam12).
+Kept: the restart protocol (recovered every break), the per-packet trailer
+(seq + shadow Fletcher-16), the .zl/.zr/.zs/.zn/.zw marks, DUPRET (host
+refuses a return for a car that is not out).  PROVISIONAL until a few more
+long runs stay clean.  Still unexplained: unstressed at323/at2e9 `zhd break`
+no-show (see OPEN_ISSUES if it comes back).
+
 ## 2026-11-19  aer.py poisoned by torn counter marks
 Run 002202 read 22,110,145,435,224 mAER: a hub log with a truncated hex field
 (counter went backwards, delta mod 2**64).  aer.py now repairs those marks
