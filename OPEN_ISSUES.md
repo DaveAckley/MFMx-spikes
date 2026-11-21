@@ -432,3 +432,19 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   nothing.  Compare with a seam16/17 run of the same length: xchg.py packets
   per phase (expect ~42% fewer), AER, duty, no stream breaks, cars in == out ==
   noc, cachecensus on the seams.
+
+## Seam lines in the video (cosmetic, 2026-11-21, leave)
+- With four corners every hub boundary has a strip about 2R (8) sites wide, at
+  the boundary +/- OW, where sites are reached by centers of one side only
+  (lower event rate, so FB1 ages lag).  It moves between two positions per axis
+  (2*OW apart) when the corner's component on that axis flips; `cycle repeat on`
+  keeps it in place longer (same component 50% vs 33% for random-different).
+  Seen as thin lines near a hub's S/E/W (N hidden by the text).  Not a bug.
+- Considered and rejected: sawtooth lend/borrow edges.  A window must fit
+  entirely on one side, so teeth under 2R+1 reach nothing, the longer seam
+  excludes more centers, and every band range, bound and iterator assumes
+  rectangles.  Possible blur: more than two seam positions (variable-depth
+  lent bands), not done.
+- Also considered, withdrawn: double painting of cache bands by two hubs.  The
+  lender reports nothing for lent sites until SAVE, and SAVE returns the
+  borrower's values, so there is no stale writer.
