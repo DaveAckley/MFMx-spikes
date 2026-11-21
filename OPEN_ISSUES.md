@@ -619,3 +619,15 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   The full-car 3de/3da noise is no longer logged or counted.  Reading: a
   roughly constant ms-since-recvTC = a late wipe/return landing; unrelated
   to it = a hub-side writer.  Needs a HUB rebuild.
+
+## IDEA: elide cache exchange for bands shared by consecutive corners (2026-11-20)
+- Four-corners: a hub borrows 3 pieces toward its corner (corner cache + two
+  edge bands) and lends the 3 opposite.  Consecutive phases whose corners are
+  ADJACENT share one borrowed band (and one lent band); the same corner
+  shares all three; the OPPOSITE corner shares none.  For a shared band the
+  SAVE back and the next LOAD are a round trip to the same hub, so both could
+  be skipped (lender keeps avoiding the band, borrower keeps it).  Needs the
+  corner sequence known to both ends and no change to either side's reach in
+  between.  Saves ~1/3 of exchange traffic for adjacent rotation.  Not
+  worth it while exchange is not the bottleneck (duty ~97%, slowest hub
+  ~0.2 s).  Parked; no work started.
