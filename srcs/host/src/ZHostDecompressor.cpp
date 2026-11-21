@@ -194,7 +194,7 @@ namespace MFM {
               std::string label = mBHTag.to_string() + "\n" +
                 o.to_string() + "\n" + t6i.mT6GridOrigin.to_string();
               */
-              std::string label = o.to_string() + "\n" + mBHTag.to_string();
+              std::string label = mBHTag.to_string(); // tag only; the (x,y) origin line was dropped
               bgr.drawString(nocacheo,label,fg,bg,2,2);
             }
 
