@@ -101,6 +101,12 @@ namespace MFM {
       //      HBPTAG(gAODz,(u32) h.mTCMSize);
       //      HBPTAG(gAODw,TCMarker::getPacketWordsFromTCMSize(h.mTCMSize));
       u32 ai = TCMarker::getAnkleWordIndex(h.mTCMSize); 
+      if (!(ai > 0u && ai < getMaxWordSize())) { // about to die: say why first
+        HBPTAG(gAODh,h.getU32());          // header as read back
+        HBPTAG(gAODz,(u32) h.mTCMSize);
+        HBPTAG(gAODi,ai);
+        HBPTAG(gAODx,getMaxWordSize());
+      }
       MFM_API_ASSERT(ai > 0u && ai < getMaxWordSize(),ARRAY_INDEX_OUT_OF_BOUNDS); // die if no ankle
       //      HBXTAG(gAODh,h.getU32());
       //      HBPTAG(gAODi,ai);
