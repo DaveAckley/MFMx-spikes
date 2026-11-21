@@ -68,6 +68,7 @@ for n in 13 14 15 16; do
 done
 run t6pp_hosttest gcc $CFLAGS t6pp/hosttest.c -o "$OUT/t6pp_hosttest"
 run t6pp_hosttest2 gcc $CFLAGS t6pp/hosttest2.c -o "$OUT/t6pp_hosttest2"
+run t6pp_hosttest3 gcc $CFLAGS t6pp/hosttest3.c -o "$OUT/t6pp_hosttest3"
 
 echo
 echo "$pass passed, $fail failed"

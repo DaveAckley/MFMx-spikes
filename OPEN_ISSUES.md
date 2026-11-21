@@ -78,6 +78,11 @@ ERISC_NOTES.md.
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
   beyond one clean run.
 
+- T6 -> ETH write over NoC1 (and so preferNoC for ETH destinations): experiment BUILT 2026-11-21, not run.
+  `bash srcs/host/tools/expts15.sh` on the QB (needs ethfwd21, e1fwd16, t6pp3; see ERISC_NOTES 9.15).  If
+  it passes, NRI3::initiateWriteToEthL1 should use preferNoC (spatial layout in the traffic).  E1 -> T6 over
+  NoC1 is already proven (9.13).
+
 ## Design proposal: PERMANENT array edges (INACCESSIBLE) vs temporary dead bands
 
 STATUS: IMPLEMENTED 2026-11-19 (HubEdges.h, GridManager mPermEdges,

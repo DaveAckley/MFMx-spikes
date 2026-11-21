@@ -549,3 +549,18 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   defined; fixed a4e7c41, qb.shutdown is now bound); (3) every hub's ZHostDecompressor thread was never stopped (fixed c942e6f).
 - Not shown: cars crossing.  config/seamtest.cmd never starts a SuperCycle, and the cache loaders only run on NEW_LEADER, so the global supercell parity and the Dir4
   cache loaders of slice 1 (ERISC_SEAM_DESIGN.md section 16) were not exercised.  The `seams` channel counters were 0 throughout, as expected.
+
+### 9.15 t6pp3 / ethfwd21 / expts15.sh: T6 -> ERISC over NoC1 -- written 2026-11-21, NOT run on hardware
+- Question: does a Tensix NoC write INTO an ETH tile work over NIU1 (0xFFB30000), node ids still raw NoC0 coordinates (as MFMx passes them to NIU1 for T6 ->
+  T6)?  NRI3::initiateWriteToEthL1 is forced to NoC0 (NRIUtils.cpp `usenoc = 0u`) only because NoC1 -> ETH was never tried.  The wish: reflect the spatial
+  layout in the communications design, i.e. let preferNoC choose (the torus wraps in Y: upper Tensix rows are nearer the ETH row y=1 over NoC1, lower rows over
+  NoC0).  E1 -> T6 over NoC1 is proven (9.13); this is the other leg.
+- Files (all new, nothing existing changed): t6pp/t6pp3.c (t6pp2 + control word +0x4C: 0 = NIU0, 1 = NIU1 for the image's writes to the E1; id 0x76500003),
+  t6pp/hosttest3.c (native harness, in run_native_tests.sh), ethfwd21.cpp (ethfwd20 + `--t6-noc 0|1`, needs t6pp3), expts15.sh.
+- expts15.sh: build, read-only NIU dump, dry run, CONTROL (T6 over NoC0), PROBE (T6 over NoC1, one channel, 64 B; a failing probe is reported and the batch
+  ends with the control-only summary); if it worked: 64/576/4160 B on two channels with the E1 reply over NoC0 and over NoC1, three tile pairs (3:2 upper row,
+  5:6 middle, 12:10 lower row; a harvested tile is a WARNING), a lower-row control, and a 60 s soak, each with link-health deltas.
+- Hazard: a write that does not reach the ETH tile may land on another tile (the NoC1 mirror of ETH (x,1) is a Tensix tile in row 10) or nowhere; use FREE
+  tiles.  Expected failure mode: a timeout or bad payload in the RESULT line.
+- If it passes: make initiateWriteToEthL1 use preferNoC (keep the ETH asserts), as a constant, not a flag (the host flags byte is full); if it fails, keep
+  NoC0 and record why here.
