@@ -13,7 +13,7 @@
 
 namespace MFM {
 
-/* T6GRID's size is 12*T6GRID_WIDTH*T6GRID_HEIGHT+4 (241156 at 157 x 128),
+/* T6GRID's size is 12*T6GRID_WIDTH*T6GRID_HEIGHT+4 (276556 at 167 x 138),
    a literal on purpose: the hub image static_asserts it against the real
    sizeof, so a hub size change fails the build until this is updated. */
 #define BLOCKCODE_LIST()                                \
@@ -25,7 +25,7 @@ namespace MFM {
   XX(EWPCARS,EWCR,2048,EwpBlockStg,1u)                  \
   XX(INTERHUB,IHUB,16640,InterHubStorage,8u)            \
   XX(CORNERHUB,CHUB,16640,InterHubStorage,4u)           \
-  XX(T6GRID,T6G,241156,T6Grid,1u)                       \
+  XX(T6GRID,T6G,276556,T6Grid,1u)                       \
   XX(ACACHEBLOCK,ACB,5120,ACacheBlockStg,1u)            \
   //END OF BLOCK_CODE_LIST
 

@@ -18,8 +18,8 @@ _fast_all_size = 16;
 
 MEMORY
 {
-    /* Let's take half of L1 for our stuff, for now.. */
-    L1 (rwx) : ORIGIN = MEM_L1_BASE, LENGTH = MEM_L1_SIZE/2
+    /* Three quarters of L1 for our stuff (was a half until OW=OH=15). */
+    L1 (rwx) : ORIGIN = MEM_L1_BASE, LENGTH = (MEM_L1_SIZE/4)*3
 
     /* we say 4K for per-hart-globals length since that's the minimum
        available and because that's all that imm12 can reach anyway.

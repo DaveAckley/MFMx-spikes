@@ -72,12 +72,18 @@ source, comments, docs and commit messages).
   (old vs new rule, repeats per 30 s).
 - DISPLAY CROP (DemoGlobal.h gridCoordToPixel): hub T6Grids are drawn into the
   1920x1080 image minus their N/W cache rings (pixel = hub origin + grid coord
-  - 10), so hub origins sit at multiples of 137 x 108 (the cross marks) and the
+  - OW, where OW is the cache ring width, now 15), so hub origins sit at multiples of 137 x 108 (the cross marks) and the
   permanent-edge rings of the first hub row/column are not shown.  Base width is
   now 137 (FLOOR of 960/7; was 138, the ceiling): chip pitch 959, a full
   QuietBox is 1918 sites wide, so the last 2 image columns stay blank and
   nothing falls off the right; 5 x 108 x 2 = 1080 fits exactly.  Display only:
   qb.setSimAtom keeps its old coordinates.
+- CACHE WIDTH / L1 (2026-11-21): ring OW = OH = 15 (was 10): hub grid 167 x 138,
+  T6Grid 276556 bytes (BlockCode.h literal, the hub static_asserts it) plus the
+  4 bytes/site DLGridList; the hub linker L1 is now 3/4 of L1 (_BUD.ld.in; was
+  1/2, ~42 KB free at OW=10, hub.map: LiveB 321 KB, EP_InterHub 200 KB, .text
+  160 KB).  Dead area is OW-independent (the lent band is lost, the borrowed one
+  gained); the cost is L1 and exchange packets (~+50 percent per band).
 - HUB GEOMETRY has ONE source: DemoGlobal.h (DG::T6GRID_BASE_WIDTH etc, with
   static_assert guards).  C++ derives from it (EWControl cross marks too).
   Python derives from srcs/host/python/EWD/HubGeometry.py (SITES_PER_HUB,
