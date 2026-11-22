@@ -9,21 +9,32 @@ ERISC_NOTES.md.
 ## Bugs
 
 - EWP/hub car handshake lost at boot (2026-11-21, seam21 at OW=20; fix
-  BUILT, UNPROVEN).  68 of 140 hubs ran ZERO events (AER 0.50 vs 0.96) and
-  one hub died at init (at14b, getAnkleOrDie).  Evidence from the dumps:
-  idle hub at023 has its EwpBlock cars in their initial state (nonce 2, state
-  4), its EWP neighbours' cars show nonce 4 INBOUND_DEPARTED (they returned
-  their first cars and then waited for the hub); the at14b core showed EWP-style
-  returned cars sitting in a hub whose init had not finished.  Cause: the EWP
-  image activated its endpoint at the end of its own init, so it processed its
-  initial cars and wrote them into the hub's car storage before the hub's
-  `theEwpL1Data.reset()` (EwpBlock.cpp, HTOC_INIT); the reset wipes the
-  arrivals and both sides wait forever (hub thinks its cars are gone, EWP has
-  none).  A late arrival can instead land mid-init and trip getAnkleOrDie.
-  The hub got slower to reach that init as the grid grew (OW=20).  Fix:
-  ewp/EwpBlock.cpp activates in LIVE at the first RUN_EVENTS, when every tile
-  has acked HOLD_AT_BIRTH.  Check on hardware: every hub's `.ev` committed
-  count nonzero (aer.py "events per hub" min must be well above 0), AER near 0.96.
+  PROVEN, MECHANISM NOT ESTABLISHED).  68 of 140 hubs ran ZERO events (AER
+  0.50 vs 0.96) and one hub died at init (at14b, getAnkleOrDie).  Evidence from
+  the dumps: idle hub at023 has its EwpBlock cars in their initial state (nonce
+  2, state 4), its EWP neighbours' cars show nonce 4 INBOUND_DEPARTED (they
+  shipped their first cars and then waited); the at14b core showed EWP-style
+  returned cars sitting in a hub whose init had not finished.  Fix (5afdae3):
+  ewp/EwpBlock.cpp no longer activates its endpoint in HTOC_INIT; it activates
+  in LIVE at the first RUN_EVENTS.  PROVEN by seam21-12 (MFMX-20261121-161919,
+  one hour): all 140 hubs ran events (min 51.27M, max 51.87M, spread 0.2%),
+  AER 0.970, no gAOD lines, clean boot.
+  Roles: the hub is the "in" end (isIn=true) and the EWP the "out" end, fixed
+  by role, NOT by TLBI (unlike InterHub.cpp:271), so the fix does not depend on
+  where the hub sits in the 2x2 cell.  InterHub endpoints are not exposed to
+  this: HTOC_LIVE (and so updateOps) cannot run on a tile until it leaves the
+  HOLD_AT_BIRTH block in stepNC, and NEW_LEADER is fired only after every tile
+  acked that, i.e. after every tile's INIT and OPEN.
+  OLD THEORY (not established, do not rely on it): the EWP shipped its cars
+  into the hub's storage before the hub's `theEwpL1Data.reset()` (hub
+  EwpBlock.cpp HTOC_INIT) and the reset wiped them.  This does not fit a boot
+  where every tile acked HOLD_AT_BIRTH, since the hold keeps LIVE from running
+  until all INITs are done; seam21-11 was such a boot and still had idle hubs.
+  What is known: EWP activity before RUN_EVENTS loses the handshake (hub cars
+  untouched, EWP cars shipped); activating at RUN_EVENTS does not.  Not yet
+  traced: what happens to hub-side car storage during the NEW_LEADER phase
+  (hub updateOps runs only in RUN_EVENTS).  To pin down: old activation plus a
+  hub `dumpl1` right after the first NEW_LEADER.
   Note: dumps of a run need the matching hub.map; b1716a0 moved data by 0x340
   vs d3da41d (find theT6Grid by scanning for 100% atom parity and empty
   permanent rings).
