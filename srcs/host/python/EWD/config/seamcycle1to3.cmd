@@ -7,6 +7,8 @@
 # The periodic slowscan runs on the SAME single thread that polls the bolts and blocks it for about 1.9 s
 # on two chips, which showed up as consensus times of 1.7-2.0 s (OPEN_ISSUES "seamtest consensus stalls").
 tick slowscan off
+# Seed PHY_FB1 (type 4); without this the autoseed default is type 5 (FB4).
+decay 4
 dwell 4 8
 start
 seams
