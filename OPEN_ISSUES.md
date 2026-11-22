@@ -134,6 +134,46 @@ ERISC_NOTES.md.
   NRI3::initiateWriteToEthL1 now uses preferNoC with the mirrored node (BUILT, UNPROVEN in MFMx: check on a seam run
   that `seams` txfail/nocfail stay 0 and AER/consensus are unchanged; revert to `usenoc = 0u` if not).
 
+## Design idea: liv's sawtooth idea (2026-11-22, NOT started, analysed: does not shrink the dead zone)
+
+The dead stripes in the video are the gap between two hubs' event bounds (CachingPolicy.h FourCornersPolicy::boundsImpl).
+For a SE-corner supercycle: a hub's x range is [2*OW+R, TW-R) (R = WINDOW_RADIUS = 4); the west neighbour reaches
+x < 2*OW-R in the hub's coordinates (neighbour offset = BASE).  Gap = [2*OW-R, 2*OW+R): 2R = 8 sites wide, centred
+OW from the base-area origin, so its position scales with OW and its width does not.  It moves between the four
+corner positions as the leader corner changes (seen in seam21 video).  Per hub the dead cross is about
+8/137 + 8/108 = 13% of the area.  This is NOT an AER loss (events/s per hub is fixed by the hub's speed): it is
+UNEVEN density, dead sites get nothing and live sites about 13% more.
+
+The idea: ship OW+R wide strips so B's cache holds R extra sites technically still owned by A; give A and B
+a deterministic split of the shared sites for one RUN_EVENTS, e.g. a zig-zag boundary whose segments have
+slope +-1 (the Manhattan boundary of an event window), known to every tile; each side rejects any random EW
+center whose window would cross the zig-zag.  Hoped result: events from the two sides can sit closer together
+(one in a zig, one in a zag), a much softer dead zone.
+
+Analysis (scripts/deadzone/deadzone_model.py, a lattice model with the real 41-site diamond):
+- Dead centres per row: straight 8, 45 degree zig-zag (amplitude 2, 4, 8) 8, slope 1/2 zig-zag 8,
+  alternating 16-row blocks 10.4.  It is 2R for every connected boundary, and it is a LOWER BOUND for any fixed
+  partition: each row must cross from A's sites to B's sites somewhere, and the window row through the crossing
+  alone makes 2R centres dead.  So a static zig-zag cannot reduce the dead area; it only reshapes the band
+  (wavy instead of straight).  It does let the two sides' centers sit at Manhattan distance exactly 2R+1 (the
+  tightest two disjoint diamonds can be) along the slopes, but the straight boundary has the same dead count.
+- Costs: about +20% cache traffic at OW=20 (24/20 on the strip); the return of a borrowed strip must send only the
+  sites the borrower OWNS, or it overwrites the other side's changes with stale values; a little arithmetic per
+  center (reject if the window crosses the boundary).
+- Possible visual value only: the stripe becomes wavy.  Not tried.
+
+Variant ideas (all recorded, none started):
+1. Moving boundary: each RUN_EVENTS both ends compute a boundary position b inside the shared band from a seeded
+   hash of the supercycle number (no messages); the borrower owns band sites below b and returns only those; the
+   lender owns the rest.  The dead stripe then wanders over the band (thicker OW = more room) instead of sitting
+   at the fixed position.  Needs the owned-only return.  Value is LOW: the stripes already move as the corner
+   changes, so the time-averaged density is already spread (user, 2026-11-22).
+2. Dynamic claims: hubs tell each other which strips are in use during RUN_EVENTS (tokens or locks), so no strip is
+   dead for a whole supercycle.  Can beat the 2R bound (which assumes a fixed agreed partition) but needs
+   real-time protocol traffic and locking that does not exist.
+3. Rotate partitions within a supercycle (split RUN_EVENTS into sub-phases with different boundaries): the same
+   dead area at any moment, more even over time; costs extra barrier bolts.
+
 ## Design proposal: PERMANENT array edges (INACCESSIBLE) vs temporary dead bands
 
 STATUS: IMPLEMENTED 2026-11-19 (HubEdges.h, GridManager mPermEdges,
