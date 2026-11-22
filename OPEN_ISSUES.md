@@ -66,7 +66,8 @@ ERISC_NOTES.md.
   EthSeam.h, InterHub.cpp, CacheLoader.cpp, T6PhaseLockedLoop.cpp or PhaseSteppers.cpp.  Experiment prepared:
   the same seamcycle.cmd script on the other legal layouts (01, 02, 23, 0123 are the legal chip sets; an L of
   three cards is REFUSED by the host, ERISC_SEAM_DESIGN.md): config/seamcyclens.cmd (layout seamns, cards 0+2,
-  N/S seam) and config/seamcycle23.cmd (new layout seam23, cards 2+3, E/W seam, seed chip 2).  If stalls appear
+  N/S seam), config/seamcycle23.cmd (new layout seam23, cards 2+3, E/W seam, seed chip 2) and
+  config/seamcycle1to3.cmd (new layout seam13, cards 1 above 3, N/S seam, seed chip 1).  If stalls appear
   on both it is a fewer-than-four artifact; if only on the E/W pair in the top row (seamtest), it is specific to
   that seam or position; if only on 01 it may be about chip 0/1 themselves.
   Compare misc/mfmxctl-BOLT.txt consensus times.
