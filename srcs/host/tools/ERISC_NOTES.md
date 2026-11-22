@@ -681,7 +681,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   and tt-smi.  The mod-64 return rule is confirmed for reads FROM THE ARC TILE (scratch registers and ARC SRAM).  NIU1 (`--noc 1`, same tile, 1 pass) ALSO WORKS: 20 reads, 0 failed, AICLK 800, AXICLK 960, ARCCLK 800, L2CPUCLK0 800, limit 1350, with node (8,0) unchanged (the ARC column maps to itself on NoC1).  Tip: the
   debug log makes the output long; filter with `| grep -E "pass|AICLK|READ|image|restored"`.
 
-### 9.20 hub `.ck` clock mark -- written 2026-11-22, cross-built, NOT yet run on a hub
+### 9.20 hub `.ck` clock mark -- written 2026-11-22, WORKS on all 140 hubs (run 20261122-121809)
 - Each hub reads its chip's ARC telemetry (AICLK 14, AXICLK 15, ARCCLK 16, AICLK_LIMIT_MAX 63) once at init and logs `.ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT.`
   (hex, MHz in the low 16 bits; trailing '.' = end marker; STATUS 0 ok) with the `.cp` mark.  Code: `srcs/cross/src/ArcTelemetry.cpp` / `include/ArcTelemetry.h`
   (built into the hub image only, `codes/hub.cmake`; the ewp and zot images do not contain it), same sequence as the proven t6arc4 (9.19): 3-4 scratch reads,
@@ -690,4 +690,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   (OPEN_ISSUES "return buffer alignment").  Read at HE_BORN1 (InterHub.cpp HTOC_INIT) and logged at the first NEW_LEADER (init-time marks do not reach the log).
 - Expect on this QB: `.ck:0:320:3c0:320:546.` on all 140 hubs.  Later, after any clock change, the same mark shows the clock the hubs actually run at.
   Cost: 0x660 bytes of hub text plus 128 + 24 bytes of data.  Cross-build of all images passes here; the hub image was NOT run.
+- RESULT (t6arc-10.out, MFMX-20261122-121809, seam4, 140 tile logs): all 140 hubs logged `.ck:0:320:3c0:320:546.`: status 0, AICLK 800, AXICLK 960, ARCCLK 800 MHz,
+  AICLK_LIMIT_MAX 1350, identical on every chip.  So the hub-side NoC read of the ARC works in MFMx (hart NC, NRI3, mod-64 return buffer) on every hub, with
+  the run otherwise normal enough to boot and shut down ("quietbox shutdown: ok").
 

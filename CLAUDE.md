@@ -116,7 +116,7 @@ source, comments, docs and commit messages).
   the old mode gave sparse grids a 1/fill time warp.  Use `seed` or a longer
   run (seam12) to reach a full grid.  Link time: 64 B per NoC tick, so an
   EWPC_EMPTY placeholder (state word only) saves little on the wire.
-- CLOCK MARK `.ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT.` (2026-11-22, UNPROVEN in MFMx until the first run): each hub reads
+- CLOCK MARK `.ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT.` (2026-11-22, PROVEN: run 20261122-121809, all 140 hubs `.ck:0:320:3c0:320:546.`): each hub reads
   its chip's ARC telemetry table over the NoC once at init (hart NC, InterHub.cpp manageInterHubNC ->
   srcs/cross/{include,src}/ArcTelemetry.*, hub image only) and logs it with `.cp` (CacheLoader.cpp).  Hex, clocks in MHz
   (`.ck:0:320:3c0:320:546.` = 800/960/800 MHz, limit 1350), STATUS 0 ok (1 not read, 2 ARC not ready or bad pointer, 3 NoC
