@@ -1,8 +1,8 @@
 # Seam stall hunt (OPEN_ISSUES "seamtest consensus stalls"): seamcycle.cmd on a different layout with fewer
-# than four cards: three cards in an L (0-1 east/west, 1-3 north/south), chip 2 absent.
+# than four cards: the bottom pair, cards 2 and 3 (E/W seam).
 # Compare the bolt consensus times (misc/mfmxctl-BOLT.txt) with seamcycle13 (seamtest, 2 cards E/W:
 # about a third of the phases took 1.7-2.0 s instead of 0.1 s) and with seam21 (4 cards: no stalls).
-#   python mfmxctl.py --layout seam3 --boot --rtmp -s config/seamcycle3.cmd --script-exit
+#   python mfmxctl.py --layout seam23 --boot --rtmp -s config/seamcycle23.cmd --script-exit
 # Watch: bolts reach CONSENSUS on every chip, 'seams' out/in/noc move, txfail/nocfail stay 0.
 dwell 4 8
 start

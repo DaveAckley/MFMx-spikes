@@ -64,9 +64,11 @@ ERISC_NOTES.md.
   time out when fewer are present.  Read so far: permanent edges come from the live seam mask (HubEdges.h), not
   from the compiled 2x2 chip-array constants, so that part is not it; no timeout-like constant was found in
   EthSeam.h, InterHub.cpp, CacheLoader.cpp, T6PhaseLockedLoop.cpp or PhaseSteppers.cpp.  Experiment prepared:
-  layout `seam3` (3 cards in an L, chip 2 absent; nu1012.dtoml) with config/seamcycle3.cmd, and
-  config/seamcyclens.cmd (2 cards N/S, layout seamns), each the seamcycle.cmd script.  If stalls appear in
-  all <4-card layouts it is a fewer-than-four artifact; if only on E/W seamtest it is specific to that seam.
+  the same seamcycle.cmd script on the other legal layouts (01, 02, 23, 0123 are the legal chip sets; an L of
+  three cards is REFUSED by the host, ERISC_SEAM_DESIGN.md): config/seamcyclens.cmd (layout seamns, cards 0+2,
+  N/S seam) and config/seamcycle23.cmd (new layout seam23, cards 2+3, E/W seam, seed chip 2).  If stalls appear
+  on both it is a fewer-than-four artifact; if only on the E/W pair in the top row (seamtest), it is specific to
+  that seam or position; if only on 01 it may be about chip 0/1 themselves.
   Compare misc/mfmxctl-BOLT.txt consensus times.
 
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
