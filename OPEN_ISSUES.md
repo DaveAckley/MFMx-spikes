@@ -164,6 +164,14 @@ ERISC_NOTES.md.
   432,184 cars out = in = written to T6s on every print, txfail/nocfail 0, AER 0.968, all 140 hubs running, no
   timeouts; NEW_LEADER consensus mean 0.161 s vs 0.163 s before the change).  Not measured: xchg time per phase.
 
+## Design idea: raise the AI clock (2026-11-22, step 1 BUILT, not run)
+
+The chip runs at about 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale
+toward AER 1.6 at best.  Step 1 is `srcs/host/tools/arcpeek` (read-only: ARC boot status, telemetry incl. AICLK and AICLK_LIMIT_MAX, ERISC_NOTES 9.17).
+Next: run it, compare with tt-kmd's sysfs `tt_aiclk`; learn the firmware's fmax/fmin and whether the chip idles until AICLK_GO_BUSY; only then consider the
+message queue (SCRATCH 11, doorbell ARC_MSI_FIFO) with GO_BUSY before FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.  Memory note
+project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.
+
 ## Design idea: liv's sawtooth idea (2026-11-22, NOT started, analysed: does not shrink the dead zone)
 
 The dead stripes in the video are the gap between two hubs' event bounds (CachingPolicy.h FourCornersPolicy::boundsImpl).

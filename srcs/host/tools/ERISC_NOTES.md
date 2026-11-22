@@ -578,3 +578,22 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 - All four T6 <-> ETH legs (T6 -> E1, E1 -> T6, each over NoC0 and NoC1) now work.  NRI3::initiateWriteToEthL1 now uses preferNoC on NoC0 coordinates and
   sends the mirrored X when NoC1 is chosen (NRIUtils.cpp, 40864a7).  OBSERVED in MFMx 2026-11-22: seam21-13, one hour on the full QB, 432,184 seam cars
   out = in = written to the T6s, txfail/nocfail 0, AER 0.968, consensus unchanged (see OPEN_ISSUES).
+
+### 9.17 arcpeek: read-only look at the ARC tile and the AI clock -- written 2026-11-22, NOT run on hardware
+- Goal: find the current AICLK (the chip runs at 800 MHz as far as the user knows) before anyone thinks about changing it.  Tool: `srcs/host/tools/arcpeek.cpp`
+  (`g++ -std=c++17 -O2 -Wall -Wextra -Werror arcpeek.cpp -o arcpeek`; `./arcpeek`, `--dev N`, `--aiclk`, `--mock`).  READ-ONLY: it sends no ARC message, rings no
+  doorbell and writes nothing; it maps 2 MiB tt-kmd TLB windows at NoC0 (8,0) (the ARC tile) like the ethfwd tools (needs a free window per card).
+- How (from tt-kmd blackhole.c and the tt-system-firmware telemetry docs, read not run): reset-unit scratch registers 0x80030400 + 4N: N=2 ARC_BOOT_STATUS (bit0
+  READY_FOR_MSG, bits2:1 HW_INIT), N=4 ARC_ERROR_STATUS0 (bit1 cable fault), N=11 ARC_MSG_QCB_PTR, N=12 ARC_TELEMETRY_DATA, N=13 ARC_TELEMETRY_PTR.  The table at
+  PTR: word0 version (major bits 23:16), word1 entry count, then u32 entries from PTR+8, low 16 bits tag id, high 16 bits offset in words from the data base; value =
+  u32 at data base + 4*offset.  Tag ids from tt-kmd telemetry.h: AICLK 14, AXICLK 15, ARCCLK 16, AICLK_LIMIT_MAX 63, TIMER_HEARTBEAT 32, POWER 7, ASIC_TEMP 11, ...
+- The AICLK word's layout is NOT documented in what we read.  arcpeek prints it raw and, as a hint only, low16 (expected: MHz) and high16.  Check against what the
+  kernel reports: `cat /sys/class/tenstorrent/tenstorrent!0/tt_aiclk` (tt-kmd sysfs attribute `tt_aiclk`, decimal; exact path varies).
+- Messages (NOT used by arcpeek; for later): queue control block pointer in SCRATCH 11 (first word queue base, low 8 bits of the second word = entry count),
+  doorbell = write 0 to ARC_MSI_FIFO 0x800B0000 over the NoC; types seen in the kernel driver: 0xA0 ASIC state 0, 0xA3 state 3, 0xC1 watchdog timeout, 0x56 reset,
+  0x90 test, 0x21 power setting, 0xC7 firmware log.  The kernel driver never sends AICLK busy/idle or force.  Firmware (aiclk_ppm.c): target = highest enabled min
+  arbiter capped by the lowest enabled max arbiter (voltage-derived, host fmax), a forced clock overrides all but cannot leave [fmin,fmax] from the firmware
+  table, GO_BUSY sets the busy arbiter to fmax (idle: fmin) or when the AICLK power domain is active.
+- Not done: reading the ARC from a T6 (a t6pp-style image doing a NoC read of the ARC scratch/CSM), sending any ARC message.  Tested: native mock walk
+  (run_native_tests.sh arcpeek_mock).
+

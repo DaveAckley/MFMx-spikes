@@ -69,6 +69,8 @@ done
 run t6pp_hosttest gcc $CFLAGS t6pp/hosttest.c -o "$OUT/t6pp_hosttest"
 run t6pp_hosttest2 gcc $CFLAGS t6pp/hosttest2.c -o "$OUT/t6pp_hosttest2"
 run t6pp_hosttest3 gcc $CFLAGS t6pp/hosttest3.c -o "$OUT/t6pp_hosttest3"
+# arcpeek (read-only ARC/telemetry reader): build it, then a runner script checks its --mock table walk
+run arcpeek_mock sh -c 'g++ '"$CXXFLAGS"' arcpeek.cpp -o "$1/arcpeek_bin" && printf "#!/bin/sh\n\"%s/arcpeek_bin\" --mock | grep -q \"low16 = 800\" && \"%s/arcpeek_bin\" --mock | grep -q \"ARC alive\" && echo mock-table-walk-ok\n" "$1" "$1" > "$1/arcpeek_mock" && chmod +x "$1/arcpeek_mock"' x "$OUT"
 
 echo
 echo "$pass passed, $fail failed"
