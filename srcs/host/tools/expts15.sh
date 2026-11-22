@@ -15,12 +15,13 @@
 # tile in row 10) or nowhere; tiles must be FREE.  The expected failure is a timeout or bad payload in the result, as in expts14.
 # T6 tile pairs below are NoC0 coordinates (Tensix columns x 1..7, 10..16; rows y 2..11); a harvested tile exits with code 4 (WARNING, continues).
 #
-# Run from anywhere:   bash expts15.sh   (bash, not sh).   A few minutes.   Output in ./out15/ (SUMMARY.txt first); afterwards
+# Run from anywhere:   bash expts15.sh   (bash, not sh).   A few minutes.   Output in ./out15/ of the directory you ran it from (SUMMARY.txt first); afterwards
 #   scp -r ./out15 <you>@<host>:/data/claude/CLAUDES_PLACE/    and tell Claude.
 # Testing the script without hardware:   EXTRA=--mock OUT15=/some/dir bash expts15.sh      (all numbers are then FAKE)
+HERE=$PWD   # where the user ran us: output goes here, not next to the script
 cd "$(dirname "$0")" || { echo "cannot cd to the script directory"; exit 1; }
 set -o pipefail
-OUT=${OUT15:-out15}
+OUT=${OUT15:-$HERE/out15}
 X=${EXTRA:-}
 LINK="--link 0:1:6"
 IMG="--image e1fwd/e1fwd16.bin --t6-image t6pp/t6pp3.bin"
