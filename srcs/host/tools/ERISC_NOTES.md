@@ -630,3 +630,23 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   because the arbiters pick 800 (target = highest enabled min arbiter, capped by lowest enabled max arbiter), not because the chip is stuck.  FORCE_AICLK (which
   overrides the arbiters within [fmin,fmax]) is therefore a meaningful lever.  Only card 0 tried; cards 1-3 not yet.
 
+### 9.19 t6arc / t6arcrun: a Tensix tile reads the ARC telemetry over the NoC -- written 2026-11-22, NOT run on hardware
+- Goal: prove the T6 -> ARC NoC read path (and give a way to observe AICLK from inside the chip) before any MFMx image depends on it.  Reconnaissance only:
+  the ARC is only READ.  Image `srcs/host/tools/t6pp/t6arc.c` (`sh t6pp/build.sh t6arc`, 2456 bytes, image id 0x76500010, runs on BRISC at L1 0), host runner
+  `srcs/host/tools/t6arcrun.cpp` (`g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun.cpp -o t6arcrun`).
+- Image: NoC read commands on NIU0 (or NIU1, control word) command buffer 3, exactly the NRI3::blockingL1ReadNoC0 sequence (target node = ARC (8,0) = node 8,
+  read command, tag 0xe << 10, complete when the NIU outstanding counter for id 0xe is 0, return address = our L1 with the same address mod 16).  One pass =
+  4 scratch reads (boot status, queue info, data base, table pointer), the table header (2 words), the 65 table entries in 12-word reads, then one read per
+  wanted tag: AICLK 14, AXICLK 15, ARCCLK 16, TIMER_HEARTBEAT 32, AICLK_LIMIT_MAX 63, ASIC_TEMP 11, POWER 7, VCORE 6, tag 17 (L2CPUCLK0).  20 reads per pass.
+  Results go to a control block at T6 L1 0x8000 (layout in the t6arc.c header); one pass per rise of `go`.  Status 0 ok, 1 bad pointer, 2 read timeout.
+- Host runner: default is a DRY RUN (reads the tile's soft-reset, NIU cfg, prints the plan).  `./t6arcrun --dev 0 --go` (default tile 1:2 NoC0 coordinates,
+  `--tile X:Y`, `--noc 0|1`, `--passes N`, default 3, `--image FILE`, default t6pp/t6arc.bin relative to the cwd: run it from srcs/host/tools).  It refuses a
+  harvested tile (exit 4) and a tile whose five cores are not all in reset, writes ONLY the soft-reset register (allowlisted values), the image and the control
+  block, releases BRISC alone, runs the passes (300 ms apart, so the heartbeat must move), then holds all cores and restores the original soft-reset value;
+  tt-kmd is asked (NOC_CLEANUP ioctl 0xFA0E) to restore it if the process dies.  IDLE CARD ONLY.  Verdict line: `T6 READ OK: 3 of 3 passes`.
+- Expected on this QB: AICLK raw 0x320 = 800, AXICLK 960, ARCCLK 800, AICLK_LIMIT_MAX 1350, tag 17 = 800, heartbeat moving, same numbers as arcpeek (9.17).
+  Then try `--noc 1`: the ARC is in the one column (x = 8) that NoC1 maps to itself, so node 8 should work unchanged.  If a pass reports status 2 the NoC read
+  never completed: record the status and which NoC, do not retry in a loop.
+- Tested here: native `t6arc_hosttest` (the image compiled for the host against a fake NoC and fake ARC memory laid out like arcpeek10.out: 20 reads, 12 words
+  max, node 8, alignment, bad-pointer and stuck-NIU paths) and `t6arcrun_mock` (run_native_tests.sh t6arc); the real image cross-builds with the sfpi gcc.
+  Not tested: anything on hardware (does the T6 NIU read of the ARC SRAM/scratch work like the host's; is the 16-byte alignment rule right for reads).

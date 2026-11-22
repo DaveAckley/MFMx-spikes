@@ -171,6 +171,8 @@ Step 1 DONE: `srcs/host/tools/arcpeek` (read-only) on all four cards: AICLK 800 
 (ERISC_NOTES 9.17).  Step 2 DONE (card 0): `srcs/host/tools/arcmsg` sends only TEST (0x90) and GET_AICLK (0x34) through the message queue (SCRATCH 11 info block,
 doorbell ARC_MSI_FIFO), idle card only (ERISC_NOTES 9.18).  Result: TRANSPORT OK, GET_AICLK 800 MHz, mode 3 = PPM unforced (DVFS on, clock not forced).
 Next: a separate, newly named tool for GO_BUSY / FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.
+Step 3 BUILT, not run: `t6pp/t6arc.c` + `t6arcrun` read the ARC telemetry from a Tensix tile over NIU0/NIU1 (ERISC_NOTES 9.19), the base for logging AICLK from inside
+MFMx later (a hub `.ck:` mark built on NRI3::blockingL1ReadNoC0).
 Open: does the chip idle below 800 until GO_BUSY (unverified); what the other 800-valued tags (17..20) are; reading the ARC from a T6.  Memory note
 project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.
 

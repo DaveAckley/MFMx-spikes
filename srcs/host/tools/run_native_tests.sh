@@ -73,6 +73,10 @@ run t6pp_hosttest3 gcc $CFLAGS t6pp/hosttest3.c -o "$OUT/t6pp_hosttest3"
 run arcpeek_mock sh -c 'g++ '"$CXXFLAGS"' arcpeek.cpp -o "$1/arcpeek_bin" && printf "#!/bin/sh\n\"%s/arcpeek_bin\" --mock | grep -q \"low16 = 800\" && \"%s/arcpeek_bin\" --mock | grep -q \"ARC alive\" && echo mock-table-walk-ok\n" "$1" "$1" > "$1/arcpeek_mock" && chmod +x "$1/arcpeek_mock"' x "$OUT"
 # arcmsg (TEST + GET_AICLK on the ARC message queue): mock queue round trip, and no-hardware without --dev
 run arcmsg_mock sh -c 'g++ '"$CXXFLAGS"' arcmsg.cpp -o "$1/arcmsg_bin" && printf "#!/bin/sh\n\"%s/arcmsg_bin\" --mock | grep -q \"TRANSPORT OK\" && \"%s/arcmsg_bin\" --mock | grep -q \"AICLK 800 MHz\" && ! \"%s/arcmsg_bin\" 2>/dev/null && echo mock-queue-ok\n" "$1" "$1" "$1" > "$1/arcmsg_mock" && chmod +x "$1/arcmsg_mock"' x "$OUT"
+# t6arc (T6 reads the ARC telemetry over the NoC): image logic against a fake NoC, then the host runner's mock run
+run t6arc_hosttest gcc $CFLAGS t6pp/hosttest_arc.c -o "$OUT/t6arc_hosttest"
+# (the mock never executes the image, so any small file stands in for the .bin: no riscv toolchain needed)
+run t6arcrun_mock sh -c 'g++ '"$CXXFLAGS"' t6arcrun.cpp -o "$1/t6arcrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6arcrun_bin\" --mock --go --image \"%s\" | grep -q \"T6 READ OK\" && echo mock-run-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6arc.c" > "$1/t6arcrun_mock" && chmod +x "$1/t6arcrun_mock"' x "$OUT"
 
 echo
 echo "$pass passed, $fail failed"
