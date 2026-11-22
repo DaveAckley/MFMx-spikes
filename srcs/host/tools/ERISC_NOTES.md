@@ -678,6 +678,6 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 - t6arc4 RESULT (card 0, tile 1:2, NIU0, 3 passes, no probe): `T6 READ OK: 3 of 3`.  20 NoC reads per pass, 0 failed; the walk found the table at 0x1001a094
   (version 0x100, 65 entries), data base 0x1001a1a0, AICLK tag at offset 14.  From the T6: AICLK raw 0x320 = 800 MHz, AXICLK 960, ARCCLK 800, L2CPUCLK0 800,
   AICLK_LIMIT_MAX 1350, POWER 37, VCORE 739/740, ASIC_TEMP 36.2 C, heartbeat 37653 -> 37656 -> 37659 (moving, 3 per 300 ms pass gap), identical to arcpeek
-  and tt-smi.  The mod-64 return rule is confirmed for reads FROM THE ARC TILE (scratch registers and ARC SRAM).  NIU1 (`--noc 1`) not tried yet.  Tip: the
+  and tt-smi.  The mod-64 return rule is confirmed for reads FROM THE ARC TILE (scratch registers and ARC SRAM).  NIU1 (`--noc 1`, same tile, 1 pass) ALSO WORKS: 20 reads, 0 failed, AICLK 800, AXICLK 960, ARCCLK 800, L2CPUCLK0 800, limit 1350, with node (8,0) unchanged (the ARC column maps to itself on NoC1).  Tip: the
   debug log makes the output long; filter with `| grep -E "pass|AICLK|READ|image|restored"`.
 
