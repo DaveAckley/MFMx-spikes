@@ -237,8 +237,13 @@ namespace MFM {
     } else {
       first = last = toTLBI;
     }
+    // The full-image word-by-word readback is one PCIe read per word per tile (the whole image, per tile): it
+    // slows startup and has never found anything, so it is OFF unless MFMX_SPOTCHECK is set in the environment.
+    // The HostBlock check below (magic, cigam, host base address; HOST_FATAL on a bad value) always runs.
+    const char * fullcheck = getenv("MFMX_SPOTCHECK");
+    const bool doFullReadback = fullcheck != 0 && fullcheck[0] != '\0' && fullcheck[0] != '0';
     for (u32 tlbi = first; tlbi <= last; tlbi += stride) {
-      for (u32 word = 0u; word < wordcount; word += 1) {
+      for (u32 word = 0u; doFullReadback && word < wordcount; word += 1) {
         u32 byteaddr = word<<2u; // 4 bytes/word
         u32 data = mOurTLBs.read32(tlbi, byteaddr);
         const u32 MINWORD = 4u;
@@ -288,7 +293,10 @@ namespace MFM {
               codewords[8]
               );
         
-    LOGprintf(mChipNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
+    if (doFullReadback)
+      LOGprintf(mChipNum,"SPOT CHECK READBACK: hits=%d misses=%d\n", hits, misses);
+    else
+      LOGprintf(mChipNum,"SPOT CHECK READBACK: full image readback skipped (MFMX_SPOTCHECK=1 enables it); HostBlock checks=%d\n", hits);
     return 0;
   }
 

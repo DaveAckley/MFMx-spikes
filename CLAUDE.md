@@ -299,6 +299,10 @@ clean exit.  Corner caches of all seam hubs are full (seamlong10 / run
 20261117-102406, cachecensus ok).  Not yet checked: atom CONTENTS match across
 the seam.
 
+Startup speed (2026-11-22): CodeManager's full-image word-by-word SPOT CHECK READBACK of every tile (one PCIe read
+per word, whole image, per tile) is OFF by default (it never found anything); `MFMX_SPOTCHECK=1` in the environment
+turns it back on.  The HostBlock magic/cigam/base-address check after each download always runs.
+
 PROVEN (cont.): slice 3a, the N/S seam (chips 0 and 2, links x=3,4,12,13):
 run 20261117-110545, 53 bolts, cars in==out, 14 seam hubs ok.
 
