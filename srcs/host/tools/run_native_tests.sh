@@ -78,6 +78,7 @@ run t6arc_hosttest gcc $CFLAGS t6pp/hosttest_arc.c -o "$OUT/t6arc_hosttest"
 # (the mock never executes the image, so any small file stands in for the .bin: no riscv toolchain needed)
 run t6arcrun_mock sh -c 'g++ '"$CXXFLAGS"' t6arcrun.cpp -o "$1/t6arcrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6arcrun_bin\" --mock --go --image \"%s\" | grep -q \"T6 READ OK\" && echo mock-run-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6arc.c" > "$1/t6arcrun_mock" && chmod +x "$1/t6arcrun_mock"' x "$OUT"
 run t6arc2_hosttest gcc $CFLAGS t6pp/hosttest_arc2.c -o "$OUT/t6arc2_hosttest"
+run t6arc3_hosttest gcc $CFLAGS t6pp/hosttest_arc3.c -o "$OUT/t6arc3_hosttest"
 
 echo
 echo "$pass passed, $fail failed"

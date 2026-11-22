@@ -658,3 +658,12 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   t6arcrun2: a debug log of the first 8 reads (address, buffer, the 16 buffer words afterwards) and `--probe` reads (12 words from 0x80030400, 4 from 0x80030430,
   scratch 11 three times, scratch 2 then scratch 12).  Run: `sh t6pp/build.sh t6arc2`, `g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun2.cpp -o t6arcrun2`,
   `./t6arcrun2 --dev 0 --go --passes 1 --probe`.  t6arc and t6arcrun stay as they are.
+- t6arc2 probe run (same tile): a 12-word read at 0x80030400 DELIVERED CORRECTLY at the return address: scratch 0 = 0x00110000, scratch 2 = 5, scratch 10 =
+  0x0c024a6d, scratch 11 = 0x10017a08 (the queue info pointer arcpeek sees) at buffer words 0, 2, 10, 11.  So block reads, the node id, the NIU0 command
+  sequence and the buffer placement are right.  But single-word reads of scratch 11 (0x8003042c, three times) returned 0, a 4-word read at 0x80030430 (scratch
+  12..15) returned 0, 0, 0 (and once 0, 0, 5, 0), while a single-word read of scratch 2 (0x80030408) returned 5 each time.  So the failures are not "reads after the
+  first".  Open: single-word reads at addresses that are not 8-byte aligned (0x...2c), and reads at/after 0x80030430, return 0 though the data is nonzero when
+  the host reads it.  Hypotheses: alignment of small reads in register space; a range limit; timing.  Next: t6arc3 (id 0x76500012) + t6arcrun3 `--probe`: single-word
+  reads of scratch 0..15 (also with a delay before the copy), 12-word blocks at 0x...400/410/430, and ARC SRAM reads (table header at 0x1001a094, data at
+  0x1001a1a0), `./t6arcrun3 --dev 0 --go --passes 1 --probe` after `sh t6pp/build.sh t6arc3` and `g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun3.cpp -o t6arcrun3`.
+
