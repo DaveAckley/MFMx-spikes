@@ -6,7 +6,7 @@
 # leaves no trace in its neighbors, and the run must keep going (before the
 # guard that hart hung forever).  Needs ./build_all.sh at 1c17b62 or later.
 #   python mfmxctl.py --layout seam4 --boot -s config/boom10.cmd --script-exit --abort-on-error
-# Afterwards (expect 10 lines of `.pf:4e06.`, 4e06 hex = (39<<9)|6 where 39 is
+# Afterwards (expect up to 10 `.pf:19974.` marks, 19974 = 0x4e06 = (39<<9)|6 where 39 is
 # USER_REQUESTED_FAILURE and 6 the center type; the guard logs the first 8
 # failures per hart and every 1024th, so 10 BOOMs on 10 different sites show up
 # as up to 10 separate marks, never more than 8 on one hart):
