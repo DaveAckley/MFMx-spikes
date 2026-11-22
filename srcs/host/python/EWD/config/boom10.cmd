@@ -1,5 +1,6 @@
-# PHYSICS_FAIL SELF-TEST, about 4 minutes, no feed: seed 25 FB1 (type 4) so
-# the machine is busy, then 10 PHY_BOOM atoms (type 6).  Each PHY_BOOM center
+# PHYSICS_FAIL SELF-TEST, about 4.5 minutes, no feed: seed 25 FB1 (type 4),
+# start the cycle (events only run while the cycle runs), then seed 10 PHY_BOOM
+# atoms (type 6) into the running machine.  Each PHY_BOOM center
 # scribbles its four neighbors then calls PHYSICS_FAIL; recovery commits the
 # OLD window with the center erased, so every BOOM dies on its first event,
 # leaves no trace in its neighbors, and the run must keep going (before the
@@ -20,6 +21,8 @@ decay 4
 dwell 4 8
 start
 seed 25 4
+cycle repeat on
+cycle start
 wait 30
 status
 seed 10 6
@@ -31,6 +34,8 @@ wait 60
 status
 wait 60
 status
+cycle stop
+wait 15
 stop
 status
 quit close
