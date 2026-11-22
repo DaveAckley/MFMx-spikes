@@ -53,6 +53,22 @@ ERISC_NOTES.md.
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
   lines) for this wedge.
 
+- seamtest consensus stalls (2026-11-22, seamcycle13 on 40864a7; cause UNKNOWN, not caused by the preferNoC
+  change as far as we can tell).  `--layout seamtest` (2 cards, one E/W seam) with SuperCycles running: about a
+  third of the phases (8 of 22, NEW_LEADER and RUN_EVENTS alike, dwell unaffected) took 1.7-2.0 s instead of
+  0.1 s, in bursts (scy 2-6, 10-11) with a fast stretch between.  Always about 1.9 s, never 0.5 or 1 s: looks
+  like a timeout or retry, not load.  Older seamtest runs (2026-11-17, MFMX-20261117-093945, before the NoC change
+  and much else) were worse: 12 of 15 bolts took 1.8-4.1 s.  The full 4-card runs (seam21-12/-13, an hour
+  each) show NO phase over 1 s.  Seam counters in the stalled run were clean (out = in = noc, txfail/nocfail 0).
+  Not correlated with the leader.  Hypothesis (user): some seam/phase code expects all four cards and has to
+  time out when fewer are present.  Read so far: permanent edges come from the live seam mask (HubEdges.h), not
+  from the compiled 2x2 chip-array constants, so that part is not it; no timeout-like constant was found in
+  EthSeam.h, InterHub.cpp, CacheLoader.cpp, T6PhaseLockedLoop.cpp or PhaseSteppers.cpp.  Experiment prepared:
+  layout `seam3` (3 cards in an L, chip 2 absent; nu1012.dtoml) with config/seamcycle3.cmd, and
+  config/seamcyclens.cmd (2 cards N/S, layout seamns), each the seamcycle.cmd script.  If stalls appear in
+  all <4-card layouts it is a fewer-than-four artifact; if only on E/W seamtest it is specific to that seam.
+  Compare misc/mfmxctl-BOLT.txt consensus times.
+
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
   page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
   seam6 run on c18fc98; no ffplay was connected that time.  Earlier: freeze at
