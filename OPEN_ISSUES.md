@@ -436,6 +436,7 @@ Plan (user decision: keep FAIL pristine):
 Not covered: wild pointers / illegal instructions (needs a trap handler),
 infinite loops (needs a step budget or the heartbeat watchdog).
 
+Step 2 prerequisite BUILT, not run: t6sjlj/t6sjrun (ERISC_NOTES 9.22) tests a hand-written 14-word setjmp/longjmp on a T6 hart (regs, sp, deep unwind, nested guards, 20000 rounds, cost).
 Then `nuke` and `xray` have something to test against.  Nuke idea: a bolt
 carrying the blast center in simulation coords (a hub's CT6 coord from mNoC0 in
 the HostBlock, / cell size * tile size, 2x2 cells so far) and a nominal radius;

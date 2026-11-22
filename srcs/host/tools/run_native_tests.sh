@@ -83,6 +83,9 @@ run t6arc4_hosttest gcc $CFLAGS t6pp/hosttest_arc4.c -o "$OUT/t6arc4_hosttest"
 # t6l1rd (does a T6 L1 read land at the return address or by the mod-64 rule?): image vs fake NoC under both rules, host runner mock (both rules)
 run t6l1rd_hosttest gcc $CFLAGS t6pp/hosttest_l1rd.c -o "$OUT/t6l1rd_hosttest"
 run t6l1rdrun_mock sh -c 'g++ '"$CXXFLAGS"' t6l1rdrun.cpp -o "$1/t6l1rdrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6l1rdrun_bin\" --mock --go --image \"%s\" | grep -q \"AT THE RETURN ADDRESS\" && T6L1RD_MOCK_RULE64=1 \"%s/t6l1rdrun_bin\" --mock --go --image \"%s\" | grep -q \"MOD-64 rule too\" && echo mock-both-rules-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6l1rd.c" "$1" "$(pwd)/t6pp/t6l1rd.c" > "$1/t6l1rdrun_mock" && chmod +x "$1/t6l1rdrun_mock"' x "$OUT"
+# t6sjlj (RISC-V setjmp/longjmp on a T6 hart): the C tests with libc setjmp natively, host runner mock (pass and a forced failure)
+run t6sjlj_hosttest gcc $CFLAGS t6pp/hosttest_sjlj.c -o "$OUT/t6sjlj_hosttest"
+run t6sjrun_mock sh -c 'g++ '"$CXXFLAGS"' t6sjrun.cpp -o "$1/t6sjrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"WORKS on a T6\" && T6SJ_MOCK_FAIL=3 \"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"1 of 7 tests FAILED\" && echo mock-pass-and-fail-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6sjlj.c" "$1" "$(pwd)/t6pp/t6sjlj.c" > "$1/t6sjrun_mock" && chmod +x "$1/t6sjrun_mock"' x "$OUT"
 
 echo
 echo "$pass passed, $fail failed"
