@@ -13,6 +13,12 @@ source, comments, docs and commit messages).
 - A trailing one-line `//<` comment on a member or enum value is encouraged
   (try to make it fit in 80 columns).  Longer comments go on the lines
   BEFORE the member.
+- NEW or substantially edited MFMx C++ lives in `namespace MFM` and uses the
+  itype.h aliases (u8 u16 u32 u64, s8 s16 s32 s64, volatile ones uv32 sv32 ...),
+  never `unsigned`/`int`/uint32_t for sized data.  A header that cannot see
+  itype.h types is a bug in the header: include "itype.h".  Exceptions:
+  extern "C" symbols (declare them INSIDE namespace MFM, the symbol stays
+  unmangled) and the bare-metal C images in srcs/host/tools/t6pp.
 - Reformat ONLY when asked.  Do not reformat old files on the side.
   Docs and shell scripts are not covered, but keep them readable.
 - Do not bend MFMx code to support programs that build without MFMx; pull

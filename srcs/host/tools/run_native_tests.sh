@@ -87,7 +87,7 @@ run t6l1rdrun_mock sh -c 'g++ '"$CXXFLAGS"' t6l1rdrun.cpp -o "$1/t6l1rdrun_bin" 
 run t6sjlj_hosttest gcc $CFLAGS t6pp/hosttest_sjlj.c -o "$OUT/t6sjlj_hosttest"
 run t6sjrun_mock sh -c 'g++ '"$CXXFLAGS"' t6sjrun.cpp -o "$1/t6sjrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"WORKS on a T6\" && T6SJ_MOCK_FAIL=3 \"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"1 of 7 tests FAILED\" && echo mock-pass-and-fail-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6sjlj.c" "$1" "$(pwd)/t6pp/t6sjlj.c" > "$1/t6sjrun_mock" && chmod +x "$1/t6sjrun_mock"' x "$OUT"
 # physguard (PHYSICS_FAIL guard protocol and recovery rule, libc setjmp)
-run physguard_test g++ $CXXFLAGS -I$SRCS/cross/images/ewp/include physguard_test.cpp -o "$OUT/physguard_test"
+run physguard_test g++ $CXXFLAGS -I$SRCS/cross/images/ewp/include $INC physguard_test.cpp -o "$OUT/physguard_test"
 
 echo
 echo "$pass passed, $fail failed"

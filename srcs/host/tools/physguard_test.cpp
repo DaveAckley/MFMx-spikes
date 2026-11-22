@@ -4,7 +4,7 @@
 // (a jump commits the OLD window with the center erased, an unarmed
 // PHYSICS_FAIL dies).  The RISC-V setjmp itself is tested on hardware
 // (t6sjlj, ERISC_NOTES 9.22).  Build/run:
-//   g++ -std=c++17 -O2 -Wall -Wextra -Werror -I../../cross/images/ewp/include physguard_test.cpp -o /tmp/pgt && /tmp/pgt
+//   g++ -std=c++17 -O2 -Wall -Wextra -Werror -I../../cross/images/ewp/include -I../../shared/include physguard_test.cpp -o /tmp/pgt && /tmp/pgt
 #define PHYSGUARD_HOSTTEST 1
 #include <cstdio>
 #include <cstring>
@@ -12,6 +12,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "PhysGuard.h"
+
+using namespace MFM;
 
 namespace {
 int g_bad = 0;
@@ -23,7 +25,7 @@ void check(bool ok, const char* what) {
 }
 
 struct Win {
-  unsigned a[8];
+  u32 a[8];
 };
 
 // A stand-in for Physics: same guard shape, same recovery rule.
@@ -34,7 +36,7 @@ struct Mini {
 
   __attribute__((noinline)) bool physics(int mode) {
     if (mode == 1) {             // scribble then fail, from one frame down
-      for (unsigned i = 1; i < 5; ++i) fast.a[i] = 99;
+      for (u32 i = 1; i < 5; ++i) fast.a[i] = 99;
       mGuard.jumpOrDie(-77);
     }
     if (mode == 2) {             // physics declines (like an INACCESSIBLE center)

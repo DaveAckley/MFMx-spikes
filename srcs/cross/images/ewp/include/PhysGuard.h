@@ -20,34 +20,40 @@
  * not cover wild pointers, illegal instructions or infinite loops.
  */
 
+#include "itype.h"          // u32, s32, uv32, sv32
+
 #ifdef PHYSGUARD_HOSTTEST
 #include <setjmp.h>
-typedef jmp_buf PhysJB;
 #define PHYSGUARD_SETJMP(jb) setjmp(jb)
 #define PHYSGUARD_LONGJMP(jb, v) longjmp((jb), (v))
 #else
-#include "itype.h"
 #include "Fail.h"
-typedef unsigned PhysJB[14];
-extern "C" int physSetjmp(unsigned * jb) __attribute__((returns_twice));
-extern "C" void physLongjmp(unsigned * jb, int v) __attribute__((noreturn));
-#define PHYSGUARD_SETJMP(jb) physSetjmp(jb)
-#define PHYSGUARD_LONGJMP(jb, v) physLongjmp((jb), (v))
+#define PHYSGUARD_SETJMP(jb) MFM::physSetjmp(jb)
+#define PHYSGUARD_LONGJMP(jb, v) MFM::physLongjmp((jb), (v))
 #endif
 
 namespace MFM {
+#ifdef PHYSGUARD_HOSTTEST
+  typedef jmp_buf PhysJB;
+#else
+  typedef u32 PhysJB[14];       // ra, sp, s0..s11
+  // C linkage names (no namespace in the symbol), defined in Physics.cpp
+  extern "C" int physSetjmp(u32 * jb) __attribute__((returns_twice));
+  extern "C" void physLongjmp(u32 * jb, int v) __attribute__((noreturn));
+#endif
+
   struct PhysGuard {
-    static constexpr unsigned ARMED = 0x6A52D00Du;   // anything else = unarmed
+    static constexpr u32 ARMED = 0x6A52D00Du;   // anything else = unarmed
     PhysJB mJB;
-    volatile unsigned mArmed;
-    volatile signed mCode;
+    uv32 mArmed;
+    sv32 mCode;
 
     void arm() { mArmed = ARMED; }
     void disarm() { mArmed = 0u; }
     bool isArmed() const { return mArmed == ARMED; }
 
     /* returns only by jumping to the guard; unarmed = FAIL(code) */
-    __attribute__((noreturn)) void jumpOrDie(signed code) {
+    __attribute__((noreturn)) void jumpOrDie(s32 code) {
       if (mArmed == ARMED) {
         mCode = code;
         mArmed = 0u;
