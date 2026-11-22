@@ -501,6 +501,9 @@ bool run(Port& p, unsigned x, unsigned y, unsigned noc, unsigned passes,
              : s.status == 4 ? "AICLK tag missing"
                              : "?",
              s.reads, s.failed);
+      printf("    raw: boot 0x%08x  queue info 0x%08x  data 0x%08x  "
+             "table 0x%08x  (0xDEADBEEF = the read never delivered)\n",
+             s.boot, R(p, x, y, CTLB + 0x110), s.tdata, s.tptr);
       if (s.status == 0) {
         printf("    boot 0x%x  table 0x%08x data 0x%08x version 0x%x "
                "entries %u\n",
