@@ -129,9 +129,22 @@ exit_setup:  ## ALL HARTS COME THROUGH HERE
         lb t3,2(t2)             # get IBH.mEntries
         sb t3,9(t1)             # stash in fAll.mEntries
 
- 	# Put stack canary in top 1KB of fastram (same for all harts given each sp)
-        li t2, STACK_CANARY     # canary value
-	addi t1,sp,-1024        # down 1K
+ 	# Put stack canaries in ALL of this hart's free stack: from the end of its
+	# fastram data (linker symbol __fastram_X_end, 16 aligned) up to sp.
+	# The stack is empty here, so nothing below sp is live.
+	li t3,1
+	la t1,__fastram_b_end   # hart 0 (B)
+	beq s1,x0,5f
+	la t1,__fastram_0_end   # hart 1 (T0)
+	beq s1,t3,5f
+	li t3,2
+	la t1,__fastram_1_end   # hart 2 (T1)
+	beq s1,t3,5f
+	li t3,3
+	la t1,__fastram_2_end   # hart 3 (T2)
+	beq s1,t3,5f
+	la t1,__fastram_n_end   # hart 4 (NC)
+5:      li t2, STACK_CANARY     # canary value
 1: 	sw t2,(t1)              # you get a canary
         addi t1, t1, 4          # and YOU get a canary
         bne t1,sp,1b            # AND
@@ -189,29 +202,56 @@ t6hangprep:
         ret                     # end of t6hang preparations
         .cfi_endproc
 	
+	# Stack canary scan.  Hart number -> a1 = bottom (end of that hart's
+	# fastram data, where the free stack region starts), a2 = top; then walk
+	# up from the bottom to the first word that is not STACK_CANARY: that
+	# address is the deepest the stack ever got (a0).  All of the free stack is
+	# filled at boot (exit_setup), so this is a TRUE high-water mark, and the
+	# canary at the very bottom being gone means the stack hit the data.
+	.macro STACKSCAN               # in: nothing.  out: a0 first non-canary addr, a1 bottom, a2 top
+        la a0, __fast_start     # addr of stashed hartnum
+	lbu a0,0(a0)            # get hartnum
+        la a2,__stack_top8K     # assume 8k stack
+        la a1,__fastram_b_end
+	beq a0,x0,1f            # hart b (0)
+        la a2,__stack_top4K
+        la a1,__fastram_0_end
+	li t0,1
+	beq a0,t0,1f            # hart t0 (1)
+        la a1,__fastram_1_end
+	li t0,2
+	beq a0,t0,1f            # hart t1 (2)
+        la a1,__fastram_2_end
+	li t0,3
+	beq a0,t0,1f            # hart t2 (3)
+        la a2,__stack_top8K     # else hart nc (4)
+        la a1,__fastram_n_end
+1:      mv a0,a1                # start at stack bottom
+	li t1, STACK_CANARY     # t1 = what we're looking for
+2:      bgeu a0,a2,3f           # reached the top: no canary was touched
+        lw t3,(a0)              # t3 = next word
+        bne t3,t1,3f            # done at first non canary
+        addi a0,a0,4            # increment to next
+        j 2b
+3:
+	.endm
+
 	.global estimateStackUsage
         .type   estimateStackUsage, @function
-
 	.cfi_startproc
-estimateStackUsage:
-        la t0, __fast_start     # addr of stashed hartnum
-	lbu t0,0(t0)            # get hartnum
-	li t1,4                 # get 4
-        la t2,__stack_top8K     # assume 8k stack
-	beq t0,x0,1f            # hart b (0) has that
-        beq t0,t1,1f            # hart nc (4) has that
-        la t2,__stack_top4K     # t2 now: top of stack       
-1:      addi t0,t2,-1024        # t0 now: bottom of search (top 1k of stack)
-	mv a0,t0                # start at stack bottom
-	li t1, STACK_CANARY     # t1 now: what we're looking for
-2:      addi a0,a0,4            # increment to next
-        lw t3,(a0)              # t3 now: next word
-        bne t3,t1,3f            # done at first non canary
-        blt a0,t2,2b            # or loop if more
-	# FALL THROUGH IF NOT FOUND
-3:      sub a0,t2,a0            # convert to min bytes used
+estimateStackUsage:             # bytes of stack used at the high-water mark
+	STACKSCAN
+        sub a0,a2,a0            # top - first non-canary
 	ret
-        
+	.cfi_endproc
+
+	.global estimateStackHeadroom
+        .type   estimateStackHeadroom, @function
+	.cfi_startproc
+estimateStackHeadroom:          # bytes of untouched canary above the data; 0 = overflow
+	STACKSCAN
+        sub a0,a0,a1            # first non-canary - bottom
+	ret
 	.cfi_endproc
         
 	.global addrPHASERBlock

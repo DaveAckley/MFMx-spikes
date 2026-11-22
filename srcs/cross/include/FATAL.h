@@ -79,5 +79,6 @@ extern "C" void PrepareToDieHard(signed code,unsigned fileId,unsigned line) ;
 
 extern "C" void t6hangprep(int code) ;
 
-extern "C" uint32_t estimateStackUsage() ;
+extern "C" uint32_t estimateStackUsage() ;    //< bytes used at the deepest point (all free stack is canary-filled at boot)
+extern "C" uint32_t estimateStackHeadroom() ; //< untouched canary bytes above this hart's data; 0 = the stack hit it
 

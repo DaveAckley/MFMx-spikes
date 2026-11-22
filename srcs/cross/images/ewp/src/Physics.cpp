@@ -35,6 +35,10 @@ namespace MFM {
           // the rest of the window as it was.
           ewt.mNew.mAtoms[0] = P4Atom::makeEmptyAtom();
           ++mEWsPhysFailed;
+          // A failure with the stack at (or within 64 bytes of) its limit may
+          // be a symptom of stack corruption, not a physics bug: do not
+          // recover from that.  (Checked on recovery only: rare.)
+          if (estimateStackHeadroom() < 64u) ENGINE_FAIL(OUT_OF_ROOM);
           if (mEWsPhysFailed <= 8u || (mEWsPhysFailed & 1023u) == 0u) {
             // (code+100) is FailCodes' enum value counted from DUMMY, then
             // the center type in the low 9 bits.
@@ -44,11 +48,14 @@ namespace MFM {
             HBPTAG(.pf,pf);
             LOGPTAG(.pw,pw);    // where: (file id << 16) | line
             HBPTAG(.pw,pw);
-            // Top-1KB canary high-water mark (saturates near 1020): data on
-            // how deep HB stack gets when physics fails; NOT an overflow check.
-            u32 ps = estimateStackUsage();
-            LOGPTAG(.sk,ps);
-            HBPTAG(.sk,ps);
+            // Stack high-water mark (bytes) and headroom left above the
+            // data (the whole free stack is canary-filled at boot, _BUD.S).
+            u32 sk = estimateStackUsage();
+            u32 sh = estimateStackHeadroom();
+            LOGPTAG(.sk,sk);
+            HBPTAG(.sk,sk);
+            LOGPTAG(.sh,sh);
+            HBPTAG(.sh,sh);
             HBPTAG(PHYSFAIL,mEWsPhysFailed);
           }
         }
