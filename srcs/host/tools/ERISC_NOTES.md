@@ -604,7 +604,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 - Not done: reading the ARC from a T6 (a t6pp-style image doing a NoC read of the ARC scratch/CSM).  Tested: native mock walk
   (run_native_tests.sh arcpeek_mock).
 
-### 9.18 arcmsg: first ARC message, TEST + GET_AICLK -- written 2026-11-22, NOT run on hardware
+### 9.18 arcmsg: first ARC message, TEST + GET_AICLK -- written 2026-11-22, RUN OK on card 0
 - Tool `srcs/host/tools/arcmsg.cpp` (`g++ -std=c++17 -O2 -Wall -Wextra -Werror arcmsg.cpp -o arcmsg`; `./arcmsg --dev N [--test] [--aiclk] [--queue Q]`,
   `--mock`).  New name: arcpeek stays strictly read-only.  It WRITES (request slot, queue pointers, doorbell) so it needs `--dev N` and an IDLE card
   (no mfmxctl, tt-smi or other tool: no locking, the kernel and tt-smi use the same queues).  Default queue 3, `--queue` picks another.
@@ -618,4 +618,9 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   resp_rptr.  The tool refuses a queue that is not empty, a geometry other than 4x4, a not-ready ARC, and times out after 2 s leaving the request queued.
 - Expected on this QB: TEST data[1] = 0x1235 for 0x1234, GET_AICLK 800 MHz (compare tt_aiclk and arcpeek).  The mode value tells whether the firmware's
   DVFS is on (2/3) or the clock is uncontrolled (1); that decides whether FORCE_AICLK can do anything.  Tested: native mock (run_native_tests.sh arcmsg_mock).
+- RESULT (card 0, idle, queue 3): info block at 0x10017a08 -> queues at 0x1001b19c, geometry 0x404 (4 queues x 4 slots); queue empty (all pointers 0).  TEST
+  data[1] = 0x1235 for 0x1234 (TRANSPORT OK, status 0), then pointers 1/1/1/1; GET_AICLK: status 0, AICLK 800 MHz (agrees with telemetry and sysfs), mode 3 =
+  PPM UNFORCED.  So the message transport works as read in the firmware, the firmware's DVFS is on (not "uncontrolled"), and the clock is NOT forced: it is 800
+  because the arbiters pick 800 (target = highest enabled min arbiter, capped by lowest enabled max arbiter), not because the chip is stuck.  FORCE_AICLK (which
+  overrides the arbiters within [fmin,fmax]) is therefore a meaningful lever.  Only card 0 tried; cards 1-3 not yet.
 
