@@ -169,7 +169,7 @@ ERISC_NOTES.md.
 srcs/cross/src/NRIUtils.cpp matches the return buffer to the source address modulo 16 (the Wormhole rule, assumed).  On the card, NoC reads of the ARC tile
 land at (return address rounded down to 64) + (source address mod 64) (ERISC_NOTES 9.19, t6arc3 sweep), so the buffer must match modulo 64.  Reads that
 MFMx does today (image block headers and addresses of neighbouring tiles) work, probably because the sources are 64-aligned or the shift happens to be
-tolerated; nothing shows it for T6 L1 sources.  To do: a t6arc-style test reading a T6's L1 at sources 0..63 mod 64 from another tile, then fix
+tolerated; nothing shows it for T6 L1 sources.  BUILT, not run: t6l1rd/t6l1rdrun (ERISC_NOTES 9.21) is that test.  Original to-do: a t6arc-style test reading a T6's L1 at sources 0..63 mod 64 from another tile, then fix
 blockingL1ReadNoC0 (buffer = base + (src & 63), 64-aligned base, larger buffer) if it shows the same shift, and check the writers' rule (initiateWriteTo*
 use src%16 == dst%16; they work).
 

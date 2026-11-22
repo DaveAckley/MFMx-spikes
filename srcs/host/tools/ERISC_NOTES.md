@@ -694,3 +694,18 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   AICLK_LIMIT_MAX 1350, identical on every chip.  So the hub-side NoC read of the ARC works in MFMx (hart NC, NRI3, mod-64 return buffer) on every hub, with
   the run otherwise normal enough to boot and shut down ("quietbox shutdown: ok").
 
+### 9.21 t6l1rd / t6l1rdrun: how does a NoC read from another T6's L1 land? -- written 2026-11-22, NOT run on hardware
+- Question (OPEN_ISSUES "return buffer alignment"): reads from the ARC tile land at (return & ~63) + (source & 63), but NRI3::blockingL1ReadNoC0 matches its buffer
+  to the source only modulo 16, and MFMx uses it to read image block headers at 0xb0 (48 mod 64) into privateL1ReadBuffer, which sits at 16 mod 64 in the hub image
+  (hub.map 0xc9d50) -- under the ARC rule that read would land 32 bytes off, yet neighbor discovery works.  So the rule for an L1 source probably differs.  This tests it.
+- Image `srcs/host/tools/t6pp/t6l1rd.c` (`sh t6pp/build.sh t6l1rd`, id 0x76500020; read-only toward the peer) on tile A reads tile B's L1: B is pre-filled by the host
+  with val(a) = a * 0x9E3779B1 ^ 0x5A5A5A5A at 0x20000..0x20100.  Method A = the NRI3 rule: buffer = base + (src & 15), with 4 buffer alignments (base = RB + 16 k),
+  16 source offsets (src mod 64 = 0, 4 .. 60) and word counts 1, 4, 12; method B = the ARC rule, buffer = RB + (src & 63).  240 reads; each is judged against val() and,
+  if wrong, where the first word landed is searched.  Host tool `t6l1rdrun.cpp` prints the shift tables and a RESULT line: "AT THE RETURN ADDRESS" (mod 16 is enough, the
+  hub is fine), "MOD-64 rule too" (blockingL1ReadNoC0 is only right by luck of alignment), or neither.  It also prints the hub's exact case (k=1, source 48 mod 64).
+- Run (idle card, from srcs/host/tools): `sh t6pp/build.sh t6l1rd && g++ -std=c++17 -O2 -Wall -Wextra -Werror t6l1rdrun.cpp -o t6l1rdrun && ./t6l1rdrun --dev 0` (dry
+  run), then `./t6l1rdrun --dev 0 --go` (tile A 1:2 reads tile B 2:2; `--tile`, `--peer`, `--noc 0|1`).  Touches: A's soft-reset (as t6arcrun), A's L1 image and
+  control block, and ONLY B's L1 0x20000..0x20100; restores A on exit; refuses a harvested tile or an A that is not all in reset.
+- Tested here: native `t6l1rd_hosttest` (image vs a fake NoC under both landing rules; 240 reads, verdicts and shifts as predicted) and `t6l1rdrun_mock` (both
+  rules through the host tool's analysis); the image cross-builds with the sfpi gcc (1248 bytes).  Nothing on hardware yet.
+
