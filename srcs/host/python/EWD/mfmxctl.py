@@ -508,8 +508,10 @@ def main(argv=None):
     if mock is not None:
         sh.command("mock", c_mock, "mock [lamers CHIP TLBI.. | delay CMD LO HI | clear]: mock-only knobs")
 
-    sh.add_tick("bolts", 0.2, m.tick_bolts, True, "poll the pending bolt's acks")
-    sh.add_tick("cycle", 0.1, cyc.tick, True, "advance the SuperCycle state machine")
+    # 5 ms (was 0.2 and 0.1): the consensus time is only as fine as the tick that notices it, so 0.1 s ticks
+    # made every fast bolt read "0.1 s".  Both ticks return at once when nothing is pending.
+    sh.add_tick("bolts", 0.005, m.tick_bolts, True, "poll the pending bolt's acks")
+    sh.add_tick("cycle", 0.005, cyc.tick, True, "advance the SuperCycle state machine")
     noscan = args.no_slowscan or args.slowscan_period <= 0
     scan_tick = sh.add_tick("slowscan",
                             args.slowscan_period if args.slowscan_period > 0 else 2.0,

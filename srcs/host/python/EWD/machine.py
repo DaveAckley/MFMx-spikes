@@ -52,7 +52,7 @@ class Bolt:
 
     def describe(self, now):
         s = f"#{self.seq} {self.cmd}({','.join(map(str, self.args))}) {self.state.upper()}"
-        s += f" {self.elapsed(now):.1f}s"
+        s += f" {self.elapsed(now):.3f}s"
         if self.state == "pending":
             s += f"/{self.timeout:g}s"
         for c, _n, o, l in self.rows:

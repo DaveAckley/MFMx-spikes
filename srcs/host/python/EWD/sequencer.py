@@ -232,7 +232,7 @@ class SuperCycle:
 
     def _complete(self):
         step = self.active["step"]
-        self.m.logkt("CYCLE", f"DONE {step} scy={self.scy} in {self.clock() - self.active['since']:.2f}s")
+        self.m.logkt("CYCLE", f"DONE {step} scy={self.scy} in {self.clock() - self.active['since']:.3f}s")
         self.active = None
         if step == "HOLD_AT_BIRTH":
             self.held = True

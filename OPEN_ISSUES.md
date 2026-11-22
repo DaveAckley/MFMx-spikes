@@ -71,6 +71,15 @@ ERISC_NOTES.md.
   "speed of light" numbers are an upper bound); (2) a bolt poll inside slowscan() between chips, or skipping the
   scan while a bolt is pending, would stop scans from delaying consensus when scans are on; (3) the video feed
   gap seen in seamcycle1to3-10 (FEEDSTAT maxgap 36 s, first real frames) is a separate thing, not looked into.
+  CONSENSUS TIME RESOLUTION (2026-11-22, option A BUILT, UNPROVEN on hardware): the 0.1-0.2 s consensus times were
+  only as fine as the host tick that noticed them: the sequencer polls from the `cycle` tick (0.1 s) and the
+  `bolts` tick was 0.2 s, and Bolt.describe printed one decimal, so every fast bolt read 0.1 s.  The C++ transport
+  thread refreshes the ack count every 256 loop passes (Blackhole.cpp), probably well under 1 ms (not measured).
+  Now: both ticks 5 ms (mfmxctl.py), BOLT/CYCLE times print 3 decimals (machine.py, sequencer.py).  Expect about
+  5 ms resolution; the number is still HOST-OBSERVED consensus (bolt write to every tile + tile loop + ack back),
+  not a pure device time.  Tile-side timestamps in the PHASER return block (image change, per-chip clocks) and a
+  spin poll after each fire (blocks the thread, can drop video frames) were not done.  To check: a seam21 run, then
+  the consensus distribution in misc/mfmxctl-BOLT.txt (xchg.py and the analysis scripts accept 3 decimals).
 
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
   page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
