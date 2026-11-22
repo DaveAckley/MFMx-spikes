@@ -53,7 +53,7 @@ ERISC_NOTES.md.
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
   lines) for this wedge.
 
-- seamtest consensus stalls (2026-11-22): CAUSE FOUND (very probably), a HOST-side measurement artifact, not a
+- seamtest consensus stalls (2026-11-22): CAUSE FOUND AND CONFIRMED, a HOST-side measurement artifact, not a
   device or seam stall.  seamcycle13 (seamtest, cards 0+1, E/W) and seamcycle1to3-10 (seam13, cards 1+3, N/S, build
   abaf091): 5-8 of 22-26 bolts (NEW_LEADER and RUN_EVENTS alike, dwell unaffected) took 1.7-2.0 s instead of 0.1 s,
   never 0.5 or 1 s; seam counters clean (out = in = noc, txfail/nocfail 0), no TIMEOUT.  mfmxctl is ONE Python
@@ -63,8 +63,10 @@ ERISC_NOTES.md.
   after the scan returns.  seam21.cmd (and so the 4-card runs, which show no phase over 1 s) has
   `tick slowscan off`; seamcycle.cmd did not.  Old seamtest runs (2026-11-17) took 1.8-4.1 s for the same
   reason (4.0 = about two scans).  So the earlier "fewer than four cards" hypothesis is not needed.
-  Fix applied to the four seamcycle*.cmd scripts: `tick slowscan off`.  TO CONFIRM: rerun seamcycle.cmd (or
-  seamcyclens/23/1to3); every phase should be 0.1-0.2 s.  Consequences: (1) the 0.1-0.2 s consensus times in all
+  Fix applied to the four seamcycle*.cmd scripts: `tick slowscan off`.  CONFIRMED by seamcycle1to3-11
+  (MFMX-20261122-014708, 228d129, same layout seam13, scan off): 28 bolts, 26 at 0.1 s, one 0.0, one 0.2, none
+  over 0.2 s (before: 5 of 26 at 1.8-1.9 s); seam counters clean (5590 cars, out = in = noc, txfail/nocfail 0),
+  seed type 4 (FB1) as intended.  Not rerun on seamtest/seamns/seam23.  Consequences: (1) the 0.1-0.2 s consensus times in all
   runs include the host poll granularity, so the device-side consensus may be well under 0.1 s (the user's
   "speed of light" numbers are an upper bound); (2) a bolt poll inside slowscan() between chips, or skipping the
   scan while a bolt is pending, would stop scans from delaying consensus when scans are on; (3) the video feed
