@@ -5,6 +5,7 @@ add_executable(hub)
 target_sources(hub PRIVATE
   allimg/src/HartTasks.cpp
   allimg/src/ImageConfig.cpp
+  src/ArcTelemetry.cpp
   images/hub/src/CacheLoader.cpp
   images/hub/src/EP_ACacheBlock.cpp
   images/hub/src/EP_InterHub.cpp

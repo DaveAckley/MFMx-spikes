@@ -1,3 +1,4 @@
+#include "ArcTelemetry.h"
 #include "T6Grid.h"
 #include "InterHub.h"
 #include "HartTasks.h" // for HTFuncPtr
@@ -138,6 +139,9 @@ namespace MFM {
       U8C ourct6 = cello.getUsCT6();
       U8C ournoc0 = U8C::makeNoC0CoordFromCT6Coord(ourct6);
       u32 ourtlbi = U8C::makeTLBIFromNoCCoord(ournoc0);
+      // Once per hub, here on NC (NRI3 is NC's): what clocks does the ARC
+      // report?  Logged as .ck by CacheLoaders::configureCacheLoaders.
+      readArcClocksNC(ournoc0);
 
       // Enumerate the HUBs surrounding my (Platonic) cell
       const CellBlock & cb = cello.getOurCB();

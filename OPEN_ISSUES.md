@@ -182,6 +182,7 @@ doorbell ARC_MSI_FIFO), idle card only (ERISC_NOTES 9.18).  Result: TRANSPORT OK
 Next: a separate, newly named tool for GO_BUSY / FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.
 Step 3 DONE on NIU0 and NIU1: t6arc4/t6arcrun4 read the ARC telemetry from a Tensix tile (AICLK 800, same as arcpeek); the first runs found the mod-64 return rule.  `t6pp/t6arc.c` + `t6arcrun` read the ARC telemetry from a Tensix tile over NIU0/NIU1 (ERISC_NOTES 9.19), the base for logging AICLK from inside
 MFMx later (a hub `.ck:` mark built on NRI3::blockingL1ReadNoC0).
+Step 4 BUILT, not run: hub `.ck` mark (every hub logs the ARC clocks once at init; ERISC_NOTES 9.20, CLAUDE.md).
 Open: does the chip idle below 800 until GO_BUSY (unverified); what the other 800-valued tags (17..20) are; reading the ARC from a T6.  Memory note
 project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.
 

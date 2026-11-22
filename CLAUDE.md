@@ -116,6 +116,12 @@ source, comments, docs and commit messages).
   the old mode gave sparse grids a 1/fill time warp.  Use `seed` or a longer
   run (seam12) to reach a full grid.  Link time: 64 B per NoC tick, so an
   EWPC_EMPTY placeholder (state word only) saves little on the wire.
+- CLOCK MARK `.ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT.` (2026-11-22, UNPROVEN in MFMx until the first run): each hub reads
+  its chip's ARC telemetry table over the NoC once at init (hart NC, InterHub.cpp manageInterHubNC ->
+  srcs/cross/{include,src}/ArcTelemetry.*, hub image only) and logs it with `.cp` (CacheLoader.cpp).  Hex, clocks in MHz
+  (`.ck:0:320:3c0:320:546.` = 800/960/800 MHz, limit 1350), STATUS 0 ok (1 not read, 2 ARC not ready or bad pointer, 3 NoC
+  read failed, 4 bad table, 5 tag missing).  See it: `grep -h '\.ck:' MFMX-*/tiles/*.mfmk | sed 's/.*\.ck://' | sort | uniq -c`.
+  The NoC read return buffer must match the source modulo 64 (ERISC_NOTES 9.19).
 - scripts/l1dump/l1grid.py  decodes the T6Grid out of a hub L1 dump (mfmxctl
   `dumpl1 at023` -> <run>/dumps/N/at023.l1) and checks that the PERMANENT-edge
   cache rings are EMPTY (exit 1 if not).  Finds theT6Grid via the hub image's

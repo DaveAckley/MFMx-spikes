@@ -1,3 +1,4 @@
+#include "ArcTelemetry.h"
 #include "CacheLoader.h"
 #include "Debug.h"
 #include "InterHub.h"
@@ -52,6 +53,16 @@ namespace MFM {
         HBPTAG(.pe,(u32) gm.mPermEdges);
         LOGPTAG(.ee,(u32) everyEventShipped());   // 1 = no AER cheating
         HBPTAG(.ee,(u32) everyEventShipped());
+        // .ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT. (hex; clocks in MHz) as
+        // read from the ARC tile by hart NC at init (InterHub.cpp);
+        // STATUS 0 = ok (ArcTelemetry.h).  Logged here, with .cp, because
+        // init-time marks do not reach the log.
+        {
+          char ckb[48];
+          const char * ck = formatArcClocks(ckb,sizeof(ckb),theArcClocks);
+          LOGPTAG(.ck,ck);
+          HBPTAG(.ck,ck);
+        }
       }
     }
     if (policy == CP_SUPERCELL)
