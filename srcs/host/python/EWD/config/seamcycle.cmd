@@ -4,6 +4,9 @@
 # Watch: bolts reach CONSENSUS on both chips, and the 'seams' channel
 # counters (out / in / noc) move while retrain and FEC uncorrected stay 0.
 # A bolt TIMEOUT means a cache loader is waiting for a car that never came.
+# The periodic slowscan runs on the SAME single thread that polls the bolts and blocks it for about 1.9 s
+# on two chips, which showed up as consensus times of 1.7-2.0 s (OPEN_ISSUES "seamtest consensus stalls").
+tick slowscan off
 dwell 4 8
 start
 seams

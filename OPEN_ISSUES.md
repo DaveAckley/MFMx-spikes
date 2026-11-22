@@ -53,24 +53,22 @@ ERISC_NOTES.md.
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
   lines) for this wedge.
 
-- seamtest consensus stalls (2026-11-22, seamcycle13 on 40864a7; cause UNKNOWN, not caused by the preferNoC
-  change as far as we can tell).  `--layout seamtest` (2 cards, one E/W seam) with SuperCycles running: about a
-  third of the phases (8 of 22, NEW_LEADER and RUN_EVENTS alike, dwell unaffected) took 1.7-2.0 s instead of
-  0.1 s, in bursts (scy 2-6, 10-11) with a fast stretch between.  Always about 1.9 s, never 0.5 or 1 s: looks
-  like a timeout or retry, not load.  Older seamtest runs (2026-11-17, MFMX-20261117-093945, before the NoC change
-  and much else) were worse: 12 of 15 bolts took 1.8-4.1 s.  The full 4-card runs (seam21-12/-13, an hour
-  each) show NO phase over 1 s.  Seam counters in the stalled run were clean (out = in = noc, txfail/nocfail 0).
-  Not correlated with the leader.  Hypothesis (user): some seam/phase code expects all four cards and has to
-  time out when fewer are present.  Read so far: permanent edges come from the live seam mask (HubEdges.h), not
-  from the compiled 2x2 chip-array constants, so that part is not it; no timeout-like constant was found in
-  EthSeam.h, InterHub.cpp, CacheLoader.cpp, T6PhaseLockedLoop.cpp or PhaseSteppers.cpp.  Experiment prepared:
-  the same seamcycle.cmd script on the other legal layouts (01, 02, 23, 0123 are the legal chip sets; an L of
-  three cards is REFUSED by the host, ERISC_SEAM_DESIGN.md): config/seamcyclens.cmd (layout seamns, cards 0+2,
-  N/S seam), config/seamcycle23.cmd (new layout seam23, cards 2+3, E/W seam, seed chip 2) and
-  config/seamcycle1to3.cmd (new layout seam13, cards 1 above 3, N/S seam, seed chip 1).  If stalls appear
-  on both it is a fewer-than-four artifact; if only on the E/W pair in the top row (seamtest), it is specific to
-  that seam or position; if only on 01 it may be about chip 0/1 themselves.
-  Compare misc/mfmxctl-BOLT.txt consensus times.
+- seamtest consensus stalls (2026-11-22): CAUSE FOUND (very probably), a HOST-side measurement artifact, not a
+  device or seam stall.  seamcycle13 (seamtest, cards 0+1, E/W) and seamcycle1to3-10 (seam13, cards 1+3, N/S, build
+  abaf091): 5-8 of 22-26 bolts (NEW_LEADER and RUN_EVENTS alike, dwell unaffected) took 1.7-2.0 s instead of 0.1 s,
+  never 0.5 or 1 s; seam counters clean (out = in = noc, txfail/nocfail 0), no TIMEOUT.  mfmxctl is ONE Python
+  thread (a select() loop, mfmxctl.py) that runs the sequencer's bolt poll, the frame tick and the periodic
+  slowscan (default every 2.0 s).  `Machine.slowscan()` sleeps `slowscan_gap` (0.2 s) per chip and then reads
+  every hub's hostblock, all on that thread, so a bolt that the tiles finish in about 0.1 s is only SEEN as done
+  after the scan returns.  seam21.cmd (and so the 4-card runs, which show no phase over 1 s) has
+  `tick slowscan off`; seamcycle.cmd did not.  Old seamtest runs (2026-11-17) took 1.8-4.1 s for the same
+  reason (4.0 = about two scans).  So the earlier "fewer than four cards" hypothesis is not needed.
+  Fix applied to the four seamcycle*.cmd scripts: `tick slowscan off`.  TO CONFIRM: rerun seamcycle.cmd (or
+  seamcyclens/23/1to3); every phase should be 0.1-0.2 s.  Consequences: (1) the 0.1-0.2 s consensus times in all
+  runs include the host poll granularity, so the device-side consensus may be well under 0.1 s (the user's
+  "speed of light" numbers are an upper bound); (2) a bolt poll inside slowscan() between chips, or skipping the
+  scan while a bolt is pending, would stop scans from delaying consensus when scans are on; (3) the video feed
+  gap seen in seamcycle1to3-10 (FEEDSTAT maxgap 36 s, first real frames) is a separate thing, not looked into.
 
 - Video stream lockup at bring-up: REOPENED 2026-11-19.  Firefox (mediamtx HLS
   page on vidsrv:8888) froze again at "NO NEW DATA 46s" during bring-up of a
