@@ -116,6 +116,7 @@ source, comments, docs and commit messages).
   the old mode gave sparse grids a 1/fill time warp.  Use `seed` or a longer
   run (seam12) to reach a full grid.  Link time: 64 B per NoC tick, so an
   EWPC_EMPTY placeholder (state word only) saves little on the wire.
+- PHYSICS FAILURE MARK `.pf:V.` (2026-11-22, BUILT, not yet run on the QB): when physics calls PHYSICS_FAIL(code) (PhysGuard.h; FAIL stays the hart-wedging assert) the ewp HB longjmps to the per-event guard, commits the pre-event window with the center erased and logs `.pf:V.` (hex; V = ((FAILCode+100)<<9)|center type; first 8 then every 1024th) in LOG and HB.  Self-test: `decay 6` seeds PHY_BOOM, expect `.pf:4e06.`.  Count: `grep -h '\.pf:' MFMX-*/tiles/*.mfmk | sed 's/.*\.pf://' | sort | uniq -c`.  Details: OPEN_ISSUES "physics failure recovery".
 - CLOCK MARK `.ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT.` (2026-11-22, PROVEN: run 20261122-121809, all 140 hubs `.ck:0:320:3c0:320:546.`): each hub reads
   its chip's ARC telemetry table over the NoC once at init (hart NC, InterHub.cpp manageInterHubNC ->
   srcs/cross/{include,src}/ArcTelemetry.*, hub image only) and logs it with `.cp` (CacheLoader.cpp).  Hex, clocks in MHz

@@ -1,6 +1,7 @@
 #pragma once    /* -*- C++ -*- */
 
 #include "EwpBlock.h" // for EwpPayload
+#include "PhysGuard.h" // for PhysGuard, PHYSICS_FAIL
 
 namespace MFM {
   struct Physics {
@@ -9,6 +10,12 @@ namespace MFM {
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
+    u32 mEWsPhysFailed;         // jumped out by PHYSICS_FAIL (subset of Failed)
+
+    PhysGuard mGuard;           // setjmp buffer lives here, not on the stack
+
+    enum GuardedResult : u32 { GR_FALSE = 0, GR_TRUE = 1, GR_JUMPED = 2 };
+    GuardedResult guardedPhysics() ;
 
     bool doTransition(EwpPayload & ewt) ;
 
