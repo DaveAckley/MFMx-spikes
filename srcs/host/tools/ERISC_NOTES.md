@@ -582,7 +582,8 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 ### 9.17 arcpeek: read-only look at the ARC tile and the AI clock -- written 2026-11-22, NOT run on hardware
 - Goal: find the current AICLK (the chip runs at 800 MHz as far as the user knows) before anyone thinks about changing it.  Tool: `srcs/host/tools/arcpeek.cpp`
   (`g++ -std=c++17 -O2 -Wall -Wextra -Werror arcpeek.cpp -o arcpeek`; `./arcpeek`, `--dev N`, `--aiclk`, `--mock`).  READ-ONLY: it sends no ARC message, rings no
-  doorbell and writes nothing; it maps 2 MiB tt-kmd TLB windows at NoC0 (8,0) (the ARC tile) like the ethfwd tools (needs a free window per card).
+  doorbell and writes nothing; it maps 2 MiB tt-kmd TLB windows at NoC0 (8,0) (the ARC tile) like the ethfwd tools.  Run it ONLY on an idle card
+  (no mfmxctl, no other tool): running it beside a live run is untested.  The sysfs files tt_aiclk / tt_axiclk / tt_arcclk are safe any time.
 - How (from tt-kmd blackhole.c and the tt-system-firmware telemetry docs, read not run): reset-unit scratch registers 0x80030400 + 4N: N=2 ARC_BOOT_STATUS (bit0
   READY_FOR_MSG, bits2:1 HW_INIT), N=4 ARC_ERROR_STATUS0 (bit1 cable fault), N=11 ARC_MSG_QCB_PTR, N=12 ARC_TELEMETRY_DATA, N=13 ARC_TELEMETRY_PTR.  The table at
   PTR: word0 version (major bits 23:16), word1 entry count, then u32 entries from PTR+8, low 16 bits tag id, high 16 bits offset in words from the data base; value =

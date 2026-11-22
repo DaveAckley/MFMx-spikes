@@ -16,8 +16,9 @@
 //   The AICLK word's layout is NOT documented in what we read: we print it raw and, as a HINT only, its low 16 bits
 //   (expected to be the current clock in MHz) and high 16 bits.
 //   Host window: one 2 MiB tt-kmd TLB per 2 MiB of ARC address space touched (like the ethfwd tools).  READS ONLY:
-//   no ARC message is sent, no doorbell, no register written.  If mfmxctl is running it may hold most of the card's
-//   202 windows; then ALLOCATE_TLB fails and this says so.
+//   no ARC message is sent, no doorbell, no register written.  RUN IT ONLY ON AN IDLE CARD (no mfmxctl, no other tool):
+//   running it beside mfmxctl has NOT been tested (mfmxctl may hold most of the card's 202 TLB windows, and a second
+//   opener's effect on a live run is unknown).  The kernel's sysfs files (tt_aiclk, tt_axiclk, tt_arcclk) are safe any time.
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include <cerrno>
 #include <chrono>
