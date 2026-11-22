@@ -550,7 +550,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 - Not shown: cars crossing.  config/seamtest.cmd never starts a SuperCycle, and the cache loaders only run on NEW_LEADER, so the global supercell parity and the Dir4
   cache loaders of slice 1 (ERISC_SEAM_DESIGN.md section 16) were not exercised.  The `seams` channel counters were 0 throughout, as expected.
 
-### 9.15 t6pp3 / ethfwd21 / expts15.sh: T6 -> ERISC over NoC1 -- written 2026-11-21, NOT run on hardware
+### 9.15 t6pp3 / ethfwd21 / expts15.sh: T6 -> ERISC over NoC1 -- run 2026-11-21: FAILED, mis-addressed (see 9.16)
 - Question: does a Tensix NoC write INTO an ETH tile work over NIU1 (0xFFB30000), node ids still raw NoC0 coordinates (as MFMx passes them to NIU1 for T6 ->
   T6)?  NRI3::initiateWriteToEthL1 is forced to NoC0 (NRIUtils.cpp `usenoc = 0u`) only because NoC1 -> ETH was never tried.  The wish: reflect the spatial
   layout in the communications design, i.e. let preferNoC choose (the torus wraps in Y: upper Tensix rows are nearer the ETH row y=1 over NoC1, lower rows over
@@ -564,3 +564,16 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   tiles.  Expected failure mode: a timeout or bad payload in the RESULT line.
 - If it passes: make initiateWriteToEthL1 use preferNoC (keep the ETH asserts), as a constant, not a flag (the host flags byte is full); if it fails, keep
   NoC0 and record why here.
+
+### 9.16 ethfwd22 / expts16.sh: T6 -> ERISC over NoC1 with the mirrored ETH node -- run 2026-11-21: PASSED
+- Why 9.15 failed: it sent the ETH node as NoC0 (6,1).  The NIU config has coordinate translation ON (0x6005, bit 14), which gives Tensix tiles one shared
+  coordinate system on both NoCs, but rows Y=0/1 (PCIe/ARC/ETH) are NOT translated: there X is the raw coordinate of the NoC in use.  NoC1 mirrors raw X
+  (x1 = 16 - x0) and leaves Y alone (tt-isa-documentation BlackholeA0/NoC/Coordinates.md; NoC_BH_1_Y01Coords.svg).  So NoC1 (6,1) is E13, not our E1 (NoC0
+  (6,1) = E10, NoC1 (10,1)).  The 9.15 probe wrote one 64 B car into E13's L1 at 0x10000 (link counters unaffected) and nothing arrived: 0 round trips.
+  (The 9.15 hazard note about a Tensix tile in row 10 assumed Y flips too; for rows 0/1 it does not.)
+- ethfwd22 (ethfwd21 + node X sent to the T6 image is 16 - x with --t6-noc 1; `--t6-e1x N` overrides; the unmirrored node over NIU1 is REFUSED), expts16.sh
+  (same steps as expts15.sh; failed probe stops the batch).  Result (out16): control and every NoC1 step PASS with 0 BAD payloads, 0 noc-fail, 0 txfail:
+  probe 0.37 M round trips/s (1 ch, 64 B); 64/576/4160 B on 2 ch about 1.80 / 1.16 / 0.30 M round trips/s, equal to the NoC0 control; E1 replies over NoC0
+  and NoC1; tile rows y=2/6/10; 60 s soak 69.5 M round trips, 8.7 M payload checks.  No retrains, no uncorrected errors.
+- All four T6 <-> ETH legs (T6 -> E1, E1 -> T6, each over NoC0 and NoC1) now work.  NRI3::initiateWriteToEthL1 now uses preferNoC on NoC0 coordinates and
+  sends the mirrored X when NoC1 is chosen (NRIUtils.cpp, 2026-11-21; first in-MFMx use, NOT yet run on hardware).

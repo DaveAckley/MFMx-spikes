@@ -389,7 +389,12 @@ namespace MFM {
     MFM_API_ASSERT(destaddr < MEM_ETH_SIZE, ILLEGAL_ARGUMENT); // ETH L1 is 512K (T6 L1 is bigger)
     MFM_API_ASSERT((destaddr % 16) == (((u32)sourcedata) % 16), BAD_ALIGNMENT); // rule for small packets L1->L1
 
-    const u32 usenoc = 0u; // NoC0 only: see header comment
+    // preferNoC works in NoC0 coordinates (hop counts east+south vs west+north).  Over NoC1 the ETH row (y 0..1) is
+    // NOT translated: its X is the NoC1 RAW coordinate, mirrored (x1 = 16 - x0), Y unchanged (expts16: proven).
+    // Tensix tiles (and our own source node) use the shared translated coordinates on both NoCs and need no change.
+    const u32 usenoc = preferNoC(sourcenoc0,destnoc0); // pick not longer route (all else equal)
+    U8C destnode = destnoc0;
+    if (usenoc == 1u) destnode.x = (u8) (NOC_COLS - 1u - destnoc0.x);
 
     waitTilNRIClear(usenoc);
 
@@ -399,7 +404,7 @@ namespace MFM {
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_LO, destaddr);   // 32 bit address of dest
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_MID, 0);        // no upper address bits
-    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destnoc0));
+    funcWriteNRIAddress(usenoc, 3, NRI_NOC_RET_ADDR_HI, U8C::makeNoCNodeIdFromNoCCoord(destnode));
 
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_PACKET_TAG, 0);          // no DeliverToReceiverOverlay
     funcWriteNRIAddress(usenoc, 3, NRI_NOC_CTRL, (2u<<0));          // NOC_CMD_WR (write, not inline)

@@ -109,10 +109,13 @@ namespace MFM {
 
     /** Initiate a packet write from our L1 into an ETHERNET tile's L1
         (eth-seam: the E1 router's OUT ring). Same NIU register
-        sequence as initiateWriteToT6, but ALWAYS over NoC0 -- the
-        only route verified on hardware for ETH-tile destinations
-        (ERISC_NOTES 9.9-9.11) -- instead of preferNoC(). destaddr is
-        an ETH L1 address (< MEM_ETH_SIZE); same alignment rule. */
+        sequence as initiateWriteToT6, and the NoC is chosen by
+        preferNoC() on NoC0 coordinates.  If NoC1 is chosen, the ETH
+        node X is sent MIRRORED (16 - x, Y unchanged): rows Y=0/1 are not
+        translated, so there X is the raw coordinate of the NoC in use
+        (proven on hardware by expts16; expts15 sent the unmirrored X,
+        which on NoC1 is a different ETH tile).  destaddr is an ETH L1
+        address (< MEM_ETH_SIZE); same alignment rule. */
     s32 initiateWriteToEthL1(U8C sourcenoc0, u32 * sourcedata, u32 wordCount, U8C destnoc0, u32 destaddr) ;
     
     /** Read up to 16 words from ngb's L1. Note that destaddr MAY
