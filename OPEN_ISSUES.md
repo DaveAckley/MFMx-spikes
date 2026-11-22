@@ -164,6 +164,15 @@ ERISC_NOTES.md.
   432,184 cars out = in = written to T6s on every print, txfail/nocfail 0, AER 0.968, all 140 hubs running, no
   timeouts; NEW_LEADER consensus mean 0.161 s vs 0.163 s before the change).  Not measured: xchg time per phase.
 
+## NRI3::blockingL1ReadNoC0 return buffer alignment may be mod 64, not mod 16 (2026-11-22, UNVERIFIED for T6 reads)
+
+srcs/cross/src/NRIUtils.cpp matches the return buffer to the source address modulo 16 (the Wormhole rule, assumed).  On the card, NoC reads of the ARC tile
+land at (return address rounded down to 64) + (source address mod 64) (ERISC_NOTES 9.19, t6arc3 sweep), so the buffer must match modulo 64.  Reads that
+MFMx does today (image block headers and addresses of neighbouring tiles) work, probably because the sources are 64-aligned or the shift happens to be
+tolerated; nothing shows it for T6 L1 sources.  To do: a t6arc-style test reading a T6's L1 at sources 0..63 mod 64 from another tile, then fix
+blockingL1ReadNoC0 (buffer = base + (src & 63), 64-aligned base, larger buffer) if it shows the same shift, and check the writers' rule (initiateWriteTo*
+use src%16 == dst%16; they work).
+
 ## Design idea: raise the AI clock (2026-11-22, steps 1 and 2 DONE: arcpeek and arcmsg RUN)
 
 The chip runs at 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale toward AER 1.6 at best.
@@ -171,7 +180,7 @@ Step 1 DONE: `srcs/host/tools/arcpeek` (read-only) on all four cards: AICLK 800 
 (ERISC_NOTES 9.17).  Step 2 DONE (card 0): `srcs/host/tools/arcmsg` sends only TEST (0x90) and GET_AICLK (0x34) through the message queue (SCRATCH 11 info block,
 doorbell ARC_MSI_FIFO), idle card only (ERISC_NOTES 9.18).  Result: TRANSPORT OK, GET_AICLK 800 MHz, mode 3 = PPM unforced (DVFS on, clock not forced).
 Next: a separate, newly named tool for GO_BUSY / FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.
-Step 3 BUILT, not run: `t6pp/t6arc.c` + `t6arcrun` read the ARC telemetry from a Tensix tile over NIU0/NIU1 (ERISC_NOTES 9.19), the base for logging AICLK from inside
+Step 3 IN PROGRESS: t6arc/t6arcrun read the ARC from a Tensix tile; first runs found the mod-64 return rule (t6arc4 fixes it, to run).  `t6pp/t6arc.c` + `t6arcrun` read the ARC telemetry from a Tensix tile over NIU0/NIU1 (ERISC_NOTES 9.19), the base for logging AICLK from inside
 MFMx later (a hub `.ck:` mark built on NRI3::blockingL1ReadNoC0).
 Open: does the chip idle below 800 until GO_BUSY (unverified); what the other 800-valued tags (17..20) are; reading the ARC from a T6.  Memory note
 project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.

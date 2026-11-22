@@ -666,4 +666,13 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   the host reads it.  Hypotheses: alignment of small reads in register space; a range limit; timing.  Next: t6arc3 (id 0x76500012) + t6arcrun3 `--probe`: single-word
   reads of scratch 0..15 (also with a delay before the copy), 12-word blocks at 0x...400/410/430, and ARC SRAM reads (table header at 0x1001a094, data at
   0x1001a1a0), `./t6arcrun3 --dev 0 --go --passes 1 --probe` after `sh t6pp/build.sh t6arc3` and `g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun3.cpp -o t6arcrun3`.
+- t6arc3 sweep result and DIAGNOSIS (same tile, NIU0): single-word reads of scratch 0..15 right only for N=0 and N=2; 12 words @0x80030400 right; 12 words @0x80030410
+  had scratch 10, 11 at buffer words 10, 11 (should be 6, 7: shifted +16 bytes) and zeros elsewhere; 12 words @0x1001a1a0 (telemetry data) had BOARD_ID 0x412 and
+  0x3191113f at words 9, 10 (should be 1, 2: shifted +32 bytes); 12 words @0x80030430 all 0 (the data fell outside the window).  All shifts equal source address
+  mod 64 (0x410 -> 0x10, 0x1a0 -> 0x20, 0x400 -> 0, 0x428 -> 0x28, 0x42c -> 0x2c).  So the NIU puts returned read data at (return address rounded down to 64) +
+  (source address mod 64): the return buffer must match the source MODULO 64 (the Blackhole NoC is 64 bytes wide), not modulo 16 as NRI3::blockingL1ReadNoC0
+  assumes (its comment cites the Wormhole rule).  A fake NoC with this landing rule reproduces the t6arc3 failure (status 1) and passes t6arc4.  Fix in
+  t6arc4 (image id 0x76500013): buffer = RB + (source mod 64), RB 64-aligned; t6arcrun4 `--probe` repeats the sweep as the check.
+  Run: `sh t6pp/build.sh t6arc4 && g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun4.cpp -o t6arcrun4 && ./t6arcrun4 --dev 0 --go --passes 3` (without --probe
+  for the real walk; with --probe for the sweep).  Evidence is for reads FROM THE ARC TILE; reads from a T6 L1 may differ (see OPEN_ISSUES).
 
