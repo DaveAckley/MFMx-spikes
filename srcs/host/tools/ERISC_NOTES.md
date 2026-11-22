@@ -630,7 +630,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   because the arbiters pick 800 (target = highest enabled min arbiter, capped by lowest enabled max arbiter), not because the chip is stuck.  FORCE_AICLK (which
   overrides the arbiters within [fmin,fmax]) is therefore a meaningful lever.  Only card 0 tried; cards 1-3 not yet.
 
-### 9.19 t6arc / t6arcrun: a Tensix tile reads the ARC telemetry over the NoC -- written 2026-11-22, NOT run on hardware
+### 9.19 t6arc / t6arcrun: a Tensix tile reads the ARC telemetry over the NoC -- written 2026-11-22, WORKS (t6arc4, NIU0)
 - Goal: prove the T6 -> ARC NoC read path (and give a way to observe AICLK from inside the chip) before any MFMx image depends on it.  Reconnaissance only:
   the ARC is only READ.  Image `srcs/host/tools/t6pp/t6arc.c` (`sh t6pp/build.sh t6arc`, 2456 bytes, image id 0x76500010, runs on BRISC at L1 0), host runner
   `srcs/host/tools/t6arcrun.cpp` (`g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun.cpp -o t6arcrun`).
@@ -675,4 +675,9 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   t6arc4 (image id 0x76500013): buffer = RB + (source mod 64), RB 64-aligned; t6arcrun4 `--probe` repeats the sweep as the check.
   Run: `sh t6pp/build.sh t6arc4 && g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun4.cpp -o t6arcrun4 && ./t6arcrun4 --dev 0 --go --passes 3` (without --probe
   for the real walk; with --probe for the sweep).  Evidence is for reads FROM THE ARC TILE; reads from a T6 L1 may differ (see OPEN_ISSUES).
+- t6arc4 RESULT (card 0, tile 1:2, NIU0, 3 passes, no probe): `T6 READ OK: 3 of 3`.  20 NoC reads per pass, 0 failed; the walk found the table at 0x1001a094
+  (version 0x100, 65 entries), data base 0x1001a1a0, AICLK tag at offset 14.  From the T6: AICLK raw 0x320 = 800 MHz, AXICLK 960, ARCCLK 800, L2CPUCLK0 800,
+  AICLK_LIMIT_MAX 1350, POWER 37, VCORE 739/740, ASIC_TEMP 36.2 C, heartbeat 37653 -> 37656 -> 37659 (moving, 3 per 300 ms pass gap), identical to arcpeek
+  and tt-smi.  The mod-64 return rule is confirmed for reads FROM THE ARC TILE (scratch registers and ARC SRAM).  NIU1 (`--noc 1`) not tried yet.  Tip: the
+  debug log makes the output long; filter with `| grep -E "pass|AICLK|READ|image|restored"`.
 
