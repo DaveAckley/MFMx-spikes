@@ -53,9 +53,8 @@ namespace MFM {
         if (gr == GR_JUMPED) {
           u32 cat = ewt.mOld.mAtoms[0].getType();
           // The MFM response to a failing event: erase the center and leave
-          // the rest of the window as it was.  (An INACCESSIBLE center stays.)
-          if (cat != P4Atom::INACCESSIBLE_TYPE)
-            ewt.mNew.mAtoms[0] = P4Atom::makeEmptyAtom();
+          // the rest of the window as it was.
+          ewt.mNew.mAtoms[0] = P4Atom::makeEmptyAtom();
           ++mEWsPhysFailed;
           if (mEWsPhysFailed <= 8u || (mEWsPhysFailed & 1023u) == 0u) {
             // (code+100) is FailCodes' enum value counted from DUMMY, then
@@ -112,7 +111,10 @@ namespace MFM {
       return true;
     }
     case P4Atom::EMPTY_TYPE: return true;
-    case P4Atom::INACCESSIBLE_TYPE: return false;
+    case P4Atom::INACCESSIBLE_TYPE:
+      // The hub must never dispatch an event centered on a site that does
+      // not exist: that is a real bug, so a real FAIL (not PHYSICS_FAIL).
+      FAIL(ILLEGAL_STATE);
 
     case P4Atom::START_TYPE: {
       //DP.printf("IAMI P4Atom::START_TYPE@0x%x\n",(u32) &ca);
