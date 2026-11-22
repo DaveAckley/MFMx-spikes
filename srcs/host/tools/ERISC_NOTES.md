@@ -601,6 +601,12 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   AICLK_LIMIT_MAX (tag 63) = 1350 on all four: a 1.3 GHz request is inside the firmware's range, though thermal/TDP arbiters may still clip it.
   VCORE 740 (mV), POWER 36..37 (tt-smi "Core Power (W)"), ASIC_TEMP (tag 11) is signed 16.16 fixed point degrees C: 0x0023899a = 35.54, card 3
   0x0023ec0a = 35.92, matching tt-smi "Core Temp (C)" 35.1..36.1.  FAN_RPM 1882.  THM_LIMIT_THROTTLE 90, THM_LIMIT_SHUTDOWN 110, TDC_LIMIT_MAX 200.
+- tt-smi -s snapshot (tti-snapshot.json, idle QB, tt-smi 3.0.27, pyluwen 0.7.11, TT-KMD 2.3.0, FW bundle 18.8.0.0, boards p150b): same telemetry words as arcpeek,
+  and tt-smi device N = arcpeek card N = /dev/tenstorrent/N (BOARD_ID words match).  Tags 17..20 are L2CPUCLK0..3 (all 800).  BOARD_POWER_LIMIT 0x12c = 300 W,
+  INPUT_POWER 0x83..0x86 = 131..134 W (whole board, idle), core POWER 34..37 W at VCORE 0.74 V, VDD range 0.70..0.90 V (VDD_LIMITS 0x038402bc), thermal throttle
+  90 C vs 36 C now, THM limit 110.  Its limits block shows tdp_limit, tdc_limit and asic_fmax as 0: those tags are not populated in this firmware, so they say
+  nothing.  Rough upper bound for 1.3 GHz at the 0.90 V ceiling: core P ~ f V^2 gives about 37 * 1.625 * 1.48 = 89 W idle-load-equivalent, far under 300 W
+  (real load power unknown: no snapshot yet taken during a run).  ENABLED_ETH 0x3edf, TENSIX_ENABLED_COL 0x3fff (14 columns), DDR 16G.
 - Not done: reading the ARC from a T6 (a t6pp-style image doing a NoC read of the ARC scratch/CSM).  Tested: native mock walk
   (run_native_tests.sh arcpeek_mock).
 
