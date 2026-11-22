@@ -123,10 +123,15 @@ ERISC_NOTES.md.
 - pybind `portStatus`/`releaseIdlePorts`, `--abort-on-error` and typed `wait`
   beyond one clean run.
 
-- T6 -> ETH write over NoC1 (and so preferNoC for ETH destinations): experiment BUILT 2026-11-21, not run.
-  `bash srcs/host/tools/expts15.sh` on the QB (needs ethfwd21, e1fwd16, t6pp3; see ERISC_NOTES 9.15).  If
-  it passes, NRI3::initiateWriteToEthL1 should use preferNoC (spatial layout in the traffic).  E1 -> T6 over
-  NoC1 is already proven (9.13).
+- T6 -> ETH write over NoC1 (and so preferNoC for ETH destinations): expts15 (2026-11-21) FAILED because it
+  was addressed wrongly: it passed NoC0 (6,1), which on NoC1 is E13, not our E1 (E10).  Rows Y=0/1 are not
+  translated (NIU cfg 0x6005 has translation ON for Tensix tiles); there X is the raw coordinate of the NoC in
+  use and NoC1 mirrors it (x1 = 16 - x0, Y unchanged; tt-isa-documentation BlackholeA0/NoC/Coordinates.md).  The
+  probe wrote one 64 B car into E13's L1 at 0x10000 (link counters unaffected).  expts16.sh / ethfwd22 send
+  (16-6,1) = (10,1), refuse the unflipped node over NIU1, run the NoC0 control first and stop on a failed
+  probe.  NOT RUN YET: `bash srcs/host/tools/expts16.sh` on the QB (needs ethfwd22, e1fwd16, t6pp3; output
+  ./out16 in the directory you run it from).  If it passes, NRI3::initiateWriteToEthL1 should use preferNoC
+  with the mirrored node for the ETH row.  E1 -> T6 over NoC1 is already proven (9.13).
 
 ## Design proposal: PERMANENT array edges (INACCESSIBLE) vs temporary dead bands
 
