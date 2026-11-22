@@ -164,12 +164,14 @@ ERISC_NOTES.md.
   432,184 cars out = in = written to T6s on every print, txfail/nocfail 0, AER 0.968, all 140 hubs running, no
   timeouts; NEW_LEADER consensus mean 0.161 s vs 0.163 s before the change).  Not measured: xchg time per phase.
 
-## Design idea: raise the AI clock (2026-11-22, step 1 BUILT, not run)
+## Design idea: raise the AI clock (2026-11-22, steps 1 and 2: arcpeek RUN, arcmsg BUILT not run)
 
-The chip runs at about 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale
-toward AER 1.6 at best.  Step 1 is `srcs/host/tools/arcpeek` (read-only: ARC boot status, telemetry incl. AICLK and AICLK_LIMIT_MAX, ERISC_NOTES 9.17).
-Next: run it, compare with tt-kmd's sysfs `tt_aiclk`; learn the firmware's fmax/fmin and whether the chip idles until AICLK_GO_BUSY; only then consider the
-message queue (SCRATCH 11, doorbell ARC_MSI_FIFO) with GO_BUSY before FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.  Memory note
+The chip runs at 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale toward AER 1.6 at best.
+Step 1 DONE: `srcs/host/tools/arcpeek` (read-only) on all four cards: AICLK 800 (= sysfs tt_aiclk), AICLK_LIMIT_MAX 1350, ARC alive, no errors
+(ERISC_NOTES 9.17).  Step 2 BUILT: `srcs/host/tools/arcmsg` sends only TEST (0x90) and GET_AICLK (0x34) through the message queue (SCRATCH 11 info block,
+doorbell ARC_MSI_FIFO), idle card only (ERISC_NOTES 9.18).  Next: run `./arcmsg --dev 0`; if TRANSPORT OK and GET_AICLK says 800, read the clock mode
+(1 uncontrolled / 2 forced / 3 unforced).  Only then a separate, newly named tool for GO_BUSY / FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.
+Open: does the chip idle below 800 until GO_BUSY (unverified); what the other 800-valued tags (17..20) are; reading the ARC from a T6.  Memory note
 project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.
 
 ## Design idea: liv's sawtooth idea (2026-11-22, NOT started, analysed: does not shrink the dead zone)

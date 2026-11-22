@@ -579,7 +579,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   sends the mirrored X when NoC1 is chosen (NRIUtils.cpp, 40864a7).  OBSERVED in MFMx 2026-11-22: seam21-13, one hour on the full QB, 432,184 seam cars
   out = in = written to the T6s, txfail/nocfail 0, AER 0.968, consensus unchanged (see OPEN_ISSUES).
 
-### 9.17 arcpeek: read-only look at the ARC tile and the AI clock -- written 2026-11-22, NOT run on hardware
+### 9.17 arcpeek: read-only look at the ARC tile and the AI clock -- written 2026-11-22, RUN 2026-11-22 (all four cards)
 - Goal: find the current AICLK (the chip runs at 800 MHz as far as the user knows) before anyone thinks about changing it.  Tool: `srcs/host/tools/arcpeek.cpp`
   (`g++ -std=c++17 -O2 -Wall -Wextra -Werror arcpeek.cpp -o arcpeek`; `./arcpeek`, `--dev N`, `--aiclk`, `--mock`).  READ-ONLY: it sends no ARC message, rings no
   doorbell and writes nothing; it maps 2 MiB tt-kmd TLB windows at NoC0 (8,0) (the ARC tile) like the ethfwd tools.  Run it ONLY on an idle card
@@ -595,6 +595,27 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   0x90 test, 0x21 power setting, 0xC7 firmware log.  The kernel driver never sends AICLK busy/idle or force.  Firmware (aiclk_ppm.c): target = highest enabled min
   arbiter capped by the lowest enabled max arbiter (voltage-derived, host fmax), a forced clock overrides all but cannot leave [fmin,fmax] from the firmware
   table, GO_BUSY sets the busy arbiter to fmax (idle: fmin) or when the AICLK power domain is active.
-- Not done: reading the ARC from a T6 (a t6pp-style image doing a NoC read of the ARC scratch/CSM), sending any ARC message.  Tested: native mock walk
+- RESULT (arcpeek10.out, idle QB, all four cards, same on each): ARC_BOOT_STATUS 0x5 (ready_for_msg=1, hw_init=2), ERROR_STATUS0 0, telemetry table
+  version 0x100 (major 0), 65 entries, the heartbeat tag advances (+2 per 200 ms) on every card.  AICLK raw 0x320 = 800: the low 16 bits ARE plain MHz and
+  high16 = 0; this equals the kernel's sysfs tt_aiclk (800).  AXICLK 960, ARCCLK 800 (tags 17..20 also read 800, other clock domains, not identified).
+  AICLK_LIMIT_MAX (tag 63) = 1350 on all four: a 1.3 GHz request is inside the firmware's range, though thermal/TDP arbiters may still clip it.
+  VCORE 740 (mV), POWER 36..37 (tt-smi "Core Power (W)"), ASIC_TEMP (tag 11) is signed 16.16 fixed point degrees C: 0x0023899a = 35.54, card 3
+  0x0023ec0a = 35.92, matching tt-smi "Core Temp (C)" 35.1..36.1.  FAN_RPM 1882.  THM_LIMIT_THROTTLE 90, THM_LIMIT_SHUTDOWN 110, TDC_LIMIT_MAX 200.
+- Not done: reading the ARC from a T6 (a t6pp-style image doing a NoC read of the ARC scratch/CSM).  Tested: native mock walk
   (run_native_tests.sh arcpeek_mock).
+
+### 9.18 arcmsg: first ARC message, TEST + GET_AICLK -- written 2026-11-22, NOT run on hardware
+- Tool `srcs/host/tools/arcmsg.cpp` (`g++ -std=c++17 -O2 -Wall -Wextra -Werror arcmsg.cpp -o arcmsg`; `./arcmsg --dev N [--test] [--aiclk] [--queue Q]`,
+  `--mock`).  New name: arcpeek stays strictly read-only.  It WRITES (request slot, queue pointers, doorbell) so it needs `--dev N` and an IDLE card
+  (no mfmxctl, tt-smi or other tool: no locking, the kernel and tt-smi use the same queues).  Default queue 3, `--queue` picks another.
+- Whitelist of two harmless messages (firmware source, tt-zephyr-platforms msgqueue.c and aiclk_ppm.c): TEST 0x90 (reply data[1] = word1 + 1, data[2] =
+  last serial + 1) proves the transport; GET_AICLK 0x34 (reply data[1] = AICLK in MHz, data[2] = mode 1 uncontrolled / 2 PPM forced / 3 PPM unforced).  No
+  FORCE_AICLK / GO_BUSY in this tool; a changing tool gets its own new name.
+- Protocol (read in the firmware, not yet run): scratch 11 -> 4-word info block {queues base, 4 | 4 << 8, 0, 0}; each queue 72 words: header 8 (0 req_wptr, 1
+  resp_rptr host-written; 4 req_rptr, 5 resp_wptr, 6 serial ARC-written), then 4 request slots of 8 words (word0 low byte = command), then 4 response slots of 8
+  (word0 low byte = status/exit code).  Pointers run 0..7 (equal = empty, differ by 4 = full), slot = pointer % 4.  Host: write the request, bump req_wptr,
+  READ IT BACK (the doorbell is in a different TLB window), write 0 to ARC_MSI_FIFO (0x800B0000, tt-kmd blackhole.c), poll resp_wptr, read the slot, bump
+  resp_rptr.  The tool refuses a queue that is not empty, a geometry other than 4x4, a not-ready ARC, and times out after 2 s leaving the request queued.
+- Expected on this QB: TEST data[1] = 0x1235 for 0x1234, GET_AICLK 800 MHz (compare tt_aiclk and arcpeek).  The mode value tells whether the firmware's
+  DVFS is on (2/3) or the clock is uncontrolled (1); that decides whether FORCE_AICLK can do anything.  Tested: native mock (run_native_tests.sh arcmsg_mock).
 
