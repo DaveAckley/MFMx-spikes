@@ -650,3 +650,11 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
 - Tested here: native `t6arc_hosttest` (the image compiled for the host against a fake NoC and fake ARC memory laid out like arcpeek10.out: 20 reads, 12 words
   max, node 8, alignment, bad-pointer and stuck-NIU paths) and `t6arcrun_mock` (run_native_tests.sh t6arc); the real image cross-builds with the sfpi gcc.
   Not tested: anything on hardware (does the T6 NIU read of the ARC SRAM/scratch work like the host's; is the 16-byte alignment rule right for reads).
+- FIRST HARDWARE RUN (card 0, tile 1:2, NIU0, 2026-11-22): the image starts (ready word, id 0x76500010, csr 0x7c0 0x80020008 = L0 data cache off), the tile
+  restores cleanly, 4 NoC reads complete with none failed, and the FIRST one is RIGHT: scratch 2 (boot status) = 0x5, the value arcpeek sees.  But scratch 11,
+  12, 13 (queue info, data base, table pointer) came back 0, so the image stopped with status 1 (bad pointer).  So the T6 -> ARC NoC read path works at least for
+  one word; why the next three read 0 is NOT known.  Hypotheses: (a) data of a read lands somewhere other than the return address I computed (the mod-16 rule
+  for reads); (b) the completion counter drops before later responses arrive; (c) back-to-back reads to the same node.  Next: t6arc2 (image id 0x76500011) +
+  t6arcrun2: a debug log of the first 8 reads (address, buffer, the 16 buffer words afterwards) and `--probe` reads (12 words from 0x80030400, 4 from 0x80030430,
+  scratch 11 three times, scratch 2 then scratch 12).  Run: `sh t6pp/build.sh t6arc2`, `g++ -std=c++17 -O2 -Wall -Wextra -Werror t6arcrun2.cpp -o t6arcrun2`,
+  `./t6arcrun2 --dev 0 --go --passes 1 --probe`.  t6arc and t6arcrun stay as they are.
