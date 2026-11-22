@@ -215,7 +215,7 @@ Change (commit "T6 side: ETH-tile destination ..."; MFMx source, deliberately it
   only).  MFMx passes NoC0 coordinates to NIU1 as well, which works for T6 destinations because firmware's coordinate translation makes both NoCs
   uniform (user notes, Dec 2025); whether that translation covers the ETH row identically is untested.  An opt-in NoC1 experiment (t6pp control
   word for the NIU base + ethfwd flag) would settle it; then the function could use preferNoC.
-  UPDATE 2026-11-21: settled by expts16 (ERISC_NOTES 9.16).  The ETH row is NOT translated, so over NoC1 the ETH node X must be mirrored (16 - x).  initiateWriteToEthL1 now uses preferNoC on NoC0 coordinates and mirrors X when NoC1 is chosen.
+  UPDATE 2026-11-21: settled by expts16 (ERISC_NOTES 9.16).  The ETH row is NOT translated, so over NoC1 the ETH node X must be mirrored (16 - x).  initiateWriteToEthL1 now uses preferNoC on NoC0 coordinates and mirrors X when NoC1 is chosen.  Observed working in MFMx (seam21-13, one hour, 40864a7).
 - cross/include/T6EPs.tcc: shipTCTo gets a branch for ETH destinations before the PCIe-tile branch (same wordCount/status handling);
   configureDest gets a branch that FAILs with INCOMPLETE_CODE for an ETH destination, because the T6 branch would read a remote T6's image block
   from an ETH tile (garbage).  The missing piece is exactly the seam table: mDestBlockAddr (E1 OUT ring address of the right channel and slot

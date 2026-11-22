@@ -576,4 +576,5 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   probe 0.37 M round trips/s (1 ch, 64 B); 64/576/4160 B on 2 ch about 1.80 / 1.16 / 0.30 M round trips/s, equal to the NoC0 control; E1 replies over NoC0
   and NoC1; tile rows y=2/6/10; 60 s soak 69.5 M round trips, 8.7 M payload checks.  No retrains, no uncorrected errors.
 - All four T6 <-> ETH legs (T6 -> E1, E1 -> T6, each over NoC0 and NoC1) now work.  NRI3::initiateWriteToEthL1 now uses preferNoC on NoC0 coordinates and
-  sends the mirrored X when NoC1 is chosen (NRIUtils.cpp, 2026-11-21; first in-MFMx use, NOT yet run on hardware).
+  sends the mirrored X when NoC1 is chosen (NRIUtils.cpp, 40864a7).  OBSERVED in MFMx 2026-11-22: seam21-13, one hour on the full QB, 432,184 seam cars
+  out = in = written to the T6s, txfail/nocfail 0, AER 0.968, consensus unchanged (see OPEN_ISSUES).

@@ -130,9 +130,11 @@ ERISC_NOTES.md.
   tt-isa-documentation BlackholeA0/NoC/Coordinates.md).  With the node sent as (10,1) every step passed with
   0 BAD payloads, 0 noc-fail, 0 txfail: probe, sizes 64/576/4160 x 2 ch (about 1.80 / 1.16 / 0.30 M round
   trips/s, same as the NoC0 control), E1 replying over NoC0 and NoC1, tile rows y=2/6/10, and a 60 s soak
-  (69.5 M round trips, 8.7 M payload checks).  So all four T6<->ETH legs now work on both NoCs.  TODO:
-  NRI3::initiateWriteToEthL1 now uses preferNoC with the mirrored node (BUILT, UNPROVEN in MFMx: check on a seam run
-  that `seams` txfail/nocfail stay 0 and AER/consensus are unchanged; revert to `usenoc = 0u` if not).
+  (69.5 M round trips, 8.7 M payload checks).  So all four T6<->ETH legs now work on both NoCs.
+  NRI3::initiateWriteToEthL1 now uses preferNoC with the mirrored node (40864a7): DEMONSTRATED (expts16) and
+  OBSERVED in MFMx: seamcycle13 (seamtest layout, 2750 cars, txfail/nocfail 0) and seam21-13 (full QB, one hour:
+  432,184 cars out = in = written to T6s on every print, txfail/nocfail 0, AER 0.968, all 140 hubs running, no
+  timeouts; NEW_LEADER consensus mean 0.161 s vs 0.163 s before the change).  Not measured: xchg time per phase.
 
 ## Design idea: liv's sawtooth idea (2026-11-22, NOT started, analysed: does not shrink the dead zone)
 
