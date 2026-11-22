@@ -61,7 +61,21 @@ extern "C" { extern char __hostblock_start[]; }
     __builtin_unreachable();                    \
   } while (0)
 
+#define FATAL_HARD(code) \
+  FATAL_HARD_AT(code,__FILE__,__LINE__)
+
+#define FATAL_HARD_AT(code,file,line) do {           \
+    PrepareToDieHard(code,GET_FILE_ID(file),line);  \
+    BHANG();                                    \
+    __builtin_unreachable();                    \
+  } while (0)
+
+/// FAIL path: jumps to this hart's RecoverPoint if one is installed
+/// (fAll.mRecover); otherwise does PrepareToDieHard's work and returns so the
+/// caller can BHANG, exactly as before.
 extern "C" void PrepareToDie(signed code,unsigned fileId,unsigned line) ;
+/// ENGINE_FAIL path: record the failure in the HostBlock and hang.
+extern "C" void PrepareToDieHard(signed code,unsigned fileId,unsigned line) ;
 
 extern "C" void t6hangprep(int code) ;
 

@@ -1,7 +1,7 @@
 #pragma once    /* -*- C++ -*- */
 
 #include "EwpBlock.h" // for EwpPayload
-#include "PhysGuard.h" // for PhysGuard, PHYSICS_FAIL
+#include "RecoverPoint.h" // for RecoverPoint
 
 namespace MFM {
   struct Physics {
@@ -10,9 +10,11 @@ namespace MFM {
     u32 mEWsAttempted;
     u32 mEWsSucceeded;
     u32 mEWsFailed;
-    u32 mEWsPhysFailed;         // jumped out by PHYSICS_FAIL (subset of Failed)
+    u32 mEWsPhysFailed;         // FAILed in physics, recovered (subset of Failed)
 
-    PhysGuard mGuard;           // setjmp buffer lives here, not on the stack
+    RecoverPoint mRecover;      // FAIL during physics jumps here (this hart's
+                                // fAll.mRecover points at it while physics
+                                // runs); lives here, not on the stack
 
     enum GuardedResult : u32 { GR_FALSE = 0, GR_TRUE = 1, GR_JUMPED = 2 };
     GuardedResult guardedPhysics() ;

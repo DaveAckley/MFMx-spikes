@@ -4,6 +4,7 @@
 #include "Fail.h"
 #include "UxC.h" // for U8C
 #include "ImageBlock.h"
+#include "RecoverPoint.h"
 
 // See cross/src/_BUD.ld.in for section defs and such
 
@@ -33,6 +34,7 @@ namespace MFM {
     u8 mImageCode;         // [8] copy of T6_IMAGE_BLOCK_ADDR ImageBlockHeader -
     u8 mEntries;           // [9] - fields of the same names
     u16 mHeartSpin;        // [10..11] see StandardLife.cpp
+    RecoverPoint * mRecover; // [12..15] where FAIL jumps to on this hart, or 0
   };
 
   void sleepCycles(u32 cycles) ;

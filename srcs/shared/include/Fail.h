@@ -13,6 +13,10 @@ enum FAILCode {                 // Declare failcodes outside MFM:: grr
 #undef XX
 
 #define FAIL(code) FATAL(FAILCode::code)
+/// ENGINE_FAIL: like FAIL, but never recoverable: always hangs the hart even
+/// if a RecoverPoint is installed (cross/include/RecoverPoint.h).  For "the
+/// engine is broken", not "this event's physics did something illegal".
+#define ENGINE_FAIL(code) FATAL_HARD(FAILCode::code)
 
 #define MFM_API_ASSERT(expr,code) do { if (__builtin_expect(!(expr), 0)) FAIL(code); } while (0)
 #define MFM_API_ASSERT_NONNULL(expr) MFM_API_ASSERT((expr)!=0,NULL_POINTER)

@@ -18,6 +18,8 @@
 #define FATAL(code) \
   DieHereNow(code,__FILE__,__LINE__,#code)
 
+#define FATAL_HARD(code) FATAL(code)   // host has no recovery points
+
 extern "C" void DieHereNow(signed code,const char * file,unsigned line,const char * scode) __attribute__((__noreturn__)) ;
 
 

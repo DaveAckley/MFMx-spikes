@@ -1,28 +1,7 @@
 #include "Physics.h"
 #include "FastT2.h" // for oneIn, between, etc
 #include "HostBlock.h"
-
-/* setjmp / longjmp for the T6 RISC-V hart: ra, sp, s0..s11 (14 words, no FP
-   on this core).  Same code as t6pp/t6sjlj.c, proven on a T6 BRISC (7/7 tests,
-   ERISC_NOTES 9.22).  No libc is linked into the images. */
-__asm__(".pushsection .text,\"ax\"\n"
-        ".globl physSetjmp\n.type physSetjmp,@function\n"
-        "physSetjmp:\n"
-        "  sw ra, 0(a0)\n  sw sp, 4(a0)\n"
-        "  sw s0, 8(a0)\n  sw s1, 12(a0)\n  sw s2, 16(a0)\n  sw s3, 20(a0)\n"
-        "  sw s4, 24(a0)\n  sw s5, 28(a0)\n  sw s6, 32(a0)\n  sw s7, 36(a0)\n"
-        "  sw s8, 40(a0)\n  sw s9, 44(a0)\n  sw s10, 48(a0)\n  sw s11, 52(a0)\n"
-        "  li a0, 0\n  ret\n"
-        ".size physSetjmp,.-physSetjmp\n"
-        ".globl physLongjmp\n.type physLongjmp,@function\n"
-        "physLongjmp:\n"
-        "  lw ra, 0(a0)\n  lw sp, 4(a0)\n"
-        "  lw s0, 8(a0)\n  lw s1, 12(a0)\n  lw s2, 16(a0)\n  lw s3, 20(a0)\n"
-        "  lw s4, 24(a0)\n  lw s5, 28(a0)\n  lw s6, 32(a0)\n  lw s7, 36(a0)\n"
-        "  lw s8, 40(a0)\n  lw s9, 44(a0)\n  lw s10, 48(a0)\n  lw s11, 52(a0)\n"
-        "  mv a0, a1\n  bnez a0, 1f\n  li a0, 1\n1: ret\n"
-        ".size physLongjmp,.-physLongjmp\n"
-        ".popsection\n");
+#include "FastLocal.h" // for fAll
 
 namespace MFM {
 
@@ -33,7 +12,7 @@ namespace MFM {
   static constexpr u32 PHY_FB1 = 4u;
   static constexpr u32 PHY_FB4 = 5u;
 
-  static constexpr u32 PHY_BOOM = 6u;   // self-test: scribble, then PHYSICS_FAIL
+  static constexpr u32 PHY_BOOM = 6u;   // self-test: scribble, then FAIL
 
   bool Physics::doTransition(EwpPayload & ewt) {
     bool ret = false;
@@ -59,9 +38,12 @@ namespace MFM {
           if (mEWsPhysFailed <= 8u || (mEWsPhysFailed & 1023u) == 0u) {
             // (code+100) is FailCodes' enum value counted from DUMMY, then
             // the center type in the low 9 bits.
-            u32 pf = (((u32) (mGuard.mCode + 100)) << 9) | cat;
+            u32 pf = (((u32) (mRecover.mCode + 100)) << 9) | cat;
+            u32 pw = (((u32) mRecover.mFileId) << 16) | mRecover.mLine;
             LOGPTAG(.pf,pf);
             HBPTAG(.pf,pf);
+            LOGPTAG(.pw,pw);    // where: (file id << 16) | line
+            HBPTAG(.pw,pw);
             HBPTAG(PHYSFAIL,mEWsPhysFailed);
           }
         }
@@ -86,13 +68,13 @@ namespace MFM {
      register) and members. */
   __attribute__((noinline))
   Physics::GuardedResult Physics::guardedPhysics() {
-    if (PHYSGUARD_SETJMP(mGuard.mJB) == 0) {
-      mGuard.arm();
+    if (RECOVER_SETJMP(mRecover.mJB) == 0) {
+      fAll.mRecover = &mRecover;        // FAILs on THIS hart now land here
       bool r = doFastPhysics();
-      mGuard.disarm();
+      fAll.mRecover = 0;
       return r ? GR_TRUE : GR_FALSE;
     }
-    return GR_JUMPED;           // PHYSICS_FAIL disarmed and recorded mCode
+    return GR_JUMPED;           // PrepareToDie cleared fAll.mRecover, set mCode
   }
 
   bool Physics::doFastPhysics() {
@@ -113,8 +95,8 @@ namespace MFM {
     case P4Atom::EMPTY_TYPE: return true;
     case P4Atom::INACCESSIBLE_TYPE:
       // The hub must never dispatch an event centered on a site that does
-      // not exist: that is a real bug, so a real FAIL (not PHYSICS_FAIL).
-      FAIL(ILLEGAL_STATE);
+      // not exist: the engine is broken, so ENGINE_FAIL (never recoverable).
+      ENGINE_FAIL(ILLEGAL_STATE);
 
     case P4Atom::START_TYPE: {
       //DP.printf("IAMI P4Atom::START_TYPE@0x%x\n",(u32) &ca);
@@ -173,7 +155,7 @@ namespace MFM {
       } else if (oneIn(40u)) { // general destruction
         na = P4Atom::makeEmptyAtom();
         if (!ew.swap(0u,ngbsn))
-          PHYSICS_FAIL(USER_REQUESTED_FAILURE); // XXX use swap retval
+          FAIL(USER_REQUESTED_FAILURE); // XXX use swap retval
       } 
       return true;
     }
@@ -183,7 +165,7 @@ namespace MFM {
       // over the neighbors, then fail.  Recovery must commit the OLD window
       // with this center erased, so the neighbors show no trace of it.
       for (u32 ngbsn = 1u; ngbsn <= 4u; ++ngbsn) ew.mAtoms[ngbsn] = ca;
-      PHYSICS_FAIL(USER_REQUESTED_FAILURE);
+      FAIL(USER_REQUESTED_FAILURE);
     }
 
     case PHY_RES: {
