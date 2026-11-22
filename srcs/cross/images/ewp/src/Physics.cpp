@@ -44,6 +44,11 @@ namespace MFM {
             HBPTAG(.pf,pf);
             LOGPTAG(.pw,pw);    // where: (file id << 16) | line
             HBPTAG(.pw,pw);
+            // Top-1KB canary high-water mark (saturates near 1020): data on
+            // how deep HB stack gets when physics fails; NOT an overflow check.
+            u32 ps = estimateStackUsage();
+            LOGPTAG(.ps,ps);
+            HBPTAG(.ps,ps);
             HBPTAG(PHYSFAIL,mEWsPhysFailed);
           }
         }

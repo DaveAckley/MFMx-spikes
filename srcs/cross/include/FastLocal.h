@@ -19,10 +19,13 @@
   __attribute__ ((section(XSTR_MACRO(CONC(.fastram_,hart)))))  \
 
 // Extra assertions if we know about fALL
-#define MFM_API_ASSERT_ON_HART(expr) MFM_API_ASSERT(fAll.mHartNum==(expr),WRONG_HART)
-#define MFM_API_ASSERT_NOT_ON_HART(expr) MFM_API_ASSERT(fAll.mHartNum!=(expr),WRONG_HART)
-#define HBASSERT_ON_HART(expr) HBASSERT_EQ(fAll.mHartNum,expr)
-#define HBASSERT_NOT_ON_HART(expr) HBASSERT_NE(fAll.mHartNum,expr)
+// Wrong-hart is never a physics failure: ENGINE_FAIL, never recoverable.
+#define MFM_API_ASSERT_ON_HART(expr)                                    \
+  do { if (__builtin_expect(fAll.mHartNum!=(expr),0)) ENGINE_FAIL(WRONG_HART); } while (0)
+#define MFM_API_ASSERT_NOT_ON_HART(expr)                                \
+  do { if (__builtin_expect(fAll.mHartNum==(expr),0)) ENGINE_FAIL(WRONG_HART); } while (0)
+#define HBASSERT_ON_HART(expr) MFM_API_ASSERT_ON_HART(expr)
+#define HBASSERT_NOT_ON_HART(expr) MFM_API_ASSERT_NOT_ON_HART(expr)
 
 namespace MFM {
   struct FastAll { 

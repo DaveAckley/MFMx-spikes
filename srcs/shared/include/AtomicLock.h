@@ -150,8 +150,19 @@ namespace MFM {
   };
 
   struct AtomicScopeLock {
+#ifndef BUILD_HOST
+    // Declared FIRST: constructed before the lock is taken and destroyed after
+    // it is released, so a FAIL anywhere while the lock is held (or in
+    // lock()/unlock() themselves) hangs the hart instead of jumping to a
+    // RecoverPoint and leaving the lock held forever (RecoverPoint.h).
+    RecoverSuspend mNoRecovery;
+#endif
     AtomicScopeLock(AtomicLock & lock)
-      : mAtomicLock(lock)
+      :
+#ifndef BUILD_HOST
+        mNoRecovery(fAll.mRecover),
+#endif
+        mAtomicLock(lock)
     {
       mAtomicLock.lock();
     }

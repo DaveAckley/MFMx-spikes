@@ -35,6 +35,9 @@ namespace MFM {
 
   static AtomicLock stringPackLock;
   static void debugPackToHost(char * buf) { // let's try marking one at a time..
+    // Every HB mark ends here: a FAIL in here is the engine's own state being
+    // wrong, never a recoverable physics failure (RecoverPoint.h).
+    RecoverSuspend noRecovery(fAll.mRecover);
     // Suppress all debug logging after a fail if hostflag is set
     if ((theHostBlock.mHostFlags & HostFlags::HBF_ASSERT_STOP_LOG) != 0 &&
         (theHostBlock.mFails != 0))
@@ -62,6 +65,7 @@ namespace MFM {
 
   // Unconditional log attempt
   void markLogBlockDoIt(u16 fileid, u16 lineno,const char * msg) {
+    RecoverSuspend noRecovery(fAll.mRecover); // L1 log ring state: see above
     theLogBlockL1Control.writeMark(fileid, lineno, msg);
   }
 
