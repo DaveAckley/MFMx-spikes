@@ -164,12 +164,12 @@ ERISC_NOTES.md.
   432,184 cars out = in = written to T6s on every print, txfail/nocfail 0, AER 0.968, all 140 hubs running, no
   timeouts; NEW_LEADER consensus mean 0.161 s vs 0.163 s before the change).  Not measured: xchg time per phase.
 
-## NRI3::blockingL1ReadNoC0 return buffer alignment may be mod 64, not mod 16 (2026-11-22, CONFIRMED for ARC reads, UNVERIFIED for T6 reads)
+## NRI3::blockingL1ReadNoC0 return buffer alignment may be mod 64, not mod 16 (2026-11-22, RESOLVED: ARC-only; T6 L1 reads need only mod 16)
 
 srcs/cross/src/NRIUtils.cpp matches the return buffer to the source address modulo 16 (the Wormhole rule, assumed).  On the card, NoC reads of the ARC tile
 land at (return address rounded down to 64) + (source address mod 64) (ERISC_NOTES 9.19, t6arc3 sweep), so the buffer must match modulo 64.  Reads that
 MFMx does today (image block headers and addresses of neighbouring tiles) work, probably because the sources are 64-aligned or the shift happens to be
-tolerated; nothing shows it for T6 L1 sources.  BUILT, not run: t6l1rd/t6l1rdrun (ERISC_NOTES 9.21) is that test.  Original to-do: a t6arc-style test reading a T6's L1 at sources 0..63 mod 64 from another tile, then fix
+tolerated; nothing shows it for T6 L1 sources.  RESOLVED on card 0 (t6l1rd, ERISC_NOTES 9.21): all 240 reads right, 192/192 with the NRI3 rule incl. the hub's exact case; T6 L1 reads land at the return address, so blockingL1ReadNoC0 needs no change.  The mod-64 rule is specific to the ARC tile (ArcTelemetry.cpp already uses a 64-aligned buffer).  Original to-do (not needed now):  Original to-do: a t6arc-style test reading a T6's L1 at sources 0..63 mod 64 from another tile, then fix
 blockingL1ReadNoC0 (buffer = base + (src & 63), 64-aligned base, larger buffer) if it shows the same shift, and check the writers' rule (initiateWriteTo*
 use src%16 == dst%16; they work).
 

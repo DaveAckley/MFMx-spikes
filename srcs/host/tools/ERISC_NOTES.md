@@ -694,7 +694,7 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   AICLK_LIMIT_MAX 1350, identical on every chip.  So the hub-side NoC read of the ARC works in MFMx (hart NC, NRI3, mod-64 return buffer) on every hub, with
   the run otherwise normal enough to boot and shut down ("quietbox shutdown: ok").
 
-### 9.21 t6l1rd / t6l1rdrun: how does a NoC read from another T6's L1 land? -- written 2026-11-22, NOT run on hardware
+### 9.21 t6l1rd / t6l1rdrun: how does a NoC read from another T6's L1 land? -- written and RUN 2026-11-22 (card 0, NIU0): reads from a T6's L1 land at the return address
 - Question (OPEN_ISSUES "return buffer alignment"): reads from the ARC tile land at (return & ~63) + (source & 63), but NRI3::blockingL1ReadNoC0 matches its buffer
   to the source only modulo 16, and MFMx uses it to read image block headers at 0xb0 (48 mod 64) into privateL1ReadBuffer, which sits at 16 mod 64 in the hub image
   (hub.map 0xc9d50) -- under the ARC rule that read would land 32 bytes off, yet neighbor discovery works.  So the rule for an L1 source probably differs.  This tests it.
@@ -708,4 +708,4 @@ the links down; runs 2 and 3 still aborted at process exit (bugs 2 and 3); runs 
   control block, and ONLY B's L1 0x20000..0x20100; restores A on exit; refuses a harvested tile or an A that is not all in reset.
 - Tested here: native `t6l1rd_hosttest` (image vs a fake NoC under both landing rules; 240 reads, verdicts and shifts as predicted) and `t6l1rdrun_mock` (both
   rules through the host tool's analysis); the image cross-builds with the sfpi gcc (1248 bytes).  Nothing on hardware yet.
-
+- RESULT (card 0, tile 1:2 reads 2:2, NIU0): 240 reads, 0 failed; method A (NRI3 rule, 4 buffer alignments) 192/192 right, method B 48/48 right, every shift-table cell ok, hub case (k=1, source 48 mod 64) ok.  Reads from another T6's L1 land AT THE RETURN ADDRESS, so NRI3::blockingL1ReadNoC0's mod-16 match is enough; the mod-64 rule is specific to the ARC tile.  No code change needed.  Only NIU0 tested.
