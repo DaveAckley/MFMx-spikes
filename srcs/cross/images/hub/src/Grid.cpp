@@ -218,6 +218,12 @@ namespace MFM {
     return false;
   }
 
+  bool GridManager::setAtomQuiet(U16C gridc, const P4Atom atom) {
+    MFM_API_ASSERT(isValidT6GridC(gridc),ILLEGAL_ARGUMENT);
+    if (!isAccessible(gridc)) return false;   // permanent-edge ring: dropped
+    return mT6GridPtr->setAtomOrDrop(gridc,atom);   // grid only, no DL push
+  }
+
   u32 GridManager::applyNuke(const NukeBlast & blast, u32 & cacheErased) {
     T6Grid & g = *mT6GridPtr;
     // global coordinate of full-grid site (0,0); the cache ring reaches

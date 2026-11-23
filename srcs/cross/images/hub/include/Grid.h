@@ -322,6 +322,13 @@ namespace MFM {
     bool setAtom(U16C gridc, const P4Atom a) ;
     bool setAtomOrDrop(U16C gridc, const P4Atom a) ;
 
+    /* Write the grid but do NOT queue the site for the host display.  For
+       cache load/save (CacheLoader::unloadPacket): the pixel already shows
+       this value (the borrower's last painted value, or the lender's), and
+       if both the borrower and the lender painted it, a stale copy could
+       overwrite the owner's.  Events (writeEW) still paint as usual. */
+    bool setAtomQuiet(U16C gridc, const P4Atom a) ;
+
     bool matchesEW(const EventWindow & ew,U16C center) const ;
 
     void readEW(EventWindow & ew,U16C center) ;
