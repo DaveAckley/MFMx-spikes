@@ -228,6 +228,7 @@ class Machine:
         self.link_poll = 0.5                 # preflight: secs between polls
         self.simDir = mfmx.getSimDir()
         self.dump_count = 0                   # dumpl1 commands that wrote files
+        self.last_dump_dir = None             # newest dumpl1 directory
         self.mfmxVersion = mfmx.getVersion()
         snap = getattr(mfmx, "liveAERSnapshot", None)   # absent in old/mock MFMx
         self.liveaer = LiveAER.LiveAER(snap) if snap else None
@@ -807,7 +808,71 @@ class Machine:
             text += f"; {failed} FAILED (code not deployed yet, or file error)"
         if nochip:
             text += f"; no such chip: {sorted(nochip)}"
+        self.last_dump_dir = outdir
         return text
+
+    def hub_map_path(self):
+        """hub.map of the build that made this run: $MFMX_HUB_MAP, else the
+        repo's build_cross (as scripts/l1dump/l1grid.py does)."""
+        env = os.environ.get("MFMX_HUB_MAP")
+        if env:
+            return env
+        here = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(here, "..", "..", "..", "..", "build_cross",
+                            "srcs", "cross", "hub.map")
+
+    def specks_who(self, points):
+        """Lines for zoom specks: who painted each (x,y) plus, automatically,
+        what the painting hub's OWN grid holds there now (dumpl1 of those
+        hubs, decoded by scripts/l1dump/l1grid.py).  HUB: EMPTY = the hub
+        emptied the site and the host never heard (a turd); HUB: type N =
+        the hub still holds an atom.  For a RING painter it is the
+        borrower's cache copy.  Never raises: a failed dump or a missing
+        hub.map just says so once."""
+        rows = [self.who_row(x, y) for x, y in points]
+        f = getattr(self.M, "whoPainted", None)
+        who = [f(x, y) if f is not None else None for x, y in points]
+        sites = []
+        for r in who:
+            if r is None or len(r) < 9:
+                sites.append(None)
+                continue
+            tx, ty = self.tlbi_to_noc(r[1])
+            sites.append((f"at{r[0]}{b36(tx)}{b36(ty)}", r[7], r[8]))
+        tags = sorted({st[0] for st in sites if st})
+        if not tags:
+            return rows
+        try:
+            import sys
+            sd = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "..", "..", "..", "..", "scripts", "l1dump")
+            if sd not in sys.path:
+                sys.path.insert(0, sd)
+            import l1grid
+            addr = l1grid.addr_from_map(self.hub_map_path())
+            self.last_dump_dir = None
+            self.dumpl1(tags)
+            if not self.last_dump_dir:
+                raise ValueError("no dump written")
+            grids = {}
+            for t in tags:
+                try:
+                    l1 = open(os.path.join(self.last_dump_dir, t + ".l1"), "rb").read()
+                    grids[t] = l1grid.decode(l1, addr)[0]
+                except (OSError, ValueError):
+                    grids[t] = None
+        except Exception as e:      # noqa: BLE001 - diagnostics never break the shell
+            return rows + [f"(hub truth unavailable: {e})"]
+        out = []
+        for row, st in zip(rows, sites):
+            g = grids.get(st[0]) if st else None
+            if g is None:
+                out.append(row + " HUB: ?")
+                continue
+            ty, ok = g[st[1]][st[2]]
+            out.append(row + (" HUB: EMPTY" if ty == 0 else f" HUB: type {ty}") +
+                       ("" if ok else " (parity bad)"))
+        return out
 
     def tick_slowscan(self):
         # Before the T6s are released their hostblocks hold no valid magic, so

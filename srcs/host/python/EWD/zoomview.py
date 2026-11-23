@@ -240,8 +240,8 @@ class ZoomView:
             pts = [f"({int(xs[i])},{int(ys[i])})" for i in order[:show]]
             out.append("first %d (x,y): %s%s" % (len(pts), " ".join(pts),
                                                   " ..." if len(ys) > show else ""))
-            if annotate is not None:   # one line per speck, same instant (who)
-                out.extend(annotate(int(xs[i]), int(ys[i])) for i in order[:show])
+            if annotate is not None:   # a list of (x,y) -> a list of lines (who + hub truth)
+                out.extend(annotate([(int(xs[i]), int(ys[i])) for i in order[:show]]))
         return "\n".join(out)
 
     def note_frame_box(self, fb):

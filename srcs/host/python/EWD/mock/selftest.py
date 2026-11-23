@@ -713,6 +713,47 @@ def scenario_who():
           and "usage: who X Y" in out and "must be integers" in out, out[-900:])
 
 
+def scenario_specks_who():
+    """zoom specks' hub-truth: dump + decode + HUB: EMPTY / type N (fake dump)."""
+    import struct, tempfile, types, json
+    sys.path.insert(0, os.path.join(HERE, ".."))
+    sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "..", "..", "scripts", "l1dump"))
+    os.environ["MFMX_MOCK_WHO"] = json.dumps({
+        "10,10": [0, 15, False, True, 40, 4, 51, 30, 40],     # SELF, hub holds type 4
+        "20,20": [0, 15, False, True, 40, 4, 51, 31, 41]})    # SELF, hub says empty
+    import l1grid, machine
+    tmp = tempfile.mkdtemp()
+    addr = 0x1000
+    l1 = bytearray(addr + l1grid.W * l1grid.H * l1grid.ATOM + 8)
+    def put(x, y, ty):      # a parity-valid atom word of that type
+        w = next(w for w in range(ty, 1 << 16, 1 << 9) if l1grid.valid_parity(w))
+        struct.pack_into("<H", l1, addr + (x * l1grid.H + y) * l1grid.ATOM, w)
+    put(30, 40, 4)
+    mp = os.path.join(tmp, "hub.map")
+    open(mp, "w").write("  0x%x  MFM::theT6Grid\n" % addr)
+    os.environ["MFMX_HUB_MAP"] = mp
+    sys.path.insert(0, os.path.join(HERE, "mfmx"))
+    fake = types.SimpleNamespace(M=__import__("MFMx"))
+    fake.tlbi_to_noc = machine.Machine.tlbi_to_noc
+    fake.who_row = lambda x, y: machine.Machine.who_row(fake, x, y)
+    fake.hub_map_path = lambda: machine.Machine.hub_map_path(fake)
+    def dumpl1(tags):
+        d = os.path.join(tmp, "dumps"); os.makedirs(d, exist_ok=True)
+        for t in tags:
+            open(os.path.join(d, t + ".l1"), "wb").write(bytes(l1))
+        fake.last_dump_dir = d
+        return "ok"
+    fake.dumpl1 = dumpl1
+    rows = machine.Machine.specks_who(fake, [(10, 10), (20, 20)])
+    check("specks_who: hub value read from the dump",
+          len(rows) == 2 and "HUB: type 4" in rows[0] and "HUB: EMPTY" in rows[1]
+          and "site (30,40)" in rows[0], str(rows))
+    os.environ["MFMX_HUB_MAP"] = os.path.join(tmp, "nope.map")
+    rows = machine.Machine.specks_who(fake, [(10, 10)])
+    check("specks_who: missing hub.map is said, not raised",
+          "hub truth unavailable" in rows[-1], str(rows))
+
+
 def scenario_zhd():
     import json
     rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2, 0, True),   # at0e7, asked, waiting

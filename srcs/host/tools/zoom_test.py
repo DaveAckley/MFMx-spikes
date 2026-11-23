@@ -170,7 +170,7 @@ ys, xs = ZoomView().specks(img)
 check(sorted(zip(xs.tolist(), ys.tolist())) == [(1000, 500), (1500, 900)],
       f"specks found exactly the two lone sites {list(zip(xs, ys))}")
 check("2 lone occupied sites" in ZoomView().specks_report(img), "specks report")
-rep = ZoomView().specks_report(img, annotate=lambda x, y: f"WHO {x},{y}")
+rep = ZoomView().specks_report(img, annotate=lambda pts: [f"WHO {x},{y}" for x, y in pts])
 check(rep.count("WHO ") == 2, "specks report annotates each speck")
 
 # --- region map matches the l1grid layout (3x4 cells from the region origin) ----
