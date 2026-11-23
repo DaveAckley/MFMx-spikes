@@ -57,14 +57,15 @@ PYBIND11_MODULE(MFMx, m) {
   });
   // Who last painted pixel (x,y) of the picture (QuietBox::whoPainted):
   // None if nobody has, else (chip, tlbi, ring, epochKnown, epoch, atomType,
-  // newestEpoch or -1).  For hunting ghost pixels.
+  // newestEpoch or -1, gridX, gridY of the site in the painting hub).  For hunting ghost pixels.
   m.def("whoPainted", [](unsigned x, unsigned y) -> py::object {
     if (x >= 1920u || y >= 1080u) return py::none();
     const auto p = MFM::QuietBox::whoPainted(y*1920u + x);
     if (!p.mValid) return py::none();
     const unsigned ne = MFM::QuietBox::newestEpoch.load();
     return py::make_tuple(p.mChip, p.mTLBI, p.mRing, p.mEpochKnown, p.mEpoch,
-                          p.mType, (ne & 0x10000u) ? (int) (ne & 0xffffu) : -1);
+                          p.mType, (ne & 0x10000u) ? (int) (ne & 0xffffu) : -1,
+                          p.mGX, p.mGY);
   });
   // TEST: lose one compressed byte of one hub's report stream; True if it exists.
   m.def("zhdBreak", [](unsigned chip, unsigned tlbi) {

@@ -129,7 +129,7 @@ def zhdBreak(chip, tlbi):
 
 
 def whoPainted(x, y):
-    """(chip, tlbi, ring, epochKnown, epoch, atomType, newestEpoch) or None.
+    """(chip, tlbi, ring, epochKnown, epoch, atomType, newestEpoch[, gridX, gridY]) or None.
     The selftest sets $MFMX_MOCK_WHO to a JSON dict {"x,y": [..7 values..]}."""
     import json
     d = json.loads(os.environ.get("MFMX_MOCK_WHO", "{}"))

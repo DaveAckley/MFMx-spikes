@@ -115,20 +115,23 @@ namespace MFM {
     /* WHO PAINTED A PIXEL, last: for hunting ghost pixels ("turds").  One
        word per pixel: valid, epoch known, ring (the report came from the
        painting hub's S/E cache ring, not its own SELF sites), chip, tlbi,
-       atom type, epoch.  Written by the decoder threads (relaxed; a torn
+       atom type (9 bits), epoch, and the site's grid x,y in that hub (for l1grid --site).  Written by the decoder threads (relaxed; a torn
        read of a pixel being painted just shows one painter or the other). */
     struct Painter {
       bool mValid = false;
       bool mEpochKnown = false;
       bool mRing = false;
       u32 mChip = 0u, mTLBI = 0u, mType = 0u, mEpoch = 0u;
+      u32 mGX = 0u, mGY = 0u;     // the painting hub's own grid coords of the site
     };
     static std::atomic<u64> painters[PIXEL_EPOCHS];
     static void notePainter(u32 pixelIndex, bool epochKnown, u16 epoch,
-                            bool ring, u32 chip, u32 tlbi, u32 type) {
+                            bool ring, u32 chip, u32 tlbi, u32 type,
+                            u32 gx, u32 gy) {
       u64 v = (1ull<<63) | ((u64) epochKnown << 62) | ((u64) ring << 61) |
         ((u64) (chip & 0xff) << 48) | ((u64) (tlbi & 0xff) << 40) |
-        ((u64) (type & 0xffff) << 16) | epoch;
+        ((u64) (gx & 0xff) << 32) | ((u64) (gy & 0x7f) << 25) |
+        ((u64) (type & 0x1ff) << 16) | epoch;
       painters[pixelIndex].store(v,std::memory_order_relaxed);
     }
     static Painter whoPainted(u32 pixelIndex) {
@@ -140,7 +143,9 @@ namespace MFM {
       p.mRing = (v >> 61) & 1u;
       p.mChip = (u32) ((v >> 48) & 0xff);
       p.mTLBI = (u32) ((v >> 40) & 0xff);
-      p.mType = (u32) ((v >> 16) & 0xffff);
+      p.mType = (u32) ((v >> 16) & 0x1ff);
+      p.mGX = (u32) ((v >> 32) & 0xff);
+      p.mGY = (u32) ((v >> 25) & 0x7f);
       p.mEpoch = (u32) (v & 0xffff);
       return p;
     }

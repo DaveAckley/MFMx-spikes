@@ -880,7 +880,8 @@ class Machine:
         r = f(x, y)
         if r is None:
             return f"who ({x},{y}): nobody has painted that pixel (never reported)"
-        chip, tlbi, ring, known, epoch, typ, newest = r
+        chip, tlbi, ring, known, epoch, typ, newest = r[:7]
+        gtxt = f", hub grid site ({r[7]},{r[8]})" if len(r) >= 9 else ""
         tx, ty = self.tlbi_to_noc(tlbi)
         tag = f"at{chip}{b36(tx)}{b36(ty)}"
         if not known:
@@ -893,7 +894,7 @@ class Machine:
             when = f"epoch {epoch}, {lag} behind the newest seen ({newest})"
         return (f"who ({x},{y}): last painted by {tag} bh{chip}:{tlbi} from its "
                 f"{'S/E CACHE RING' if ring else 'own SELF sites'}, atom type "
-                f"{typ}, {when}; hub-relative pixel ({x % 137},{y % 108})")
+                f"{typ}, {when}; hub-relative pixel ({x % 137},{y % 108}){gtxt}")
 
     @staticmethod
     def noc_to_tlbi(x, y):

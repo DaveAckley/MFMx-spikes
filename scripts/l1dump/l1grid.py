@@ -11,6 +11,7 @@ DUMP.l1     the whole 1.5MB L1 of one hub, e.g. <run>/dumps/10/at023.l1
 --map FILE  linker map of the hub image holding 'MFM::theT6Grid'.  Default:
             build_cross/srcs/cross/hub.map under the repo root
 --addr A    L1 address of theT6Grid, instead of a map
+--site X,Y  print the atom type at that grid site (repeatable)
 --show N    list up to N offending sites per ring (default 8)
 
 T6Grid layout (srcs/shared/include/T6Grid.h, P4Atom.h): P4Atom
@@ -176,6 +177,9 @@ def main():
     ap.add_argument("--map")
     ap.add_argument("--addr")
     ap.add_argument("--show", type=int, default=8)
+    ap.add_argument("--site", action="append", default=[],
+                    help="X,Y: print the atom type (0 = empty) at that grid site"
+                         " (hub grid coords, as `who` prints them); repeatable")
     ap.add_argument("--profile", action="store_true",
                     help="also print an occupancy map of the whole grid (cells "
                          "3 wide x 4 high, ring boundaries marked) and the "
@@ -205,6 +209,11 @@ def main():
     lines, bad = analyse(grid, pe, a.show)
     print(f"{a.dump}: theT6Grid at 0x{addr:x}, mTotalChanges {changes}")
     print("\n".join(lines))
+    for t in a.site:
+        sx, sy = (int(v) for v in t.split(","))
+        ty, ok = grid[sx][sy]
+        print(f"site ({sx},{sy}): type {ty}{' (EMPTY)' if ty == EMPTY else ''}"
+              f"{'' if ok else ' PARITY BAD'}")
     if a.profile:
         print("\n".join(profile(grid)))
     return 1 if bad else 0

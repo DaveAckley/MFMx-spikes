@@ -233,7 +233,7 @@ namespace MFM {
                     ar.mCoord.y >= T6Grid::SELF_MAX.y;
                   QuietBox::notePainter(pixc.y*1920u + pixc.x,mStreamEpoch >= 0,
                                         (u16) mStreamEpoch,ring,mChipNum,mTLBI,
-                                        ar.mAtom.getType());
+                                        ar.mAtom.getType(),ar.mCoord.x,ar.mCoord.y);
                 }
               }
               qb.setSimAtom(gridc,ar.mAtom);
