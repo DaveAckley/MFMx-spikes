@@ -120,6 +120,24 @@ class ZoomView:
         cols = np.flatnonzero(occ.any(axis=0))
         return (int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1)
 
+    def occupancy_map(self, img, cols=48, rows=18):
+        """Text map of occupied sites per cell (. none, 1-9 tenths of the cell
+        full, # >= 90%), plus the box.  For finding what holds the box open."""
+        occ = img.max(axis=2) > EMPTY_MAX
+        occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
+                 (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
+                 (img[:, :, 2] == INACCESSIBLE_BGR[2]))
+        ch, cw = self.h // rows, self.w // cols
+        lines = []
+        for r in range(rows):
+            row = ""
+            for c in range(cols):
+                n = int(occ[r * ch:(r + 1) * ch, c * cw:(c + 1) * cw].sum())
+                f = n / float(ch * cw)
+                row += "." if n == 0 else ("#" if f >= 0.9 else str(max(1, int(f * 10))))
+            lines.append(row)
+        return "\n".join(lines) + f"\n(each cell {cw}x{ch} sites; {int(occ.sum())} occupied; frame box {self.frame_box(img)})"
+
     def note_frame_box(self, fb):
         """Fold one frame's box in: ever-seen union, or (shrink) the recent window."""
         if fb is None:

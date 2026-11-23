@@ -148,6 +148,13 @@ z2 = ZoomView(); z2.set_mode("auto"); z2.set_shrink(True)
 z2.note_frame_box(small); z2.note_frame_box(None)
 check(z2.box == list(small), "empty frame leaves the shrink box alone")
 
+# --- occupancy map ---------------------------------------------------------------
+img = blank()
+img[100:400, 50:700] = (200, 50, 50)
+mp = ZoomView().occupancy_map(img).split("\n")
+check(len(mp) == 19 and len(mp[0]) == 48 and "#" in mp[3] and set(mp[10]) == {"."},
+      "occupancy map shape and content")
+
 # --- centered even near a corner: the view may extend past the image --------------
 z = ZoomView()
 z.set_mode("auto")
