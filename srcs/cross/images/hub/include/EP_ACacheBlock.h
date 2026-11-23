@@ -118,6 +118,19 @@ namespace MFM {
     u8 mRestartPhase;           // 0 none, 1 flush the record in flight, 2 drain
     u16 mPktSeq;                // next packet's sequence number (trailer)
 
+    /* IDLE-TIME REFRESH: when the change list is empty in the middle of a
+       frame, report up to REFRESH_PER_FRAME randomly chosen SELF sites
+       anyway (their current atoms), so a stale pixel on the host display
+       (a "turd" nothing ever repainted) is repainted from the hub's truth,
+       gradually.  Cost only idle time; 0 turns it off.  Self sites only, so
+       the owner has the last word (never the cache ring). */
+    static constexpr u32 REFRESH_PER_FRAME = 8u;
+    u32 mRefreshLeft;           // refresh reports still allowed this frame
+    u32 mRefreshRng;            // xorshift32 state (private: no shared PRNG)
+    u32 mRefreshSent;           // reports sent as refresh, for the .rf mark
+
+    U8C nextRefreshSite() ;
+
     bool restartStep(HostBlock & hb) ;  // true: restarting, no frame work now
 
     void init(ACacheBlockL1Control & acbl1, DLGridList & dll1) ;

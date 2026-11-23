@@ -305,8 +305,21 @@ namespace MFM {
     memset_s(this,'\0',sizeof(*this)); // init all
     mACBL1Control = &acbl1;
     mDLGridList= &dll1;
+    mRefreshRng = 0x2545f491u;            // nonzero xorshift seed (memset made it 0)
     mARIO.init(true);   // true: init for serialization (obj -> bytes)
     HBPTAG(PACBinit,sizeof(*this));
+  }
+
+  U8C ACacheBlockPrivateControl::nextRefreshSite() {
+    u32 x = mRefreshRng;        // xorshift32
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    mRefreshRng = x;
+    const u32 w = T6Grid::SELF_MAX.x - T6Grid::SELF_ORIGIN.x;
+    const u32 h = T6Grid::SELF_MAX.y - T6Grid::SELF_ORIGIN.y;
+    return U8C((u8) (T6Grid::SELF_ORIGIN.x + (x & 0xffffu) % w),
+               (u8) (T6Grid::SELF_ORIGIN.y + (x >> 16) % h));
   }
 
   void ACacheBlockPrivateControl::updateCars(HostBlock & hb) {
@@ -526,6 +539,7 @@ namespace MFM {
           mNextFrameBogoMS += BOGOMS_PER_FRAME;
           if ((mFramesSent%1000) == 1) LOGPTAG(WAITSENT,mFramesSent);
           mARsToSend = dl.getLength();
+          mRefreshLeft = REFRESH_PER_FRAME;
           mState = State::PACK;
         }
       }
@@ -606,6 +620,17 @@ namespace MFM {
               
               // Stash it (or die: We Just Cleared mARIO)
               mARIO.putObj(ar);
+              continue;
+            }
+            /// (2b) List empty: spend this frame's refresh budget on random SELF sites
+            if (mRefreshLeft > 0u) {
+              --mRefreshLeft;
+              const U8C rc = nextRefreshSite();
+              ar.mCoord = U16C(rc.x,rc.y);
+              ar.mSpin1 = ar.mSpin2 = mARSpinner++;
+              ar.mAtom = t6g.getAtom(ar.mCoord);
+              mARIO.putObj(ar);
+              if ((++mRefreshSent % 100'000u) == 1u) LOGPTAG(.rf,mRefreshSent);
               continue;
             }
             /// (3) We have to wait
