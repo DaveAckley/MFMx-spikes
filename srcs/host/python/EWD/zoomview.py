@@ -163,6 +163,25 @@ class ZoomView:
                  (img[:, :, 2] == INACCESSIBLE_BGR[2]))
         return occ
 
+    def region_map(self, img, x0, y0, x1, y1, cw=3, ch=4):
+        """Occupancy map of a pixel rectangle, one char per cw x ch sites
+        (. none, 1-9 tenths, # >= 90%), laid out like scripts/l1dump/l1grid.py
+        --profile so a hub's real grid and its picture compare cell by cell
+        (a hub's whole grid is pixels (hx*137-20 .. hx*137+157) wide)."""
+        occ = self.occupied_mask(img)
+        x0, y0 = max(0, x0), max(0, y0)
+        x1, y1 = min(self.w, x1), min(self.h, y1)
+        out = [f"image region x {x0}..{x1 - 1}, y {y0}..{y1 - 1} (cells {cw}x{ch}):"]
+        for y in range(y0, y1, ch):
+            row = ""
+            for x in range(x0, x1, cw):
+                blk = occ[y:min(y + ch, y1), x:min(x + cw, x1)]
+                n = int(blk.sum())
+                f = n / float(blk.size)
+                row += "." if n == 0 else ("#" if f >= 0.9 else str(max(1, int(f * 10))))
+            out.append(f"{y - y0:3d} {row}")
+        return "\n".join(out)
+
     def specks(self, img, radius=5):
         """Occupied sites with no other occupied site within `radius` (a box):
         lone pixels in an empty neighborhood, the signature of stale ghost

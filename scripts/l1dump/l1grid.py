@@ -141,6 +141,34 @@ def analyse(grid, pe, show):
     return out, bad
 
 
+def profile(grid):
+    """Occupancy map: one char per 3x4 sites (. none, 1-9 tenths, # >= 90%);
+    '|' and '-' mark where the SELF region starts/ends (ring boundaries)."""
+    cw, ch = 3, 4
+    cols = [x for x in range(0, W, cw)]
+    out = ["map (rows = y, columns = x; local grid coordinates; | = self/ring boundary):"]
+    hdr = "".join("|" if (x <= OW < x + cw or x <= W - OW < x + cw) else " " for x in cols)
+    out.append("    " + hdr)
+    for y in range(0, H, ch):
+        row = ""
+        for x in cols:
+            n = tot = 0
+            for xx in range(x, min(x + cw, W)):
+                for yy in range(y, min(y + ch, H)):
+                    tot += 1
+                    n += grid[xx][yy][0] != EMPTY
+            f = n / float(tot)
+            c = "." if n == 0 else ("#" if f >= 0.9 else str(max(1, int(f * 10))))
+            row += c
+        mark = "-" if (y <= OH < y + ch or y <= H - OH < y + ch) else " "
+        out.append(f"{y:3d}{mark}{row}")
+    out.append("occupied sites per column, last 25 columns (x: count of %d rows; "
+               "ring starts at x=%d):" % (H, W - OW))
+    out.append(" ".join(f"{x}:{sum(grid[x][y][0] != EMPTY for y in range(H))}"
+                        for x in range(W - 25, W)))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("dump")
@@ -148,6 +176,10 @@ def main():
     ap.add_argument("--map")
     ap.add_argument("--addr")
     ap.add_argument("--show", type=int, default=8)
+    ap.add_argument("--profile", action="store_true",
+                    help="also print an occupancy map of the whole grid (cells "
+                         "3 wide x 4 high, ring boundaries marked) and the "
+                         "occupied count of each of the last 25 columns")
     a = ap.parse_args()
     l1 = open(a.dump, "rb").read()
     if len(l1) != L1_SIZE:
@@ -173,6 +205,8 @@ def main():
     lines, bad = analyse(grid, pe, a.show)
     print(f"{a.dump}: theT6Grid at 0x{addr:x}, mTotalChanges {changes}")
     print("\n".join(lines))
+    if a.profile:
+        print("\n".join(profile(grid)))
     return 1 if bad else 0
 
 

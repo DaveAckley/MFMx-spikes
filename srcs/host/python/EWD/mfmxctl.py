@@ -405,6 +405,14 @@ def main(argv=None):
         if w == "map":
             return z.occupancy_map(m.ewc.renderGraphicsGridWindowToImage().asNP()) + \
                 f"\ngrid drawing: {'ON (its crosses and labels count as occupied)' if m.qb.mDrawGrid else 'off'}"
+        if w == "region":
+            try:
+                x0, y0, x1, y1 = (int(v) for v in a[1:5])
+                if len(a) != 5:
+                    raise ValueError
+            except ValueError:
+                return "usage: zoom region X0 Y0 X1 Y1   (pixels; a hub's whole grid is hx*137-20..hx*137+157, hy*108-20..hy*108+128)"
+            return z.region_map(m.ewc.renderGraphicsGridWindowToImage().asNP(), x0, y0, x1, y1)
         if w == "specks":
             r = int(a[1]) if len(a) > 1 and a[1].isdigit() else 5
             return z.specks_report(m.ewc.renderGraphicsGridWindowToImage().asNP(), r)
@@ -589,7 +597,7 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
-    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R]|shrink on/off|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
+    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R]|region X0 Y0 X1 Y1|shrink on/off|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")

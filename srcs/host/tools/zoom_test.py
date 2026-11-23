@@ -171,6 +171,14 @@ check(sorted(zip(xs.tolist(), ys.tolist())) == [(1000, 500), (1500, 900)],
       f"specks found exactly the two lone sites {list(zip(xs, ys))}")
 check("2 lone occupied sites" in ZoomView().specks_report(img), "specks report")
 
+# --- region map matches the l1grid layout (3x4 cells from the region origin) ----
+img = blank()
+img[88:236, 254:431] = (5, 10, 15)
+img[100:112, 299:311] = (200, 50, 50)                # cell-aligned 12x12 block
+rm = ZoomView().region_map(img, 254, 88, 431, 236).split("\n")
+check(len(rm) == 1 + 37 and len(rm[1][4:]) == 59, "region map size 59x37 cells")
+check(rm[1 + (100 - 88) // 4][4:][(300 - 254) // 3] == "#", "region map block lands in its cell")
+
 # --- centered even near a corner: the view may extend past the image --------------
 z = ZoomView()
 z.set_mode("auto")
