@@ -224,10 +224,10 @@ namespace MFM {
     bool mEventProcessingSuspendRequestSeen; //< set by GridManager
     bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
     u8 mSuperCellLeader;                     //< set by outside
-    u16 mReportEpoch;                        //< scy (low 16 bits), set by B
+    u16 mReportEpoch;                        //< scy (low 16 bits), set by hb
 
     /* The epoch the atom reports are stamped with (AtomReport.h, epoch
-       marker): B sets it as a NEW_LEADER changeover begins, T0 reads it
+       marker): hb sets it as a NEW_LEADER changeover begins, T0 reads it
        as it packs reports. */
     u16 getReportEpoch() const {
       memoryFence();
