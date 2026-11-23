@@ -90,7 +90,7 @@ for big in (False, True):
     for _ in range(500):
         cyc.queue_nuke(big)
         x, y, r2 = cyc.pending_nuke
-        check(0 <= x < 1918 and 0 <= y < 1080 and 25 <= r2 <= (504 if big else 54) ** 2,
+        check(0 <= x < 1918 and 0 <= y < 1080 and (100 if big else 5) ** 2 <= r2 <= (1000 if big else 54) ** 2,
               f"random nuke in bounds {x},{y},{r2}")
 for args in ((-1, 5, 10), (5, 5000, 10), (5, 5, 0), (5, 5, 5000)):
     try:

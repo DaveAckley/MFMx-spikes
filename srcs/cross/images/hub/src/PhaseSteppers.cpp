@@ -243,7 +243,7 @@ namespace MFM {
         }
         const bool sane = nb.mX >= 0 && nb.mX < 1918 &&
                           nb.mY >= 0 && nb.mY < 1080 &&
-                          nb.mR2 < 1000*1000;
+                          nb.mR2 <= 2000*2000;   // the host allows radius 1..2000
         if (!nb.isNone() && !sane) {
           LOGPTAG(.nb,"bad blast ignored");
         } else if (!nb.isNone() && scy != lastNukeScy) {

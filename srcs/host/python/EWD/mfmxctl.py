@@ -63,10 +63,10 @@ def parse_args(argv):
                          "saving and reloading them (four corners only)")
     ap.add_argument("--policy", default="fourcorners",
                     help="cache policy: fourcorners (default) or supercell")
-    ap.add_argument("--link-wait", type=float, default=12.0,
+    ap.add_argument("--link-wait", type=float, default=6.0,
                     help="boot preflight: seconds to wait for every declared "
                          "eth-seam link to report Up after a chip reset")
-    ap.add_argument("--link-resets", type=int, default=5,
+    ap.add_argument("--link-resets", type=int, default=10,
                     help="boot preflight: extra 'tt-smi -r' tries if links "
                          "are still not Up (0 = wait only)")
     ap.add_argument("--link-linger", type=float, default=0.0,
@@ -192,7 +192,10 @@ def main(argv=None):
                     pass            # unknown: m.fire explains and lists the real names
                 else:
                     raise
-        b = m.fire(bolt, [int(x, 0) for x in a[1:]])
+        bargs = [int(x, 0) for x in a[1:]]
+        if bolt == "NEW_LEADER":      # always 5 words: words persist from bolt to
+            bargs += [0] * (5 - len(bargs))   # bolt on the device, a stale blast must not fire
+        b = m.fire(bolt, bargs)
         return (f"fired bolt #{b.seq} {b.cmd} nonce={b.nonce}; "
                 f"timeout {b.timeout:g}s (result is reported when it completes)"
                 if m.async_api else None)

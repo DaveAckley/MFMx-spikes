@@ -205,7 +205,7 @@ class Machine:
                  t6s_per_chip=140, verbose=False, decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
                  extra_bindirs=(), slowscan_gap=0.2, layout=None,
-                 link_wait=12.0, link_resets=5, link_linger=0.0, policy="fourcorners",
+                 link_wait=6.0, link_resets=10, link_linger=0.0, policy="fourcorners",
                  events="shortcut", elide=False):
         self.M = mfmx
         self.config = config

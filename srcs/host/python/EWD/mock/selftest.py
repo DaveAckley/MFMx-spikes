@@ -45,7 +45,7 @@ def scenario_normal_cycle():
                   "shoot NEW_LEADER 2 1\nwait 0.8\n"
                   "shoot RUN_EVENTS 3\nwait 0.5\nstatus\nbolt hist\nquit\n")
     check("normal: exit 0", rc == 0, f"rc={rc}")
-    for cmd in ("HOLD_AT_BIRTH(0)", "NEW_LEADER(2,1)", "RUN_EVENTS(3)"):
+    for cmd in ("HOLD_AT_BIRTH(0)", "NEW_LEADER(2,1,0,0,0)", "RUN_EVENTS(3)"):
         check(f"normal: {cmd} reaches CONSENSUS", f"{cmd} CONSENSUS" in out, out[-600:])
     check("normal: orderly teardown", "stop events: bh0 -> HAS_T6_CODE_RUNNING" in out
           and "quietbox shutdown: ok" in out)
@@ -75,7 +75,7 @@ def scenario_ticks_during_pending_bolt():
     runs = [int(l.split("run:")[1].split()[0]) for l in out.splitlines() if l.startswith("slowscans run:")]
     check("ticks: slowscan ticks keep running while a bolt is pending",
           bool(runs) and runs[0] >= 2, f"runs={runs}")
-    check("ticks: bolt still completes afterwards", "NEW_LEADER(1,1) CONSENSUS" in out, out[-500:])
+    check("ticks: bolt still completes afterwards", "NEW_LEADER(1,1,0,0,0) CONSENSUS" in out, out[-500:])
 
 
 def scenario_superseded():
@@ -181,7 +181,7 @@ def scenario_link_preflight():
     finally:
         os.environ.pop("MFMX_MOCK_LINK_DOWN_POLLS")
     check("preflight: resets until the links come up",
-          "chip reset 1 of 5" in out and "all 4 link ends Up" in out
+          "chip reset 1 of 10" in out and "all 4 link ends Up" in out
           and "extra reset(s)" in out, out[-900:])
     check("preflight: names the links that were down",
           "bh0:eth6(port 2)" in out, out[-900:])
@@ -432,7 +432,7 @@ def scenario_cycle_run():
     nl = [a for c, a, s in h if c == "NEW_LEADER"]
     re_ = [a for c, a, s in h if c == "RUN_EVENTS"]
     check("cycle: at least 2 full cycles", len(nl) >= 2 and len(re_) >= 2, f"nl={nl} re={re_}")
-    check("cycle: first leader is 2, scy starts at 1", nl[:1] == [[2, 1]], str(nl))
+    check("cycle: first leader is 2, scy starts at 1", nl[:1] == [[2, 1, 0, 0, 0]], str(nl))
     check("cycle: scy increments by one", [a[1] for a in nl] == list(range(1, len(nl) + 1)), str(nl))
     check("cycle: consecutive leaders differ",
           all(nl[i][0] != nl[i + 1][0] for i in range(len(nl) - 1)), str(nl))
@@ -538,7 +538,7 @@ def scenario_abbrev_args():
           and "unknown zhd subcommand 'zz'" in out, out[-700:])
     rc, out = run("boot\nstart\n" + FASTB + "shoot hold 0\nwait 0.8\nshoot new_l 2 1\nwait 0.8\nshoot ru 3\nquit\n")
     check("args: bolt names abbreviated (hold, new_l; 'ru' ambiguous or unique, never silent junk)",
-          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1) CONSENSUS" in out, out[-700:])
+          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1,0,0,0) CONSENSUS" in out, out[-700:])
     rc, out = run("boot\ndecay 7\nstart\nseed 3\nseed 25 2\nseed\nseed 0\nseed 5000\nseed al\nseed 1 2 3\nquit\n")
     check("args: seed COUNT [TYPE] (default decay type), bounded, junk refused",
           "seeded 3/3 type 7" in out and "seeded 25/25 type 2" in out
@@ -750,7 +750,7 @@ def scenario_command_file():
     rc, out = run("echo FROM-STDIN\nquit\n", extra_args=("--boot", "-s", main_f))
     check("script: exit 0", rc == 0, f"rc={rc}")
     check("script: bolts settle in order",
-          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1) CONSENSUS" in out
+          "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1,0,0,0) CONSENSUS" in out
           and "superseded" not in out.lower(), out[-900:])
     i = [out.find(t) for t in ("BEFORE", "SUBFILE-ONE", "SUBFILE-TWO", "AFTER", "STILL-ALIVE", "FROM-STDIN")]
     check("script: nested source runs in place, then stdin continues",
