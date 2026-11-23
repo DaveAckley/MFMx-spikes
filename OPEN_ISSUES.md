@@ -545,6 +545,13 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 
 ## Cleanup / nice to have
 
+- AER status line should show the event counting method (2026-11-23, user
+  idea, not started).  The difference today is whether empty-site events are
+  shortcut or actually run.  Avoid 'honest'/'cheating'.  Candidates: 'AERse'
+  (Shortcut Empties) vs 'AERre' (Run Empties), or similar.  The user may drop
+  the 'est. ' prefix on the line to pay for the space.  Needs the hubs'
+  current mode visible to the host (check how the live AER line is built).
+
 - Link preflight needed 3 extra chip resets (43.8 s) in run 012507:
   eth7 bh0/bh1, eth4 bh1/bh3, eth13 not Up after 12 s each time.  It
   recovered by itself; watch whether it is getting worse.
