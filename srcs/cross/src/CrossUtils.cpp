@@ -329,7 +329,7 @@ namespace MFM {
   }
 
   const char * formatPhaserBolt(const PhaserBolt & pb) {
-    static constexpr u32 BOLT_BUFSIZ = 32;
+    static constexpr u32 BOLT_BUFSIZ = 64;
     static char buf[BOLT_BUFSIZ];
     u8 pseq = pb.getSeqNo();
     PhaserBolt::Cmd cmd = pb.getCmd();
@@ -347,6 +347,15 @@ namespace MFM {
       snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d!",pseq,cmdname
                ,pb.getBoltDataWordOrDie(0)
                ,pb.getBoltDataWordOrDie(1)
+               );
+      break;
+    case 5:
+      snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d,%d,%d,%d!",pseq,cmdname
+               ,pb.getBoltDataWordOrDie(0)
+               ,pb.getBoltDataWordOrDie(1)
+               ,pb.getBoltDataWordOrDie(2)
+               ,pb.getBoltDataWordOrDie(3)
+               ,pb.getBoltDataWordOrDie(4)
                );
       break;
     default:
