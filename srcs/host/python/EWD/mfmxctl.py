@@ -321,6 +321,26 @@ def main(argv=None):
         return res + ("" if cyc.state() == "running" else
                       "  (the cycle is not running: it lands at its next NEW_LEADER)")
 
+    def c_autonuke(a):
+        m.need_booted()
+        usage = "usage: autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]  (seconds, sites)"
+        if not a or a[0].lower().startswith("st"):
+            return cyc.status().split("\n  autonuke", 1)[1].strip() if cyc.auto else "autonuke off"
+        if a[0].lower() == "off":
+            return cyc.clear_autonuke()
+        nums = a[1:] if a[0].lower() == "on" else a
+        try:
+            v = [float(w) for w in nums]
+        except ValueError:
+            return usage
+        if len(v) not in (0, 2, 4):
+            return usage
+        dlo, dhi = (v[0], v[1]) if len(v) >= 2 else (5.0, 300.0)
+        rlo, rhi = (int(v[2]), int(v[3])) if len(v) == 4 else (40, 400)
+        res = cyc.set_autonuke(dlo, dhi, rlo, rhi)
+        m.logkt("NUKE", res)
+        return res
+
     def c_cycle(a):
         sub = sh.resolve(a[0], ("status", "start", "hold", "step", "stop", "retry", "reset",
                                 "leader", "first", "birth", "repeat"), "cycle subcommand") if a else "status"
@@ -512,6 +532,7 @@ def main(argv=None):
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: decay type)")
+    sh.command("autonuke", c_autonuke, "autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]: repeatedly nuke a random place after a random delay (defaults 5-300 s, radius 40-400) while the cycle runs")
     sh.command("nuke", c_nuke, "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub at the next NEW_LEADER; nuke host [big]: old racy host-side nuke")
     sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")

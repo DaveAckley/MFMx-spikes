@@ -99,5 +99,32 @@ for args in ((-1, 5, 10), (5, 5000, 10), (5, 5, 0), (5, 5, 5000)):
     except ValueError:
         pass
 
+# autonuke: with a fake clock that ticks 1 s per tick, a 20..30 s delay and
+# radius 40..400 must produce blasts spaced >= 20 s apart, all in bounds
+now = [0.0]
+def clk():
+    now[0] += 1.0
+    return now[0]
+m2 = FakeMachine()
+cy2 = SuperCycle(m2, lambda *_: None, clock=clk, rng=random.Random(7), dwell=(0.0, 0.0))
+cy2.mode = "run"
+msg = cy2.set_autonuke(20, 30, 40, 400)
+check("autonuke on" in msg and "autonuke on" in cy2.status(), "autonuke status: " + msg)
+for _ in range(4000):
+    cy2.tick()
+shots = [(i, a) for i, (c, a) in enumerate(m2.fired) if c == "NEW_LEADER" and a[4] != 0]
+check(len(shots) >= 3, f"autonuke fired {len(shots)} blasts")
+check(all(len(a) == 5 and 0 <= a[2] < 1918 and 0 <= a[3] < 1080 and
+          40 * 40 <= a[4] <= 400 * 400 for _, a in shots), "autonuke blasts in bounds")
+scys = [a[1] for _, a in shots]
+check(len(set(scys)) == len(scys), "autonuke: one blast per NEW_LEADER")
+check("autonuke off" == cy2.clear_autonuke() and cy2.auto is None, "autonuke off")
+for args in ((0, 5, 40, 400), (30, 20, 40, 400), (5, 30, 0, 400), (5, 30, 40, 5000)):
+    try:
+        cy2.set_autonuke(*args)
+        check(False, f"bad autonuke {args} refused")
+    except ValueError:
+        pass
+
 print("nuke_cycle_test FAILED" if bad else "nuke_cycle_test ok")
 sys.exit(1 if bad else 0)

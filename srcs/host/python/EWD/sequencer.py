@@ -67,6 +67,7 @@ class SuperCycle:
         self.leader = None
         self.next_leader = None
         self.pending_nuke = None    # (x, y, r2) to ride the next NEW_LEADER
+        self.auto = None            # autonuke: dict(delay, radius, at) or None
         self.cycles = 0             # completed full cycles
 
     # ---- introspection -----------------------------------------------------------
@@ -101,6 +102,11 @@ class SuperCycle:
         if self.pending_nuke is not None:
             x, y, r2 = self.pending_nuke
             s += f"\n  nuke queued for the next NEW_LEADER: ({x},{y}) radius {int(r2 ** 0.5)}"
+        if self.auto is not None:
+            a = self.auto
+            s += (f"\n  autonuke on: every {a['delay'][0]:g}-{a['delay'][1]:g}s, radius "
+                  f"{a['radius'][0]}-{a['radius'][1]}; next in "
+                  f"{max(0.0, a['at'] - now):.0f}s")
         if self.frozen:
             f = self.frozen
             s += (f"\n  FROZEN at step {f['step']} ({now - f['since']:.0f}s ago): {f['reason']}"
@@ -177,6 +183,32 @@ class SuperCycle:
         self.pending_nuke = (x, y, r * r)
         return f"nuke queued for scy {self.scy + 1}: ({x},{y}) radius {r}"
 
+    def set_autonuke(self, dlo, dhi, rlo, rhi):
+        """Every random delay of dlo..dhi seconds, queue a blast of random
+        radius rlo..rhi at a random place.  The blast goes out with the next
+        NEW_LEADER after its time comes, so it can lag by about one cycle."""
+        if not 0 < dlo <= dhi:
+            raise ValueError("autonuke delay must be 0 < LO <= HI seconds")
+        if not 1 <= rlo <= rhi <= 2000:
+            raise ValueError("autonuke radius must be 1 <= LO <= HI <= 2000 sites")
+        self.auto = dict(delay=(dlo, dhi), radius=(rlo, rhi),
+                         at=self.clock() + self.rng.uniform(dlo, dhi))
+        return (f"autonuke on: a blast every {dlo:g}-{dhi:g}s, radius {rlo}-{rhi}, "
+                f"random place (first in about {self.auto['at'] - self.clock():.0f}s; "
+                "only while the cycle runs)")
+
+    def clear_autonuke(self):
+        was, self.auto = self.auto is not None, None
+        return "autonuke off" if was else "autonuke was off"
+
+    def _autonuke_due(self, now):
+        """At a NEW_LEADER: queue the next autonuke blast if its time came."""
+        a = self.auto
+        if a is None or self.pending_nuke is not None or now < a["at"]:
+            return
+        self.queue_nuke(False, None, None, self.rng.randint(*a["radius"]))
+        a["at"] = now + self.rng.uniform(*a["delay"])
+
     def set_dwell(self, lo, hi=None):
         lo = float(lo)
         hi = lo if hi is None else float(hi)
@@ -227,6 +259,7 @@ class SuperCycle:
                 leader = self._pick_leader()
                 self.scy += 1
                 self.leader = leader
+                self._autonuke_due(now)
                 nx, ny, nr2 = self.pending_nuke or (0, 0, 0)
                 if self.pending_nuke:
                     self.say(f"[cycle] scy {self.scy}: NUKE ({nx},{ny}) radius {int(nr2 ** 0.5)}")
