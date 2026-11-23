@@ -289,6 +289,8 @@ namespace MFM {
     return "ILLEGAL SCSTATUS";
   }
 
+  struct NukeBlast;             // FORWARD (shared/include/NukeBlast.h)
+
   struct GridManager {
     static constexpr u8 MAX_NGBS = 8;
     
@@ -326,6 +328,14 @@ namespace MFM {
 
     u32 writeEW(const EventWindow & ew,U16C center) ;
 
+    /* NUKE: erase (set EMPTY) every non-empty site of the WHOLE T6Grid,
+       caches included, whose global site coordinate is inside the blast
+       (NukeBlast.h), through setAtomOrDrop so the host display sees it.
+       Only valid with events stopped (PhaseSteppers: exit of NEW_LEADER).
+       Returns the number of SELF sites erased; cache sites erased are added
+       to `cacheErased`. */
+    u32 applyNuke(const NukeBlast & blast, u32 & cacheErased) ;
+
     void applyEWT(EwpPayload &ewt, u32 ngbidx) ;
 
     u8 getOurSuperCellPosition() const {
@@ -333,6 +343,8 @@ namespace MFM {
     }
 
     u8 mPermEdges;              //< HubEdges::PE_* sides with no neighbor hub
+    s32 mGlobalOriginX;         //< global site x of our first SELF site (NukeBlast.h)
+    s32 mGlobalOriginY;         //< global site y of our first SELF site
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;

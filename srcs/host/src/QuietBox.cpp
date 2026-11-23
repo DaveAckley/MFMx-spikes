@@ -319,7 +319,7 @@ namespace MFM {
 
     //// ANNOUNCE NEW LEADER AND "LET THAT SINK IN"
     HTprintf("%u QuBo::SCY ANNOUNCING NEW LEADER cL%u\n", gettid(), nextLeader);    
-    shootPHASER(PhaserBolt::Cmd::NEW_LEADER,{(s32) nextLeader, scyCount});
+    shootPHASER(PhaserBolt::Cmd::NEW_LEADER,{(s32) nextLeader, scyCount, 0, 0, 0}); // words 2..4: no nuke
     //    sleepMsec(hostPRNG.Between(MIN_MS_SMALL,MAX_MS_SMALL)); 
     sleepMsec(hostPRNG.Between(MIN_MS_MEDIUM,MAX_MS_MEDIUM)); 
 

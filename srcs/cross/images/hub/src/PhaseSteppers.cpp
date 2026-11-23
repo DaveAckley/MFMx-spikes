@@ -6,6 +6,7 @@
 #include "CacheLoader.h"  //< for theL1CacheLoaders
 #include "FastT0.h"      //< for millisElapsed
 #include "Printf.h"      //< for snprintf
+#include "NukeBlast.h"   //< for NukeBlast
 
 namespace MFM {
   namespace PhaseSteppers {
@@ -221,6 +222,25 @@ namespace MFM {
       HBASSERT_LT((u32)arg, 4);
       theL1CacheLoaders.configureCacheLoaders((u8) arg);
       theL1CacheLoaders.restartIterators();
+      {                         // NUKE: caches saved, events stopped, loads not begun
+        static s32 lastNukeScy = -1;  // a re-fired bolt must not nuke twice
+        NukeBlast nb;
+        nb.mX = cda.mArgs.mArg[2];
+        nb.mY = cda.mArgs.mArg[3];
+        nb.mR2 = cda.mArgs.mArg[4];
+        const s32 scy = cda.mArgs.mArg[1];
+        if (!nb.isNone() && scy != lastNukeScy) {
+          lastNukeScy = scy;
+          u32 cacheErased = 0u;
+          const u32 selfErased = fB.mGridManager.applyNuke(nb,cacheErased);
+          if (selfErased != 0u || cacheErased != 0u) {
+            char b[48];
+            snprintf(b,sizeof(b),"%x:%x:%x.",(u32) scy,selfErased,cacheErased);
+            LOGPTAG(.nk,b);     // SCY:SELF:CACHE erased (hex)
+            HBPTAG(.nk,b);
+          }
+        }
+      }
       {                         // census after SAVE completed (true state)
         GridCensus gc; Buf32 b1, b2, b3;
         takeCensus(gc);

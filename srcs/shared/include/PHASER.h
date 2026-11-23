@@ -19,7 +19,7 @@ namespace MFM {
 
 #define ALL_PHASER_COMMANDS() \
     XX(HOLD_AT_BIRTH,1)       \
-    XX(NEW_LEADER,1)          \
+    XX(NEW_LEADER,5)          \
     XX(RUN_EVENTS,1)          \
 
 #define ALL_PHASER_COMMANDS_OLD() \
@@ -184,7 +184,7 @@ namespace MFM {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat"
     const char * formatPhaserBolt() {
-      static constexpr u32 BOLT_BUFSIZ = 32;
+      static constexpr u32 BOLT_BUFSIZ = 56;
       static char buf[BOLT_BUFSIZ];
       u8 pseq = getSeqNo();
       Cmd cmd = getCmd();
@@ -202,6 +202,15 @@ namespace MFM {
         snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d!",pseq,cmdname
                  ,getBoltDataWordOrDie(0)
                  ,getBoltDataWordOrDie(1)
+                 );
+        break;
+      case 5:                   // NEW_LEADER: leader, scy, blast x, y, r2
+        snprintf(buf,BOLT_BUFSIZ,"%u.%s %d,%d,%d,%d,%d!",pseq,cmdname
+                 ,getBoltDataWordOrDie(0)
+                 ,getBoltDataWordOrDie(1)
+                 ,getBoltDataWordOrDie(2)
+                 ,getBoltDataWordOrDie(3)
+                 ,getBoltDataWordOrDie(4)
                  );
         break;
       default:

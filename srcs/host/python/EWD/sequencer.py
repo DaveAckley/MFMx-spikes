@@ -30,6 +30,16 @@ from machine import fmt_ints
 STEPS = ("NEW_LEADER", "RUN_EVENTS", "DWELL")
 NLEADERS = 4
 
+# NUKE: a blast is a disc in GLOBAL site coordinates (DemoGlobal.h: hubs are
+# globally contiguous, 14 x 10 hubs of 137 x 108 sites).  It rides in words 2..4
+# of the next NEW_LEADER bolt (x, y, radius^2; radius^2 0 = none) and each hub
+# erases the disc from its whole grid, caches included, when it leaves
+# NEW_LEADER: after SAVE, before LOAD (cross/images/hub/src/PhaseSteppers.cpp).
+GLOBAL_SITES_X = 14 * 137
+GLOBAL_SITES_Y = 10 * 108
+NUKE_RADIUS_SMALL = (5, 54)         # as the old host-side nuke: Create(50) + 5
+NUKE_RADIUS_BIG = (5, 504)          # Create(500) + 5
+
 
 class SuperCycle:
     def __init__(self, machine, say, clock=time.monotonic, rng=None,
@@ -56,6 +66,7 @@ class SuperCycle:
         self.scy = 0
         self.leader = None
         self.next_leader = None
+        self.pending_nuke = None    # (x, y, r2) to ride the next NEW_LEADER
         self.cycles = 0             # completed full cycles
 
     # ---- introspection -----------------------------------------------------------
@@ -87,6 +98,9 @@ class SuperCycle:
             s += f"\n  next: {self.next_step()}"
         if self.next_leader is not None:
             s += f"\n  next leader forced: {self.next_leader}"
+        if self.pending_nuke is not None:
+            x, y, r2 = self.pending_nuke
+            s += f"\n  nuke queued for the next NEW_LEADER: ({x},{y}) radius {int(r2 ** 0.5)}"
         if self.frozen:
             f = self.frozen
             s += (f"\n  FROZEN at step {f['step']} ({now - f['since']:.0f}s ago): {f['reason']}"
@@ -148,6 +162,21 @@ class SuperCycle:
         self.next_leader = n
         return f"next NEW_LEADER will use leader {n}"
 
+    def queue_nuke(self, big=False, x=None, y=None, r=None):
+        """Queue one blast for the next NEW_LEADER (replacing any queued one).
+        Unset x, y, r are chosen at random like the old host-side nuke."""
+        lo, hi = NUKE_RADIUS_BIG if big else NUKE_RADIUS_SMALL
+        x = self.rng.randrange(GLOBAL_SITES_X) if x is None else int(x)
+        y = self.rng.randrange(GLOBAL_SITES_Y) if y is None else int(y)
+        r = self.rng.randint(lo, hi) if r is None else int(r)
+        if not (0 <= x < GLOBAL_SITES_X and 0 <= y < GLOBAL_SITES_Y):
+            raise ValueError(f"nuke center must be inside 0..{GLOBAL_SITES_X - 1}, "
+                             f"0..{GLOBAL_SITES_Y - 1}")
+        if not 1 <= r <= 2000:
+            raise ValueError("nuke radius must be 1..2000 sites")
+        self.pending_nuke = (x, y, r * r)
+        return f"nuke queued for scy {self.scy + 1}: ({x},{y}) radius {r}"
+
     def set_dwell(self, lo, hi=None):
         lo = float(lo)
         hi = lo if hi is None else float(hi)
@@ -198,8 +227,15 @@ class SuperCycle:
                 leader = self._pick_leader()
                 self.scy += 1
                 self.leader = leader
+                nx, ny, nr2 = self.pending_nuke or (0, 0, 0)
+                if self.pending_nuke:
+                    self.say(f"[cycle] scy {self.scy}: NUKE ({nx},{ny}) radius {int(nr2 ** 0.5)}")
+                    self.m.logkt("NUKE", f"SHOOT scy={self.scy} x={nx} y={ny} r2={nr2}")
+                    self.pending_nuke = None
                 self.say(f"[cycle] scy {self.scy}: NEW_LEADER leader={leader}")
-                bolt = self.m.fire("NEW_LEADER", [leader, self.scy])
+                # always 5 words: the unused ones must be written as 0, bolt
+                # words persist from bolt to bolt
+                bolt = self.m.fire("NEW_LEADER", [leader, self.scy, nx, ny, nr2])
             elif step == "RUN_EVENTS":
                 bolt = self.m.fire("RUN_EVENTS", [self.scy])
             else:                                   # DWELL

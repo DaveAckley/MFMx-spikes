@@ -7,6 +7,7 @@
 #include "CachingPolicy.h" // supercell vs four corners event bounds
 #include "HubEdges.h"      // permanent array edges
 #include "EthSeam.h"
+#include "NukeBlast.h"  // nuke geometry
 
 namespace MFM {
 
@@ -35,6 +36,8 @@ namespace MFM {
                                               hubInChipCoord.x,
                                               hubInChipCoord.y);
     mSuperCellLeaderCode = U8C::makeLeaderCodeFromSuperCellCoord(supercellc);
+    hubSelfOriginGlobal(hb.mChipNum,hubInChipCoord.x,hubInChipCoord.y,
+                        mGlobalOriginX,mGlobalOriginY);
     
     // PERMANENT EDGES: a side with no neighbor hub on this chip or across a
     // live seam is a real array edge (HubEdges.h), not a dead band.
@@ -213,6 +216,33 @@ namespace MFM {
       return true;
     }
     return false;
+  }
+
+  u32 GridManager::applyNuke(const NukeBlast & blast, u32 & cacheErased) {
+    T6Grid & g = *mT6GridPtr;
+    // global coordinate of full-grid site (0,0); the cache ring reaches
+    // OVERLAP sites before our first SELF site
+    const s32 gx0 = mGlobalOriginX - (s32) T6Grid::SELF_ORIGIN.x;
+    const s32 gy0 = mGlobalOriginY - (s32) T6Grid::SELF_ORIGIN.y;
+    if (!blast.mayTouchBox(gx0,gy0,
+                           gx0 + (s32) T6Grid::FULL_WIDTH,
+                           gy0 + (s32) T6Grid::FULL_HEIGHT))
+      return 0u;                // blast nowhere near us
+    u32 selfErased = 0u;
+    for (u32 x = 0u; x < T6Grid::FULL_WIDTH; ++x) {
+      for (u32 y = 0u; y < T6Grid::FULL_HEIGHT; ++y) {
+        if (!blast.hits(gx0 + (s32) x, gy0 + (s32) y)) continue;
+        const U16C at(x,y);
+        if (g.getAtom(at).isEmpty()) continue;
+        if (!setAtomOrDrop(at,P4Atom::makeEmptyAtom())) continue;
+        const bool self =
+          x >= T6Grid::SELF_ORIGIN.x && x < T6Grid::SELF_MAX.x &&
+          y >= T6Grid::SELF_ORIGIN.y && y < T6Grid::SELF_MAX.y;
+        if (self) ++selfErased;
+        else ++cacheErased;
+      }
+    }
+    return selfErased;
   }
 
   u32 GridManager::writeEW(const EventWindow & ew,U16C center) {

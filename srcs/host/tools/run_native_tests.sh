@@ -88,6 +88,9 @@ run t6sjlj_hosttest gcc $CFLAGS t6pp/hosttest_sjlj.c -o "$OUT/t6sjlj_hosttest"
 run t6sjrun_mock sh -c 'g++ '"$CXXFLAGS"' t6sjrun.cpp -o "$1/t6sjrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"WORKS on a T6\" && T6SJ_MOCK_FAIL=3 \"%s/t6sjrun_bin\" --mock --go --image \"%s\" | grep -q \"1 of 7 tests FAILED\" && echo mock-pass-and-fail-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6sjlj.c" "$1" "$(pwd)/t6pp/t6sjlj.c" > "$1/t6sjrun_mock" && chmod +x "$1/t6sjrun_mock"' x "$OUT"
 # physguard (RecoverPoint: FAIL recovery protocol, per-hart slot, RecoverSuspend, recovery rule; libc setjmp)
 run physguard_test g++ $CXXFLAGS -I$SRCS/cross/include $INC physguard_test.cpp -o "$OUT/physguard_test"
+# nuke: geometry over the real 140-hub layout, and the host side (blast rides one NEW_LEADER bolt as words 2..4)
+run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$OUT/nukeblast_test"
+run nuke_cycle_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/nuke_cycle_test.py" > "$1/nuke_cycle_test" && chmod +x "$1/nuke_cycle_test"' x "$OUT"
 
 echo
 echo "$pass passed, $fail failed"

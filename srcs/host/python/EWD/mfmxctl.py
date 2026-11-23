@@ -304,10 +304,22 @@ def main(argv=None):
 
     def c_nuke(a):
         m.need_booted()
-        big = bool(a) and kw(a[0], ("big",), "nuke option") == "big"
-        r = m.ewc.doNuke(big)
-        m.logkt("NUKE" if big else "nuke", r)
-        return r
+        usage = "usage: nuke [big] [X Y R] | nuke host [big]"
+        if a and a[0].lower().startswith("host"):      # the old racy host-side nuke
+            big = len(a) > 1 and kw(a[1], ("big",), "nuke option") == "big"
+            r = m.ewc.doNuke(big)
+            m.logkt("NUKE" if big else "nuke", r)
+            return r
+        big = bool(a) and not a[0].lstrip("-").isdigit() and \
+            kw(a[0], ("big",), "nuke option") == "big"
+        nums = a[1:] if big else a
+        if nums and (len(nums) != 3 or not all(w.isdigit() for w in nums)):
+            return usage
+        x, y, r = (int(w) for w in nums) if nums else (None, None, None)
+        res = cyc.queue_nuke(big, x, y, r)
+        m.logkt("NUKE", f"QUEUED {res}")
+        return res + ("" if cyc.state() == "running" else
+                      "  (the cycle is not running: it lands at its next NEW_LEADER)")
 
     def c_cycle(a):
         sub = sh.resolve(a[0], ("status", "start", "hold", "step", "stop", "retry", "reset",
@@ -500,7 +512,7 @@ def main(argv=None):
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: decay type)")
-    sh.command("nuke", c_nuke, "nuke [big]: EWControl.doNuke")
+    sh.command("nuke", c_nuke, "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub at the next NEW_LEADER; nuke host [big]: old racy host-side nuke")
     sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")
     sh.command("quit", c_quit, "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",

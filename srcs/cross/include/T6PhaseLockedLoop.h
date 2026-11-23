@@ -20,7 +20,7 @@ namespace MFM {
   extern "C" void assessProgressAllHarts() ;
 
   struct BoltArgs {
-    static constexpr u32 MAX_ARGS = 2;
+    static constexpr u32 MAX_ARGS = 5;   // NEW_LEADER: leader, scy, blast x, y, r2
     s32 mArg[MAX_ARGS];
   };
   struct CmdArg {
@@ -28,7 +28,7 @@ namespace MFM {
     BoltArgs mArgs;
     const char * formatCmdArg() const ;
   };
-  static constexpr BoltArgs NOArgs = { 0, 0 };
+  static constexpr BoltArgs NOArgs = { { 0, 0, 0, 0, 0 } };
   static constexpr CmdArg NOTACmdArg = { PBCmd::NOT_A_CMD, NOArgs };
 
   struct PhaseStepper {
