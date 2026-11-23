@@ -1,4 +1,4 @@
-# PHYSICS_FAIL SELF-TEST, about 4.5 minutes, no feed: seed 25 FB1 (type 4),
+# PHYSICS_FAIL SELF-TEST, about 4.5 minutes, with the screen feed: seed 25 FB1 (type 4),
 # start the cycle (events only run while the cycle runs), then seed 10 PHY_BOOM
 # atoms (type 6) into the running machine.  Each PHY_BOOM center
 # scribbles its four neighbors then calls PHYSICS_FAIL; recovery commits the
@@ -20,6 +20,7 @@ elide on
 decay 4
 dwell 4 8
 start
+feed on
 seed 25 4
 cycle repeat on
 cycle start
