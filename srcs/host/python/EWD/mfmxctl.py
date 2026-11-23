@@ -312,12 +312,7 @@ def main(argv=None):
 
     def c_nuke(a):
         m.need_booted()
-        usage = "usage: nuke [big] [X Y R] | nuke host [big]"
-        if a and a[0].lower().startswith("host"):      # the old racy host-side nuke
-            big = len(a) > 1 and kw(a[1], ("big",), "nuke option") == "big"
-            r = m.ewc.doNuke(big)
-            m.logkt("NUKE" if big else "nuke", r)
-            return r
+        usage = "usage: nuke [big] [X Y R]"
         big = bool(a) and not a[0].lstrip("-").isdigit() and \
             kw(a[0], ("big",), "nuke option") == "big"
         nums = a[1:] if big else a
@@ -561,7 +556,7 @@ def main(argv=None):
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
     sh.command("seed", c_seed, "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: decay type)")
     sh.command("autonuke", c_autonuke, "autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]: repeatedly nuke a random place after a random delay (defaults 5-300 s, radius 40-400) while the cycle runs")
-    sh.command("nuke", c_nuke, "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub at the next NEW_LEADER; nuke host [big]: old racy host-side nuke")
+    sh.command("nuke", c_nuke, "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub at the next NEW_LEADER (random radius 10-100, big 100-1000)")
     sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")
     sh.command("quit", c_quit, "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",

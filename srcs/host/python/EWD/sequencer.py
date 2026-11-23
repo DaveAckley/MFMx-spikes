@@ -37,7 +37,7 @@ NLEADERS = 4
 # NEW_LEADER: after SAVE, before LOAD (cross/images/hub/src/PhaseSteppers.cpp).
 GLOBAL_SITES_X = 14 * 137
 GLOBAL_SITES_Y = 10 * 108
-NUKE_RADIUS_SMALL = (5, 54)         # as the old host-side nuke: Create(50) + 5
+NUKE_RADIUS_SMALL = (10, 100)       # plain nuke
 NUKE_RADIUS_BIG = (100, 1000)       # nuke big
 
 
