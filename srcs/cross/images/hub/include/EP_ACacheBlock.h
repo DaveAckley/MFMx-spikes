@@ -124,7 +124,7 @@ namespace MFM {
        (a "turd" nothing ever repainted) is repainted from the hub's truth,
        gradually.  Cost only idle time; 0 turns it off.  Self sites only, so
        the owner has the last word (never the cache ring). */
-    static constexpr u32 REFRESH_PER_FRAME = 8u;
+    static constexpr u32 REFRESH_PER_FRAME = 20u;
     u32 mRefreshLeft;           // refresh reports still allowed this frame
     u32 mRefreshSent;           // reports sent as refresh, for the .rf mark
 
