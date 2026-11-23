@@ -525,6 +525,17 @@ def main(argv=None):
             lines.append(f"bh{chip}:{tlbi}  {tag}  {img}")
         return "\n".join(lines)
 
+    def c_who(a):
+        if len(a) != 2:
+            return "usage: who X Y   (a pixel of the picture, e.g. from zoom specks)"
+        try:
+            x, y = int(a[0]), int(a[1])
+        except ValueError:
+            return f"who: X and Y must be integers, not {a[0]!r} {a[1]!r}"
+        if not (0 <= x < 1920 and 0 <= y < 1080):
+            return f"who: ({x},{y}) is outside the 1920x1080 picture"
+        return m.who(x, y)
+
     def c_zhd(a):
         sub = kw(a[0], ("all", "restart", "break"), "zhd subcommand") if a else None
         if sub == "restart":
@@ -597,6 +608,7 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
+    sh.command("who", c_who, "who X Y: which hub last painted picture pixel (x,y), from its self sites or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze with cycle hold first)")
     sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R]|region X0 Y0 X1 Y1|shrink on/off|SCALE|status]: crop and scale the video (status shows per-stage cost); auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")

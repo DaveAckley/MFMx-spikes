@@ -105,8 +105,53 @@ namespace MFM {
     static constexpr u32 PIXEL_EPOCHS = 1920u*1080u;
     static std::atomic<u16> pixelEpochs[PIXEL_EPOCHS];
     static void resetPixelEpochs() {
-      for (u32 i = 0u; i < PIXEL_EPOCHS; ++i)
+      for (u32 i = 0u; i < PIXEL_EPOCHS; ++i) {
         pixelEpochs[i].store(0u,std::memory_order_relaxed);
+        painters[i].store(0u,std::memory_order_relaxed);
+      }
+      newestEpoch.store(0u,std::memory_order_relaxed);
+    }
+
+    /* WHO PAINTED A PIXEL, last: for hunting ghost pixels ("turds").  One
+       word per pixel: valid, epoch known, ring (the report came from the
+       painting hub's S/E cache ring, not its own SELF sites), chip, tlbi,
+       atom type, epoch.  Written by the decoder threads (relaxed; a torn
+       read of a pixel being painted just shows one painter or the other). */
+    struct Painter {
+      bool mValid = false;
+      bool mEpochKnown = false;
+      bool mRing = false;
+      u32 mChip = 0u, mTLBI = 0u, mType = 0u, mEpoch = 0u;
+    };
+    static std::atomic<u64> painters[PIXEL_EPOCHS];
+    static void notePainter(u32 pixelIndex, bool epochKnown, u16 epoch,
+                            bool ring, u32 chip, u32 tlbi, u32 type) {
+      u64 v = (1ull<<63) | ((u64) epochKnown << 62) | ((u64) ring << 61) |
+        ((u64) (chip & 0xff) << 48) | ((u64) (tlbi & 0xff) << 40) |
+        ((u64) (type & 0xffff) << 16) | epoch;
+      painters[pixelIndex].store(v,std::memory_order_relaxed);
+    }
+    static Painter whoPainted(u32 pixelIndex) {
+      Painter p;
+      if (pixelIndex >= PIXEL_EPOCHS) return p;
+      const u64 v = painters[pixelIndex].load(std::memory_order_relaxed);
+      p.mValid = (v >> 63) & 1u;
+      p.mEpochKnown = (v >> 62) & 1u;
+      p.mRing = (v >> 61) & 1u;
+      p.mChip = (u32) ((v >> 48) & 0xff);
+      p.mTLBI = (u32) ((v >> 40) & 0xff);
+      p.mType = (u32) ((v >> 16) & 0xffff);
+      p.mEpoch = (u32) (v & 0xffff);
+      return p;
+    }
+    /* newest epoch any stream has announced (bit 16 set once there is one) */
+    static std::atomic<u32> newestEpoch;
+    static void noteEpochSeen(u16 epoch) {
+      u32 cur = newestEpoch.load(std::memory_order_relaxed);
+      do {
+        if ((cur & 0x10000u) && (s16) (u16) (epoch - (u16) cur) <= 0) return;
+      } while (!newestEpoch.compare_exchange_weak(cur,0x10000u | epoch,
+                                                  std::memory_order_relaxed));
     }
     /** true: draw this report (its epoch is not older than the pixel's);
         the pixel's epoch is advanced.  false: stale, ignore it. */

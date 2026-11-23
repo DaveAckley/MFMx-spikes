@@ -870,6 +870,31 @@ class Machine:
                           if r["restart_pending"] else ""))
         return "\n".join(out)
 
+    def who(self, x, y):
+        """Who last painted pixel (x,y) of the picture (ghost-pixel hunting):
+        hub, self sites or S/E cache ring, epoch and how far behind the
+        newest epoch seen.  Text; never raises on a missing module."""
+        f = getattr(self.M, "whoPainted", None)
+        if f is None:
+            return "who: this MFMx module has no whoPainted"
+        r = f(x, y)
+        if r is None:
+            return f"who ({x},{y}): nobody has painted that pixel (never reported)"
+        chip, tlbi, ring, known, epoch, typ, newest = r
+        tx, ty = self.tlbi_to_noc(tlbi)
+        tag = f"at{chip}{b36(tx)}{b36(ty)}"
+        if not known:
+            when = "epoch unknown (no marker seen on that stream yet)"
+        elif newest < 0:
+            when = f"epoch {epoch}"
+        else:
+            lag = (newest - epoch) & 0xffff
+            lag = lag - 0x10000 if lag >= 0x8000 else lag
+            when = f"epoch {epoch}, {lag} behind the newest seen ({newest})"
+        return (f"who ({x},{y}): last painted by {tag} bh{chip}:{tlbi} from its "
+                f"{'S/E CACHE RING' if ring else 'own SELF sites'}, atom type "
+                f"{typ}, {when}; hub-relative pixel ({x % 137},{y % 108})")
+
     @staticmethod
     def noc_to_tlbi(x, y):
         """(x,y) NoC0 tile coords -> tlbi, or None if not a Tensix tile."""

@@ -695,6 +695,24 @@ def scenario_dumpl1():
     check("dumpl1: usage", "usage: dumpl1" in out, out[-1500:])
 
 
+def scenario_who():
+    import json
+    who = {"100,200": [0, 81, True, True, 118, 4, 142],      # ring painter, 24 epochs old
+           "7,9": [2, 15, False, False, 0, 4, -1]}          # epoch unknown
+    rc, out = run("boot\nstart\nwho 100 200\nwho 7 9\nwho 5 5\nwho 5000 1\nwho\nwho a b\nquit\n",
+                  env_extra={"MFMX_MOCK_WHO": json.dumps(who)})
+    check("who: ring painter, hub tag, epoch lag",
+          "who (100,200): last painted by at0e7 bh0:81 from its S/E CACHE RING" in out
+          and "epoch 118, 24 behind the newest seen (142)" in out
+          and "hub-relative pixel (100,92)" in out, out[-900:])
+    check("who: unknown epoch, self sites",
+          "who (7,9): last painted by at223 bh2:15 from its own SELF sites" in out
+          and "epoch unknown" in out, out[-900:])
+    check("who: never painted, out of range, usage, junk",
+          "nobody has painted that pixel" in out and "outside the 1920x1080" in out
+          and "usage: who X Y" in out and "must be integers" in out, out[-900:])
+
+
 def scenario_zhd():
     import json
     rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2, 0, True),   # at0e7, asked, waiting

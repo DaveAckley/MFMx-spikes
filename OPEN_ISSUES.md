@@ -153,6 +153,9 @@ ERISC_NOTES.md.
   `applyNuke` skips sites already empty in the hub grid (Grid.cpp), so a nuke
   cannot repaint a stale host pixel over one; a force re-report of the whole
   blast would (not built).
+  UPDATE (user run of d74d44d, after nuke big): turds still exist; `zhd` showed 45
+  stale reports ignored, so the race is real but rare and is not the whole story.
+  Built `who X Y` (CLAUDE.md) to name the last painter of a turd pixel.
 
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live

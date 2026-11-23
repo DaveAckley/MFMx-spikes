@@ -128,6 +128,15 @@ def zhdBreak(chip, tlbi):
     return chip == 0                    # the mock has one chip
 
 
+def whoPainted(x, y):
+    """(chip, tlbi, ring, epochKnown, epoch, atomType, newestEpoch) or None.
+    The selftest sets $MFMX_MOCK_WHO to a JSON dict {"x,y": [..7 values..]}."""
+    import json
+    d = json.loads(os.environ.get("MFMX_MOCK_WHO", "{}"))
+    r = d.get(f"{x},{y}")
+    return tuple(r) if r is not None else None
+
+
 def zhdSnapshot():
     """Report stream health rows (see host ZHostDecompressor.h):
     (chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,

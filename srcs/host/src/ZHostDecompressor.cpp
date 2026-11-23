@@ -162,6 +162,7 @@ namespace MFM {
         }
         if (arvalid && ar.isEpochMarker()) {
           mStreamEpoch = (s32) ar.markerEpoch();  // what follows was read then
+          QuietBox::noteEpochSeen((u16) mStreamEpoch);
         } else if (arvalid && atomvalid) {
           BGRImageHD & bgr = QuietBox::getT6GridImage() ;
           QuietBox& qb = QuietBox::get();
@@ -222,7 +223,19 @@ namespace MFM {
             if (!fresh) {
               mStaleDropped.fetch_add(1u,std::memory_order_relaxed);
             } else {
-              if (onImage) bgr.setPixel(pixc,color);
+              if (onImage) {
+                bgr.setPixel(pixc,color);
+                if (pixc.x < 1920u && pixc.y < 1080u) {
+                  const bool ring =
+                    ar.mCoord.x < T6Grid::SELF_ORIGIN.x ||
+                    ar.mCoord.x >= T6Grid::SELF_MAX.x ||
+                    ar.mCoord.y < T6Grid::SELF_ORIGIN.y ||
+                    ar.mCoord.y >= T6Grid::SELF_MAX.y;
+                  QuietBox::notePainter(pixc.y*1920u + pixc.x,mStreamEpoch >= 0,
+                                        (u16) mStreamEpoch,ring,mChipNum,mTLBI,
+                                        ar.mAtom.getType());
+                }
+              }
               qb.setSimAtom(gridc,ar.mAtom);
             }
           }
