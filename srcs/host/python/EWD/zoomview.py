@@ -140,10 +140,7 @@ class ZoomView:
 
     def frame_box(self, img):
         """The box of occupied sites in this frame, or None if there are none."""
-        occ = img.max(axis=2) > EMPTY_MAX
-        occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
-                 (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
-                 (img[:, :, 2] == INACCESSIBLE_BGR[2]))
+        occ = self.occupied_mask(img)
         rows = np.flatnonzero(occ.any(axis=1))
         if rows.size == 0:
             return None
@@ -153,10 +150,7 @@ class ZoomView:
     def occupancy_map(self, img, cols=48, rows=18):
         """Text map of occupied sites per cell (. none, 1-9 tenths of the cell
         full, # >= 90%), plus the box.  For finding what holds the box open."""
-        occ = img.max(axis=2) > EMPTY_MAX
-        occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
-                 (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
-                 (img[:, :, 2] == INACCESSIBLE_BGR[2]))
+        occ = self.occupied_mask(img)
         ch, cw = self.h // rows, self.w // cols
         lines = []
         for r in range(rows):
@@ -186,10 +180,15 @@ class ZoomView:
                 f"\noccupied by y mod {by}, rows 0-19 20-39 ...: {bucket(hy)}")
 
     def occupied_mask(self, img):
-        occ = img.max(axis=2) > EMPTY_MAX
-        occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
-                 (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
-                 (img[:, :, 2] == INACCESSIBLE_BGR[2]))
+        # Per-channel compares: img.max(axis=2) reduces over a 3-byte axis,
+        # numpy's slow case (about 6x slower here, worse on the QB host).
+        b = img[:, :, 0]
+        g = img[:, :, 1]
+        r = img[:, :, 2]
+        occ = (b > EMPTY_MAX) | (g > EMPTY_MAX) | (r > EMPTY_MAX)
+        occ &= ~((b == INACCESSIBLE_BGR[0]) &
+                 (g == INACCESSIBLE_BGR[1]) &
+                 (r == INACCESSIBLE_BGR[2]))
         return occ
 
     def region_map(self, img, x0, y0, x1, y1, cw=3, ch=4):
