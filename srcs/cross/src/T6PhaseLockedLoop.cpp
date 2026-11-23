@@ -246,7 +246,7 @@ namespace MFM {
       MFM_API_ASSERT(!mPS._isExiting() && !mPS._isEntering(), ILLEGAL_STATE);
       PBCmd incoming = pay.getCmd();
       u32 argc = PhaserBolt::phaserArgCount(incoming);
-      BoltArgs args;
+      BoltArgs args = NOArgs;
       for (u32 i = 0; i < argc; ++i)
         args.mArg[i] = pay.getBoltDataWordOrDie(i);
 

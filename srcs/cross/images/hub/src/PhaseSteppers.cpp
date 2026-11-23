@@ -229,7 +229,24 @@ namespace MFM {
         nb.mY = cda.mArgs.mArg[3];
         nb.mR2 = cda.mArgs.mArg[4];
         const s32 scy = cda.mArgs.mArg[1];
-        if (!nb.isNone() && scy != lastNukeScy) {
+        {                       // first 16 exits (and any odd one): the 5 words
+          static u32 seen = 0u;
+          const bool odd = !nb.isNone();
+          if (seen < 16u || odd) {
+            ++seen;
+            char w[64];
+            snprintf(w,sizeof(w),"%x:%x:%x:%x:%x.",
+                     (u32) arg,(u32) scy,(u32) nb.mX,(u32) nb.mY,(u32) nb.mR2);
+            LOGPTAG(.nw,w);
+            HBPTAG(.nw,w);
+          }
+        }
+        const bool sane = nb.mX >= 0 && nb.mX < 1918 &&
+                          nb.mY >= 0 && nb.mY < 1080 &&
+                          nb.mR2 < 1000*1000;
+        if (!nb.isNone() && !sane) {
+          LOGPTAG(.nb,"bad blast ignored");
+        } else if (!nb.isNone() && scy != lastNukeScy) {
           lastNukeScy = scy;
           u32 cacheErased = 0u;
           const u32 selfErased = fB.mGridManager.applyNuke(nb,cacheErased);
