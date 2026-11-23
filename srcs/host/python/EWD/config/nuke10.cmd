@@ -1,4 +1,4 @@
-# NUKE TEST, about 7 minutes, no feed: let 25 FB1 (type 4) spread for two
+# NUKE TEST, about 7 minutes, no feed: let 200 FB1 (type 4) spread for two
 # minutes under four corners with `elide on` (kept caches), then three blasts in
 # global site coordinates (1918 x 1080): (959,540) radius 300 sits exactly on the
 # chip-seam corner of all four chips, (400,800) radius 250 is mostly inside one chip,
@@ -20,7 +20,7 @@ elide on
 decay 4
 dwell 4 8
 start
-seed 25 4
+seed 200 4
 cycle repeat on
 cycle start
 wait 120
