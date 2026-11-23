@@ -160,6 +160,17 @@ xl = [l for l in ZoomView().occupancy_map(img2).split("\n") if l.startswith("occ
 check(xl.split(": ")[1].split()[1:] == ["0"] * 6 and int(xl.split(": ")[1].split()[0]) == 1080 * 20,
       "x mod 137 histogram puts a hub-edge strip in the first bucket")
 
+# --- specks: lone occupied sites in an empty neighborhood ---------------------
+img = blank()
+img[100:400, 50:700] = (200, 50, 50)          # a dense block is not specks
+img[500, 1000] = (0, 255, 0)
+img[900, 1500] = (0, 255, 0)
+img[600, 1100:1103] = (0, 255, 0)             # a 3-site streak is not lone
+ys, xs = ZoomView().specks(img)
+check(sorted(zip(xs.tolist(), ys.tolist())) == [(1000, 500), (1500, 900)],
+      f"specks found exactly the two lone sites {list(zip(xs, ys))}")
+check("2 lone occupied sites" in ZoomView().specks_report(img), "specks report")
+
 # --- centered even near a corner: the view may extend past the image --------------
 z = ZoomView()
 z.set_mode("auto")

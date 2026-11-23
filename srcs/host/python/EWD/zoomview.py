@@ -156,6 +156,45 @@ class ZoomView:
                 f"\noccupied by x mod {bx}, columns 0-19 20-39 ...: {bucket(hx)}"
                 f"\noccupied by y mod {by}, rows 0-19 20-39 ...: {bucket(hy)}")
 
+    def occupied_mask(self, img):
+        occ = img.max(axis=2) > EMPTY_MAX
+        occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
+                 (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
+                 (img[:, :, 2] == INACCESSIBLE_BGR[2]))
+        return occ
+
+    def specks(self, img, radius=5):
+        """Occupied sites with no other occupied site within `radius` (a box):
+        lone pixels in an empty neighborhood, the signature of stale ghost
+        pixels.  Returns (ys, xs) arrays."""
+        occ = self.occupied_mask(img).astype(np.int32)
+        h, w = occ.shape
+        ii = np.zeros((h + 1, w + 1), np.int64)
+        ii[1:, 1:] = occ.cumsum(axis=0).cumsum(axis=1)
+        y0 = np.clip(np.arange(h) - radius, 0, h)
+        y1 = np.clip(np.arange(h) + radius + 1, 0, h)
+        x0 = np.clip(np.arange(w) - radius, 0, w)
+        x1 = np.clip(np.arange(w) + radius + 1, 0, w)
+        win = (ii[y1][:, x1] - ii[y0][:, x1] - ii[y1][:, x0] + ii[y0][:, x0])
+        return np.nonzero((occ == 1) & (win == 1))
+
+    def specks_report(self, img, radius=5, show=40):
+        ys, xs = self.specks(img, radius)
+        bx, by = self.hub_base
+        out = [f"{len(ys)} lone occupied sites (no other within {radius} sites)"]
+        if len(ys):
+            hx = np.bincount(xs % bx, minlength=bx)
+            hy = np.bincount(ys % by, minlength=by)
+            out.append("by x mod %d, columns 0-19 20-39 ...: %s" % (
+                bx, " ".join(str(int(hx[i:i + 20].sum())) for i in range(0, bx, 20))))
+            out.append("by y mod %d, rows 0-19 20-39 ...: %s" % (
+                by, " ".join(str(int(hy[i:i + 20].sum())) for i in range(0, by, 20))))
+            order = np.lexsort((ys, xs))
+            pts = [f"({int(xs[i])},{int(ys[i])})" for i in order[:show]]
+            out.append("first %d (x,y): %s%s" % (len(pts), " ".join(pts),
+                                                  " ..." if len(ys) > show else ""))
+        return "\n".join(out)
+
     def note_frame_box(self, fb):
         """Fold one frame's box in: ever-seen union, or (shrink) the recent window."""
         if fb is None:
