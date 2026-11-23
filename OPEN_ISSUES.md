@@ -520,6 +520,26 @@ heavy element (the nearest-match query with a tunable filter and EW density) so
 AER can see physics cost; (3) the scalar query library with a differential
 test; only then (4) an SFPU kernel behind it, xray/nuke as the first bulk user.
 
+- Shrink AtomReport from 20 to 16 bytes (2026-11-23, idea, NOT started, user:
+  can wait, do not lose the thread).  Today: P4Atom 12 + U16C coord 4 + two
+  u16 spins (mSpin1 == mSpin2 == expected, the record-level desync check) = 20,
+  4-byte aligned, so dropping ONE spin saves nothing.  16-byte layouts: (a)
+  U8C coord (the 177x148 T6Grid including caches fits u8) + two u8 spins
+  (weaker: wraps every 256 records); (b) U8C + one u16 spin; (c) U16C and no
+  spins.  The epoch marker (AtomReport.h) would flag with coord.x == 0xff and
+  carry its 16-bit epoch in the marker atom's mData0.  Dropping the spins
+  needs a replacement for the desync detection and the restart trigger
+  (ZHostDecompressor mSpinSync/noteBadReport): the car trailer already has
+  seq + checksum (transit damage) and the hub's shadow sum (a byte the sink
+  failed to store); what only the spins catch is decoder-vs-compressor
+  disagreement with every trailer fine.  Replace with per-record atom parity
+  + coord range check (random garbage passes about 0.3%) and a periodic sync
+  record (running record count every ~256 records, like the epoch marker) for
+  skipped or duplicated records.  FIRST measure what the 4 bytes cost: the
+  spins compress poorly (incrementing counters), so compare compressed bytes
+  per report (zhd counters) with and without.  Touches hub, host decoder,
+  mock/selftest.
+
 ## Speed / measurement ideas (not started)
 
 (The exchange itself is done, see CLOSED_ISSUES.md: duty 97%.  What is left
