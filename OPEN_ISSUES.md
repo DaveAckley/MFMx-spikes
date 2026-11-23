@@ -526,8 +526,17 @@ test; only then (4) an SFPU kernel behind it, xray/nuke as the first bulk user.
   4-byte aligned, so dropping ONE spin saves nothing.  16-byte layouts: (a)
   U8C coord (the 177x148 T6Grid including caches fits u8) + two u8 spins
   (weaker: wraps every 256 records); (b) U8C + one u16 spin; (c) U16C and no
-  spins.  The epoch marker (AtomReport.h) would flag with coord.x == 0xff and
-  carry its 16-bit epoch in the marker atom's mData0.  Dropping the spins
+  spins.  PREFERRED (user, 2026-11-23): (b) U8C coord + ONE u16 spin.  Epoch
+  marker = coord (0xff,0xff) (no site has 255) with the 16-bit epoch in the
+  spin field; the hub still counts a marker in the running sequence (next
+  record's spin = previous + 1) and the host advances its expected value
+  without checking the marker's own spin, so a lost marker reads as a skipped
+  record.  mSpinSync (adopt the hub's spin after a restart) would adopt from
+  the first non-marker record with valid atom parity and coord range (the
+  hub sends a marker first in every stream).  Loses the skipped-vs-garbage
+  split of the two spins: guess it from parity and range, or report one
+  combined bad-record kind.  (Older idea, if the spins stay u8: flag with
+  coord.x == 0xff and carry the epoch in the marker atom's mData0.)  Dropping the spins
   needs a replacement for the desync detection and the restart trigger
   (ZHostDecompressor mSpinSync/noteBadReport): the car trailer already has
   seq + checksum (transit damage) and the hub's shadow sum (a byte the sink
