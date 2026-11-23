@@ -140,6 +140,8 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
+- Zoom slows host-observed consensus from about 0.06 s to 0.4-0.7 s (2026-11-23, built a mitigation, NOT yet run): proven by toggling `zoom off`/`zoom auto` mid-run.  Mitigation: poll the bolt between zoom stages, skip the box scan while a bolt is pending, per-stage timers in `zoom status` (CLAUDE.md).  To check: with zoom auto, consensus back near 0.1 s?  If not, the `cost:` line shows which stage (scan, step, render, whole frame) is long; render is one call and cannot be split without work (bands, or a worker thread).  The numpy fallback is used when cv2 is missing: the cost line says so.
+
 - Turd ghost pixels after nukes, cause unproven (2026-11-23).  Clue from the
   user: no turds with FB4 (never empties an atom), only with FB1 (dies back).
   Suspected race: a borrower's late report of a cache-ring site beats the

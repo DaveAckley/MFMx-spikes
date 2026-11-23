@@ -956,12 +956,19 @@ class Machine:
     def frame(self):
         if self.feed is None:
             return "no feed"
+        tf = time.perf_counter()
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
         arr = img.asNP()
         if self.zoom.mode != "off":
             try:
-                arr = self.zoom.apply(arr)
+                # one thread: notice a finished bolt between the zoom stages,
+                # and skip the box scan while one is pending (its cost would
+                # only delay seeing the bolt finish)
+                b = self.bolt
+                pending = b is not None and b.state == "pending"
+                arr = self.zoom.apply(arr, between=self.poll_bolt,
+                                      scan=not pending)
             except Exception as e:           # never lose the stream over zoom
                 self.zoom.set_mode("off")
                 self.say(f"zoom disabled: {type(e).__name__}: {e}")
@@ -969,6 +976,8 @@ class Machine:
                                     f"mfmxctl/{self.mfmxVersion}",
                                     self._live_line())
         self.frames_real += 1
+        if self.zoom.mode != "off":
+            self.zoom.note_cost("frame", tf)
 
     def idle_frame(self):
         """Placeholder while there are no simulation frames (not booted yet).  The

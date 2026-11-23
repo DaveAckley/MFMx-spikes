@@ -26,6 +26,7 @@ drawn white into the same image and would count, so use zoom auto with the
 grid off.
 """
 import collections
+import time
 import math
 
 import numpy as np
@@ -63,6 +64,31 @@ class ZoomView:
         self.box = None                   # [x0, y0, x1, y1), ever-seen, in sites
         self.cur = None                   # (cx, cy, scale) being shown
         self.last_ms = 0.0
+        # Cost of each stage, ms: [calls, total, max].  mfmxctl is one thread,
+        # so a slow frame delays noticing a finished bolt (consensus times).
+        self.cost = {"scan": [0, 0.0, 0.0], "step": [0, 0.0, 0.0],
+                     "render": [0, 0.0, 0.0], "frame": [0, 0.0, 0.0]}
+        self.scans_skipped = 0            # scans left out while a bolt was pending
+
+    def note_cost(self, what, t0):
+        """Record the time since t0 (perf_counter) under `what`."""
+        ms = (time.perf_counter() - t0) * 1000.0
+        c = self.cost[what]
+        c[0] += 1
+        c[1] += ms
+        if ms > c[2]:
+            c[2] = ms
+
+    def cost_text(self):
+        parts = []
+        for k in ("scan", "step", "render", "frame"):
+            n, tot, mx = self.cost[k]
+            if n:
+                parts.append(f"{k} {tot / n:.1f}/{mx:.0f}ms")
+        return (("cv2" if cv2 is not None else "numpy (NO cv2: slow render)")
+                + "; avg/max " + (", ".join(parts) if parts else "no frames yet")
+                + (f"; {self.scans_skipped} scans skipped for a pending bolt"
+                   if self.scans_skipped else ""))
 
     # ---- commands -----------------------------------------------------------
     def set_mode(self, mode, fixed=None):
@@ -99,6 +125,9 @@ class ZoomView:
         if self.cur is not None:
             s += f"; showing {self.cur[2]:.2f}x"
         return s
+
+    def status_long(self):
+        return self.status() + "\n  cost: " + self.cost_text()
 
     # ---- geometry (pure) -------------------------------------------------------
     def observe_box(self, x0, y0, x1, y1):
@@ -328,15 +357,30 @@ class ZoomView:
         return cv2.warpAffine(up, m, (self.w, self.h), flags=cv2.INTER_LINEAR,
                               borderMode=cv2.BORDER_CONSTANT, borderValue=bg)
 
-    def apply(self, img):
-        """img: (h,w,3) uint8.  Returns the frame to send (img itself when off)."""
+    def apply(self, img, between=None, scan=True):
+        """img: (h,w,3) uint8.  Returns the frame to send (img itself when off).
+        between: called after each stage (the one thread's chance to notice a
+        finished bolt).  scan=False leaves out the box scan this frame (the box
+        and view stay as they were)."""
         if self.mode == "off":
             return img
-        if self.mode == "auto":
-            self.observe(img)
-        elif self.box is None:
-            self.observe(img)
+        if self.mode == "auto" or self.box is None:
+            if scan:
+                t0 = time.perf_counter()
+                self.observe(img)
+                self.note_cost("scan", t0)
+                if between:
+                    between()
+            else:
+                self.scans_skipped += 1
+        t0 = time.perf_counter()
         v = self.step()
+        self.note_cost("step", t0)
+        if between:
+            between()
         if v is None:
             return img
-        return self.render(img, *v)
+        t0 = time.perf_counter()
+        out = self.render(img, *v)
+        self.note_cost("render", t0)
+        return out

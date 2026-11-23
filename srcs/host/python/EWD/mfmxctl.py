@@ -397,7 +397,7 @@ def main(argv=None):
     def c_zoom(a):
         z = m.zoom
         if not a or a[0].lower().startswith("st"):
-            return z.status()
+            return z.status_long()
         w = a[0].lower()
         if w == "reset":
             z.reset_box()
@@ -597,7 +597,7 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
-    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R]|region X0 Y0 X1 Y1|shrink on/off|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
+    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R]|region X0 Y0 X1 Y1|shrink on/off|SCALE|status]: crop and scale the video (status shows per-stage cost); auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")

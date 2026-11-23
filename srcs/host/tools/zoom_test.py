@@ -241,6 +241,29 @@ if zoomview.cv2 is not None:
         check(d == 0 or float(np.mean(got != want)) < 0.001,
               f"cv2 warp matches numpy at {s_}x (max diff {d})")
 
+# --- cost accounting, the between() callback, scan=False -----------------------
+z = ZoomView()
+z.set_mode("auto")
+img = blank()
+img[500, 900] = (250, 20, 30)
+calls = []
+z.apply(img, between=lambda: calls.append(1))
+check(len(calls) == 2, f"between() runs after scan and step: {len(calls)}")
+check(z.cost["scan"][0] == 1 and z.cost["step"][0] == 1 and z.cost["render"][0] == 1,
+      f"each stage timed once {z.cost}")
+box = list(z.box)
+img2 = blank()
+img2[100, 100] = (250, 20, 30)
+calls = []
+z.apply(img2, between=lambda: calls.append(1), scan=False)
+check(z.box == box, "scan=False leaves the box alone")
+check(z.scans_skipped == 1 and z.cost["scan"][0] == 1, "skipped scan counted, not timed")
+check(len(calls) == 1, f"between() runs once without a scan: {len(calls)}")
+check("scans skipped" in z.cost_text() and "avg/max" in z.cost_text(), z.cost_text())
+check("cost:" in z.status_long(), "status_long carries the cost line")
+z.apply(img)                     # scan=True default, no callback
+check(z.cost["scan"][0] == 2, "scan runs again by default")
+
 # --- timing: a full fractional-zoom frame ---------------------------------------
 z = ZoomView()
 z.set_mode("auto")
