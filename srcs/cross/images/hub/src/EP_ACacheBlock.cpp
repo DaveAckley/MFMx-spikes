@@ -305,21 +305,16 @@ namespace MFM {
     memset_s(this,'\0',sizeof(*this)); // init all
     mACBL1Control = &acbl1;
     mDLGridList= &dll1;
-    mRefreshRng = 0x2545f491u;            // nonzero xorshift seed (memset made it 0)
     mARIO.init(true);   // true: init for serialization (obj -> bytes)
     HBPTAG(PACBinit,sizeof(*this));
   }
 
   U8C ACacheBlockPrivateControl::nextRefreshSite() {
-    u32 x = mRefreshRng;        // xorshift32
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    mRefreshRng = x;
+    // the shared PRNG (FastT2.h create): per-hart creativity buffer, cheap
     const u32 w = T6Grid::SELF_MAX.x - T6Grid::SELF_ORIGIN.x;
     const u32 h = T6Grid::SELF_MAX.y - T6Grid::SELF_ORIGIN.y;
-    return U8C((u8) (T6Grid::SELF_ORIGIN.x + (x & 0xffffu) % w),
-               (u8) (T6Grid::SELF_ORIGIN.y + (x >> 16) % h));
+    return U8C((u8) (T6Grid::SELF_ORIGIN.x + create(w)),
+               (u8) (T6Grid::SELF_ORIGIN.y + create(h)));
   }
 
   void ACacheBlockPrivateControl::updateCars(HostBlock & hb) {
