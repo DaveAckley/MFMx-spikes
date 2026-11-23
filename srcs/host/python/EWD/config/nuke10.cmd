@@ -1,8 +1,8 @@
 # NUKE TEST, about 7 minutes, no feed: let 25 FB1 (type 4) spread for two
 # minutes under four corners with `elide on` (kept caches), then three blasts in
-# global site coordinates (1918 x 1080): (959,540) radius 100 sits exactly on the
-# chip-seam corner of all four chips, (300,800) radius 150 is inside one chip,
-# (1500,200) radius 60 is a small one.  Each blast rides the next NEW_LEADER bolt
+# global site coordinates (1918 x 1080): (959,540) radius 300 sits exactly on the
+# chip-seam corner of all four chips, (400,800) radius 250 is mostly inside one chip,
+# (1500,250) radius 250 reaches the top edge.  Each blast rides the next NEW_LEADER bolt
 # (words 2..4) and every hub erases the disc from its WHOLE grid, caches
 # included, after SAVE and before LOAD.  Needs ./build_all.sh at this commit.
 #   python mfmxctl.py --layout seam4 --boot -s config/nuke10.cmd --script-exit --abort-on-error
@@ -25,13 +25,13 @@ cycle repeat on
 cycle start
 wait 120
 status
-nuke 959 540 100
+nuke 959 540 300
 wait 60
 status
-nuke 300 800 150
+nuke 400 800 250
 wait 60
 status
-nuke 1500 200 60
+nuke 1500 250 250
 wait 60
 status
 cycle stop

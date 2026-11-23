@@ -70,7 +70,11 @@ namespace MFM {
       return allPhaserCommandNames[(u8) cmd];
     }
 
-    static constexpr const u32 allPhaserArgCounts[CMD_COUNT] = {
+    // One entry per Cmd value: NOT_A_CMD (0) first, then the commands in
+    // order, then the clamp slot for CMD_COUNT.  (Before this was fixed the
+    // NOT_A_CMD slot was missing and every command read its neighbor's count.)
+    static constexpr const u32 allPhaserArgCounts[CMD_COUNT+1] = {
+      0,
 #define XX(name,argc) argc,
       ALL_PHASER_COMMANDS()
 #undef XX
@@ -245,6 +249,14 @@ namespace MFM {
   };
 
   static_assert(sizeof(PhaserBlock)==64,"bad size");
+  static_assert(PhaserBolt::phaserArgCount(PhaserBolt::Cmd::NOT_A_CMD)==0,
+                "arg count table misaligned");
+  static_assert(PhaserBolt::phaserArgCount(PhaserBolt::Cmd::NEW_LEADER)==5,
+                "arg count table misaligned");
+  static_assert(PhaserBolt::phaserArgCount(PhaserBolt::Cmd::HOLD_AT_BIRTH)==1,
+                "arg count table misaligned");
+  static_assert(PhaserBolt::phaserArgCount(PhaserBolt::Cmd::RUN_EVENTS)==1,
+                "arg count table misaligned");
 }
 
 

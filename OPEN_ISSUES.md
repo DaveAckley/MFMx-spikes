@@ -593,3 +593,5 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 - Also considered, withdrawn: double painting of cache bands by two hubs.  The
   lender reports nothing for lent sites until SAVE, and SAVE returns the
   borrower's values, so there is no stale writer.
+
+- PHASER arg-count table was misaligned (no NOT_A_CMD slot) so every command read its neighbor's count; NEW_LEADER got 1 word, never its scy/blast words (nuke10-10/11: .nw all zero, bogus blast from uninitialized args). Fixed with a leading 0 entry plus static_asserts in PHASER.h; .nw/.nb diagnostics stay.
