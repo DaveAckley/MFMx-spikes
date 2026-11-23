@@ -156,6 +156,20 @@ ERISC_NOTES.md.
   UPDATE (user run of d74d44d, after nuke big): turds still exist; `zhd` showed 45
   stale reports ignored, so the race is real but rare and is not the whole story.
   Built `who X Y` (CLAUDE.md) to name the last painter of a turd pixel.
+  FOUND (2026-11-23, user run of f66a298 / a1a5d89, refresh off): `zoom specks` now
+  checks the hub's own grid: 8/8 specks were EMPTY in the hub, host last saw them
+  non-empty 2-6 epochs earlier, no accepted report since.  SUSPECT (not proven):
+  EWTs in flight at the RUN_EVENTS exit.  The EWP only works in RUN_EVENTS (ewp
+  EwpBlock.cpp), so they return in a LATER epoch, and applyEWT applied any return
+  whose old atoms still matched, in any phase, even on sites now lent to a leader;
+  the hub reports the atom, then the leader's SAVE quietly overwrites the lent
+  sites with its stale cache copy (lost update, host shows the atom).  workOnExitingRunEventsB
+  has `if (true /* DONE DRAINING EWPS? */)`: nothing waits.  BUILT: EWTs carry
+  their dispatch epoch (mHiddenYPos high 16 bits) and are dropped as STALE if it is
+  not the current report epoch; books RETURNED = COMMITTED + OBSOLETED + STALE +
+  UNAPPLIED, OUTSTANDING = OFFERED - RETURNED, marks .eo (exit) and .en (nuke).
+  TEST: turds gone and .eo stale > 0.  LATER: wait for OUTSTANDING == 0 (with EWs
+  suspended, which now counts as returned-unapplied) before leaving RUN_EVENTS.
 
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live

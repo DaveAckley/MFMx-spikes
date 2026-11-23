@@ -106,7 +106,8 @@ namespace MFM {
        second) over the events-running time and over wall-clock time
        (scripts/aer/aer.py).  EMPTY counts events at empty sites, acts of
        physics that did nothing, which count toward AER; the events that
-       happened are COMMITTED + EMPTY.  OBSOLETED = RETURNED - COMMITTED. */
+       happened are COMMITTED + EMPTY.  OBSOLETED = RETURNED - COMMITTED - STALE - UNAPPLIED (see
+       GridManager; .eo/.en carry the books). */
     static u32 fmtHex64(char * b, u32 siz, u64 v) {
       const u32 hi = (u32) (v >> 32);
       const u32 lo = (u32) v;
@@ -121,6 +122,22 @@ namespace MFM {
       b[n++] = ':';
       n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsEmptyCenters);
       b[n++] = '.';           // end marker: a cropped mark has no final '.'
+      b[n] = '\0';
+      return b;
+    }
+
+    /* .eo:O:R:S:U. (hex) at the RUN_EVENTS exit, .en:... at the nuke: the
+       EW books (see GridManager): OFFERED, RETURNED, STALE, UNAPPLIED.
+       OFFERED - RETURNED is what is still out at that moment. */
+    static const char * fmtEventBooks(char (&b)[80], const GridManager & gm) {
+      u32 n = fmtHex64(b,sizeof(b),gm.mEWsOffered);
+      b[n++] = ':';
+      n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsReturned);
+      b[n++] = ':';
+      n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsStale);
+      b[n++] = ':';
+      n += fmtHex64(b+n,sizeof(b)-n,gm.mEWsUnapplied);
+      b[n++] = '.';
       b[n] = '\0';
       return b;
     }
@@ -254,6 +271,10 @@ namespace MFM {
         } else if (!nb.isNone() && scy != lastNukeScy) {
           lastNukeScy = scy;
           u32 cacheErased = 0u;
+          {
+            char bn[80];
+            LOGPTAG(.en,fmtEventBooks(bn,fB.mGridManager));
+          }
           const u32 selfErased = fB.mGridManager.applyNuke(nb,cacheErased);
           if (selfErased != 0u || cacheErased != 0u) {
             char b[48];
@@ -307,6 +328,8 @@ namespace MFM {
           LOGPTAG(.ac,fmtCensusCache(b4,gc));
           char b5[80];
           LOGPTAG(.ev,fmtEventCounts(b5,fB.mGridManager));
+          char b6[80];
+          LOGPTAG(.eo,fmtEventBooks(b6,fB.mGridManager));
         }
         theL1CacheLoaders.restartIterators();
         HBPTAG(BOLTR_done_wOxREB,(u32) arg);

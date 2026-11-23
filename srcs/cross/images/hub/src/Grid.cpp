@@ -279,22 +279,32 @@ namespace MFM {
     */
     U16C center;
     L1GridManagerControl & lgmc = theL1GridManagerControl;
-    if (!lgmc.isEPSuspReq() &&
-        ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
-
-      // not suspended and it has a dest: try to apply
+    const u16 epochNow = lgmc.getReportEpoch();
+    if (ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_AND_DEST) {
+      ++mEWsReturned;           // every one lands in exactly one bucket below
+      // the hidden fields: x, and y | (epoch of dispatch << 16) (hub only)
       center.x = ewt.mHiddenXPos;
-      center.y = ewt.mHiddenYPos;
-      SNAP(100,HBPTAG(ewtraply,center));
-      ++mEWsReturned;           // tried to apply: committed + obsoleted
-      if (matchesEW(ewt.mOld,center)) {
-        SNAP(100,HBPTAG(ewaplid!,center));
-        EACH(100'000,LOGPTAG(!MEW@,center));
-        writeEW(ewt.mNew,center);
-        ++mEWsCommitted;        // an event happened (AER counts these)
+      center.y = (u16) ((u32) ewt.mHiddenYPos & 0xffffu);
+      const u16 shippedEpoch = (u16) ((u32) ewt.mHiddenYPos >> 16);
+      if (lgmc.isEPSuspReq()) {
+        ++mEWsUnapplied;        // suspended: don't apply
+      } else if (shippedEpoch != epochNow) {
+        ++mEWsStale;            // shipped in an earlier epoch: never apply
+        EACH(1'000,LOGPTAG(.st,center));
       } else {
-        ++mEWsObsoleted;        // the window changed meanwhile: dropped
+        SNAP(100,HBPTAG(ewtraply,center));
+        if (matchesEW(ewt.mOld,center)) {
+          SNAP(100,HBPTAG(ewaplid!,center));
+          EACH(100'000,LOGPTAG(!MEW@,center));
+          writeEW(ewt.mNew,center);
+          ++mEWsCommitted;      // an event happened (AER counts these)
+        } else {
+          ++mEWsObsoleted;      // the window changed meanwhile: dropped
+        }
       }
+    } else if (ewt.mPayloadState.mPayloadCode == EwpPayloadCode::EWPC_SOURCE_ONLY) {
+      ++mEWsReturned;           // came back without a result: not applied
+      ++mEWsUnapplied;
     }
 
     // all EWPCs come through here
@@ -305,7 +315,7 @@ namespace MFM {
       ++mEWsOffered;            // an event shipped (non-empty, or any in honest mode)
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_ONLY;
       ewt.mHiddenXPos = center.x;
-      ewt.mHiddenYPos = center.y;
+      ewt.mHiddenYPos = (s32) ((u32) center.y | ((u32) epochNow << 16));
       EACH(1'000'000,LOGPTAG(ewdisnew,center));
     } else {                    // suspended or couldn't find a center
       ++mEWsEmptiesShipped;

@@ -382,6 +382,17 @@ namespace MFM {
     u64 mEWsCommitted;
     u64 mEWsObsoleted;
     u64 mEWsEmptyCenters;
+    /* Every non-empty EWT shipped comes back exactly once, and each return
+       lands in exactly one of COMMITTED, OBSOLETED (window changed), STALE
+       (shipped in an earlier epoch: the EWP only runs during RUN_EVENTS, so
+       one in flight at the exit waits there and returns in a later epoch,
+       when its window may be on sites now lent to a leader; it is dropped
+       unread) or UNAPPLIED (EWs suspended, or it came back without a
+       result).  So RETURNED = COMMITTED + OBSOLETED + STALE + UNAPPLIED and
+       OUTSTANDING = OFFERED - RETURNED is the number still out there. */
+    u64 mEWsStale;
+    u64 mEWsUnapplied;
+    u64 getEWsOutstanding() const { return mEWsOffered - mEWsReturned; }
     u8 mEmptiesRun[MAX_NGBS];
     u8 mSuperCellLeaderCode;  //< if there is a SCL, it's us if it's this
   };
