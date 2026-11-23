@@ -870,6 +870,23 @@ class Machine:
                           if r["restart_pending"] else ""))
         return "\n".join(out)
 
+    def who_row(self, x, y):
+        """One compact line of who: (x,y) RING|SELF type T e<epoch> <lag>
+        <hub tag> site (gx,gy).  For zoom specks, which asks for many."""
+        f = getattr(self.M, "whoPainted", None)
+        r = f(x, y) if f is not None else None
+        if r is None:
+            return f"({x},{y}) nobody has painted it"
+        chip, tlbi, ring, known, epoch, typ, newest = r[:7]
+        tx, ty = self.tlbi_to_noc(tlbi)
+        lag = ""
+        if known and newest >= 0:
+            d = (newest - epoch) & 0xffff
+            lag = f" lag {d - 0x10000 if d >= 0x8000 else d}"
+        site = f" site ({r[7]},{r[8]})" if len(r) >= 9 else ""
+        return (f"({x},{y}) {'RING' if ring else 'SELF'} type {typ} "
+                f"e{epoch if known else '?'}{lag} at{chip}{b36(tx)}{b36(ty)}{site}")
+
     def who(self, x, y):
         """Who last painted pixel (x,y) of the picture (ghost-pixel hunting):
         hub, self sites or S/E cache ring, epoch and how far behind the

@@ -225,7 +225,7 @@ class ZoomView:
         win = (ii[y1][:, x1] - ii[y0][:, x1] - ii[y1][:, x0] + ii[y0][:, x0])
         return np.nonzero((occ == 1) & (win == 1))
 
-    def specks_report(self, img, radius=5, show=40):
+    def specks_report(self, img, radius=5, show=40, annotate=None):
         ys, xs = self.specks(img, radius)
         bx, by = self.hub_base
         out = [f"{len(ys)} lone occupied sites (no other within {radius} sites)"]
@@ -240,6 +240,8 @@ class ZoomView:
             pts = [f"({int(xs[i])},{int(ys[i])})" for i in order[:show]]
             out.append("first %d (x,y): %s%s" % (len(pts), " ".join(pts),
                                                   " ..." if len(ys) > show else ""))
+            if annotate is not None:   # one line per speck, same instant (who)
+                out.extend(annotate(int(xs[i]), int(ys[i])) for i in order[:show])
         return "\n".join(out)
 
     def note_frame_box(self, fb):
