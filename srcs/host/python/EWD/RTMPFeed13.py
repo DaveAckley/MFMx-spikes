@@ -573,7 +573,7 @@ class RTMPFeed:
         self.drawTextOnImage(bgrimage,info,
                              (dickWidth,self.height-richardBaseheight),
                              self.fontCache.getCachedFont(self.fontCodeLive))
-        lineh = self.fontCodeLiveSize+2
+        lineh = self.fontCodeLiveSize+4  # was +2: bracket tops of [140] were clipped
         liveY = self.height-richardBaseheight-lineh
         if extra:
             self.drawTextOnImage(bgrimage,extra,(dickWidth,liveY),
