@@ -46,7 +46,7 @@ class ZoomView:
         self.max_scale = 16.0
         self.margin = 0.04                # of the box, each side, when first fitted
         self.headroom = 0.14              # extra margin when zooming out, so growth is absorbed
-        self.edge = 0.02                  # box nearer than this to the view edge: zoom out
+        self.edge = 0.05                  # box nearer than this to the view edge: zoom out
         self.anim_frames = 15             # an ease takes this many frames (3 s at 5 Hz)
         self.goal = None                  # (cx, cy, scale) being eased toward
         self.anim = None                  # (from, i): ease progress
