@@ -6,8 +6,9 @@ and scales that image on its way to the feed; nothing on the hubs changes.
   mode "off"    frames go out untouched
   mode "auto"   fit the box of every non-empty site ever seen into the frame
                 as large as possible, sites kept square.  The box only
-                grows, so the zoom only moves outward; the shown scale and
-                center glide toward the target, a fraction per frame.
+                grows, so the zoom only moves outward.  The goal is only
+                recomputed when the box outgrows the shown view; it is then
+                set with headroom, and the view eases to it over ~3 s.
   mode "fixed"  a given scale, centered on the box (or the image center)
 
 Scaling is fractional.  Upscaling is nearest-neighbor to the next whole
@@ -32,6 +33,7 @@ except ImportError:                       # tests, mock hosts
 W, H = 1920, 1080
 EMPTY_MAX = 24                  # brightest channel of an empty site is 15
 INACCESSIBLE_BGR = (80, 64, 48)
+EMPTY_BGR = (5, 10, 15)
 
 
 class ZoomView:
@@ -41,8 +43,12 @@ class ZoomView:
         self.fixed = 1.0
         self.min_box = (120, 68)          # sites: caps the zoom on a lone start atom
         self.max_scale = 16.0
-        self.margin = 0.04                # of the box, each side
-        self.alpha = 0.25                 # glide: fraction of the way per frame
+        self.margin = 0.04                # of the box, each side, when first fitted
+        self.headroom = 0.14              # extra margin when zooming out, so growth is absorbed
+        self.edge = 0.02                  # box nearer than this to the view edge: zoom out
+        self.anim_frames = 15             # an ease takes this many frames (3 s at 5 Hz)
+        self.goal = None                  # (cx, cy, scale) being eased toward
+        self.anim = None                  # (from, i): ease progress
         self.box = None                   # [x0, y0, x1, y1), ever-seen, in sites
         self.cur = None                   # (cx, cy, scale) being shown
         self.last_ms = 0.0
@@ -56,12 +62,13 @@ class ZoomView:
             if not 1.0 <= fixed <= 64.0:
                 raise ValueError("zoom scale must be 1..64")
             self.fixed = float(fixed)
+        self.goal = self.anim = None
         if mode == "off":
             self.cur = None
         return self.status()
 
     def reset_box(self):
-        self.box, self.cur = None, None
+        self.box, self.cur, self.goal, self.anim = None, None, None, None
 
     def status(self):
         s = f"zoom: {self.mode}"
@@ -94,8 +101,9 @@ class ZoomView:
         cols = np.flatnonzero(occ.any(axis=0))
         self.observe_box(int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1)
 
-    def target(self):
-        """(cx, cy, scale) that fits the ever-seen box, or None."""
+    def target(self, margin=None):
+        """(cx, cy, scale) that fits the ever-seen box with the margin, or None."""
+        margin = self.margin if margin is None else margin
         if self.mode == "fixed":
             if self.box is None:
                 return (self.w / 2.0, self.h / 2.0, self.fixed)
@@ -104,61 +112,88 @@ class ZoomView:
         if self.box is None:
             return None
         x0, y0, x1, y1 = self.box
-        bw = max(x1 - x0, self.min_box[0]) * (1.0 + 2.0 * self.margin)
-        bh = max(y1 - y0, self.min_box[1]) * (1.0 + 2.0 * self.margin)
+        bw = max(x1 - x0, self.min_box[0]) * (1.0 + 2.0 * margin)
+        bh = max(y1 - y0, self.min_box[1]) * (1.0 + 2.0 * margin)
         s = min(self.w / bw, self.h / bh)
         s = max(1.0, min(self.max_scale, s))
         return ((x0 + x1) / 2.0, (y0 + y1) / 2.0, s)
 
+    def box_fits(self, view):
+        """Is the ever-seen box inside the view with the edge margin?"""
+        if self.box is None:
+            return True
+        cx, cy, s = view
+        hw, hh = self.w / s / 2.0, self.h / s / 2.0
+        ex, ey = hw * self.edge, hh * self.edge
+        b = self.box
+        return (b[0] >= cx - hw + ex and b[2] <= cx + hw - ex and
+                b[1] >= cy - hh + ey and b[3] <= cy + hh - ey)
+
     def step(self):
-        """Move the shown view a fraction toward the target; return it."""
-        t = self.target()
-        if t is None:
-            return None
-        if self.cur is None:
-            self.cur = t
+        """Advance the shown view one frame; return (cx, cy, scale) or None."""
+        if self.goal is None:
+            t = self.target()
+            if t is None:
+                return None
+            self.goal = self.cur = t
+            self.anim = None
             return self.cur
-        cx, cy, s = self.cur
-        a = self.alpha
-        ls = math.log(s) + (math.log(t[2]) - math.log(s)) * a   # glide in log scale
-        ns = math.exp(ls)
-        ncx, ncy = cx + (t[0] - cx) * a, cy + (t[1] - cy) * a
-        if abs(ns / t[2] - 1.0) < 0.002:
-            ns = t[2]
-        if abs(ncx - t[0]) < 0.25 and abs(ncy - t[1]) < 0.25:
-            ncx, ncy = t[0], t[1]
-        self.cur = (ncx, ncy, ns)
+        if self.mode == "auto" and not self.box_fits(self.goal):
+            self.goal = self.target(self.margin + self.headroom)
+            self.anim = (self.cur, 0)
+        if self.anim is not None:
+            (fx, fy, fs), i = self.anim
+            i += 1
+            p = min(1.0, i / float(self.anim_frames))
+            e = p * p * (3.0 - 2.0 * p)                  # smoothstep ease
+            gx, gy, gs = self.goal
+            self.cur = (fx + (gx - fx) * e, fy + (gy - fy) * e,
+                        math.exp(math.log(fs) + (math.log(gs) - math.log(fs)) * e))
+            self.anim = None if p >= 1.0 else ((fx, fy, fs), i)
         return self.cur
 
     def view_rect(self, cx, cy, s):
-        """(x0, y0, vw, vh): the source rectangle shown, kept inside the image."""
+        """(x0, y0, vw, vh): the source rectangle shown, centered on (cx,cy).
+        It may extend past the image; those parts are drawn empty-colored."""
         vw, vh = self.w / s, self.h / s
-        x0 = min(max(cx - vw / 2.0, 0.0), self.w - vw)
-        y0 = min(max(cy - vh / 2.0, 0.0), self.h - vh)
-        return x0, y0, vw, vh
+        return cx - vw / 2.0, cy - vh / 2.0, vw, vh
 
     # ---- pixels ----------------------------------------------------------------
     def render(self, img, cx, cy, s):
-        """Crop and scale img to the full frame at scale s centered near (cx,cy)."""
+        """Crop and scale img to the full frame at scale s centered on (cx,cy);
+        parts of the view outside the image are the empty-site color."""
         x0, y0, vw, vh = self.view_rect(cx, cy, s)
-        if s <= 1.0001:
+        if s <= 1.0001 and abs(x0) < 1e-6 and abs(y0) < 1e-6:
             return np.ascontiguousarray(img)
+        bg = EMPTY_BGR
         if cv2 is None:
-            xs = np.minimum((x0 + (np.arange(self.w) + 0.5) / s).astype(np.int64), self.w - 1)
-            ys = np.minimum((y0 + (np.arange(self.h) + 0.5) / s).astype(np.int64), self.h - 1)
-            return np.ascontiguousarray(img[ys][:, xs])
-        k = int(math.ceil(s - 1e-6))
-        xi0, yi0 = int(math.floor(x0)), int(math.floor(y0))
+            xs = np.floor(x0 + (np.arange(self.w) + 0.5) / s).astype(np.int64)
+            ys = np.floor(y0 + (np.arange(self.h) + 0.5) / s).astype(np.int64)
+            xin = (xs >= 0) & (xs < self.w)
+            yin = (ys >= 0) & (ys < self.h)
+            out = img[np.clip(ys, 0, self.h - 1)][:, np.clip(xs, 0, self.w - 1)]
+            if not yin.all():
+                out[~yin] = bg
+            if not xin.all():
+                out[:, ~xin] = bg
+            return out
+        k = max(1, int(math.ceil(s - 1e-6)))
+        xi0 = max(0, int(math.floor(x0)))
+        yi0 = max(0, int(math.floor(y0)))
         xi1 = min(self.w, int(math.ceil(x0 + vw)) + 1)
         yi1 = min(self.h, int(math.ceil(y0 + vh)) + 1)
+        if xi1 <= xi0 or yi1 <= yi0:
+            out = np.empty((self.h, self.w, 3), np.uint8)
+            out[:] = bg
+            return out
         sub = img[yi0:yi1, xi0:xi1]
         up = cv2.resize(sub, None, fx=k, fy=k, interpolation=cv2.INTER_NEAREST)
-        f = s / k                        # <= 1: the bilinear step down
-        # source pixel (u,v) of `up` maps to output (u - ox)*f, (v - oy)*f
-        ox, oy = (x0 - xi0) * k, (y0 - yi0) * k
-        m = np.float32([[f, 0, -ox * f], [0, f, -oy * f]])
+        f = s / k                        # <= 1 when s > 1: the bilinear step down
+        # `up` pixel (u,v) is source site (xi0+u/k, yi0+v/k); the output pixel is
+        # the source site's offset from the view corner, times s
+        m = np.float32([[f, 0, (xi0 - x0) * s], [0, f, (yi0 - y0) * s]])
         return cv2.warpAffine(up, m, (self.w, self.h), flags=cv2.INTER_LINEAR,
-                              borderMode=cv2.BORDER_REPLICATE)
+                              borderMode=cv2.BORDER_CONSTANT, borderValue=bg)
 
     def apply(self, img):
         """img: (h,w,3) uint8.  Returns the frame to send (img itself when off)."""

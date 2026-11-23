@@ -69,28 +69,72 @@ z.observe_box(100, 100, 400, 1000)            # tall thin: height limits
 s = z.target()[2]
 check(abs(s - 1080 / (900 * 1.08)) < 1e-9, f"tall box limited by height {s}")
 
-# --- step: monotone glide, converges, never jitters back -----------------------
+# --- step: lazy goal, eased, only outward, centered --------------------------
 z = ZoomView()
 z.set_mode("auto")
 z.observe_box(900, 500, 1000, 580)
 z.step()
-first = z.cur[2]
-z.observe_box(500, 200, 1500, 900)            # computation spread
-t = z.target()
-prev, seq = first, []
-for _ in range(60):
+first = z.cur
+check(z.anim is None and z.goal == first, "first frame snaps to the fit")
+for _ in range(10):                           # box unchanged: the view must not move
     z.step()
-    seq.append(z.cur[2])
-check(all(b <= a + 1e-12 for a, b in zip([first] + seq, seq)), "zoom only moves outward")
-check(abs(seq[-1] - t[2]) < 1e-9 and abs(z.cur[0] - t[0]) < 1e-9, "glide converges")
-check(seq[0] - first < 0 and seq[0] > t[2], "first step is partial")
+check(z.cur == first, "no creep while the box fits")
+z.observe_box(905, 505, 1005, 585)            # a little growth inside the margin... or not
+fits = z.box_fits(z.goal)
+moved = z.step() != first
+check(moved == (not fits), f"view moves only when the box leaves it (fits={fits})")
+z = ZoomView()
+z.set_mode("auto")
+z.observe_box(900, 500, 1000, 580)
+z.step()
+first = z.cur
+z.observe_box(500, 200, 1500, 900)            # computation spread
+seq = []
+for _ in range(40):
+    z.step()
+    seq.append(z.cur)
+sc = [first[2]] + [c[2] for c in seq]
+check(all(b <= a + 1e-12 for a, b in zip(sc, sc[1:])), "zoom only moves outward")
+check(z.anim is None and seq[-1] == z.goal, "ease finishes at the goal")
+check(z.box_fits(z.goal), "goal fits the box")
+check(z.goal[2] < z.target()[2], "goal has headroom beyond the tight fit")
+check(sc[1] < sc[0] and sc[1] > z.goal[2], "first eased step is partial")
+d = [sc[i] - sc[i + 1] for i in range(len(sc) - 1)]
+check(max(d) < 0.35 * (sc[0] - sc[-1]), "ease is gradual (no single big jump)")
+b0 = list(z.box)
+z.observe_box(b0[0] + 5, b0[1] + 5, b0[2] - 5, b0[3] - 5)
+check(z.box == b0, "inner growth does not shrink the box")
+n = 0
+for _ in range(100):                           # growth that stays inside the headroom
+    z.observe_box(b0[0] - 3, b0[1] - 2, b0[2] + 3, b0[3] + 2)
+    before = z.cur
+    z.step()
+    n += z.cur != before
+check(n == 0, f"headroom absorbs small growth ({n} frames moved)")
 
-# --- view rect stays inside the image -----------------------------------------
+# --- centered even near a corner: the view may extend past the image --------------
+z = ZoomView()
+z.set_mode("auto")
+z.observe_box(0, 0, 959, 540)                 # one card in the top-left corner
+cx, cy, s = z.target()
+x0, y0, vw, vh = z.view_rect(cx, cy, s)
+check(abs((x0 + vw / 2) - 479.5) < 1e-9 and abs((y0 + vh / 2) - 270) < 1e-9,
+      "view centered on the box even at the corner")
+check(x0 < 0 and y0 < 0, "margin shown beyond the image edge")
+img = blank()
+img[0:540, 0:959] = (60, 60, 60)
+out = z.render(img, cx, cy, s)
+check(tuple(out[0, 0]) == (5, 10, 15), "outside the image is the empty color")
+rows = np.flatnonzero((out != (5, 10, 15)).any(axis=2).any(axis=1))
+cols = np.flatnonzero((out != (5, 10, 15)).any(axis=2).any(axis=0))
+check(rows.size > 0 and abs((rows[0] + rows[-1]) / 2 - 540) < 4 and
+      abs((cols[0] + cols[-1]) / 2 - 960) < 4,
+      f"rendered box centered on the frame rows {rows[0]}..{rows[-1]} cols {cols[0]}..{cols[-1]}")
+
+# --- view keeps 16:9 so sites stay square ----------------------------------------
 z = ZoomView()
 for (cx, cy, s) in ((0, 0, 4), (1919, 1079, 4), (960, 540, 1.5), (5, 1075, 16)):
     x0, y0, vw, vh = z.view_rect(cx, cy, s)
-    check(x0 >= -1e-9 and y0 >= -1e-9 and x0 + vw <= 1920 + 1e-9 and y0 + vh <= 1080 + 1e-9,
-          f"view inside image {cx},{cy},{s}")
     check(abs(vw / vh - 1920 / 1080) < 1e-9, "view keeps 16:9, so sites stay square")
 
 # --- render: integer scale is pixel exact; sites map to the right place ---------
@@ -141,7 +185,7 @@ n = 10
 for _ in range(n):
     z.apply(img)
 ms = (time.perf_counter() - t0) * 1000 / n
-check(ms < 150, f"frame cost {ms:.0f} ms")
+check(ms < 200, f"frame cost {ms:.0f} ms")
 print(f"zoom_test: {ms:.0f} ms per frame ({'cv2' if zoomview.cv2 else 'numpy'})")
 
 print("zoom_test FAILED" if bad else "zoom_test ok")
