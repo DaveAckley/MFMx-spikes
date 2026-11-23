@@ -34,7 +34,7 @@ W, H = 1920, 1080
 EMPTY_MAX = 24                  # brightest channel of an empty site is 15
 INACCESSIBLE_BGR = (80, 64, 48)
 EMPTY_BGR = (5, 10, 15)
-OUTSIDE_BGR = (36, 8, 24)       # beyond the grid: very dark purple (RGB 24,8,36)
+OUTSIDE_BGR = (20, 4, 12)       # beyond the grid: very very dark purple (RGB 12,4,20)
 
 
 class ZoomView:
