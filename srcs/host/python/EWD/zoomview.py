@@ -47,6 +47,7 @@ class ZoomView:
         self.w, self.h = width, height
         self.mode = "off"
         self.fixed = 1.0
+        self.hub_base = (137, 108)        # DG T6GRID_BASE_WIDTH/HEIGHT (sites per hub)
         self.min_box = (120, 68)          # sites: caps the zoom on a lone start atom
         self.max_scale = 16.0
         self.margin = 0.04                # of the box, each side, when first fitted
@@ -136,7 +137,24 @@ class ZoomView:
                 f = n / float(ch * cw)
                 row += "." if n == 0 else ("#" if f >= 0.9 else str(max(1, int(f * 10))))
             lines.append(row)
-        return "\n".join(lines) + f"\n(each cell {cw}x{ch} sites; {int(occ.sum())} occupied; frame box {self.frame_box(img)})"
+        # hub-relative histograms: every hub also paints its 20-site south/east
+        # cache ring onto its neighbor's pixels, so a stale copy would show up
+        # as a spike in the first 20 columns/rows of a hub (x%137<20, y%108<20)
+        bx, by = self.hub_base
+        colcount = occ.sum(axis=0)
+        rowcount = occ.sum(axis=1)
+        hx = np.zeros(bx, np.int64)
+        hy = np.zeros(by, np.int64)
+        for i in range(bx):
+            hx[i] = colcount[i::bx].sum()
+        for i in range(by):
+            hy[i] = rowcount[i::by].sum()
+        def bucket(h):
+            return " ".join(str(int(h[i:i + 20].sum())) for i in range(0, len(h), 20))
+        return ("\n".join(lines) + f"\n(each cell {cw}x{ch} sites; {int(occ.sum())} occupied; "
+                f"frame box {self.frame_box(img)})"
+                f"\noccupied by x mod {bx}, columns 0-19 20-39 ...: {bucket(hx)}"
+                f"\noccupied by y mod {by}, rows 0-19 20-39 ...: {bucket(hy)}")
 
     def note_frame_box(self, fb):
         """Fold one frame's box in: ever-seen union, or (shrink) the recent window."""

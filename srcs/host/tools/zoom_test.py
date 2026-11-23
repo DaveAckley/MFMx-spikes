@@ -152,8 +152,13 @@ check(z2.box == list(small), "empty frame leaves the shrink box alone")
 img = blank()
 img[100:400, 50:700] = (200, 50, 50)
 mp = ZoomView().occupancy_map(img).split("\n")
-check(len(mp) == 19 and len(mp[0]) == 48 and "#" in mp[3] and set(mp[10]) == {"."},
+check(len(mp) == 21 and len(mp[0]) == 48 and "#" in mp[3] and set(mp[10]) == {"."},
       "occupancy map shape and content")
+img2 = blank()
+img2[:, 137 * 3:137 * 3 + 20] = (200, 50, 50)
+xl = [l for l in ZoomView().occupancy_map(img2).split("\n") if l.startswith("occupied by x mod")][0]
+check(xl.split(": ")[1].split()[1:] == ["0"] * 6 and int(xl.split(": ")[1].split()[0]) == 1080 * 20,
+      "x mod 137 histogram puts a hub-edge strip in the first bucket")
 
 # --- centered even near a corner: the view may extend past the image --------------
 z = ZoomView()
