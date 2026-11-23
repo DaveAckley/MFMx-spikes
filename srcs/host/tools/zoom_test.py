@@ -172,6 +172,12 @@ check(sorted(zip(xs.tolist(), ys.tolist())) == [(1000, 500), (1500, 900)],
 check("2 lone occupied sites" in ZoomView().specks_report(img), "specks report")
 rep = ZoomView().specks_report(img, annotate=lambda pts: [f"WHO {x},{y}" for x, y in pts])
 check(rep.count("WHO ") == 2, "specks report annotates each speck")
+img2 = img.copy()
+img2[xs[0]*0 + ys[0], xs[0]] = (0, 0, 0)               # one speck cleared later
+rep = ZoomView().specks_report(img, annotate=lambda pts: [f"WHO {x},{y}" for x, y in pts],
+                               later=lambda: img2)
+check("1 of 2 listed specks were gone" in rep and rep.count(" GONE") == 1
+      and rep.count(" STILL") == 1, "specks report says which specks went away")
 
 # --- region map matches the l1grid layout (3x4 cells from the region origin) ----
 img = blank()

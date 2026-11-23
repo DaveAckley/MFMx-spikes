@@ -416,7 +416,8 @@ def main(argv=None):
         if w == "specks":
             r = int(a[1]) if len(a) > 1 and a[1].isdigit() else 5
             return z.specks_report(m.ewc.renderGraphicsGridWindowToImage().asNP(), r,
-                                   annotate=m.specks_who)
+                                   annotate=m.specks_who,
+                                   later=lambda: m.ewc.renderGraphicsGridWindowToImage().asNP())
         if w == "shrink":
             on = (a[1].lower() if len(a) > 1 else "on")
             if on not in ("on", "off"):

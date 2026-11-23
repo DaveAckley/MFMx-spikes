@@ -168,6 +168,7 @@ ERISC_NOTES.md.
   their dispatch epoch (mHiddenYPos high 16 bits) and are dropped as STALE if it is
   not the current report epoch; books RETURNED = COMMITTED + OBSOLETED + STALE +
   UNAPPLIED, OUTSTANDING = OFFERED - RETURNED, marks .eo (exit) and .en (nuke).
+  RESULT (run MFMX-20261123-164351, 29b8f89): stamp ran (all 140 hubs have .eo), STALE 516 in total (about 6 per hub per epoch, all dropped, UNAPPLIED 0, books balance), yet turds persisted: 5 specks, all on hub at0a9, which had just erased 6057 self + 2211 cache sites (.nk) in one nuke, 1-2 cycles before the pause; 2 definite (SELF, HUB: EMPTY, last report e19/e22), 3 RING (borrower's copy empty; ambiguous).  So stale EWTs are real but NOT the turd cause.  NEXT SUSPECT: report backlog after a big nuke (thousands of queued reports per hub not yet delivered); zoom specks now rescans and marks GONE/STILL to tell.
   TEST: turds gone and .eo stale > 0.  LATER: wait for OUTSTANDING == 0 (with EWs
   suspended, which now counts as returned-unapplied) before leaving RUN_EVENTS.
 

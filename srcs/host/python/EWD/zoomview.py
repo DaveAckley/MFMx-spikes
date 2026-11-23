@@ -225,7 +225,7 @@ class ZoomView:
         win = (ii[y1][:, x1] - ii[y0][:, x1] - ii[y1][:, x0] + ii[y0][:, x0])
         return np.nonzero((occ == 1) & (win == 1))
 
-    def specks_report(self, img, radius=5, show=40, annotate=None):
+    def specks_report(self, img, radius=5, show=40, annotate=None, later=None):
         ys, xs = self.specks(img, radius)
         bx, by = self.hub_base
         out = [f"{len(ys)} lone occupied sites (no other within {radius} sites)"]
@@ -241,7 +241,23 @@ class ZoomView:
             out.append("first %d (x,y): %s%s" % (len(pts), " ".join(pts),
                                                   " ..." if len(ys) > show else ""))
             if annotate is not None:   # a list of (x,y) -> a list of lines (who + hub truth)
-                out.extend(annotate([(int(xs[i]), int(ys[i])) for i in order[:show]]))
+                t0 = time.perf_counter()
+                lines = list(annotate([(int(xs[i]), int(ys[i])) for i in order[:show]]))
+                if later is not None:
+                    # a second look, after the (slow) hub reads: with idle
+                    # refresh off, a speck that went away was just a report
+                    # still on its way, not a turd
+                    occ2 = self.occupied_mask(later())
+                    secs = time.perf_counter() - t0
+                    gone = 0
+                    for k, i in enumerate(order[:show]):
+                        still = bool(occ2[int(ys[i]), int(xs[i])])
+                        gone += 0 if still else 1
+                        if k < len(lines):
+                            lines[k] += " STILL" if still else " GONE"
+                    out.append(f"{gone} of {len(lines)} listed specks were gone {secs:.1f}s "
+                               "later (a report still arriving, not a turd)")
+                out.extend(lines)
         return "\n".join(out)
 
     def note_frame_box(self, fb):
