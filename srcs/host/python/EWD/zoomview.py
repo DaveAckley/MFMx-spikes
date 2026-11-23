@@ -9,6 +9,10 @@ and scales that image on its way to the feed; nothing on the hubs changes.
                 grows, so the zoom only moves outward.  The goal is only
                 recomputed when the box outgrows the shown view; it is then
                 set with headroom, and the view eases to it over ~3 s.
+                `shrink on` makes the box the union of the last few seconds'
+                occupied boxes instead of everything ever seen, so the view
+                also zooms back in (only after the tight fit stays well
+                above the shown scale, to ignore flicker)
   mode "fixed"  a given scale, centered on the box (or the image center)
 
 Scaling is fractional.  Upscaling is nearest-neighbor to the next whole
@@ -21,6 +25,7 @@ and not the inaccessible-site color; the hub grid crosses (`grid on`) are
 drawn white into the same image and would count, so use zoom auto with the
 grid off.
 """
+import collections
 import math
 
 import numpy as np
@@ -48,6 +53,10 @@ class ZoomView:
         self.headroom = 0.14              # extra margin when zooming out, so growth is absorbed
         self.edge = 0.05                  # box nearer than this to the view edge: zoom out
         self.anim_frames = 15             # an ease takes this many frames (3 s at 5 Hz)
+        self.shrink = False               # box = recent window, not ever-seen
+        self.window = 25                  # frames the shrink box remembers (5 s at 5 Hz)
+        self.zoom_in_ratio = 1.3          # zoom in only when the tight fit is this much tighter
+        self.recent = collections.deque(maxlen=self.window)
         self.goal = None                  # (cx, cy, scale) being eased toward
         self.anim = None                  # (from, i): ease progress
         self.box = None                   # [x0, y0, x1, y1), ever-seen, in sites
@@ -68,11 +77,19 @@ class ZoomView:
             self.cur = None
         return self.status()
 
+    def set_shrink(self, on):
+        self.shrink = bool(on)
+        self.recent.clear()
+        if not self.shrink:
+            pass                          # ever-seen box resumes from the current one
+        return self.status()
+
     def reset_box(self):
         self.box, self.cur, self.goal, self.anim = None, None, None, None
+        self.recent.clear()
 
     def status(self):
-        s = f"zoom: {self.mode}"
+        s = f"zoom: {self.mode}" + (" +shrink" if self.shrink else "")
         if self.mode == "fixed":
             s += f" {self.fixed:g}x"
         if self.box is not None:
@@ -91,16 +108,31 @@ class ZoomView:
             b = self.box
             self.box = [min(b[0], x0), min(b[1], y0), max(b[2], x1), max(b[3], y1)]
 
-    def observe(self, img):
+    def frame_box(self, img):
+        """The box of occupied sites in this frame, or None if there are none."""
         occ = img.max(axis=2) > EMPTY_MAX
         occ &= ~((img[:, :, 0] == INACCESSIBLE_BGR[0]) &
                  (img[:, :, 1] == INACCESSIBLE_BGR[1]) &
                  (img[:, :, 2] == INACCESSIBLE_BGR[2]))
         rows = np.flatnonzero(occ.any(axis=1))
         if rows.size == 0:
-            return
+            return None
         cols = np.flatnonzero(occ.any(axis=0))
-        self.observe_box(int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1)
+        return (int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1)
+
+    def note_frame_box(self, fb):
+        """Fold one frame's box in: ever-seen union, or (shrink) the recent window."""
+        if fb is None:
+            return
+        if not self.shrink:
+            self.observe_box(*fb)
+            return
+        self.recent.append(fb)
+        self.box = [min(b[0] for b in self.recent), min(b[1] for b in self.recent),
+                    max(b[2] for b in self.recent), max(b[3] for b in self.recent)]
+
+    def observe(self, img):
+        self.note_frame_box(self.frame_box(img))
 
     def target(self, margin=None):
         """(cx, cy, scale) that fits the ever-seen box with the margin, or None."""
@@ -139,9 +171,15 @@ class ZoomView:
             self.goal = self.cur = t
             self.anim = None
             return self.cur
-        if self.mode == "auto" and not self.box_fits(self.goal):
-            self.goal = self.target(self.margin + self.headroom)
-            self.anim = (self.cur, 0)
+        if self.mode == "auto":
+            if not self.box_fits(self.goal):
+                self.goal = self.target(self.margin + self.headroom)
+                self.anim = (self.cur, 0)
+            elif self.shrink:
+                t = self.target(self.margin + self.headroom)
+                if t is not None and t[2] > self.goal[2] * self.zoom_in_ratio:
+                    self.goal = t               # the computation shrank: zoom in
+                    self.anim = (self.cur, 0)
         if self.anim is not None:
             (fx, fy, fs), i = self.anim
             i += 1

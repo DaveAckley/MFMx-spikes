@@ -112,6 +112,42 @@ for _ in range(100):                           # growth that stays inside the he
     n += z.cur != before
 check(n == 0, f"headroom absorbs small growth ({n} frames moved)")
 
+# --- shrink: the box is the recent window; the view zooms back in ------------------
+z = ZoomView()
+z.set_mode("auto")
+z.set_shrink(True)
+big, small = (200, 100, 1700, 1000), (800, 450, 1000, 580)
+for _ in range(3):
+    z.note_frame_box(big)
+    z.step()
+s_big = z.cur[2]
+check(z.box == list(big), "shrink: box is the frame box")
+for _ in range(z.window - 1):                 # big still inside the window: no zoom in
+    z.note_frame_box(small)
+    z.step()
+check(z.box[0] == 200 and abs(z.cur[2] - s_big) < 1e-9, "shrink: big box remembered for the window")
+for _ in range(z.window + z.anim_frames + 5):
+    z.note_frame_box(small)
+    z.step()
+check(z.box == list(small), f"shrink: box shrank to {z.box}")
+check(z.cur[2] > s_big * 1.3, f"shrink: zoomed back in {s_big:.2f} -> {z.cur[2]:.2f}")
+check(z.box_fits(z.goal), "shrink: goal fits the small box")
+# small wobble does not move the view (ratio hysteresis)
+c0 = z.cur
+for k in range(60):
+    z.note_frame_box((800 + (k % 3), 450, 1000, 580 + (k % 2)))
+    z.step()
+check(z.cur == c0, "shrink: wobble inside the headroom does not move the view")
+# ever-seen again after shrink off
+z.set_shrink(False)
+z.note_frame_box(big)
+z.note_frame_box(small)
+check(z.box[0] == 200 and "shrink" not in z.status(), "shrink off: ever-seen box again")
+# frames with nothing occupied leave the box alone
+z2 = ZoomView(); z2.set_mode("auto"); z2.set_shrink(True)
+z2.note_frame_box(small); z2.note_frame_box(None)
+check(z2.box == list(small), "empty frame leaves the shrink box alone")
+
 # --- centered even near a corner: the view may extend past the image --------------
 z = ZoomView()
 z.set_mode("auto")

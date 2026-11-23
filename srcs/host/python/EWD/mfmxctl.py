@@ -404,12 +404,17 @@ def main(argv=None):
         if w == "reset":
             z.reset_box()
             return "zoom: seen box forgotten; " + z.status()
+        if w == "shrink":
+            on = (a[1].lower() if len(a) > 1 else "on")
+            if on not in ("on", "off"):
+                return "usage: zoom shrink [on|off]"
+            return z.set_shrink(on == "on")
         if w in ("off", "auto"):
             return z.set_mode(w)
         try:
             return z.set_mode("fixed", float(w))
         except ValueError as e:
-            return f"usage: zoom [off|auto|reset|SCALE|status]  ({e})"
+            return f"usage: zoom [off|auto|reset|shrink on/off|SCALE|status]  ({e})"
 
     def c_dwell(a):
         if a:
@@ -580,7 +585,7 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
-    sh.command("zoom", c_zoom, "zoom [off|auto|reset|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen, SCALE (1..64) is fixed; off by default; grid must be off")
+    sh.command("zoom", c_zoom, "zoom [off|auto|reset|shrink on/off|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
