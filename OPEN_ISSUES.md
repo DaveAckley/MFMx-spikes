@@ -523,28 +523,25 @@ test; only then (4) an SFPU kernel behind it, xray/nuke as the first bulk user.
 - Shrink AtomReport from 20 to 16 bytes (2026-11-23, idea, NOT started, user:
   can wait, do not lose the thread).  Today: P4Atom 12 + U16C coord 4 + two
   u16 spins (mSpin1 == mSpin2 == expected, the record-level desync check) = 20,
-  4-byte aligned, so dropping ONE spin saves nothing.  16-byte layouts: (a)
-  U8C coord (the 177x148 T6Grid including caches fits u8) + two u8 spins
-  (weaker: wraps every 256 records); (b) U8C + one u16 spin; (c) U16C and no
-  spins.  PREFERRED (user, 2026-11-23): (b) U8C coord + ONE u16 spin.  Epoch
-  marker = coord (0xff,0xff) (no site has 255) with the 16-bit epoch in the
-  spin field; the hub still counts a marker in the running sequence (next
-  record's spin = previous + 1) and the host advances its expected value
-  without checking the marker's own spin, so a lost marker reads as a skipped
-  record.  mSpinSync (adopt the hub's spin after a restart) would adopt from
-  the first non-marker record with valid atom parity and coord range (the
-  hub sends a marker first in every stream).  Loses the skipped-vs-garbage
-  split of the two spins: guess it from parity and range, or report one
-  combined bad-record kind.  (Older idea, if the spins stay u8: flag with
-  coord.x == 0xff and carry the epoch in the marker atom's mData0.)  Dropping the spins
-  needs a replacement for the desync detection and the restart trigger
-  (ZHostDecompressor mSpinSync/noteBadReport): the car trailer already has
-  seq + checksum (transit damage) and the hub's shadow sum (a byte the sink
-  failed to store); what only the spins catch is decoder-vs-compressor
-  disagreement with every trailer fine.  Replace with per-record atom parity
-  + coord range check (random garbage passes about 0.3%) and a periodic sync
-  record (running record count every ~256 records, like the epoch marker) for
-  skipped or duplicated records.  FIRST measure what the 4 bytes cost: the
+  4-byte aligned, so dropping ONE spin saves nothing.  PREFERRED (user,
+  2026-11-23): U8C coord (the 177x148 T6Grid including caches fits u8) + ONE
+  u16 spin = 16.  RULE: the transport layer must not look at the atom layer
+  (AtomReport::isValid already says so), so NO atom parity or coord range
+  checks for desync.  The check is just spin == expected: after a lost byte a
+  garbled record matches by chance 1 in 65536; the second spin only bought
+  the skipped-vs-garbage diagnostic (give that up: one combined bad-record
+  count).  Restart resync made deterministic: the hub resets its spin counter
+  to 0 at each stream start and the host resets its expected value to 0 at
+  the same point (restartDecoder), so mSpinSync (adopting the hub's spin
+  from a record) goes away.  Epoch marker = coord (0xff,0xff) (no site has
+  255) with the 16-bit epoch in the spin; the hub counts it in the sequence
+  (next record = previous + 1), the host advances its expected value without
+  checking the marker's own spin, so a lost marker reads as a skipped record.
+  A garbled record passing as a marker (1 in 65536) would give a bogus epoch
+  until the next real marker, about half a second.  The atom's own parity
+  (atomvalid, mBadAtoms) stays where it is, after the transport accepts a
+  record.  Other 16-byte layouts: U8C + two u8 spins (wraps every 256
+  records); U16C and no spins.  FIRST measure what the 4 bytes cost: the
   spins compress poorly (incrementing counters), so compare compressed bytes
   per report (zhd counters) with and without.  Touches hub, host decoder,
   mock/selftest.
