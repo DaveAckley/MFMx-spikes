@@ -34,6 +34,7 @@ W, H = 1920, 1080
 EMPTY_MAX = 24                  # brightest channel of an empty site is 15
 INACCESSIBLE_BGR = (80, 64, 48)
 EMPTY_BGR = (5, 10, 15)
+OUTSIDE_BGR = (36, 8, 24)       # beyond the grid: very dark purple (RGB 24,8,36)
 
 
 class ZoomView:
@@ -154,18 +155,18 @@ class ZoomView:
 
     def view_rect(self, cx, cy, s):
         """(x0, y0, vw, vh): the source rectangle shown, centered on (cx,cy).
-        It may extend past the image; those parts are drawn empty-colored."""
+        It may extend past the image; those parts are drawn dark purple (OUTSIDE_BGR)."""
         vw, vh = self.w / s, self.h / s
         return cx - vw / 2.0, cy - vh / 2.0, vw, vh
 
     # ---- pixels ----------------------------------------------------------------
     def render(self, img, cx, cy, s):
         """Crop and scale img to the full frame at scale s centered on (cx,cy);
-        parts of the view outside the image are the empty-site color."""
+        parts of the view outside the image are OUTSIDE_BGR."""
         x0, y0, vw, vh = self.view_rect(cx, cy, s)
         if s <= 1.0001 and abs(x0) < 1e-6 and abs(y0) < 1e-6:
             return np.ascontiguousarray(img)
-        bg = EMPTY_BGR
+        bg = OUTSIDE_BGR
         if cv2 is None:
             xs = np.floor(x0 + (np.arange(self.w) + 0.5) / s).astype(np.int64)
             ys = np.floor(y0 + (np.arange(self.h) + 0.5) / s).astype(np.int64)

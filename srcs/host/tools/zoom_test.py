@@ -124,9 +124,11 @@ check(x0 < 0 and y0 < 0, "margin shown beyond the image edge")
 img = blank()
 img[0:540, 0:959] = (60, 60, 60)
 out = z.render(img, cx, cy, s)
-check(tuple(out[0, 0]) == (5, 10, 15), "outside the image is the empty color")
-rows = np.flatnonzero((out != (5, 10, 15)).any(axis=2).any(axis=1))
-cols = np.flatnonzero((out != (5, 10, 15)).any(axis=2).any(axis=0))
+check(tuple(out[0, 0]) == zoomview.OUTSIDE_BGR, "outside the image is the outside color")
+check(zoomview.OUTSIDE_BGR != zoomview.EMPTY_BGR, "outside differs from empty")
+lit = (out.max(axis=2) > 40)               # the 60-gray atoms, not the backgrounds
+rows = np.flatnonzero(lit.any(axis=1))
+cols = np.flatnonzero(lit.any(axis=0))
 check(rows.size > 0 and abs((rows[0] + rows[-1]) / 2 - 540) < 4 and
       abs((cols[0] + cols[-1]) / 2 - 960) < 4,
       f"rendered box centered on the frame rows {rows[0]}..{rows[-1]} cols {cols[0]}..{cols[-1]}")
