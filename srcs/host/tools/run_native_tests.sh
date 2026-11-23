@@ -91,6 +91,7 @@ run physguard_test g++ $CXXFLAGS -I$SRCS/cross/include $INC physguard_test.cpp -
 # nuke: geometry over the real 140-hub layout, and the host side (blast rides one NEW_LEADER bolt as words 2..4)
 run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$OUT/nukeblast_test"
 run nuke_cycle_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/nuke_cycle_test.py" > "$1/nuke_cycle_test" && chmod +x "$1/nuke_cycle_test"' x "$OUT"
+run zoom_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/zoom_test.py" > "$1/zoom_test" && chmod +x "$1/zoom_test"' x "$OUT"
 
 echo
 echo "$pass passed, $fail failed"

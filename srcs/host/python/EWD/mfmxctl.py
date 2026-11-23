@@ -391,6 +391,21 @@ def main(argv=None):
         return (f"feed: {type(m.feed).__name__ if m.feed is not None else 'none'}, "
                 f"frame tick {'on' if ft.enabled else 'off'}")
 
+    def c_zoom(a):
+        z = m.zoom
+        if not a or a[0].lower().startswith("st"):
+            return z.status()
+        w = a[0].lower()
+        if w == "reset":
+            z.reset_box()
+            return "zoom: seen box forgotten; " + z.status()
+        if w in ("off", "auto"):
+            return z.set_mode(w)
+        try:
+            return z.set_mode("fixed", float(w))
+        except ValueError as e:
+            return f"usage: zoom [off|auto|reset|SCALE|status]  ({e})"
+
     def c_dwell(a):
         if a:
             return cyc.set_dwell(*a[:2])
@@ -560,6 +575,7 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
+    sh.command("zoom", c_zoom, "zoom [off|auto|reset|SCALE]: crop and scale the video; auto fits the box of every non-empty site ever seen, SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")

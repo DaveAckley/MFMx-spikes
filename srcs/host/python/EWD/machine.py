@@ -17,6 +17,7 @@ import subprocess
 import time
 
 import LiveAER
+from zoomview import ZoomView
 
 DEFAULT_TIMEOUTS = {"HOLD_AT_BIRTH": 60.0, "NEW_LEADER": 60.0, "RUN_EVENTS": 10.0}
 FALLBACK_TIMEOUT = 30.0
@@ -239,6 +240,7 @@ class Machine:
         self.has_fire_phaser = False   # True when qb.firePHASER() is available
         self.hold_settled = False      # True when start() pre-settled HOLD_AT_BIRTH
         self.feed = None
+        self.zoom = ZoomView()
         self.frames_real = self.frames_idle = 0
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         self.timeouts = dict(DEFAULT_TIMEOUTS)
@@ -917,7 +919,14 @@ class Machine:
             return "no feed"
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
-        self.feed.sendGraphicsFrame(img.asNP(), ns,
+        arr = img.asNP()
+        if self.zoom.mode != "off":
+            try:
+                arr = self.zoom.apply(arr)
+            except Exception as e:           # never lose the stream over zoom
+                self.zoom.set_mode("off")
+                self.say(f"zoom disabled: {type(e).__name__}: {e}")
+        self.feed.sendGraphicsFrame(arr, ns,
                                     f"mfmxctl/{self.mfmxVersion}",
                                     self._live_line())
         self.frames_real += 1
