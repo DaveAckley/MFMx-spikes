@@ -205,7 +205,7 @@ class Machine:
                  t6s_per_chip=140, verbose=False, decay=None,
                  tt_smi="/opt/tenstorrent/pipx/bin/tt-smi", reset_chips=True,
                  extra_bindirs=(), slowscan_gap=0.2, layout=None,
-                 link_wait=12.0, link_resets=5, policy="fourcorners",
+                 link_wait=12.0, link_resets=5, link_linger=0.0, policy="fourcorners",
                  events="shortcut", elide=False):
         self.M = mfmx
         self.config = config
@@ -224,6 +224,7 @@ class Machine:
         self.layout = layout                 # overrides [Config] activeLayout
         self.link_wait = link_wait           # preflight: secs to wait for Up
         self.link_resets = link_resets       # preflight: extra tt-smi -r tries
+        self.link_linger = link_linger       # preflight: extra secs a round keeps polling
         self.link_poll = 0.5                 # preflight: secs between polls
         self.simDir = mfmx.getSimDir()
         self.dump_count = 0                   # dumpl1 commands that wrote files
@@ -398,21 +399,37 @@ class Machine:
         """After a chip reset the base firmware trains every Ethernet link
         in the background, and some links come up late or not at all (the
         intermittent 'link not Up (port status 2)').  Before any E1 is
-        touched, wait up to link_wait seconds for every declared link end
-        to report Up; if some do not, run 'tt-smi -r' again, up to
-        link_resets times, then give up naming the links.  Read-only."""
+        touched, wait up to link_wait (+ link_linger) seconds for every
+        declared link end to report Up; if some do not, run 'tt-smi -r'
+        again, up to link_resets times, then give up naming the links.
+        Read-only.
+
+        Timing: each round notes, per end, the seconds from the start of
+        the round (just after the reset) to the first poll that saw it Up;
+        one 'link timing' line per round (all ends in the log, kind
+        LINKTIME).  link_linger adds seconds to every round's wait, to see
+        whether stragglers ever come Up late (a round that makes it during
+        the linger is accepted; the line says how late)."""
         h = self.M.EthSeamHost.get()
         ends = self._seam_ends()
         resets = 0
         t0 = time.monotonic()
         while True:
-            deadline = time.monotonic() + self.link_wait
+            tr = time.monotonic()
+            first_up = {}
+            deadline = tr + self.link_wait + self.link_linger
             while True:
                 down = self._links_down(h, ends)
+                el = time.monotonic() - tr
+                downset = {(c, x) for c, x, _p in down}
+                for e in ends:
+                    if e not in downset and e not in first_up:
+                        first_up[e] = el
                 if not down or time.monotonic() >= deadline:
                     break
                 time.sleep(self.link_poll)
             h.releaseIdlePorts()    # no TLB window may outlive a reset
+            self._say_link_timing(resets + 1, ends, first_up, down)
             if not down:
                 note = f", after {resets} extra reset(s)" if resets else ""
                 return (f"link preflight: all {len(ends)} link ends Up "
@@ -422,11 +439,30 @@ class Machine:
                 raise RuntimeError(
                     f"link preflight: {len(down)} of {len(ends)} link ends "
                     f"still not Up after {resets} extra chip reset(s) and "
-                    f"{self.link_wait:.0f}s each: {names}")
+                    f"{self.link_wait + self.link_linger:.0f}s each: {names}")
             resets += 1
-            self.say(f"link preflight: not Up after {self.link_wait:.0f}s: "
+            self.say(f"link preflight: not Up after "
+                     f"{self.link_wait + self.link_linger:.0f}s: "
                      f"{names}; chip reset {resets} of {self.link_resets}")
             self.reset_chips()
+
+    def _say_link_timing(self, rnd, ends, first_up, down):
+        """One summary line per preflight round; every end's time to the log."""
+        times = sorted(first_up.values())
+        detail = " ".join(f"bh{c}:eth{x}={first_up[(c, x)]:.1f}s"
+                          for c, x in ends if (c, x) in first_up)
+        stuck = " ".join(f"bh{c}:eth{x}" for c, x, _p in down)
+        self.logkt("LINKTIME", f"round {rnd}: {detail}; down: {stuck or 'none'}")
+        if times:
+            s = (f"link timing round {rnd}: {len(times)}/{len(ends)} Up, "
+                 f"first {times[0]:.1f}s, last {times[-1]:.1f}s")
+        else:
+            s = f"link timing round {rnd}: 0/{len(ends)} Up"
+        late = [(e, t) for e, t in first_up.items() if t > self.link_wait]
+        if late:
+            s += "; LATE (after the normal wait): " + " ".join(
+                f"bh{c}:eth{x}={t:.1f}s" for (c, x), t in sorted(late))
+        self.say(s)
 
     def init_box(self):
         M = self.M

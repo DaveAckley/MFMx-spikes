@@ -69,6 +69,10 @@ def parse_args(argv):
     ap.add_argument("--link-resets", type=int, default=5,
                     help="boot preflight: extra 'tt-smi -r' tries if links "
                          "are still not Up (0 = wait only)")
+    ap.add_argument("--link-linger", type=float, default=0.0,
+                    help="boot preflight experiment: extra seconds every round keeps "
+                         "polling (a round that comes Up late is accepted and "
+                         "reported as LATE); 0 = off")
     ap.add_argument("--t6s-per-chip", type=int, default=140)
     ap.add_argument("--slowscan-period", type=float, default=2.0,
                     help="seconds between slowscans; 0 turns the tick off")
@@ -152,7 +156,8 @@ def main(argv=None):
                                  (args.mock and args.tt_smi == TT_SMI_DEFAULT)),
                 extra_bindirs=extra_bindirs, slowscan_gap=args.slowscan_gap,
                 layout=args.layout, link_wait=args.link_wait,
-                link_resets=args.link_resets)
+                link_resets=args.link_resets,
+                link_linger=args.link_linger)
     dw = args.dwell if len(args.dwell) > 1 else args.dwell * 2
     cyc = SuperCycle(m, sh.say, dwell=tuple(dw[:2]), first_leader=args.first_leader)
     state = {"close": False}
