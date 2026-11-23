@@ -89,6 +89,21 @@ namespace MFM {
       // everything but the spins are 8BC.
       return mSpin1 == mSpin2 && mSpin1 == expected;
     }
+
+    /* EPOCH MARKER.  The report stream is one continuous compressed byte
+       stream (a record can straddle cars), so a car cannot carry an epoch.
+       Instead, when the hub's epoch (the leader cycle count, scy, low 16
+       bits) changes, it puts a marker record in the stream: mCoord.x is
+       EPOCH_MARK_X, which no site has, and mCoord.y is the new epoch.  Every
+       real record after it, until the next marker, was read in that epoch.
+       The host keeps a newest-epoch-per-pixel map and ignores a record
+       older than what its pixel already shows, so a late borrower report
+       cannot overwrite the owner's newer one (arrival order across streams
+       is not under hub control).  Same record size; the spin counter counts
+       a marker like any record. */
+    static constexpr u16 EPOCH_MARK_X = 0xffffu;
+    bool isEpochMarker() const { return mCoord.x == EPOCH_MARK_X; }
+    u16 markerEpoch() const { return (u16) mCoord.y; }
   };
 
   using AtomReportIO = GObjIO<AtomReport>;

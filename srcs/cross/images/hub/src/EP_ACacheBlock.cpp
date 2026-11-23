@@ -306,6 +306,7 @@ namespace MFM {
     mACBL1Control = &acbl1;
     mDLGridList= &dll1;
     mARIO.init(true);   // true: init for serialization (obj -> bytes)
+    mEpochSent = NO_EPOCH_SENT; // the stream starts with a marker
     HBPTAG(PACBinit,sizeof(*this));
   }
 
@@ -459,6 +460,7 @@ namespace MFM {
     // phase 2: T1 ends the stream, flushes, has the SOF shipped, resets
     if (acl1.isDraining()) return true;
     mRestartPhase = 0u;
+    mEpochSent = NO_EPOCH_SENT;                    // the host's decoder reset: say it again
     mState = State::WAIT;                          // fresh frame timing
     mNextFrameBogoMS = millisElapsed();
     return false;
@@ -603,7 +605,22 @@ namespace MFM {
             }
             // No, done with that object
             mARIO.discardObj();
-            
+
+            /// (1b) Epoch changed since the last marker? Say so, in order:
+            /// every record after the marker was read in the new epoch.
+            {
+              const u32 epoch = theL1GridManagerControl.getReportEpoch();
+              if (epoch != mEpochSent) {
+                ar.mCoord = U16C(AtomReport::EPOCH_MARK_X,(u16) epoch);
+                ar.mSpin1 = ar.mSpin2 = mARSpinner++;
+                ar.mAtom = P4Atom::makeEmptyAtom();
+                mARIO.putObj(ar);
+                mEpochSent = epoch;
+                if ((++mEpochMarkers % 16u) == 1u) LOGPTAG(.em,epoch);
+                continue;
+              }
+            }
+
             /// (2) Does dl have more ARs to supply?
             U8C arc;
             if (dl.popBackC(arc)) {

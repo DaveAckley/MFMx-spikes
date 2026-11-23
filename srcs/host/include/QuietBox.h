@@ -9,6 +9,7 @@
 #include "ImageManager.h"
 #include "BGRImage.h"
 #include "NgbCacheMgr.h"
+#include <atomic>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -91,7 +92,32 @@ namespace MFM {
     static BGRImageHD & clearT6GridImage() {
       BGRImageHD & bgr = getT6GridImage();
       bgr.reset();
+      resetPixelEpochs();
       return bgr;
+    }
+
+    /* Newest report epoch (AtomReport.h, epoch marker) accepted per pixel.
+       Hubs overlap (each paints its S/E cache ring on a neighbor's pixels),
+       and the streams arrive in no fixed order, so a late older report must
+       not overwrite a newer one.  Epochs are the leader cycle count mod
+       65536, compared as a wraparound difference; the idle refresh touches
+       every site within about a minute, far inside half the range. */
+    static constexpr u32 PIXEL_EPOCHS = 1920u*1080u;
+    static std::atomic<u16> pixelEpochs[PIXEL_EPOCHS];
+    static void resetPixelEpochs() {
+      for (u32 i = 0u; i < PIXEL_EPOCHS; ++i)
+        pixelEpochs[i].store(0u,std::memory_order_relaxed);
+    }
+    /** true: draw this report (its epoch is not older than the pixel's);
+        the pixel's epoch is advanced.  false: stale, ignore it. */
+    static bool acceptPixelEpoch(u32 pixelIndex, u16 epoch) {
+      std::atomic<u16> & pe = pixelEpochs[pixelIndex];
+      u16 cur = pe.load(std::memory_order_relaxed);
+      do {
+        if ((s16) (u16) (epoch - cur) < 0) return false;   // older: drop
+        if (epoch == cur) return true;                     // tie: arrival order
+      } while (!pe.compare_exchange_weak(cur,epoch,std::memory_order_relaxed));
+      return true;
     }
 
     using T6GridIndex = DG::Coord;

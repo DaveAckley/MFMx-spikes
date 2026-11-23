@@ -117,6 +117,10 @@ namespace MFM {
     u16 mARSpinner;
     u8 mRestartPhase;           // 0 none, 1 flush the record in flight, 2 drain
     u16 mPktSeq;                // next packet's sequence number (trailer)
+    u32 mEpochSent;             // epoch of the last marker in the stream,
+                                //   or NO_EPOCH_SENT (stream start/restart)
+    static constexpr u32 NO_EPOCH_SENT = 0x10000u;
+    u32 mEpochMarkers;          // markers sent, for the .em mark
 
     /* IDLE-TIME REFRESH: when the change list is empty in the middle of a
        frame, report up to REFRESH_PER_FRAME randomly chosen SELF sites

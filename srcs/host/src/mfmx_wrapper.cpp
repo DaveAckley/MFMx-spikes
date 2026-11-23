@@ -43,7 +43,7 @@ PYBIND11_MODULE(MFMx, m) {
   // Health of every hub's compressed atom-report stream (see ZHDHealth):
   // [(chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,
   //   desynced, desyncAtReport, desyncAtCBytes, desyncAtPacket, kind,
-  //   restarts, restartPending)]
+  //   restarts, restartPending, staleDropped)]
   m.def("zhdSnapshot", []() {
     py::list hubs;
     for (const auto & h : MFM::ZHostDecompressor::snapshotHealth())
@@ -52,7 +52,7 @@ PYBIND11_MODULE(MFMx, m) {
                                  h.mDesynced, h.mDesyncAtReport,
                                  h.mDesyncAtCBytes, h.mDesyncAtPacket,
                                  h.mDesyncKind, h.mRestarts,
-                                 h.mRestartPending));
+                                 h.mRestartPending, h.mStaleDropped));
     return hubs;
   });
   // TEST: lose one compressed byte of one hub's report stream; True if it exists.

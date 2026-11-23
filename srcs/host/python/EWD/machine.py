@@ -831,7 +831,7 @@ class Machine:
             return []
         keys = ("chip", "tlbi", "reports", "invalid", "bad_atoms", "consec",
                 "desyncs", "desynced", "at_report", "at_cbytes", "at_packet",
-                "kind", "restarts", "restart_pending")
+                "kind", "restarts", "restart_pending", "stale")
         rows = [dict(zip(keys, r)) for r in snap()]
         for r in rows:
             x, y = self.tlbi_to_noc(r["tlbi"])
@@ -845,6 +845,7 @@ class Machine:
         bad = [r for r in rows if r["desynced"]]
         ever = [r for r in rows if r["desyncs"] and not r["desynced"]]
         torn = sum(r["bad_atoms"] for r in rows)
+        stale = sum(r.get("stale", 0) for r in rows)
         restarts = sum(r["restarts"] for r in rows)
         pend = sum(1 for r in rows if r["restart_pending"])
         on = getattr(self.M, "zhdRestartEnabled", None)
@@ -852,12 +853,14 @@ class Machine:
                f"{f', {len(ever)} recovered' if ever else ''}; "
                f"{restarts} restarts done, {pend} requested and waiting"
                f"{'' if on is None else ('' if on() else ' (restart requests OFF)')}; "
-               f"{torn} intact reports carried a bad atom (skipped)"]
+               f"{torn} intact reports carried a bad atom (skipped); "
+               f"{stale} stale reports ignored (older epoch than their pixel)"]
         for r in (rows if verbose else bad):
             state = "DESYNCED" if r["desynced"] else "ok"
             out.append(f"  {r['tag']} bh{r['chip']}:{r['tlbi']} {state}: "
                        f"{r['reports']} good reports, {r['invalid']} bad, "
-                       f"{r['bad_atoms']} bad atoms"
+                       f"{r['bad_atoms']} bad atoms, "
+                       f"{r.get('stale', 0)} stale"
                        + (f"; broke at report {r['at_report']}, "
                           f"{r['at_cbytes']} compressed bytes, packet "
                           f"{r['at_packet']} ({self.ZHD_KINDS.get(r['kind'], '?')})"

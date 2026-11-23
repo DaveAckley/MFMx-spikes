@@ -193,6 +193,11 @@ namespace MFM {
 
       DTSET(IHT,arg);
 
+      // A new epoch begins here: reports read from now on are stamped with
+      // this cycle's scy, newer than any a borrower sent while it ran events
+      // (AtomReport.h).  Idempotent: we are called until ready.
+      theL1GridManagerControl.setReportEpoch((u16) cda.mArgs.mArg[1]);
+
       DTRIG(IHT,{
           HBPTAG(BOLTR_iNL,arg);
           LOGPTAG(BOLTR_iNL,arg);

@@ -160,7 +160,9 @@ namespace MFM {
         } else {
           noteBadReport(ar,spin);
         }
-        if (arvalid && atomvalid) {
+        if (arvalid && ar.isEpochMarker()) {
+          mStreamEpoch = (s32) ar.markerEpoch();  // what follows was read then
+        } else if (arvalid && atomvalid) {
           BGRImageHD & bgr = QuietBox::getT6GridImage() ;
           QuietBox& qb = QuietBox::get();
 
@@ -211,9 +213,18 @@ namespace MFM {
             
             RGBPix color = renderPhysicsHACK(ar.mAtom);
             U16C pixc;
-            if (DG::gridCoordToPixel(gridc,pixc)) // N/W rings cropped, DG.h
-              bgr.setPixel(pixc,color);
-            qb.setSimAtom(gridc,ar.mAtom);
+            bool fresh = true;  // not older than what the pixel already shows
+            const bool onImage = DG::gridCoordToPixel(gridc,pixc); // N/W rings cropped, DG.h
+            if (onImage && mStreamEpoch >= 0 &&
+                pixc.x < 1920u && pixc.y < 1080u)
+              fresh = QuietBox::acceptPixelEpoch(pixc.y*1920u + pixc.x,
+                                                 (u16) mStreamEpoch);
+            if (!fresh) {
+              mStaleDropped.fetch_add(1u,std::memory_order_relaxed);
+            } else {
+              if (onImage) bgr.setPixel(pixc,color);
+              qb.setSimAtom(gridc,ar.mAtom);
+            }
           }
         }
 
@@ -481,6 +492,7 @@ namespace MFM {
       mDesynced.store(false);
       mSpinSync = true;
     }
+    mStreamEpoch = -1;          // the new stream starts with a marker
     mRestartRequested.store(false);
     u32 n = mRestarts.fetch_add(1u) + 1u;
     HTprintf("ZHD RESTARTED chip%u t%u (#%u) at %llu good reports, %llu compressed bytes\n",
@@ -542,6 +554,7 @@ namespace MFM {
     h.mDesyncAtCBytes = mDesyncAtCBytes;
     h.mDesyncAtPacket = mDesyncAtPacket;
     h.mDesyncKind = mDesyncKind;
+    h.mStaleDropped = mStaleDropped.load();
     h.mRestarts = mRestarts.load();
     h.mRestartPending = mRestartRequested.load();
     return h;

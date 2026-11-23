@@ -35,6 +35,7 @@ namespace MFM {
     u32 mDesyncKind = 0u;      //< 1 = whole reports skipped, 2 = garbage
     u32 mRestarts = 0u;        //< stream restarts completed (the hub answered)
     bool mRestartPending = false; //< asked for a restart, no answer yet
+    u64 mStaleDropped = 0u;    //< reports ignored: older epoch than the pixel
   };
 
   struct ZHostDecompressor {
@@ -124,6 +125,8 @@ namespace MFM {
     std::atomic<u32> mRestarts{0u};
     std::atomic<bool> mInjectDrop{false};  //< TEST: drop the next byte
     bool mSpinSync = false;  //< adopt the hub's spin from the next good record
+    s32 mStreamEpoch = -1;   //< from the last epoch marker; -1 until one (reset)
+    std::atomic<u64> mStaleDropped{0u};  //< reports older than their pixel
 
     /* Stamp a car we are returning: the restart request (if any) in its flags
        and where our decoder stands in its payload; the car stays empty. */

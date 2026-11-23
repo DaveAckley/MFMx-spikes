@@ -18,6 +18,15 @@ namespace MFM {
   };
   static_assert(sizeof(ACBHostFeedback) == 6, "feedback fits an empty car");
 
+  /* Seal-time self check: 1 recomputes the Fletcher sum over the car's bytes
+     at seal and compares it with the running (shadow) sum, to catch memory
+     damage between the write and the seal (.zn/.zw/.zx, mShadowBad).  Costs
+     a pass over up to 1KB per car; off by default, for hunting that bug.
+     Build with -DACBP_SEAL_VERIFY=1 to turn it on. */
+#ifndef ACBP_SEAL_VERIFY
+#define ACBP_SEAL_VERIFY 0
+#endif
+
   struct ACacheBlockPayload {
 
     static constexpr u16 ACBP_BUFFER_SIZE = 990; // for ~1KB final packets
@@ -80,7 +89,11 @@ namespace MFM {
       u32 len = getCurrentLength();
       if (len + ACBP_TRAILER_SIZE > ACBP_BUFFER_SIZE) return true; // cannot happen
       u16 sum = (u16) ((b << 8) | a);
+#if ACBP_SEAL_VERIFY
       bool same = sum == checksum(mCData,len);
+#else
+      const bool same = true;   // no recompute at seal (see ACBP_SEAL_VERIFY)
+#endif
       mCData[len+0u] = (u8) (seq & 0xff);
       mCData[len+1u] = (u8) (seq >> 8);
       mCData[len+2u] = (u8) (sum & 0xff);

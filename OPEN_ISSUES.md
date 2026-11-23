@@ -140,6 +140,18 @@ ERISC_NOTES.md.
 
 ## Unproven on hardware
 
+- Turd ghost pixels after nukes, cause unproven (2026-11-23).  Clue from the
+  user: no turds with FB4 (never empties an atom), only with FB1 (dies back).
+  Suspected race: a borrower's late report of a cache-ring site beats the
+  owner's newer empty report to the host.  Built REPORT EPOCHS (epoch marker
+  records in the stream, per-pixel newest-epoch map on the host, stale reports
+  dropped and counted in `zhd`; CLAUDE.md).  NOT yet run.  Check: `zhd` stale
+  count > 0 and turds gone; if turds persist with stale ~ 0 the race is not
+  the cause.  Idle refresh (20/frame) stays as the backstop.  Also unproven:
+  `applyNuke` skips sites already empty in the hub grid (Grid.cpp), so a nuke
+  cannot repaint a stale host pixel over one; a force re-report of the whole
+  blast would (not built).
+
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
   figure was trimmed (read low while hubs differ); now a plain mean.  Compare
