@@ -10,6 +10,9 @@
 #   grep -a -c 'kept band' X.out             (ring atom + owner empty: fine under elision)
 #   grep -a -c '^([0-9]*,[0-9]*) \(SELF\|RING\)' X.out   (rows)
 #   grep -a 'reports quiet\|were gone' X.out (each pause must go quiet and stay: 0 gone)
+#   grep -a 'refresh asked\|refresh totals' X.out   (host-directed refresh: specks asked,
+#     repainted empty = repaired turds; totals: asked/answered/caught; REPAINTED rows: grep -a -c REPAIRED)
+# NOTE: `zoom specks refresh` prints the evidence rows first, then asks the hubs to re-report.
 tick slowscan off
 policy fourcorners
 # events honest
@@ -29,35 +32,35 @@ cycle repeat on
 cycle start
 cycle holdat RUN_EVENTS 100
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 150
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 200
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 250
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 300
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 350
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 400
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 cycle holdat RUN_EVENTS 450
 cycle waitpause quiet 2
-zoom specks
+zoom specks refresh
 cycle start
 wait 10
 quit close
