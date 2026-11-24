@@ -102,7 +102,14 @@ namespace MFM {
     const char * getStateName(State us) ;
 
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
-    static constexpr u32 BOGOMS_PER_FRAME = 50u; // XXX 100u
+    /* One report frame (one ACB car at most) per this many ms: the cap on
+       the hub's report rate.  Was 50 (20 cars/s); 25 is an experiment to
+       see whether the drain rate follows it.  Build with
+       -DACB_BOGOMS_PER_FRAME=50u to go back. */
+#ifndef ACB_BOGOMS_PER_FRAME
+#define ACB_BOGOMS_PER_FRAME 25u
+#endif
+    static constexpr u32 BOGOMS_PER_FRAME = ACB_BOGOMS_PER_FRAME;
     
     //    lzmfmx mARCompressor; -> FastT1
     AtomReportIO mARIO;
