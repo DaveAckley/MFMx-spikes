@@ -234,6 +234,7 @@ class RTMPFeed:
         self.lastSimNanos = 0          #< its sim time
         self.lastInfo = ""             #< its info line
         self.lastExtra = ""            #< its live-AER line (own line, may be empty)
+        self.scyFn = None              #< callable -> supercycle number (or None) for the LIVE line
         self.lastRealMono = 0.0        #< monotonic time it arrived
         self.overlayLock = threading.Lock()
         self.lastWriteT = 0.0          #< monotonic time of last write
@@ -582,7 +583,15 @@ class RTMPFeed:
 
         if simmsec%13579 > 1234:
             self.magicNum = random.randint(0,50)
-            self.drawTextOnImage(bgrimage,f"LIVE {el}",
+            scy = ""
+            if self.scyFn is not None:
+                try:
+                    n = self.scyFn()
+                    if n:
+                        scy = f"  scy {n}"
+                except Exception:
+                    pass            # the overlay must never cost the stream
+            self.drawTextOnImage(bgrimage,f"LIVE {el}{scy}",
                                  (dickWidth,liveY),
                                  self.fontCache.getCachedFont(self.fontCodeLive))
         elif self.magicNum < 4:

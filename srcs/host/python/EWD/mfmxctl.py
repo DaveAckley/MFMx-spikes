@@ -160,6 +160,7 @@ def main(argv=None):
                 link_linger=args.link_linger)
     dw = args.dwell if len(args.dwell) > 1 else args.dwell * 2
     cyc = SuperCycle(m, sh.say, dwell=tuple(dw[:2]), first_leader=args.first_leader)
+    m.scy_fn = lambda: cyc.scy          # the stream's LIVE line shows it
     state = {"close": False}
     mock = getattr(MFMx, "_mock", None)
 

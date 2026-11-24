@@ -1080,6 +1080,7 @@ class Machine:
             except Exception as e:           # never lose the stream over zoom
                 self.zoom.set_mode("off")
                 self.say(f"zoom disabled: {type(e).__name__}: {e}")
+        self.feed.scyFn = getattr(self, "scy_fn", None)
         self.feed.sendGraphicsFrame(arr, ns,
                                     f"mfmxctl/{self.mfmxVersion}",
                                     self._live_line())
