@@ -226,10 +226,6 @@ namespace MFM {
                 ar.mCoord.x >= T6Grid::SELF_MAX.x ||
                 ar.mCoord.y < T6Grid::SELF_ORIGIN.y ||
                 ar.mCoord.y >= T6Grid::SELF_MAX.y;
-              if (fresh && hring && mStreamEpoch >= 0 &&
-                  QuietBox::ringLosesTie(pixc.y*1920u + pixc.x,
-                                         (u16) mStreamEpoch))
-                fresh = false;      // SELF wins a tie: counted as stale
               QuietBox::noteHistory(pixc.y*1920u + pixc.x,fresh,hring,
                                     ar.mAtom.getType(),
                                     mStreamEpoch >= 0 ? (u16) mStreamEpoch : 0u);
