@@ -843,8 +843,10 @@ class Machine:
         emptied the site and the host never heard (a turd); HUB: type N =
         the hub still holds an atom.  For a RING painter it is the
         borrower's cache copy, so a RING row also shows OWNER <hub>: the
-        pixel's owning hub's SELF value (OWNER: EMPTY with the host still
-        showing an atom = a real turd).  Never raises: a failed dump or a missing
+        pixel's owning hub's SELF value.  A row is marked "=> TURD" only when
+        every hub copy that could hold the truth is EMPTY (a SELF painter's
+        own site; for RING both the borrower's ring and the owner), because
+        with cache elision a kept band's owner SELF is stale by design.  Never raises: a failed dump or a missing
         hub.map just says so once."""
         rows = [self.who_row(x, y) for x, y in points]
         f = getattr(self.M, "whoPainted", None)
@@ -904,6 +906,16 @@ class Machine:
             line = row + f" HUB: {look(st)}"
             if ow:
                 line += f" OWNER {ow[0]}: {look(ow)}"
+            # TURD only when every hub copy that could hold the truth is
+            # empty: a SELF painter's own site, or for a RING painter both
+            # the borrower's ring AND the owner.  (With cache elision a kept
+            # band's owner SELF is stale by design, the ring holds the truth.)
+            mine = look(st) if st else "?"
+            theirs = look(ow) if ow else None
+            if mine == "EMPTY" and theirs in (None, "EMPTY"):
+                line += " => TURD"
+            elif ow and mine != "?" and theirs == "EMPTY":
+                line += " (ring holds it: kept band?)"
             line += self.hist_text(pt)
             out.append(line)
         return out

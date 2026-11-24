@@ -776,8 +776,13 @@ def scenario_specks_who():
     # a RING painter: its own cache copy is empty, the OWNER (tlbi 16) holds 4
     os.environ["MFMX_MOCK_WHO"] = json.dumps({
         "10,10": [0, 15, False, True, 40, 4, 51, 30, 40],
-        "30,30": [0, 15, True, True, 40, 4, 51, 5, 6]})
-    os.environ["MFMX_MOCK_OWNER"] = json.dumps({"30,30": [0, 16, 30, 40]})
+        "20,20": [0, 15, False, True, 40, 4, 51, 31, 41],
+        "30,30": [0, 15, True, True, 40, 4, 51, 5, 6],
+        "31,31": [0, 15, True, True, 40, 4, 51, 5, 6],
+        "32,32": [0, 15, True, True, 40, 4, 51, 30, 40]})
+    os.environ["MFMX_MOCK_OWNER"] = json.dumps({"30,30": [0, 16, 30, 40],
+                                                "31,31": [0, 16, 31, 41],
+                                                "32,32": [0, 16, 31, 41]})
     os.environ["MFMX_MOCK_HIST"] = json.dumps({"30,30": [
         [True, True, 4, 150], [True, False, 0, 150], [False, False, 4, 148]]})
     rows = machine.Machine.specks_who(fake, [(30, 30)])
@@ -785,6 +790,16 @@ def scenario_specks_who():
           len(rows) == 1 and "HUB: EMPTY" in rows[0] and
           "OWNER at0" in rows[0] and "type 4" in rows[0].split("OWNER")[1],
           str(rows))
+    check("specks_who: RING, owner holds an atom: not a TURD",
+          "TURD" not in rows[0], str(rows))
+    rows3 = machine.Machine.specks_who(fake, [(31, 31), (32, 32)])
+    check("specks_who: RING with ring AND owner empty: TURD",
+          "=> TURD" in rows3[0], str(rows3))
+    check("specks_who: ring holds atom, owner empty: kept band, not TURD",
+          "TURD" not in rows3[1] and "kept band" in rows3[1], str(rows3))
+    rows2 = machine.Machine.specks_who(fake, [(20, 20)])
+    check("specks_who: SELF painter, own site empty: TURD",
+          "=> TURD" in rows2[0], str(rows2))
     check("specks_who: HIST newest first, dropped marked",
           "HIST: R4@e150 < S0@e150 < -S4@e148" in rows[0], str(rows))
     os.environ["MFMX_HUB_MAP"] = os.path.join(tmp, "nope.map")
