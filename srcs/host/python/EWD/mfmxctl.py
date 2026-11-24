@@ -346,7 +346,8 @@ def main(argv=None):
 
     def c_cycle(a):
         sub = sh.resolve(a[0], ("status", "start", "hold", "step", "stop", "retry", "reset",
-                                "leader", "first", "birth", "repeat"), "cycle subcommand") if a else "status"
+                                "leader", "first", "birth", "repeat", "holdat",
+                                "waitpause"), "cycle subcommand") if a else "status"
         if sub == "status":
             return cyc.status()
         if sub in ("start", "hold", "step", "stop", "retry"):
@@ -354,6 +355,21 @@ def main(argv=None):
         if sub == "reset":
             cyc.reset()
             return "cycle reset (counters, leader memory, birth-hold flag)"
+        if sub == "holdat":
+            if len(a) < 2:
+                return cyc.status().split("\n  holdat", 1)[1].strip() \
+                    if cyc.hold_at else "holdat not armed"
+            if a[1].lower() == "off":
+                return cyc.set_hold_at(None)
+            step = sh.resolve(a[1], ("NEW_LEADER", "RUN_EVENTS", "DWELL"), "cycle holdat STEP")
+            return cyc.set_hold_at(step, int(a[2]) if len(a) > 2 else 0)
+        if sub == "waitpause":
+            cap = float(a[1]) if len(a) > 1 else 3600.0
+            end = time.monotonic() + cap
+            while not cyc.is_paused() and not cyc.frozen and time.monotonic() < end:
+                sh.run_for(0.1)
+            return ("cycle paused: " + cyc.status().split("\n", 1)[1].strip()
+                    if cyc.is_paused() else f"not paused after {cap:g}s: " + cyc.state())
         if sub == "repeat":
             if len(a) > 1:
                 cyc.repeat = kw(a[1], ("on", "off"), "cycle repeat") == "on"
@@ -372,7 +388,7 @@ def main(argv=None):
             cyc.held = kw(a[1], ("done", "pending"), "cycle birth") == "done"
             return f"HOLD_AT_BIRTH {'treated as done' if cyc.held else 'will be sent first'}"
         raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
-                         "leader N|random|first N|birth done|pending]")
+                         "leader N|random|first N|birth done|pending|holdat STEP [SCY]|off|waitpause [SECS]]")
 
     def c_feed(a):
         sub = sh.resolve(a[0], ("on", "off", "status"), "feed subcommand") if a else "status"
@@ -570,7 +586,7 @@ def main(argv=None):
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
     sh.command("cycle", c_cycle,
-               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending]: SuperCycle")
+               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending|holdat STEP [SCY]|waitpause [SECS]]: SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once scy >= 150; waitpause blocks a command file until paused)")
     sh.command("dwell", c_dwell, "dwell [SECS | LO HI]: SuperCycle dwell after RUN_EVENTS")
     sh.command("shoot", c_shoot, "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
     sh.command("waitbolt", c_waitbolt,

@@ -56,6 +56,7 @@ class SuperCycle:
     def reset(self):
         self.mode = "idle"          # idle | run | hold
         self.credits = 0            # steps allowed while mode == hold
+        self.hold_at = None         # (STEP, MIN_SCY): pause when STEP is next
         self.held = False           # HOLD_AT_BIRTH completed
         self.pointer = 0            # index into STEPS of the next step
         self.active = None          # dict(step, since, bolt, end) while a step runs
@@ -97,6 +98,9 @@ class SuperCycle:
                 s += f" -> bolt #{a['bolt'].seq}"
         else:
             s += f"\n  next: {self.next_step()}"
+        if self.hold_at is not None:
+            s += (f"\n  holdat armed: pause when next is {self.hold_at[0]}"
+                  + (f" and scy >= {self.hold_at[1]}" if self.hold_at[1] else ""))
         if self.next_leader is not None:
             s += f"\n  next leader forced: {self.next_leader}"
         if self.pending_nuke is not None:
@@ -131,6 +135,21 @@ class SuperCycle:
         self.mode, self.credits = "hold", 0
         return "cycle will pause after the current step" if self.active else "cycle paused"
 
+    def set_hold_at(self, step=None, min_scy=0):
+        """Arm (or clear, step None) a pause for the moment STEP is next,
+        once scy >= min_scy.  The pause is the same as 'cycle hold'."""
+        if step is None:
+            self.hold_at = None
+            return "holdat cleared"
+        if step not in STEPS:
+            raise ValueError(f"holdat: STEP must be one of {', '.join(STEPS)}")
+        self.hold_at = (step, int(min_scy))
+        return (f"will pause when next is {step}"
+                + (f" and scy >= {int(min_scy)}" if min_scy else ""))
+
+    def is_paused(self):
+        return self.mode == "hold" and not self.active and self.credits == 0
+
     def step(self):
         self._check_ok()
         if self.active or (self.mode == "hold" and self.credits > 0):
@@ -142,6 +161,7 @@ class SuperCycle:
         was = self.state()
         pend = self.active["bolt"] if self.active and self.active["bolt"] else None
         self.mode, self.credits, self.active, self.frozen = "idle", 0, None, None
+        self.hold_at = None
         return (f"cycle stopped (was {was})"
                 + (f"; bolt #{pend.seq} {pend.cmd} may still be pending" if pend and pend.state == "pending" else "")
                 + f"; next step would be {self.next_step()}")
@@ -309,6 +329,10 @@ class SuperCycle:
             self.pointer = (self.pointer + 1) % len(STEPS)
             if self.pointer == 0:
                 self.cycles += 1
+        h = self.hold_at
+        if (h is not None and self.mode == "run" and self.next_step() == h[0]
+                and self.scy >= h[1]):
+            self.mode, self.credits, self.hold_at = "hold", 0, None
         if self.mode == "hold" and self.credits == 0:
             self.say(f"[cycle] paused after {step} (scy {self.scy}); next: {self.next_step()}")
 

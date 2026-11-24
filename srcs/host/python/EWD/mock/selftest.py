@@ -442,6 +442,19 @@ def scenario_cycle_run():
           str([c for c, a, s in h]))
 
 
+def scenario_cycle_holdat():
+    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
+                  "cycle holdat NEW_LEADER 3\ncycle status\ncycle start\n"
+                  "cycle waitpause 20\ncycle status\ncycle holdat\nquit\n")
+    check("holdat: armed message", "will pause when next is NEW_LEADER and scy >= 3" in out, out[-300:])
+    check("holdat: paused with NEW_LEADER next, scy 3",
+          "paused after DWELL (scy 3); next: NEW_LEADER" in out, out[-400:])
+    check("holdat: waitpause reports paused", "cycle paused:" in out, out[-300:])
+    check("holdat: disarmed after firing", "holdat not armed" in out, out[-200:])
+    rc2, out2 = run("boot\nstart\n" + CYC + "cycle holdat bogus\ncycle holdat off\nquit\n")
+    check("holdat: bad step rejected", "holdat" in out2 and "must be one of" in out2.replace("\n", " ") or "unknown" in out2.lower(), out2[-300:])
+
+
 def scenario_cycle_freeze_retry():
     rc, out = run("boot\nstart\n" + CYC + "mock lamers 0 5 6 cmd RUN_EVENTS\nbolt timeout RUN_EVENTS 0.5\n"
                   "cycle start\nwait 2.0\n# A\nbolt hist\nwait 1.5\n# B\nbolt hist\ncycle status\n"
