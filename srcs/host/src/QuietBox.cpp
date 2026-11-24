@@ -8,6 +8,7 @@ namespace MFM {
   BGRImageHD QuietBox::t6gridRenderBlock;
   std::atomic<u16> QuietBox::pixelEpochs[QuietBox::PIXEL_EPOCHS];
   std::atomic<u64> QuietBox::painters[QuietBox::PIXEL_EPOCHS];
+  std::atomic<u32> QuietBox::pixelHistory[QuietBox::PIXEL_EPOCHS*QuietBox::PIXEL_HISTORY];
   std::atomic<u32> QuietBox::newestEpoch{0u};
 
   QuietBox theQuietBox;

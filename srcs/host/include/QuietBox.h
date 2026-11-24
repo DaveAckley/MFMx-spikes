@@ -108,6 +108,8 @@ namespace MFM {
       for (u32 i = 0u; i < PIXEL_EPOCHS; ++i) {
         pixelEpochs[i].store(0u,std::memory_order_relaxed);
         painters[i].store(0u,std::memory_order_relaxed);
+        for (u32 k = 0u; k < PIXEL_HISTORY; ++k)
+          pixelHistory[i*PIXEL_HISTORY+k].store(0u,std::memory_order_relaxed);
       }
       newestEpoch.store(0u,std::memory_order_relaxed);
     }
@@ -125,6 +127,29 @@ namespace MFM {
       u32 mGX = 0u, mGY = 0u;     // the painting hub's own grid coords of the site
     };
     static std::atomic<u64> painters[PIXEL_EPOCHS];
+
+    /* PIXEL HISTORY: the last PIXEL_HISTORY reports that reached each pixel,
+       accepted or dropped as stale, newest first, so a turd's last few
+       arrivals can be read back (who painted, in which epoch, and in what
+       order).  One u32 each: bit 31 valid, 30 accepted, 29 ring, 28..20
+       atom type, 15..0 stream epoch (0 if unknown).  Written by several
+       decoder threads without a lock (shift, relaxed): a torn entry is
+       possible under a race, which is fine for diagnosis.  33 MB. */
+    static constexpr u32 PIXEL_HISTORY = 4u;
+    static std::atomic<u32> pixelHistory[PIXEL_EPOCHS*PIXEL_HISTORY];
+    static void noteHistory(u32 pixelIndex, bool accepted, bool ring,
+                            u32 type, u16 epoch) {
+      std::atomic<u32> * h = &pixelHistory[pixelIndex*PIXEL_HISTORY];
+      for (u32 k = PIXEL_HISTORY-1u; k > 0u; --k)
+        h[k].store(h[k-1u].load(std::memory_order_relaxed),
+                   std::memory_order_relaxed);
+      h[0].store((1u<<31) | ((u32) accepted << 30) | ((u32) ring << 29) |
+                 ((type & 0x1ffu) << 20) | epoch, std::memory_order_relaxed);
+    }
+    static u32 getHistory(u32 pixelIndex, u32 k) {
+      if (pixelIndex >= PIXEL_EPOCHS || k >= PIXEL_HISTORY) return 0u;
+      return pixelHistory[pixelIndex*PIXEL_HISTORY+k].load(std::memory_order_relaxed);
+    }
     static void notePainter(u32 pixelIndex, bool epochKnown, u16 epoch,
                             bool ring, u32 chip, u32 tlbi, u32 type,
                             u32 gx, u32 gy) {

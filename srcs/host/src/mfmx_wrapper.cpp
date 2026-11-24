@@ -67,6 +67,19 @@ PYBIND11_MODULE(MFMx, m) {
                           p.mType, (ne & 0x10000u) ? (int) (ne & 0xffffu) : -1,
                           p.mGX, p.mGY);
   });
+  // The last few reports that reached pixel (x,y), newest first: a list of
+  // (accepted, ring, atomType, epoch) (accepted False = dropped as stale).
+  m.def("pixelHistory", [](unsigned x, unsigned y) -> py::list {
+    py::list out;
+    if (x >= 1920u || y >= 1080u) return out;
+    for (unsigned k = 0u; k < MFM::QuietBox::PIXEL_HISTORY; ++k) {
+      const unsigned v = MFM::QuietBox::getHistory(y*1920u + x,k);
+      if (!(v >> 31)) break;
+      out.append(py::make_tuple((bool) ((v >> 30) & 1u), (bool) ((v >> 29) & 1u),
+                                (v >> 20) & 0x1ffu, v & 0xffffu));
+    }
+    return out;
+  });
   // Which hub OWNS pixel (x,y) (the hub whose SELF sites map onto it): None
   // if the pixel has no hub, else (chip, tlbi, gridX, gridY) with the grid
   // site of that pixel in the owner hub.  For zoom specks: a RING painter's

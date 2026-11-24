@@ -760,6 +760,7 @@ def scenario_specks_who():
     fake = types.SimpleNamespace(M=__import__("MFMx"))
     fake.tlbi_to_noc = machine.Machine.tlbi_to_noc
     fake.who_row = lambda x, y: machine.Machine.who_row(fake, x, y)
+    fake.hist_text = lambda pt: machine.Machine.hist_text(fake, pt)
     fake.hub_map_path = lambda: machine.Machine.hub_map_path(fake)
     def dumpl1(tags):
         d = os.path.join(tmp, "dumps"); os.makedirs(d, exist_ok=True)
@@ -777,11 +778,15 @@ def scenario_specks_who():
         "10,10": [0, 15, False, True, 40, 4, 51, 30, 40],
         "30,30": [0, 15, True, True, 40, 4, 51, 5, 6]})
     os.environ["MFMX_MOCK_OWNER"] = json.dumps({"30,30": [0, 16, 30, 40]})
+    os.environ["MFMX_MOCK_HIST"] = json.dumps({"30,30": [
+        [True, True, 4, 150], [True, False, 0, 150], [False, False, 4, 148]]})
     rows = machine.Machine.specks_who(fake, [(30, 30)])
     check("specks_who: RING row also reads the OWNER hub's SELF",
           len(rows) == 1 and "HUB: EMPTY" in rows[0] and
           "OWNER at0" in rows[0] and "type 4" in rows[0].split("OWNER")[1],
           str(rows))
+    check("specks_who: HIST newest first, dropped marked",
+          "HIST: R4@e150 < S0@e150 < -S4@e148" in rows[0], str(rows))
     os.environ["MFMX_HUB_MAP"] = os.path.join(tmp, "nope.map")
     rows = machine.Machine.specks_who(fake, [(10, 10)])
     check("specks_who: missing hub.map is said, not raised",

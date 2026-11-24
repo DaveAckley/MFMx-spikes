@@ -137,6 +137,14 @@ def whoPainted(x, y):
     return tuple(r) if r is not None else None
 
 
+def pixelHistory(x, y):
+    """[(accepted, ring, atomType, epoch), ...] newest first; the selftest
+    sets $MFMX_MOCK_HIST to a JSON dict {"x,y": [[...], ...]}."""
+    import json
+    r = json.loads(os.environ.get("MFMX_MOCK_HIST", "{}")).get(f"{x},{y}", [])
+    return [tuple(e) for e in r]
+
+
 def pixelOwner(x, y):
     """(chip, tlbi, gridX, gridY) of the hub owning pixel (x,y), or None.
     The selftest sets $MFMX_MOCK_OWNER to a JSON dict {"x,y": [chip,tlbi,gx,gy]}."""

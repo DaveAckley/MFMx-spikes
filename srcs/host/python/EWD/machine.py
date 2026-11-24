@@ -821,6 +821,21 @@ class Machine:
         return os.path.join(here, "..", "..", "..", "..", "build_cross",
                             "srcs", "cross", "hub.map")
 
+    def hist_text(self, pt):
+        """' HIST: ...' the last reports that reached pixel pt, newest first:
+        S/R (SELF/RING) type@epoch, a leading '-' = dropped as stale.  ''
+        if the module lacks pixelHistory or nothing arrived."""
+        f = getattr(self.M, "pixelHistory", None)
+        try:
+            h = f(pt[0], pt[1]) if f is not None else []
+        except Exception:       # noqa: BLE001 - diagnostics only
+            return ""
+        if not h:
+            return ""
+        return " HIST: " + " < ".join(
+            f"{'' if a else '-'}{'R' if r else 'S'}{t}@e{e}"
+            for a, r, t, e in h)
+
     def specks_who(self, points):
         """Lines for zoom specks: who painted each (x,y) plus, automatically,
         what the painting hub's OWN grid holds there now (dumpl1 of those
@@ -885,10 +900,11 @@ class Machine:
             return ("EMPTY" if ty == 0 else f"type {ty}") + \
                 ("" if ok else " (parity bad)")
         out = []
-        for row, st, ow in zip(rows, sites, owners):
+        for row, st, ow, pt in zip(rows, sites, owners, points):
             line = row + f" HUB: {look(st)}"
             if ow:
                 line += f" OWNER {ow[0]}: {look(ow)}"
+            line += self.hist_text(pt)
             out.append(line)
         return out
 

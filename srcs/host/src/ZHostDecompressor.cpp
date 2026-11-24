@@ -220,6 +220,16 @@ namespace MFM {
                 pixc.x < 1920u && pixc.y < 1080u)
               fresh = QuietBox::acceptPixelEpoch(pixc.y*1920u + pixc.x,
                                                  (u16) mStreamEpoch);
+            if (onImage && pixc.x < 1920u && pixc.y < 1080u) {
+              const bool hring =
+                ar.mCoord.x < T6Grid::SELF_ORIGIN.x ||
+                ar.mCoord.x >= T6Grid::SELF_MAX.x ||
+                ar.mCoord.y < T6Grid::SELF_ORIGIN.y ||
+                ar.mCoord.y >= T6Grid::SELF_MAX.y;
+              QuietBox::noteHistory(pixc.y*1920u + pixc.x,fresh,hring,
+                                    ar.mAtom.getType(),
+                                    mStreamEpoch >= 0 ? (u16) mStreamEpoch : 0u);
+            }
             if (!fresh) {
               mStaleDropped.fetch_add(1u,std::memory_order_relaxed);
             } else {
