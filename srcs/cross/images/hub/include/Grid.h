@@ -122,6 +122,14 @@ namespace MFM {
       return mLength;
     }
 
+    /** Total sites popped for reporting since init (not counting
+        re-queues); with getLength() this lets a mark show whether a
+        nuke's backlog was drained to the host. */
+    u32 getPopped() {
+      AtomicScopeLock guard(mLock);
+      return mPopped;
+    }
+
     void init() ;
 
     bool popBackC(U8C & c) {
@@ -129,6 +137,7 @@ namespace MFM {
       if (mRoot == DL2D::cNONE) return false;
       U8C backc =_get(mRoot).getPrevC();
       _remove(backc,false);
+      ++mPopped;
       c = backc;
       return true;
     }
@@ -192,6 +201,7 @@ namespace MFM {
     AtomicLock mLock;
     U8C mRoot;
     u16 mLength;
+    u32 mPopped;                // zeroed by init()
 
     //// PRIVATE _METHODS ASSUME LOCK IS HELD
     DL2D & _get(U8C c) {

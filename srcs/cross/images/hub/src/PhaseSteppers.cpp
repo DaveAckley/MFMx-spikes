@@ -275,7 +275,16 @@ namespace MFM {
             char bn[80];
             LOGPTAG(.en,fmtEventBooks(bn,fB.mGridManager));
           }
+          const u32 dlBefore = theDLGridList.getLength();
           const u32 selfErased = fB.mGridManager.applyNuke(nb,cacheErased);
+          {                     // DL BEFORE:AFTER:POPPED (hex)
+            char bl[40];
+            snprintf(bl,sizeof(bl),"%x:%x:%x.",dlBefore,
+                     (u32) theDLGridList.getLength(),
+                     theDLGridList.getPopped());
+            LOGPTAG(.nl,bl);
+            HBPTAG(.nl,bl);
+          }
           if (selfErased != 0u || cacheErased != 0u) {
             char b[48];
             snprintf(b,sizeof(b),"%x:%x:%x.",(u32) scy,selfErased,cacheErased);
@@ -330,6 +339,14 @@ namespace MFM {
           LOGPTAG(.ev,fmtEventCounts(b5,fB.mGridManager));
           char b6[80];
           LOGPTAG(.eo,fmtEventBooks(b6,fB.mGridManager));
+          {                     // DL backlog: LEN:POPPED (hex)
+            char bd[32];
+            snprintf(bd,sizeof(bd),"%x:%x.",
+                     (u32) theDLGridList.getLength(),
+                     theDLGridList.getPopped());
+            LOGPTAG(.dl,bd);
+            HBPTAG(.dl,bd);
+          }
         }
         theL1CacheLoaders.restartIterators();
         HBPTAG(BOLTR_done_wOxREB,(u32) arg);
