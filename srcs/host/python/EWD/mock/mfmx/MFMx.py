@@ -137,6 +137,14 @@ def whoPainted(x, y):
     return tuple(r) if r is not None else None
 
 
+def pixelOwner(x, y):
+    """(chip, tlbi, gridX, gridY) of the hub owning pixel (x,y), or None.
+    The selftest sets $MFMX_MOCK_OWNER to a JSON dict {"x,y": [chip,tlbi,gx,gy]}."""
+    import json
+    r = json.loads(os.environ.get("MFMX_MOCK_OWNER", "{}")).get(f"{x},{y}")
+    return tuple(r) if r is not None else None
+
+
 def zhdSnapshot():
     """Report stream health rows (see host ZHostDecompressor.h):
     (chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,

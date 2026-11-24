@@ -827,7 +827,9 @@ class Machine:
         hubs, decoded by scripts/l1dump/l1grid.py).  HUB: EMPTY = the hub
         emptied the site and the host never heard (a turd); HUB: type N =
         the hub still holds an atom.  For a RING painter it is the
-        borrower's cache copy.  Never raises: a failed dump or a missing
+        borrower's cache copy, so a RING row also shows OWNER <hub>: the
+        pixel's owning hub's SELF value (OWNER: EMPTY with the host still
+        showing an atom = a real turd).  Never raises: a failed dump or a missing
         hub.map just says so once."""
         rows = [self.who_row(x, y) for x, y in points]
         f = getattr(self.M, "whoPainted", None)
@@ -839,7 +841,19 @@ class Machine:
                 continue
             tx, ty = self.tlbi_to_noc(r[1])
             sites.append((f"at{r[0]}{b36(tx)}{b36(ty)}", r[7], r[8]))
-        tags = sorted({st[0] for st in sites if st})
+        # RING painters: the painter's value is the borrower's cache copy,
+        # so also read the OWNER hub's SELF site (the pixel's real truth).
+        fo = getattr(self.M, "pixelOwner", None)
+        owners = []
+        for (x, y), r in zip(points, who):
+            o = fo(x, y) if (fo is not None and r is not None and len(r) >= 9
+                             and r[2]) else None
+            if o is None:
+                owners.append(None)
+                continue
+            tx, ty = self.tlbi_to_noc(o[1])
+            owners.append((f"at{o[0]}{b36(tx)}{b36(ty)}", o[2], o[3]))
+        tags = sorted({st[0] for st in sites + owners if st})
         if not tags:
             return rows
         try:
@@ -863,15 +877,19 @@ class Machine:
                     grids[t] = None
         except Exception as e:      # noqa: BLE001 - diagnostics never break the shell
             return rows + [f"(hub truth unavailable: {e})"]
-        out = []
-        for row, st in zip(rows, sites):
+        def look(st):
             g = grids.get(st[0]) if st else None
             if g is None:
-                out.append(row + " HUB: ?")
-                continue
+                return "?"
             ty, ok = g[st[1]][st[2]]
-            out.append(row + (" HUB: EMPTY" if ty == 0 else f" HUB: type {ty}") +
-                       ("" if ok else " (parity bad)"))
+            return ("EMPTY" if ty == 0 else f"type {ty}") + \
+                ("" if ok else " (parity bad)")
+        out = []
+        for row, st, ow in zip(rows, sites, owners):
+            line = row + f" HUB: {look(st)}"
+            if ow:
+                line += f" OWNER {ow[0]}: {look(ow)}"
+            out.append(line)
         return out
 
     def tick_slowscan(self):

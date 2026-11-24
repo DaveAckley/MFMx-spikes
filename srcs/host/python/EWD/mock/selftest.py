@@ -772,6 +772,16 @@ def scenario_specks_who():
     check("specks_who: hub value read from the dump",
           len(rows) == 2 and "HUB: type 4" in rows[0] and "HUB: EMPTY" in rows[1]
           and "site (30,40)" in rows[0], str(rows))
+    # a RING painter: its own cache copy is empty, the OWNER (tlbi 16) holds 4
+    os.environ["MFMX_MOCK_WHO"] = json.dumps({
+        "10,10": [0, 15, False, True, 40, 4, 51, 30, 40],
+        "30,30": [0, 15, True, True, 40, 4, 51, 5, 6]})
+    os.environ["MFMX_MOCK_OWNER"] = json.dumps({"30,30": [0, 16, 30, 40]})
+    rows = machine.Machine.specks_who(fake, [(30, 30)])
+    check("specks_who: RING row also reads the OWNER hub's SELF",
+          len(rows) == 1 and "HUB: EMPTY" in rows[0] and
+          "OWNER at0" in rows[0] and "type 4" in rows[0].split("OWNER")[1],
+          str(rows))
     os.environ["MFMX_HUB_MAP"] = os.path.join(tmp, "nope.map")
     rows = machine.Machine.specks_who(fake, [(10, 10)])
     check("specks_who: missing hub.map is said, not raised",

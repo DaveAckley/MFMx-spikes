@@ -67,6 +67,19 @@ PYBIND11_MODULE(MFMx, m) {
                           p.mType, (ne & 0x10000u) ? (int) (ne & 0xffffu) : -1,
                           p.mGX, p.mGY);
   });
+  // Which hub OWNS pixel (x,y) (the hub whose SELF sites map onto it): None
+  // if the pixel has no hub, else (chip, tlbi, gridX, gridY) with the grid
+  // site of that pixel in the owner hub.  For zoom specks: a RING painter's
+  // value is only the borrower's cache copy, the owner's SELF is the truth.
+  m.def("pixelOwner", [](unsigned x, unsigned y) -> py::object {
+    if (x >= 1920u || y >= 1080u) return py::none();
+    MFM::QuietBox & qb = MFM::QuietBox::get();
+    const MFM::T6GridInfo & t6i = qb.getT6GridInfoFor(MFM::DG::Coord(x,y));
+    if (!t6i.mDGAddress.isValid()) return py::none();
+    const unsigned gx = x - t6i.mT6GridOrigin.x + MFM::T6Grid::SELF_ORIGIN.x;
+    const unsigned gy = y - t6i.mT6GridOrigin.y + MFM::T6Grid::SELF_ORIGIN.y;
+    return py::make_tuple(t6i.mDGAddress.mChipNum, t6i.mTLBI, gx, gy);
+  });
   // TEST: lose one compressed byte of one hub's report stream; True if it exists.
   m.def("zhdBreak", [](unsigned chip, unsigned tlbi) {
     return MFM::ZHostDecompressor::injectDrop(chip, tlbi);
