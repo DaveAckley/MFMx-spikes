@@ -172,6 +172,12 @@ ERISC_NOTES.md.
   TEST: turds gone and .eo stale > 0.  LATER: wait for OUTSTANDING == 0 (with EWs
   suspended, which now counts as returned-unapplied) before leaving RUN_EVENTS.
 
+  UPDATE 2026-11-24: nuke not needed (control run, no nukes, still has HUB:
+  EMPTY STILL specks); hub drains its DL fully after a nuke (.nl/.dl) and the
+  host loses nothing (0 desync, 0 stale); every definite SELF turd lies in the
+  20-site overlap band.  Suspect: quiet SAVE unload.  Built: unloadPacket
+  pushes DL for changed SELF sites (CLAUDE.md SELF UNLOADS REPORT).  Next if
+  turds persist: host-directed refresh of pixels not reported for N epochs.
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
   figure was trimmed (read low while hubs differ); now a plain mean.  Compare

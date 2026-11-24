@@ -376,7 +376,16 @@ namespace MFM {
       if (nextIdx >= atomsInPacket) break; // Ain't Got No More
       U8C ac = *itr++;
       P4Atom a = patoms.getAtomFromPacketOrDie(nextIdx++);
-      gm.setAtomQuiet(U16C(ac.x,ac.y),a); // loads and saves do not paint (Grid.h)
+      /* A follower's SAVE unload lands in its own SELF sites (a leader's
+         LOAD unload lands in its cache ring).  A changed SELF site must
+         be reported by its owner, so it goes through the DL; ring sites
+         stay quiet (Grid.h). */
+      const U16C gc(ac.x,ac.y);
+      const bool intoSelf =
+        gc.x >= T6Grid::SELF_ORIGIN.x && gc.x < T6Grid::SELF_MAX.x &&
+        gc.y >= T6Grid::SELF_ORIGIN.y && gc.y < T6Grid::SELF_MAX.y;
+      if (intoSelf) gm.setAtomOrDrop(gc,a);  // pushes only if it changed
+      else gm.setAtomQuiet(gc,a);
     }
     MFM_API_ASSERT(itr.atEnd() || nextIdx >= atomsInPacket,ILLEGAL_STATE);    // can't stop unless car empty or itr done..
 

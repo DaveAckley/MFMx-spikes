@@ -350,7 +350,11 @@ namespace MFM {
        cache load/save (CacheLoader::unloadPacket): the pixel already shows
        this value (the borrower's last painted value, or the lender's), and
        if both the borrower and the lender painted it, a stale copy could
-       overwrite the owner's.  Events (writeEW) still paint as usual. */
+       overwrite the owner's.  Events (writeEW) still paint as usual.
+       Exception (2026-11-24): CacheLoader::unloadPacket now uses
+       setAtomOrDrop for sites inside this hub's SELF region (a follower's
+       SAVE), because a SAVE that empties a SELF site otherwise left the
+       host with a stale pixel (turds, all within the overlap band). */
     bool setAtomQuiet(U16C gridc, const P4Atom a) ;
 
     bool matchesEW(const EventWindow & ew,U16C center) const ;
