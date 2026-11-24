@@ -68,8 +68,21 @@ namespace MFM {
     u8 mShadowCar[ACacheBlockPayload::ACBP_DATA_SIZE]; //< the bytes the sink accepted, as meant
     void explainShadow(const ACacheBlockPayload & pay, u16 seq) ; //< T0, at seal: log the diffs
 
+    /* Host-directed refresh (ACBHostFeedback / REFRESH slots in
+       PT_ACacheBlock.h): sites the host asked us to re-report.  The NC hart
+       latches them in recvTC (under mLock); T0 queues each on the change
+       list (pushFrontC), so the next report of the site carries its current
+       atom and change stamp. */
+    static constexpr u32 REFRESH_QLEN = 16u;
+    u8 mRefreshX[REFRESH_QLEN];
+    u8 mRefreshY[REFRESH_QLEN];
+    u8 mRefreshN;               //< sites waiting
+    u32 mRefreshAsked;          //< sites latched (valid), for the .hr mark
+    u32 mRefreshFull;           //< valid sites dropped, queue full
+
     void init() ;
     void latchHostFeedback(const ACacheBlockPayload & pay) ; // NC, BEFORE init()
+    bool takeRefreshSite(U8C & c) ; //< T0
     bool restartWanted() ;      //< T0: a request we have not answered
     void beginDrain() ;         //< T0
     bool isDraining() const ;   //< T1's source (no lock) and T0
@@ -142,6 +155,7 @@ namespace MFM {
     static constexpr u32 REFRESH_PER_FRAME = ACB_REFRESH_PER_FRAME;
     u32 mRefreshLeft;           // refresh reports still allowed this frame
     u32 mRefreshSent;           // reports sent as refresh, for the .rf mark
+    u32 mRefreshQueued;         // host-asked sites queued, for the .hr mark
 
     U8C nextRefreshSite() ;
 

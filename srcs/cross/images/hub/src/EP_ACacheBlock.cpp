@@ -164,12 +164,34 @@ namespace MFM {
     u16 f = (u16) pay.mFlagsAndLen;
     mHostReq = (f & ACacheBlockPayload::ACBP_FLAG_RESTART_REQ) ? 1u : 0u;
     mHostReqEpoch = (f & ACacheBlockPayload::ACBP_FLAG_EPOCH) ? 1u : 0u;
+    if (!mHostReq) {            // no restart: the bytes are refresh requests
+      for (u32 i = 0u; i < ACacheBlockPayload::REFRESH_SLOTS; ++i) {
+        u8 x, y;
+        if (!pay.getRefreshSlot(i,x,y)) continue;
+        if (!DLGridList::isValidC(U8C(x,y))) continue;
+        ++mRefreshAsked;
+        if (mRefreshN >= REFRESH_QLEN) { ++mRefreshFull; continue; }
+        mRefreshX[mRefreshN] = x;
+        mRefreshY[mRefreshN] = y;
+        ++mRefreshN;
+      }
+    }
     if (mHostReq) {
       ACBHostFeedback fb = pay.getFeedback();
       mHostSpin = fb.mExpectedSpin;
       mHostSeq = fb.mPacketSeq;
       mHostConsec = fb.mConsecInvalid;
     }
+  }
+
+  bool ACacheBlockL1Control::takeRefreshSite(U8C & c) {
+    memoryFence();
+    if (mRefreshN == 0u) return false;     // common case: no lock
+    AtomicScopeLock guard(mLock);
+    if (mRefreshN == 0u) return false;
+    --mRefreshN;
+    c = U8C(mRefreshX[mRefreshN],mRefreshY[mRefreshN]);
+    return true;
   }
 
   bool ACacheBlockL1Control::restartWanted() {
@@ -515,6 +537,13 @@ namespace MFM {
     SNAP(100,HBPTAG(mSt,getStateName(mState)));
     MFM_API_ASSERT_NONNULL(mDLGridList);
     DLGridList & dl = *mDLGridList;
+    {                           // host-asked refreshes: report them next
+      U8C rq;
+      while (mACBL1Control->takeRefreshSite(rq)) {
+        dl.pushFrontC(rq);
+        if ((++mRefreshQueued % 64u) == 1u) LOGPTAG(.hr,mRefreshQueued);
+      }
+    }
     switch (mState) {
     case State::UNINIT:
       {

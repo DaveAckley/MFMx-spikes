@@ -11,6 +11,7 @@
 #include <memory> // for unique_ptr
 #include <atomic> // for atomic
 #include <mutex>  // for mutex
+#include <vector> // for the refresh lists
 #include <vector> // for vector
 
 namespace MFM {
@@ -60,6 +61,9 @@ namespace MFM {
     /* TEST: make the hub's decoder drop one compressed byte, as a lost byte
        would (mfmxctl 'zhd break TAG').  True if that hub has a decompressor. */
     static bool injectDrop(u32 chip, u32 tlbi) ;
+    /** Ask hub (chip,tlbi) to re-report its grid site (x,y); true if queued. */
+    static bool requestRefresh(u32 chip, u32 tlbi, u32 x, u32 y) ;
+    static void refreshStats(u64 & asked, u64 & answered, u64 & caught) ;
     ZHostDecompressor() ;
     ~ZHostDecompressor() ;
     void init(const u32 tlbi, const u32 chipnum) ;
@@ -130,7 +134,17 @@ namespace MFM {
 
     /* Stamp a car we are returning: the restart request (if any) in its flags
        and where our decoder stands in its payload; the car stays empty. */
-    void stampFeedback(ACacheBlockPayload & pay) const ;
+    void stampFeedback(ACacheBlockPayload & pay) ;
+    //// Host-directed refresh (REFRESH slots in PT_ACacheBlock.h): sites
+    //// (hub grid coords) to ask this hub to re-report, in the cars we return.
+    mutable std::mutex mRefreshLock;
+    std::vector<u16> mRefreshPending;   //< (x<<8|y) not yet sent
+    std::vector<u16> mRefreshWait;      //< sent, report not yet seen
+    std::atomic<u32> mRefreshWaitN{0u}; //< mRefreshWait.size(), for a cheap test
+    static std::atomic<u64> sRefreshAsked;     //< sites requested (python)
+    static std::atomic<u64> sRefreshAnswered;  //< a report for a requested site came
+    static std::atomic<u64> sRefreshCaught;    //< ... and it emptied a non-empty pixel
+    bool takeRefreshAnswer(u32 x, u32 y) ;
     void requestRestart() ;
     bool isRestartSOF(const ACacheBlockPayload & pay) const ;
     void restartDecoder() ;

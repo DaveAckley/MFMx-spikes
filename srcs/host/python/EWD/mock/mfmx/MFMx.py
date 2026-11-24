@@ -153,6 +153,21 @@ def pixelOwner(x, y):
     return tuple(r) if r is not None else None
 
 
+_refreshed = []
+
+
+def refreshPixel(x, y):
+    """Ask the hubs behind pixel (x,y) to re-report it; how many were asked (the
+    mock records the pixel and says 1; $MFMX_MOCK_REFRESH_ASKED overrides)."""
+    _refreshed.append((x, y))
+    return int(os.environ.get("MFMX_MOCK_REFRESH_ASKED", "1"))
+
+
+def refreshStats():
+    """(asked, answered, caught); the mock: asked = pixels recorded."""
+    return (len(_refreshed), len(_refreshed), 0)
+
+
 def zhdSnapshot():
     """Report stream health rows (see host ZHostDecompressor.h):
     (chip, tlbi, reports, invalid, badAtoms, consecInvalid, desyncs,

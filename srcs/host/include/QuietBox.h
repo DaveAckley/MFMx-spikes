@@ -158,7 +158,7 @@ namespace MFM {
                             u32 gx, u32 gy) {
       u64 v = (1ull<<63) | ((u64) epochKnown << 62) | ((u64) ring << 61) |
         ((u64) (chip & 0xff) << 48) | ((u64) (tlbi & 0xff) << 40) |
-        ((u64) (gx & 0xff) << 32) | ((u64) (gy & 0x7f) << 25) |
+        ((u64) (gx & 0xff) << 32) | ((u64) (gy & 0x7f) << 25) | ((u64) ((gy >> 7) & 1u) << 56) |
         ((u64) (type & 0x1ff) << 16) | epoch;
       painters[pixelIndex].store(v,std::memory_order_relaxed);
     }
@@ -173,7 +173,7 @@ namespace MFM {
       p.mTLBI = (u32) ((v >> 40) & 0xff);
       p.mType = (u32) ((v >> 16) & 0x1ff);
       p.mGX = (u32) ((v >> 32) & 0xff);
-      p.mGY = (u32) ((v >> 25) & 0x7f);
+      p.mGY = (u32) ((v >> 25) & 0x7f) | (u32) (((v >> 56) & 1u) << 7);
       p.mEpoch = (u32) (v & 0xffff);
       return p;
     }

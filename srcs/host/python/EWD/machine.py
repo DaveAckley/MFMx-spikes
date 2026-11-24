@@ -839,6 +839,25 @@ class Machine:
             return f"{'' if a else '-'}{'R' if r else 'S'}{t}@e{e}{ph}"
         return " HIST: " + " < ".join(one(x) for x in h)
 
+    def specks_refresh(self, points):
+        """Ask the hubs behind each (x,y) to re-report it (host-directed
+        refresh: the hub queues the site and reports its current atom, which
+        repaints a turd from the truth).  Returns the number of requests."""
+        f = getattr(self.M, "refreshPixel", None)
+        if f is None:
+            return 0                    # an older MFMx module
+        n = 0
+        for (x, y) in points:
+            n += int(f(int(x), int(y)))
+        return n
+
+    def refresh_stats_text(self):
+        f = getattr(self.M, "refreshStats", None)
+        if f is None:
+            return ""
+        a, b, c = f()
+        return f"refresh totals: {a} sites asked, {b} answered, {c} turds repainted empty"
+
     def specks_who(self, points):
         """Lines for zoom specks: who painted each (x,y) plus, automatically,
         what the painting hub's OWN grid holds there now (dumpl1 of those

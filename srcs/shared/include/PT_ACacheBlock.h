@@ -171,6 +171,23 @@ namespace MFM {
       for (u32 i = 0u; i < sizeof(fb); ++i) mCData[i] = src[i];
     }
 
+    /* REFRESH REQUESTS: in a returned empty car whose RESTART_REQ flag is
+       clear, the same 6 bytes carry up to REFRESH_SLOTS sites the host
+       wants re-reported, as (x+1,y+1) in the hub's grid coords; 0 = unused
+       (so a zeroed car asks for nothing). */
+    static constexpr u32 REFRESH_SLOTS = 3u;
+    void setRefreshSlot(u32 i, u8 x, u8 y) {
+      mCData[2u*i] = (u8) (x + 1u);
+      mCData[2u*i+1u] = (u8) (y + 1u);
+    }
+    bool getRefreshSlot(u32 i, u8 & x, u8 & y) const {
+      if (i >= REFRESH_SLOTS || mCData[2u*i] == 0u || mCData[2u*i+1u] == 0u)
+        return false;
+      x = (u8) (mCData[2u*i] - 1u);
+      y = (u8) (mCData[2u*i+1u] - 1u);
+      return true;
+    }
+
     ACBHostFeedback getFeedback() const {
       ACBHostFeedback fb;
       u8 * dst = (u8 *) &fb;

@@ -225,7 +225,8 @@ class ZoomView:
         win = (ii[y1][:, x1] - ii[y0][:, x1] - ii[y1][:, x0] + ii[y0][:, x0])
         return np.nonzero((occ == 1) & (win == 1))
 
-    def specks_report(self, img, radius=5, show=40, annotate=None, later=None):
+    def specks_report(self, img, radius=5, show=40, annotate=None, later=None,
+                      refresh=None, refresh_wait=3.0):
         ys, xs = self.specks(img, radius)
         bx, by = self.hub_base
         out = [f"{len(ys)} lone occupied sites (no other within {radius} sites)"]
@@ -257,6 +258,21 @@ class ZoomView:
                             lines[k] += " STILL" if still else " GONE"
                     out.append(f"{gone} of {len(lines)} listed specks were gone {secs:.1f}s "
                                "later (a report still arriving, not a turd)")
+                if refresh is not None:
+                    # host-directed refresh: ask the hubs to re-report every
+                    # listed speck (after the evidence above is in), wait, look
+                    # again.  A speck that goes empty now was a turd.
+                    asked = refresh([(int(xs[i]), int(ys[i])) for i in order[:show]])
+                    time.sleep(refresh_wait)
+                    occ3 = self.occupied_mask(later())
+                    fixed = 0
+                    for k, i in enumerate(order[:show]):
+                        if not bool(occ3[int(ys[i]), int(xs[i])]):
+                            fixed += 1
+                            if k < len(lines):
+                                lines[k] += " REPAIRED"
+                    out.append(f"refresh asked {asked} hubs about {len(lines)} specks; "
+                               f"{fixed} repainted empty after {refresh_wait:.1f}s (repaired turds)")
                 out.extend(lines)
         return "\n".join(out)
 

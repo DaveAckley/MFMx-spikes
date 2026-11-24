@@ -31,6 +31,48 @@ namespace MFM {
     return false;
   }
   
+  std::atomic<u64> ZHostDecompressor::sRefreshAsked{0u};
+  std::atomic<u64> ZHostDecompressor::sRefreshAnswered{0u};
+  std::atomic<u64> ZHostDecompressor::sRefreshCaught{0u};
+
+  bool ZHostDecompressor::requestRefresh(u32 chip, u32 tlbi, u32 x, u32 y) {
+    if (x > 254u || y > 254u) return false;
+    std::lock_guard<std::mutex> lock(theZHDRegistryLock);
+    for (ZHostDecompressor * z : theZHDRegistry) {
+      if (z->mChipNum != chip || z->mTLBI != tlbi) continue;
+      std::lock_guard<std::mutex> l2(z->mRefreshLock);
+      const u16 k = (u16) ((x << 8) | y);
+      for (u16 p : z->mRefreshPending) if (p == k) return true;  // already asked
+      if (z->mRefreshPending.size() >= 64u) return false;
+      z->mRefreshPending.push_back(k);
+      sRefreshAsked.fetch_add(1u);
+      return true;
+    }
+    return false;
+  }
+
+  void ZHostDecompressor::refreshStats(u64 & asked, u64 & answered, u64 & caught) {
+    asked = sRefreshAsked.load();
+    answered = sRefreshAnswered.load();
+    caught = sRefreshCaught.load();
+  }
+
+  // A report for (x,y) arrived: if we asked for it, it is the answer.
+  // true: it was one we asked for.
+  bool ZHostDecompressor::takeRefreshAnswer(u32 x, u32 y) {
+    if (mRefreshWaitN.load(std::memory_order_relaxed) == 0u) return false;
+    const u16 k = (u16) ((x << 8) | y);
+    std::lock_guard<std::mutex> lock(mRefreshLock);
+    for (size_t i = 0u; i < mRefreshWait.size(); ++i) {
+      if (mRefreshWait[i] != k) continue;
+      mRefreshWait.erase(mRefreshWait.begin() + i);
+      mRefreshWaitN.store((u32) mRefreshWait.size());
+      sRefreshAnswered.fetch_add(1u);
+      return true;
+    }
+    return false;
+  }
+
   static RGBPix renderPhysicsHACK(P4Atom a) {
     RGBPix c;
     u16 t = a.getType();
@@ -235,9 +277,17 @@ namespace MFM {
               QuietBox::noteHistory(pixc.y*1920u + pixc.x,fresh,hring,
                                     ar.mAtom.getType(),changeKey);
             }
+            const bool wasAsked = takeRefreshAnswer(ar.mCoord.x,ar.mCoord.y);
             if (!fresh) {
               mStaleDropped.fetch_add(1u,std::memory_order_relaxed);
             } else {
+              if (wasAsked && onImage && pixc.x < 1920u && pixc.y < 1080u &&
+                  ar.mAtom.getType() == P4Atom::EMPTY_TYPE) {
+                const QuietBox::Painter was =
+                  QuietBox::whoPainted(pixc.y*1920u + pixc.x);
+                if (was.mValid && was.mType != P4Atom::EMPTY_TYPE)
+                  sRefreshCaught.fetch_add(1u);  // a turd, repainted empty
+              }
               if (onImage) {
                 bgr.setPixel(pixc,color);
                 if (pixc.x < 1920u && pixc.y < 1080u) {
@@ -488,16 +538,27 @@ namespace MFM {
     KTprintf(mBHTag,"ZHD RESTART requested (epoch %u)\n",mHostEpoch.load());
   }
 
-  void ZHostDecompressor::stampFeedback(ACacheBlockPayload & pay) const {
-    ACBHostFeedback fb;
-    fb.mExpectedSpin = (u16) (mAtomReportsReceived & 0xffffull);
-    fb.mPacketSeq = (u16) (mPacketsIn & 0xffffu);
-    fb.mConsecInvalid = (u16) (mConsecInvalid > 0xffffu ? 0xffffu : mConsecInvalid);
-    pay.setFeedback(fb);        // racy reads of our own counters: fine
+  void ZHostDecompressor::stampFeedback(ACacheBlockPayload & pay) {
     u16 flags = 0u;
-    if (mRestartRequested.load())
+    if (mRestartRequested.load()) {
+      ACBHostFeedback fb;
+      fb.mExpectedSpin = (u16) (mAtomReportsReceived & 0xffffull);
+      fb.mPacketSeq = (u16) (mPacketsIn & 0xffffu);
+      fb.mConsecInvalid = (u16) (mConsecInvalid > 0xffffu ? 0xffffu : mConsecInvalid);
+      pay.setFeedback(fb);        // racy reads of our own counters: fine
       flags = ACacheBlockPayload::ACBP_FLAG_RESTART_REQ |
         ((mHostEpoch.load() & 1u) ? ACacheBlockPayload::ACBP_FLAG_EPOCH : 0u);
+    } else {                    // no restart: the bytes ask for refreshes
+      std::lock_guard<std::mutex> lock(mRefreshLock);
+      for (u32 i = 0u; i < ACacheBlockPayload::REFRESH_SLOTS &&
+             !mRefreshPending.empty(); ++i) {
+        const u16 k = mRefreshPending.back();
+        mRefreshPending.pop_back();
+        pay.setRefreshSlot(i,(u8) (k >> 8),(u8) (k & 0xffu));
+        if (mRefreshWait.size() < 256u) mRefreshWait.push_back(k);
+      }
+      mRefreshWaitN.store((u32) mRefreshWait.size());
+    }
     pay.mFlagsAndLen = flags;   // the length stays 0: still an empty car
   }
 

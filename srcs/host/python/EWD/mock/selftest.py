@@ -808,6 +808,44 @@ def scenario_specks_who():
           "hub truth unavailable" in rows[-1], str(rows))
 
 
+def scenario_specks_refresh():
+    """zoom specks refresh: ask every listed speck's hubs, look again, count repairs."""
+    import types
+    import numpy as np
+    sys.path.insert(0, EWD)
+    sys.path.insert(0, os.path.join(HERE, "mfmx"))
+    import machine, zoomview
+    mock = __import__("MFMx")
+    mock._refreshed.clear()
+    fake = types.SimpleNamespace(M=mock)
+    fake.specks_refresh = lambda pts: machine.Machine.specks_refresh(fake, pts)
+    fake.refresh_stats_text = lambda: machine.Machine.refresh_stats_text(fake)
+    n = machine.Machine.specks_refresh(fake, [(10, 10), (20, 20), (30, 30)])
+    check("specks_refresh: asks the hubs behind every point",
+          n == 3 and mock._refreshed == [(10, 10), (20, 20), (30, 30)], str(n))
+    check("refresh_stats_text: totals line",
+          "3 sites asked, 3 answered, 0 turds" in machine.Machine.refresh_stats_text(fake))
+    class ZV(zoomview.ZoomView):
+        looks = 0
+        def specks(self, img, radius=5):
+            return (np.array([10, 20]), np.array([10, 20]))
+        def occupied_mask(self, img):
+            ZV.looks += 1
+            m = np.zeros((40, 40), bool)
+            m[10, 10] = m[20, 20] = True
+            if ZV.looks >= 2:       # the look after the refresh: (20,20) repainted empty
+                m[20, 20] = False
+            return m
+    z = ZV()
+    out = z.specks_report(None, 5, annotate=lambda pts: ["a", "b"], later=lambda: None,
+                          refresh=lambda pts: len(pts), refresh_wait=0.0)
+    check("specks_report refresh: line counts the repaired turd",
+          "refresh asked 2 hubs about 2 specks; 1 repainted empty" in out, out)
+    check("specks_report refresh: only the repaired row is marked",
+          "a STILL" in out and "b STILL REPAIRED" in out, out)
+    mock._refreshed.clear()
+
+
 def scenario_zhd():
     import json
     rows = [(0, 81, 3270179, 12, 0, 40, 1, True, 3270179, 123456, 125, 2, 0, True),   # at0e7, asked, waiting

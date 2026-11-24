@@ -453,9 +453,12 @@ def main(argv=None):
             return z.region_map(m.ewc.renderGraphicsGridWindowToImage().asNP(), x0, y0, x1, y1)
         if w == "specks":
             r = int(a[1]) if len(a) > 1 and a[1].isdigit() else 5
-            return z.specks_report(m.ewc.renderGraphicsGridWindowToImage().asNP(), r,
+            doref = "refresh" in [t.lower() for t in a[1:]]
+            rep = z.specks_report(m.ewc.renderGraphicsGridWindowToImage().asNP(), r,
                                    annotate=m.specks_who,
-                                   later=lambda: m.ewc.renderGraphicsGridWindowToImage().asNP())
+                                   later=lambda: m.ewc.renderGraphicsGridWindowToImage().asNP(),
+                                   refresh=m.specks_refresh if doref else None)
+            return rep + ("\n" + m.refresh_stats_text() if doref else "")
         if w == "shrink":
             on = (a[1].lower() if len(a) > 1 else "on")
             if on not in ("on", "off"):
@@ -649,7 +652,7 @@ def main(argv=None):
         return True
     m.start_scan_ticks = start_scan_ticks
     sh.command("who", c_who, "who X Y: which hub last painted picture pixel (x,y), from its self sites or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze with cycle hold first)")
-    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R] (also who for each)|region X0 Y0 X1 Y1|shrink on/off|SCALE|status]: crop and scale the video (status shows per-stage cost); auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
+    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R] [refresh] (also who for each; refresh asks the hubs to re-report them)|region X0 Y0 X1 Y1|shrink on/off|SCALE|status]: crop and scale the video (status shows per-stage cost); auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
     sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")

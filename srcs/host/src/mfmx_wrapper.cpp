@@ -94,6 +94,35 @@ PYBIND11_MODULE(MFMx, m) {
     const unsigned gy = y - t6i.mT6GridOrigin.y + MFM::T6Grid::SELF_ORIGIN.y;
     return py::make_tuple(t6i.mDGAddress.mChipNum, t6i.mTLBI, gx, gy);
   });
+  // Ask the hubs behind pixel (x,y) to re-report it: the hub that last painted
+  // it (a RING painter holds the borrowed copy) and its owner (the SELF site).
+  // Returns how many hubs were asked.  Answers repaint the pixel (host-directed
+  // refresh; the hub queues the site and reports its current atom).
+  m.def("refreshPixel", [](unsigned x, unsigned y) -> unsigned {
+    if (x >= 1920u || y >= 1080u) return 0u;
+    unsigned n = 0u;
+    const auto p = MFM::QuietBox::whoPainted(y*1920u + x);
+    if (p.mValid &&
+        MFM::ZHostDecompressor::requestRefresh(p.mChip,p.mTLBI,p.mGX,p.mGY)) ++n;
+    MFM::QuietBox & qb = MFM::QuietBox::get();
+    const MFM::T6GridInfo & t6i = qb.getT6GridInfoFor(MFM::DG::Coord(x,y));
+    if (t6i.mDGAddress.isValid()) {
+      const unsigned gx = x - t6i.mT6GridOrigin.x + MFM::T6Grid::SELF_ORIGIN.x;
+      const unsigned gy = y - t6i.mT6GridOrigin.y + MFM::T6Grid::SELF_ORIGIN.y;
+      if (!(p.mValid && p.mChip == t6i.mDGAddress.mChipNum &&
+            p.mTLBI == t6i.mTLBI && p.mGX == gx && p.mGY == gy) &&
+          MFM::ZHostDecompressor::requestRefresh(t6i.mDGAddress.mChipNum,
+                                                 t6i.mTLBI,gx,gy)) ++n;
+    }
+    return n;
+  });
+  // (asked, answered, caught): refresh sites requested, reports that
+  // answered them, and answers that emptied a pixel that showed an atom.
+  m.def("refreshStats", []() {
+    unsigned long long a, b, c;
+    MFM::ZHostDecompressor::refreshStats(a,b,c);
+    return py::make_tuple(a,b,c);
+  });
   // TEST: lose one compressed byte of one hub's report stream; True if it exists.
   m.def("zhdBreak", [](unsigned chip, unsigned tlbi) {
     return MFM::ZHostDecompressor::injectDrop(chip, tlbi);
