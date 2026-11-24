@@ -836,6 +836,35 @@ def scenario_command_file():
     check("script: missing file is a clear startup error", rc != 0 and "command file not found" in out, out[:300])
 
 
+def scenario_wait_quiet():
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    from sequencer import wait_quiet
+    t = [0.0]
+    def clock(): return t[0]
+    def sleep(x): t[0] += x
+    # counter grows for 2s (ticks every poll), then stops
+    def reader():
+        return int(min(t[0], 2.0) * 100)
+    ok, waited, grew = wait_quiet(reader, sleep, clock, quiet_s=1.0, cap=30.0)
+    check("quiet: waits out a draining counter", ok and 2.9 <= waited <= 3.6 and grew == 200,
+          f"{ok} {waited} {grew}")
+    t[0] = 0.0
+    ok, waited, grew = wait_quiet(lambda: int(t[0] * 100), sleep, clock, quiet_s=1.0, cap=5.0)
+    check("quiet: gives up at the cap if it never settles", (not ok) and 5.0 <= waited <= 5.5,
+          f"{ok} {waited}")
+    t[0] = 0.0
+    ok, waited, grew = wait_quiet(lambda: None, sleep, clock)
+    check("quiet: no counter means quiet at once", ok and waited == 0.0 and grew is None)
+    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
+                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause quiet 0.5\nquit\n")
+    check("quiet: waitpause quiet end to end", "cycle paused:" in out
+          and "reports quiet for 0.5s" in out, out[-400:])
+    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
+                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause 30\nquit\n")
+    check("quiet: plain waitpause unchanged", "cycle paused:" in out and "reports quiet" not in out,
+          out[-300:])
+
+
 if __name__ == "__main__":
     only = sys.argv[1:]
     for name, fn in list(globals().items()):

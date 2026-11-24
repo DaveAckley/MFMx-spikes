@@ -358,3 +358,25 @@ class SuperCycle:
             self.say(f"[cycle] frozen bolt #{b.seq} {b.cmd} reached consensus LATE "
                      f"({now - b.fired:.1f}s after firing; timeout was {b.timeout:g}s). "
                      "Still frozen: 'cycle retry' or 'cycle stop'.")
+
+
+def wait_quiet(read, sleep, clock, quiet_s=1.0, cap=60.0, poll=0.25):
+    """Poll read() (a monotone count, or None if there is none) until it has
+    not changed for quiet_s seconds, or cap seconds have passed.  Returns
+    (quiet, waited_s, delta) where delta is how much the count grew while
+    waiting (None without a counter).  sleep(secs) must let the machine tick."""
+    t0 = clock()
+    first = last = read()
+    if first is None:
+        return True, 0.0, None
+    since = t0
+    while True:
+        now = clock()
+        if now - since >= quiet_s:
+            return True, now - t0, last - first
+        if now - t0 >= cap:
+            return False, now - t0, last - first
+        sleep(poll)
+        cur = read()
+        if cur != last:
+            last, since = cur, clock()

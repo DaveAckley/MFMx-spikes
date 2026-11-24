@@ -903,6 +903,12 @@ class Machine:
             r["tag"] = f"at{r['chip']}{b36(x)}{b36(y)}"
         return sorted(rows, key=lambda r: (r["chip"], r["tlbi"]))
 
+    def reports_total(self):
+        """Reports received by all hub streams so far (None: no counters)."""
+        if getattr(self.M, "zhdSnapshot", None) is None:
+            return None
+        return sum(r["reports"] for r in self.zhd_rows())
+
     def zhd_text(self, verbose=False):
         rows = self.zhd_rows()
         if not rows:

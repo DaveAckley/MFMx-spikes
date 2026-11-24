@@ -139,7 +139,7 @@ def main(argv=None):
     import Config
     from machine import Machine, NullFeed, fmt_ints
     from shell import Shell, AbbrevError
-    from sequencer import SuperCycle
+    from sequencer import SuperCycle, wait_quiet
 
     sh = Shell(prompt="mfmx> ")
     _ver = _git_version()
@@ -365,12 +365,27 @@ def main(argv=None):
             step = sh.resolve(a[1], ("NEW_LEADER", "RUN_EVENTS", "DWELL"), "cycle holdat STEP")
             return cyc.set_hold_at(step, int(a[2]) if len(a) > 2 else 0)
         if sub == "waitpause":
-            cap = float(a[1]) if len(a) > 1 else 3600.0
+            rest = [x for x in a[1:]]
+            quiet = None                    # seconds of report silence wanted
+            if "quiet" in [x.lower() for x in rest]:
+                i = [x.lower() for x in rest].index("quiet")
+                rest.pop(i)
+                quiet = float(rest.pop(i)) if i < len(rest) else 1.0
+            cap = float(rest[0]) if rest else 3600.0
             end = time.monotonic() + cap
             while not cyc.is_paused() and not cyc.frozen and time.monotonic() < end:
                 sh.run_for(0.1)
-            return ("cycle paused: " + cyc.status().split("\n", 1)[1].strip()
-                    if cyc.is_paused() else f"not paused after {cap:g}s: " + cyc.state())
+            if not cyc.is_paused():
+                return f"not paused after {cap:g}s: " + cyc.state()
+            msg = "cycle paused: " + cyc.status().split("\n", 1)[1].strip()
+            if quiet is not None:
+                ok, waited, grew = wait_quiet(m.reports_total, sh.run_for,
+                                              time.monotonic, quiet_s=quiet, cap=60.0)
+                msg += (f"\nreports quiet for {quiet:g}s after {waited:.1f}s"
+                        if ok else f"\nreports still arriving after {waited:.0f}s")
+                if grew is not None:
+                    msg += f" ({grew} reports arrived while waiting)"
+            return msg
         if sub == "repeat":
             if len(a) > 1:
                 cyc.repeat = kw(a[1], ("on", "off"), "cycle repeat") == "on"
@@ -389,7 +404,7 @@ def main(argv=None):
             cyc.held = kw(a[1], ("done", "pending"), "cycle birth") == "done"
             return f"HOLD_AT_BIRTH {'treated as done' if cyc.held else 'will be sent first'}"
         raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
-                         "leader N|random|first N|birth done|pending|holdat STEP [SCY]|off|waitpause [SECS]]")
+                         "leader N|random|first N|birth done|pending|holdat STEP [SCY]|off|waitpause [SECS] [quiet [SECS]]]")
 
     def c_feed(a):
         sub = sh.resolve(a[0], ("on", "off", "status"), "feed subcommand") if a else "status"
@@ -587,7 +602,7 @@ def main(argv=None):
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
     sh.command("cycle", c_cycle,
-               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending|holdat STEP [SCY]|waitpause [SECS]]: SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once scy >= 150; waitpause blocks a command file until paused)")
+               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending|holdat STEP [SCY]|waitpause [SECS] [quiet [SECS]]]: SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once scy >= 150; waitpause blocks a command file until paused; with 'quiet' it then waits until no report has arrived for 1s, i.e. DLs and ACBs drained)")
     sh.command("dwell", c_dwell, "dwell [SECS | LO HI]: SuperCycle dwell after RUN_EVENTS")
     sh.command("shoot", c_shoot, "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
     sh.command("waitbolt", c_waitbolt,
