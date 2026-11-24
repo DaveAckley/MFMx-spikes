@@ -164,6 +164,12 @@ namespace MFM {
           mStreamEpoch = (s32) ar.markerEpoch();  // what follows was read then
           QuietBox::noteEpochSeen((u16) mStreamEpoch);
         } else if (arvalid && atomvalid) {
+          // The high byte of x is the site's CHANGE STAMP (AtomReport.h):
+          // order by when the site changed, not by when it was emitted.
+          const u8 stampByte = ar.stampByte();
+          ar.mCoord.x = ar.siteX();
+          const u16 changeKey = (mStreamEpoch >= 0)
+            ? AtomReport::changeKey((u16) mStreamEpoch,stampByte) : (u16) 0u;
           BGRImageHD & bgr = QuietBox::getT6GridImage() ;
           QuietBox& qb = QuietBox::get();
 
@@ -219,7 +225,7 @@ namespace MFM {
             if (onImage && mStreamEpoch >= 0 &&
                 pixc.x < 1920u && pixc.y < 1080u)
               fresh = QuietBox::acceptPixelEpoch(pixc.y*1920u + pixc.x,
-                                                 (u16) mStreamEpoch);
+                                                 changeKey);
             if (onImage && pixc.x < 1920u && pixc.y < 1080u) {
               const bool hring =
                 ar.mCoord.x < T6Grid::SELF_ORIGIN.x ||
@@ -227,8 +233,7 @@ namespace MFM {
                 ar.mCoord.y < T6Grid::SELF_ORIGIN.y ||
                 ar.mCoord.y >= T6Grid::SELF_MAX.y;
               QuietBox::noteHistory(pixc.y*1920u + pixc.x,fresh,hring,
-                                    ar.mAtom.getType(),
-                                    mStreamEpoch >= 0 ? (u16) mStreamEpoch : 0u);
+                                    ar.mAtom.getType(),changeKey);
             }
             if (!fresh) {
               mStaleDropped.fetch_add(1u,std::memory_order_relaxed);
@@ -242,7 +247,7 @@ namespace MFM {
                     ar.mCoord.y < T6Grid::SELF_ORIGIN.y ||
                     ar.mCoord.y >= T6Grid::SELF_MAX.y;
                   QuietBox::notePainter(pixc.y*1920u + pixc.x,mStreamEpoch >= 0,
-                                        (u16) mStreamEpoch,ring,mChipNum,mTLBI,
+                                        (u16) (changeKey >> 1),ring,mChipNum,mTLBI,
                                         ar.mAtom.getType(),ar.mCoord.x,ar.mCoord.y);
                 }
               }

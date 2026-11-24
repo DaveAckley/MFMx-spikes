@@ -96,7 +96,8 @@ namespace MFM {
       return bgr;
     }
 
-    /* Newest report epoch (AtomReport.h, epoch marker) accepted per pixel.
+    /* Newest report CHANGE KEY (AtomReport.h change stamp: changeEpoch << 1
+       | phase, 16 bits) accepted per pixel.  (Was the emission epoch.)
        Hubs overlap (each paints its S/E cache ring on a neighbor's pixels),
        and the streams arrive in no fixed order, so a late older report must
        not overwrite a newer one.  Epochs are the leader cycle count mod
@@ -132,19 +133,21 @@ namespace MFM {
        accepted or dropped as stale, newest first, so a turd's last few
        arrivals can be read back (who painted, in which epoch, and in what
        order).  One u32 each: bit 31 valid, 30 accepted, 29 ring, 28..20
-       atom type, 15..0 stream epoch (0 if unknown).  Written by several
+       atom type, 16 change phase (1 = events), 14..0 change epoch
+       (low 15 bits; 0 if the stream epoch is unknown).  Written by several
        decoder threads without a lock (shift, relaxed): a torn entry is
        possible under a race, which is fine for diagnosis.  33 MB. */
     static constexpr u32 PIXEL_HISTORY = 4u;
     static std::atomic<u32> pixelHistory[PIXEL_EPOCHS*PIXEL_HISTORY];
     static void noteHistory(u32 pixelIndex, bool accepted, bool ring,
-                            u32 type, u16 epoch) {
+                            u32 type, u16 changeKey) {
       std::atomic<u32> * h = &pixelHistory[pixelIndex*PIXEL_HISTORY];
       for (u32 k = PIXEL_HISTORY-1u; k > 0u; --k)
         h[k].store(h[k-1u].load(std::memory_order_relaxed),
                    std::memory_order_relaxed);
       h[0].store((1u<<31) | ((u32) accepted << 30) | ((u32) ring << 29) |
-                 ((type & 0x1ffu) << 20) | epoch, std::memory_order_relaxed);
+                 ((type & 0x1ffu) << 20) | ((u32) (changeKey & 1u) << 16) |
+                 (u32) (changeKey >> 1), std::memory_order_relaxed);
     }
     static u32 getHistory(u32 pixelIndex, u32 k) {
       if (pixelIndex >= PIXEL_EPOCHS || k >= PIXEL_HISTORY) return 0u;

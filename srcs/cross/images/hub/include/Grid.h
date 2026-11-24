@@ -235,6 +235,7 @@ namespace MFM {
     bool mEventProcessingSuspendStatus;      //< set by EP_ACacheBlock
     u8 mSuperCellLeader;                     //< set by outside
     u16 mReportEpoch;                        //< scy (low 16 bits), set by hb
+    u8 mEventsPhase;                         //< 1 while events run (this epoch), else 0
 
     /* The epoch the atom reports are stamped with (AtomReport.h, epoch
        marker): hb sets it as a NEW_LEADER changeover begins, T0 reads it
@@ -246,6 +247,20 @@ namespace MFM {
 
     void setReportEpoch(u16 val) {
       mReportEpoch = val;
+      mEventsPhase = 0u;        // a new epoch starts in its SAVE/LOAD phase
+      memoryFence();
+    }
+
+    /* CHANGE STAMP phase (AtomReport.h): 0 = SAVE/LOAD (transfers), 1 =
+       events running.  hb sets 1 when the events start, and setReportEpoch
+       clears it at the next NEW_LEADER, so a write is ordered (epoch,
+       phase): SAVE/LOAD < events < the next epoch's SAVE/LOAD. */
+    u8 getEventsPhase() const {
+      memoryFence();
+      return mEventsPhase;
+    }
+    void setEventsPhase(u8 val) {
+      mEventsPhase = val;
       memoryFence();
     }
 
@@ -292,6 +307,38 @@ namespace MFM {
   };
 
   extern L1GridManagerControl theL1GridManagerControl;
+
+  /* CHANGE STAMPS: when each site of the hub grid was last WRITTEN (any
+     change, SELF or cache ring, reported or quiet): (epoch & 0x7fff) << 1
+     | phase, see L1GridManagerControl.  The reporter sends it with the
+     site's report (AtomReport::packStamp) so the host can order reports by
+     when the site changed, not by when they were emitted. */
+  extern u16 theSiteStamps[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT];
+
+  inline void stampSiteWritten(U16C gridc) {
+    L1GridManagerControl & c = theL1GridManagerControl;
+    theSiteStamps[gridc.x][gridc.y] =
+      (u16) ((((u16) c.getReportEpoch() & 0x7fffu) << 1) | (c.getEventsPhase() & 1u));
+  }
+
+  /* The wire byte for site c, relative to the epoch `now` the stream last
+     announced (the host reconstructs the change epoch from its own copy of
+     it).  A stamp older than AtomReport::STAMP_MAX_AGE epochs is clamped to
+     that age, a stamp from an epoch the stream has not announced yet reads
+     as (now, events). */
+  inline u8 siteStampByte(U8C c, u32 now) {
+    const u16 st = theSiteStamps[c.x][c.y];
+    const u16 nowe = (u16) (now & 0x7fffu);
+    u16 stampe = (u16) (st >> 1);
+    u16 phase = (u16) (st & 1u);
+    const u16 age = (u16) ((nowe - stampe) & 0x7fffu);
+    if (age >= 0x4000u) { stampe = nowe; phase = 1u; }      // from the future
+    else if (age > AtomReport::STAMP_MAX_AGE) {
+      stampe = (u16) ((nowe - AtomReport::STAMP_MAX_AGE) & 0x7fffu);
+      phase = 0u;
+    }
+    return AtomReport::packStamp(stampe,phase);
+  }
 
 #define ALL_SUPERCELL_LEADER_STATUSES() \
     XX(NO_LEADER)                       \

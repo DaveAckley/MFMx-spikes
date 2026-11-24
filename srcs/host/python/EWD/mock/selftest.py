@@ -784,7 +784,7 @@ def scenario_specks_who():
                                                 "31,31": [0, 16, 31, 41],
                                                 "32,32": [0, 16, 31, 41]})
     os.environ["MFMX_MOCK_HIST"] = json.dumps({"30,30": [
-        [True, True, 4, 150], [True, False, 0, 150], [False, False, 4, 148]]})
+        [True, True, 4, 150, 1], [True, False, 0, 150, 0], [False, False, 4, 148, 1]]})
     rows = machine.Machine.specks_who(fake, [(30, 30)])
     check("specks_who: RING row also reads the OWNER hub's SELF",
           len(rows) == 1 and "HUB: EMPTY" in rows[0] and
@@ -801,7 +801,7 @@ def scenario_specks_who():
     check("specks_who: SELF painter, own site empty: TURD",
           "=> TURD" in rows2[0], str(rows2))
     check("specks_who: HIST newest first, dropped marked",
-          "HIST: R4@e150 < S0@e150 < -S4@e148" in rows[0], str(rows))
+          "HIST: R4@e150v < S0@e150s < -S4@e148v" in rows[0], str(rows))
     os.environ["MFMX_HUB_MAP"] = os.path.join(tmp, "nope.map")
     rows = machine.Machine.specks_who(fake, [(10, 10)])
     check("specks_who: missing hub.map is said, not raised",

@@ -138,7 +138,7 @@ def whoPainted(x, y):
 
 
 def pixelHistory(x, y):
-    """[(accepted, ring, atomType, epoch), ...] newest first; the selftest
+    """[(accepted, ring, atomType, changeEpoch[, phase]), ...] newest first; the selftest
     sets $MFMX_MOCK_HIST to a JSON dict {"x,y": [[...], ...]}."""
     import json
     r = json.loads(os.environ.get("MFMX_MOCK_HIST", "{}")).get(f"{x},{y}", [])

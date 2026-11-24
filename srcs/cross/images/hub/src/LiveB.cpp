@@ -18,6 +18,7 @@ namespace MFM {
   T6Grid theT6Grid[1];
   DLGridList theDLGridList;
   L1GridManagerControl theL1GridManagerControl;
+  u16 theSiteStamps[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT];
 
   /*
   bool processInterHubCars(u32 ngbidx, HostBlock & hb,bool inside) {

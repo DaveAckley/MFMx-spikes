@@ -823,7 +823,8 @@ class Machine:
 
     def hist_text(self, pt):
         """' HIST: ...' the last reports that reached pixel pt, newest first:
-        S/R (SELF/RING) type@epoch, a leading '-' = dropped as stale.  ''
+        S/R (SELF/RING) type@eEPOCH+phase: the epoch and phase of the site's
+        CHANGE (v = events, s = SAVE/LOAD), a leading '-' = dropped as stale.  ''
         if the module lacks pixelHistory or nothing arrived."""
         f = getattr(self.M, "pixelHistory", None)
         try:
@@ -832,9 +833,11 @@ class Machine:
             return ""
         if not h:
             return ""
-        return " HIST: " + " < ".join(
-            f"{'' if a else '-'}{'R' if r else 'S'}{t}@e{e}"
-            for a, r, t, e in h)
+        def one(x):
+            a, r, t, e = x[:4]
+            ph = ("" if len(x) < 5 else ("v" if x[4] else "s"))
+            return f"{'' if a else '-'}{'R' if r else 'S'}{t}@e{e}{ph}"
+        return " HIST: " + " < ".join(one(x) for x in h)
 
     def specks_who(self, points):
         """Lines for zoom specks: who painted each (x,y) plus, automatically,

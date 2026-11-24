@@ -209,6 +209,7 @@ namespace MFM {
     T6Grid & g = *mT6GridPtr;
     if (!isAccessible(gridc)) return false;   // permanent-edge ring: dropped
     if (g.setAtomOrDrop(gridc,atom)) {
+      stampSiteWritten(gridc);
       bool b = mDLGridListPtr->pushFrontC(U8C(gridc.x,gridc.y));
       if (b) EACH(1'000'000,LOGPTAG(oldATOM,gridc));
       else EACH(1'000'000,LOGPTAG(newATOM,gridc));
@@ -221,7 +222,9 @@ namespace MFM {
   bool GridManager::setAtomQuiet(U16C gridc, const P4Atom atom) {
     MFM_API_ASSERT(isValidT6GridC(gridc),ILLEGAL_ARGUMENT);
     if (!isAccessible(gridc)) return false;   // permanent-edge ring: dropped
-    return mT6GridPtr->setAtomOrDrop(gridc,atom);   // grid only, no DL push
+    const bool changed = mT6GridPtr->setAtomOrDrop(gridc,atom);   // grid only, no DL push
+    if (changed) stampSiteWritten(gridc);
+    return changed;
   }
 
   u32 GridManager::applyNuke(const NukeBlast & blast, u32 & cacheErased) {

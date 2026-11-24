@@ -102,6 +102,32 @@ namespace MFM {
        is not under hub control).  Same record size; the spin counter counts
        a marker like any record. */
     static constexpr u16 EPOCH_MARK_X = 0xffffu;
+
+    /* CHANGE STAMP.  A report's epoch (the marker in force) says when it was
+       EMITTED, not when the site changed: a backlog of seconds, and a
+       borrower's stale cache copy still queued after the SAVE, made an old
+       ring report look as new as the owner's later one.  So the high byte of
+       mCoord.x (sites have x < 256) carries when the site was last written:
+       (changeEpoch & 0x7f) << 1 | phase, phase 0 = SAVE/LOAD, 1 = events.
+       The host rebuilds changeEpoch from the stream epoch (the hub clamps
+       the age to STAMP_MAX_AGE < 128 epochs, so it is exact) and orders
+       reports by (changeEpoch, phase).  Record size is unchanged. */
+    static constexpr u16 STAMP_MAX_AGE = 120u;
+    static constexpr u8 packStamp(u16 changeEpoch, u16 phase) {
+      return (u8) (((changeEpoch & 0x7fu) << 1) | (phase & 1u));
+    }
+    static constexpr u16 withStamp(u16 x, u8 stamp) {
+      return (u16) (x | ((u16) stamp << 8));
+    }
+    u8 stampByte() const { return (u8) (mCoord.x >> 8); }
+    u16 siteX() const { return (u16) (mCoord.x & 0xffu); }
+    /** (changeEpoch << 1 | phase) as the host orders it, given the stream's
+        newest announced epoch (u16); wraps like the epoch (15 bits). */
+    static u16 changeKey(u16 streamEpoch, u8 stamp) {
+      const u16 age = (u16) (((streamEpoch & 0x7fu) - (u16) (stamp >> 1)) & 0x7fu);
+      const u16 ce = (u16) (streamEpoch - age);
+      return (u16) ((ce << 1) | (stamp & 1u));
+    }
     bool isEpochMarker() const { return mCoord.x == EPOCH_MARK_X; }
     u16 markerEpoch() const { return (u16) mCoord.y; }
   };

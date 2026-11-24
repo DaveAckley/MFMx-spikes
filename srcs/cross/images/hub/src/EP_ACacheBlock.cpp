@@ -625,9 +625,10 @@ namespace MFM {
             U8C arc;
             if (dl.popBackC(arc)) {
               // Yes. Make report
-              ar.mCoord = U16C(arc.x,arc.y);
+              ar.mAtom = t6g.getAtom(U16C(arc.x,arc.y));
+              ar.mCoord = U16C(AtomReport::withStamp(arc.x,siteStampByte(arc,mEpochSent)),
+                               arc.y);
               ar.mSpin1 = ar.mSpin2 = mARSpinner++;
-              ar.mAtom = t6g.getAtom(ar.mCoord);
               //EACH(1,{LOGPTAG(AC:,ar.mCoord);LOGATOM(ar.mAtom);});
               
               // Stash it (or die: We Just Cleared mARIO)
@@ -638,9 +639,10 @@ namespace MFM {
             if (mRefreshLeft > 0u) {
               --mRefreshLeft;
               const U8C rc = nextRefreshSite();
-              ar.mCoord = U16C(rc.x,rc.y);
+              ar.mAtom = t6g.getAtom(U16C(rc.x,rc.y));
+              ar.mCoord = U16C(AtomReport::withStamp(rc.x,siteStampByte(rc,mEpochSent)),
+                               rc.y);
               ar.mSpin1 = ar.mSpin2 = mARSpinner++;
-              ar.mAtom = t6g.getAtom(ar.mCoord);
               mARIO.putObj(ar);
               if ((++mRefreshSent % 100'000u) == 1u) LOGPTAG(.rf,mRefreshSent);
               continue;

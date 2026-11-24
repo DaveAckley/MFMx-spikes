@@ -315,6 +315,7 @@ namespace MFM {
 
       const bool ready = xchgStep(1u);
       if (ready) {              // events start now
+        theL1GridManagerControl.setEventsPhase(1u);   // writes from here are stamped "events"
         char b1[80];
         LOGPTAG(.es,fmtEventCounts(b1,fB.mGridManager));
       }

@@ -68,7 +68,7 @@ PYBIND11_MODULE(MFMx, m) {
                           p.mGX, p.mGY);
   });
   // The last few reports that reached pixel (x,y), newest first: a list of
-  // (accepted, ring, atomType, epoch) (accepted False = dropped as stale).
+  // (accepted, ring, atomType, changeEpoch, phase) (phase 1 = events; accepted False = dropped as stale).
   m.def("pixelHistory", [](unsigned x, unsigned y) -> py::list {
     py::list out;
     if (x >= 1920u || y >= 1080u) return out;
@@ -76,7 +76,8 @@ PYBIND11_MODULE(MFMx, m) {
       const unsigned v = MFM::QuietBox::getHistory(y*1920u + x,k);
       if (!(v >> 31)) break;
       out.append(py::make_tuple((bool) ((v >> 30) & 1u), (bool) ((v >> 29) & 1u),
-                                (v >> 20) & 0x1ffu, v & 0xffffu));
+                                (v >> 20) & 0x1ffu, v & 0x7fffu,
+                                (v >> 16) & 1u));
     }
     return out;
   });
