@@ -360,11 +360,13 @@ class SuperCycle:
                      "Still frozen: 'cycle retry' or 'cycle stop'.")
 
 
-def wait_quiet(read, sleep, clock, quiet_s=1.0, cap=60.0, poll=0.25):
+def wait_quiet(read, sleep, clock, quiet_s=1.0, cap=60.0, poll=0.25,
+               stop=lambda: False):
     """Poll read() (a monotone count, or None if there is none) until it has
     not changed for quiet_s seconds, or cap seconds have passed.  Returns
     (quiet, waited_s, delta) where delta is how much the count grew while
-    waiting (None without a counter).  sleep(secs) must let the machine tick."""
+    waiting (None without a counter).  sleep(secs) must let the machine tick;
+    stop() true ends the wait early (not quiet)."""
     t0 = clock()
     first = last = read()
     if first is None:
@@ -374,6 +376,8 @@ def wait_quiet(read, sleep, clock, quiet_s=1.0, cap=60.0, poll=0.25):
         now = clock()
         if now - since >= quiet_s:
             return True, now - t0, last - first
+        if stop():
+            return False, now - t0, last - first
         if now - t0 >= cap:
             return False, now - t0, last - first
         sleep(poll)

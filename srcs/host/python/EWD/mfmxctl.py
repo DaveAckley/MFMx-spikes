@@ -373,14 +373,20 @@ def main(argv=None):
                 quiet = float(rest.pop(i)) if i < len(rest) else 1.0
             cap = float(rest[0]) if rest else 3600.0
             end = time.monotonic() + cap
-            while not cyc.is_paused() and not cyc.frozen and time.monotonic() < end:
-                sh.run_for(0.1)
+            # poll_input: a typed quit / cycle stop / cycle holdat off works
+            # while we wait (a stop ends the wait; so does a stopped cycle)
+            while (not cyc.is_paused() and not cyc.frozen and cyc.state() != "idle"
+                   and not sh._stop and time.monotonic() < end):
+                sh.run_for(0.1, poll_input=True)
             if not cyc.is_paused():
-                return f"not paused after {cap:g}s: " + cyc.state()
+                why = "interrupted" if sh._stop else f"not paused after {cap:g}s"
+                return f"{why}: " + cyc.state()
             msg = "cycle paused: " + cyc.status().split("\n", 1)[1].strip()
             if quiet is not None:
-                ok, waited, grew = wait_quiet(m.reports_total, sh.run_for,
-                                              time.monotonic, quiet_s=quiet, cap=60.0)
+                ok, waited, grew = wait_quiet(
+                    m.reports_total, lambda x: sh.run_for(x, poll_input=True),
+                    time.monotonic, quiet_s=quiet, cap=60.0,
+                    stop=lambda: sh._stop)
                 msg += (f"\nreports quiet for {quiet:g}s after {waited:.1f}s"
                         if ok else f"\nreports still arriving after {waited:.0f}s")
                 if grew is not None:

@@ -39,6 +39,17 @@ FAST = ("mock delay HOLD_AT_BIRTH 0.05 0.2\nmock delay NEW_LEADER 0.05 0.3\n"
         "mock delay RUN_EVENTS 0.01 0.05\n")
 
 
+def run_script(cmds, **kw):
+    """Run cmds from a command file (-s), stdin empty: commands typed on stdin
+    are executed DURING 'cycle waitpause' (so quit works), which would reorder
+    a piped script."""
+    d = tempfile.mkdtemp(prefix="selftest-cmd-")
+    f = os.path.join(d, "t.cmd")
+    with open(f, "w") as fh:
+        fh.write("start\n" + cmds)
+    return run("", extra_args=("--boot", "-s", f, "--script-exit"), **kw)
+
+
 def scenario_normal_cycle():
     rc, out = run("boot\nstart\n" + FAST +
                   "shoot HOLD_AT_BIRTH 0\nwait 0.8\n"
@@ -443,9 +454,9 @@ def scenario_cycle_run():
 
 
 def scenario_cycle_holdat():
-    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
+    rc, out = run_script(CYC.replace("dwell 0.2", "dwell 0.1") +
                   "cycle holdat NEW_LEADER 3\ncycle status\ncycle start\n"
-                  "cycle waitpause 20\ncycle status\ncycle holdat\nquit\n")
+                  "cycle waitpause 20\ncycle status\ncycle holdat\n")
     check("holdat: armed message", "will pause when next is NEW_LEADER and scy >= 3" in out, out[-300:])
     check("holdat: paused with NEW_LEADER next, scy 3",
           "paused after DWELL (scy 3); next: NEW_LEADER" in out, out[-400:])
@@ -855,12 +866,18 @@ def scenario_wait_quiet():
     t[0] = 0.0
     ok, waited, grew = wait_quiet(lambda: None, sleep, clock)
     check("quiet: no counter means quiet at once", ok and waited == 0.0 and grew is None)
-    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
-                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause quiet 0.5\nquit\n")
+    rc, out = run_script(CYC.replace("dwell 0.2", "dwell 0.1") +
+                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause quiet 0.5\n")
     check("quiet: waitpause quiet end to end", "cycle paused:" in out
           and "reports quiet for 0.5s" in out, out[-400:])
-    rc, out = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
-                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause 30\nquit\n")
+    rc, out = run_script(CYC.replace("dwell 0.2", "dwell 0.1") +
+                  "cycle holdat NEW_LEADER 2\ncycle start\ncycle waitpause 30\n")
+    # a typed quit ends a waitpause that would otherwise wait for scy 99999
+    rc3, out3 = run("boot\nstart\n" + CYC.replace("dwell 0.2", "dwell 0.1") +
+                    "cycle holdat NEW_LEADER 99999\ncycle start\ncycle waitpause 60\nquit\n",
+                    timeout=30)
+    check("waitpause: a typed quit interrupts it", rc3 == 0 and "interrupted" in out3
+          or "shutting down" in out3, f"rc={rc3} " + out3[-300:])
     check("quiet: plain waitpause unchanged", "cycle paused:" in out and "reports quiet" not in out,
           out[-300:])
 
