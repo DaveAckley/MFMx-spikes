@@ -119,7 +119,7 @@ PYBIND11_MODULE(MFMx, m) {
   // (asked, answered, caught): refresh sites requested, reports that
   // answered them, and answers that emptied a pixel that showed an atom.
   m.def("refreshStats", []() {
-    unsigned long long a, b, c;
+    MFM::u64 a, b, c;
     MFM::ZHostDecompressor::refreshStats(a,b,c);
     return py::make_tuple(a,b,c);
   });
