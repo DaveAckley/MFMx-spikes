@@ -74,8 +74,7 @@ namespace MFM {
        list (pushFrontC), so the next report of the site carries its current
        atom and change stamp. */
     static constexpr u32 REFRESH_QLEN = 16u;
-    u8 mRefreshX[REFRESH_QLEN];
-    u8 mRefreshY[REFRESH_QLEN];
+    U8C mRefreshC[REFRESH_QLEN];
     u8 mRefreshN;               //< sites waiting
     u32 mRefreshAsked;          //< sites latched (valid), for the .hr mark
     u32 mRefreshFull;           //< valid sites dropped, queue full

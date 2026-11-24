@@ -166,14 +166,12 @@ namespace MFM {
     mHostReqEpoch = (f & ACacheBlockPayload::ACBP_FLAG_EPOCH) ? 1u : 0u;
     if (!mHostReq) {            // no restart: the bytes are refresh requests
       for (u32 i = 0u; i < ACacheBlockPayload::REFRESH_SLOTS; ++i) {
-        u8 x, y;
-        if (!pay.getRefreshSlot(i,x,y)) continue;
-        if (!DLGridList::isValidC(U8C(x,y))) continue;
+        U8C c;
+        if (!pay.getRefreshSlot(i,c)) continue;
+        if (!DLGridList::isValidC(c)) continue;
         ++mRefreshAsked;
         if (mRefreshN >= REFRESH_QLEN) { ++mRefreshFull; continue; }
-        mRefreshX[mRefreshN] = x;
-        mRefreshY[mRefreshN] = y;
-        ++mRefreshN;
+        mRefreshC[mRefreshN++] = c;
       }
     }
     if (mHostReq) {
@@ -190,7 +188,7 @@ namespace MFM {
     AtomicScopeLock guard(mLock);
     if (mRefreshN == 0u) return false;
     --mRefreshN;
-    c = U8C(mRefreshX[mRefreshN],mRefreshY[mRefreshN]);
+    c = mRefreshC[mRefreshN];
     return true;
   }
 

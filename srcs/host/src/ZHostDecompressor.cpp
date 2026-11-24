@@ -554,7 +554,7 @@ namespace MFM {
              !mRefreshPending.empty(); ++i) {
         const u16 k = mRefreshPending.back();
         mRefreshPending.pop_back();
-        pay.setRefreshSlot(i,(u8) (k >> 8),(u8) (k & 0xffu));
+        pay.setRefreshSlot(i,U8C((u8) (k >> 8),(u8) (k & 0xffu)));
         if (mRefreshWait.size() < 256u) mRefreshWait.push_back(k);
       }
       mRefreshWaitN.store((u32) mRefreshWait.size());

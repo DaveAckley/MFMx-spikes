@@ -176,15 +176,14 @@ namespace MFM {
        wants re-reported, as (x+1,y+1) in the hub's grid coords; 0 = unused
        (so a zeroed car asks for nothing). */
     static constexpr u32 REFRESH_SLOTS = 3u;
-    void setRefreshSlot(u32 i, u8 x, u8 y) {
-      mCData[2u*i] = (u8) (x + 1u);
-      mCData[2u*i+1u] = (u8) (y + 1u);
+    void setRefreshSlot(u32 i, U8C c) {
+      mCData[2u*i] = (u8) (c.x + 1u);
+      mCData[2u*i+1u] = (u8) (c.y + 1u);
     }
-    bool getRefreshSlot(u32 i, u8 & x, u8 & y) const {
+    bool getRefreshSlot(u32 i, U8C & c) const {
       if (i >= REFRESH_SLOTS || mCData[2u*i] == 0u || mCData[2u*i+1u] == 0u)
         return false;
-      x = (u8) (mCData[2u*i] - 1u);
-      y = (u8) (mCData[2u*i+1u] - 1u);
+      c = U8C((u8) (mCData[2u*i] - 1u), (u8) (mCData[2u*i+1u] - 1u));
       return true;
     }
 

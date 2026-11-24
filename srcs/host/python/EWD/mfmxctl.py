@@ -410,7 +410,8 @@ def main(argv=None):
             cyc.held = kw(a[1], ("done", "pending"), "cycle birth") == "done"
             return f"HOLD_AT_BIRTH {'treated as done' if cyc.held else 'will be sent first'}"
         raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
-                         "leader N|random|first N|birth done|pending|holdat STEP [SCY]|off|waitpause [SECS] [quiet [SECS]]]")
+                         "leader N|random|first N|birth done|pending|holdat STEP "
+                         "[SCY]|off|waitpause [SECS] [quiet [SECS]]]")
 
     def c_feed(a):
         sub = sh.resolve(a[0], ("on", "off", "status"), "feed subcommand") if a else "status"
@@ -603,34 +604,58 @@ def main(argv=None):
                "seams: eth-seam declarations, link status and health counters")
     sh.command("stop", lambda a: m.stop(), "stop: stopEWProcessing (only on chips at event windows)")
     sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
-    sh.command("step", c_step, "step [NAME|N]: show chip init steps and all step names, or setStep to NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
+    sh.command("step", c_step,
+        "step [NAME|N]: show chip init steps and all step names, or setStep to "
+        "NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", c_decay, "decay [N]: show/set start decay type")
-    sh.command("events", c_events, "events [shortcut|honest]: show/set the AER mode (before 'start')")
-    sh.command("elide", c_elide, "elide [on|off]: keep bands shared by consecutive corners (before 'start')")
-    sh.command("policy", c_policy, "policy [fourcorners|supercell]: show/set the cache policy (before 'start')")
+    sh.command("events", c_events,
+        "events [shortcut|honest]: show/set the AER mode (before 'start')")
+    sh.command("elide", c_elide,
+        "elide [on|off]: keep bands shared by consecutive corners (before "
+        "'start')")
+    sh.command("policy", c_policy,
+        "policy [fourcorners|supercell]: show/set the cache policy (before "
+        "'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
     sh.command("cycle", c_cycle,
-               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth done|pending|holdat STEP [SCY]|waitpause [SECS] [quiet [SECS]]]: SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once scy >= 150; waitpause blocks a command file until paused; with 'quiet' it then waits until no report has arrived for 1s, i.e. DLs and ACBs drained)")
+               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth "
+               "done|pending|holdat STEP [SCY]|waitpause [SECS] [quiet [SECS]]]: "
+               "SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once "
+               "scy >= 150; waitpause blocks a command file until paused; with 'quiet' "
+               "it then waits until no report has arrived for 1s, i.e. DLs and ACBs "
+               "drained)")
     sh.command("dwell", c_dwell, "dwell [SECS | LO HI]: SuperCycle dwell after RUN_EVENTS")
-    sh.command("shoot", c_shoot, "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
+    sh.command("shoot", c_shoot,
+        "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
     sh.command("waitbolt", c_waitbolt,
                "waitbolt [SECS]: let ticks run until the pending bolt settles (default: its timeout + 5s)")
-    sh.command("bolt", c_bolt, "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
+    sh.command("bolt", c_bolt,
+        "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
     sh.command("scan", c_scan, "scan [N]: run slowscans now")
     sh.command("dumpl1", c_dumpl1,
                "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")
     sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
     sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
-    sh.command("seed", c_seed, "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: decay type)")
-    sh.command("autonuke", c_autonuke, "autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]: repeatedly nuke a random place after a random delay (defaults 5-300 s, radius 40-400) while the cycle runs")
-    sh.command("nuke", c_nuke, "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub at the next NEW_LEADER (random radius 10-100, big 100-1000)")
-    sh.command("tlbi", c_tlbi, "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi lamers, tlbi 15, tlbi 0:15,19)")
+    sh.command("seed", c_seed,
+        "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: "
+        "decay type)")
+    sh.command("autonuke", c_autonuke,
+        "autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]: repeatedly "
+        "nuke a random place after a random delay (defaults 5-300 s, radius "
+        "40-400) while the cycle runs")
+    sh.command("nuke", c_nuke,
+        "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub "
+        "at the next NEW_LEADER (random radius 10-100, big 100-1000)")
+    sh.command("tlbi", c_tlbi,
+        "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi "
+        "lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("where", c_where, "where: sim dir and log file locations")
     sh.command("quit", c_quit, "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",
                aliases=("exit",))
     if mock is not None:
-        sh.command("mock", c_mock, "mock [lamers CHIP TLBI.. | delay CMD LO HI | clear]: mock-only knobs")
+        sh.command("mock", c_mock,
+            "mock [lamers CHIP TLBI.. | delay CMD LO HI | clear]: mock-only knobs")
 
     # 5 ms (was 0.2 and 0.1): the consensus time is only as fine as the tick that notices it, so 0.1 s ticks
     # made every fast bolt read "0.1 s".  Both ticks return at once when nothing is pending.
@@ -651,9 +676,20 @@ def main(argv=None):
         scan_tick.due = sh.clock()
         return True
     m.start_scan_ticks = start_scan_ticks
-    sh.command("who", c_who, "who X Y: which hub last painted picture pixel (x,y), from its self sites or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze with cycle hold first)")
-    sh.command("zoom", c_zoom, "zoom [off|auto|reset|map|specks [R] [refresh] (also who for each; refresh asks the hubs to re-report them)|region X0 Y0 X1 Y1|shrink on/off|SCALE|status]: crop and scale the video (status shows per-stage cost); auto fits the box of every non-empty site ever seen (shrink on: of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; off by default; grid must be off")
-    sh.command("feed", c_feed, "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, built on first 'on')")
+    sh.command("who", c_who,
+        "who X Y: which hub last painted picture pixel (x,y), from its self sites"
+        " or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze "
+        "with cycle hold first)")
+    sh.command("zoom", c_zoom,
+        "zoom [off|auto|reset|map|specks [R] [refresh] (also who for each; "
+        "refresh asks the hubs to re-report them)|region X0 Y0 X1 Y1|shrink "
+        "on/off|SCALE|status]: crop and scale the video (status shows per-stage "
+        "cost); auto fits the box of every non-empty site ever seen (shrink on: "
+        "of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; "
+        "off by default; grid must be off")
+    sh.command("feed", c_feed,
+        "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, "
+        "built on first 'on')")
     sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
     sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
 
