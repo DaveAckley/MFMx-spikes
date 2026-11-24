@@ -183,6 +183,17 @@ namespace MFM {
       } while (!newestEpoch.compare_exchange_weak(cur,0x10000u | epoch,
                                                   std::memory_order_relaxed));
     }
+    /** SELF WINS A TIE: true if a RING report of this epoch must be dropped
+        because the pixel's last accepted painter is its owner (a SELF
+        report) with the same epoch.  The owner is authoritative; a
+        borrower's cache copy of the same epoch that arrives later may be
+        stale (specks10-18: 19 of 27 turds were exactly this arrival order).
+        A RING report of a LATER epoch still wins. */
+    static bool ringLosesTie(u32 pixelIndex, u16 epoch) {
+      const u64 v = painters[pixelIndex].load(std::memory_order_relaxed);
+      return ((v >> 63) & 1u) && ((v >> 62) & 1u) && !((v >> 61) & 1u) &&
+        (u16) (v & 0xffff) == epoch;
+    }
     /** true: draw this report (its epoch is not older than the pixel's);
         the pixel's epoch is advanced.  false: stale, ignore it. */
     static bool acceptPixelEpoch(u32 pixelIndex, u16 epoch) {
