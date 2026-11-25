@@ -116,11 +116,11 @@ namespace MFM {
 
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
     /* One report frame (one ACB car at most) per this many ms: the cap on
-       the hub's report rate.  Was 50 (20 cars/s); 25 is an experiment to
-       see whether the drain rate follows it.  Build with
-       -DACB_BOGOMS_PER_FRAME=50u to go back. */
+       the hub's report rate.  Was 50 (20 cars/s), then 25; 10 (100 cars/s
+       at most) is an experiment to see whether the picture looks smoother
+       or less laggy.  Build with -DACB_BOGOMS_PER_FRAME=50u to go back. */
 #ifndef ACB_BOGOMS_PER_FRAME
-#define ACB_BOGOMS_PER_FRAME 25u
+#define ACB_BOGOMS_PER_FRAME 10u
 #endif
     static constexpr u32 BOGOMS_PER_FRAME = ACB_BOGOMS_PER_FRAME;
     
@@ -142,19 +142,6 @@ namespace MFM {
     static constexpr u32 NO_EPOCH_SENT = 0x10000u;
     u32 mEpochMarkers;          // markers sent, for the .em mark
 
-    /* IDLE-TIME REFRESH: when the change list is empty in the middle of a
-       frame, report up to REFRESH_PER_FRAME randomly chosen SELF sites
-       anyway (their current atoms), so a stale pixel on the host display
-       (a "turd" nothing ever repainted) is repainted from the hub's truth,
-       gradually.  Cost only idle time; 0 turns it off.  Self sites only, so
-       the owner has the last word (never the cache ring). */
-#ifndef ACB_REFRESH_PER_FRAME
-#define ACB_REFRESH_PER_FRAME 0u  // 0 while hunting turds (refresh erases the
-                                  //   evidence before `who`); normal value 20u
-#endif
-    static constexpr u32 REFRESH_PER_FRAME = ACB_REFRESH_PER_FRAME;
-    u32 mRefreshLeft;           // refresh reports still allowed this frame
-    u32 mRefreshSent;           // reports sent as refresh, for the .rf mark
     u32 mRefreshQueued;         // host-asked sites queued, for the .hr mark
 
     /* IDLE CLOSE: a car ships only when full or marked closable, and the
@@ -185,7 +172,6 @@ namespace MFM {
     u8 mPadLeft;                // pad records still to append
     u32 mPadsStarted;           // pads begun, for the .ip mark
 
-    U8C nextRefreshSite() ;
 
     bool restartStep(HostBlock & hb) ;  // true: restarting, no frame work now
 

@@ -339,14 +339,6 @@ namespace MFM {
     HBPTAG(PACBinit,sizeof(*this));
   }
 
-  U8C ACacheBlockPrivateControl::nextRefreshSite() {
-    // the shared PRNG (FastT2.h create): per-hart creativity buffer, cheap
-    const u32 w = T6Grid::SELF_MAX.x - T6Grid::SELF_ORIGIN.x;
-    const u32 h = T6Grid::SELF_MAX.y - T6Grid::SELF_ORIGIN.y;
-    return U8C((u8) (T6Grid::SELF_ORIGIN.x + create(w)),
-               (u8) (T6Grid::SELF_ORIGIN.y + create(h)));
-  }
-
   void ACacheBlockPrivateControl::updateCars(HostBlock & hb) {
     MFM_API_ASSERT_ON_HART(HARTNUM_T0);
     
@@ -572,7 +564,6 @@ namespace MFM {
           mNextFrameBogoMS += BOGOMS_PER_FRAME;
           if ((mFramesSent%1000) == 1) LOGPTAG(WAITSENT,mFramesSent);
           mARsToSend = dl.getLength();
-          mRefreshLeft = REFRESH_PER_FRAME;
           mState = State::PACK;
         }
       }
@@ -692,18 +683,6 @@ namespace MFM {
                 mARIO.putObj(ar);
                 continue;
               }
-            }
-            /// (2b) List empty: spend this frame's refresh budget on random SELF sites
-            if (mRefreshLeft > 0u) {
-              --mRefreshLeft;
-              const U8C rc = nextRefreshSite();
-              ar.mAtom = t6g.getAtom(U16C(rc.x,rc.y));
-              ar.mCoord = U16C(AtomReport::withStamp(rc.x,siteStampByte(rc,mEpochSent)),
-                               rc.y);
-              ar.mSpin1 = ar.mSpin2 = mARSpinner++;
-              mARIO.putObj(ar);
-              if ((++mRefreshSent % 100'000u) == 1u) LOGPTAG(.rf,mRefreshSent);
-              continue;
             }
             /// (3) We have to wait
             mState = State::WAIT; // nothing else to send
