@@ -116,11 +116,12 @@ namespace MFM {
 
     static constexpr u32 RUN_ON_HARTNUM = HARTNUM_T1;
     /* One report frame (one ACB car at most) per this many ms: the cap on
-       the hub's report rate.  Was 50 (20 cars/s), then 25; 10 (100 cars/s
-       at most) is an experiment to see whether the picture looks smoother
-       or less laggy.  Build with -DACB_BOGOMS_PER_FRAME=50u to go back. */
+       the hub's report rate.  Was 50 (20 cars/s), then 25, then 10 (100
+       cars/s at most; honest AER on FB1 read 0.916 flat there, against
+       0.956-0.98 earlier: is it the cost?).  Now 25 as a control; build
+       with -DACB_BOGOMS_PER_FRAME=10u or 50u for the others. */
 #ifndef ACB_BOGOMS_PER_FRAME
-#define ACB_BOGOMS_PER_FRAME 10u
+#define ACB_BOGOMS_PER_FRAME 25u
 #endif
     static constexpr u32 BOGOMS_PER_FRAME = ACB_BOGOMS_PER_FRAME;
     
