@@ -150,7 +150,20 @@ def add_ticks(sh, m, cyc, args):
                 "graphics frame to the feed")
 
 
+def write_run_summary(sh, m, t_start):
+    """Leave runsum.txt and send.tgz (a few hundred KB) in the run directory,
+    so only that need be copied off the machine.  Never fails the shutdown."""
+    try:
+        import runsum
+        cmd = " ".join(["python", "mfmxctl.py"] + sys.argv[1:])
+        sh.say(runsum.write_bundle(m.simDir, list(sh.transcript), cmdline=cmd,
+                                   elapsed=time.monotonic() - t_start))
+    except Exception as e:
+        sh.say(f"run summary failed: {type(e).__name__}: {e}")
+
+
 def main(argv=None):
+    t_start = time.monotonic()
     args = parse_args(argv)
     bad = [f for f in args.script if not os.path.isfile(f)]
     if bad:
@@ -231,6 +244,7 @@ def main(argv=None):
     finally:
         sh.say("shutting down...")
         sh.say(m.shutdown(close=state["close"]) or "nothing to shut down")
+        write_run_summary(sh, m, t_start)
     return 1 if sh.aborted else 0
 
 

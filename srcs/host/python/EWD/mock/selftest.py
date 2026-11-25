@@ -894,6 +894,27 @@ def banner_free(out):
                      if not l.startswith("mfmxctl HEAD:"))
 
 
+def scenario_runsum():
+    """mfmxctl leaves runsum.txt and send.tgz in the run directory."""
+    import re
+    import tarfile
+    rc, out = run(FAST + "start\nshoot HOLD_AT_BIRTH 0\nwaitbolt\n"
+                  "shoot NEW_LEADER 2 1\nwaitbolt\nquit\n",
+                  extra_args=("--boot",))
+    m = re.search(r"run summary: (\S+/runsum\.txt); send (\S+/send\.tgz)", out)
+    check("runsum: shutdown reports the files", rc == 0 and m is not None,
+          out[-500:])
+    if not m:
+        return
+    names = tarfile.open(m.group(2)).getnames()
+    check("runsum: send.tgz has the summary, console and misc logs",
+          "runsum.txt" in names and "console.txt" in names
+          and any(n.startswith("misc/") for n in names), str(names))
+    text = open(m.group(1)).read()
+    check("runsum: summary has consensus times and the command line",
+          "NEW_LEADER" in text and "mfmxctl.py --mock" in text, text[:600])
+
+
 def scenario_command_file():
     d = tempfile.mkdtemp(prefix="selftest-cmd-")
     main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))

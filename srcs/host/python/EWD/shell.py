@@ -42,6 +42,8 @@ class Shell:
         self.wait_prompt = wait_prompt     # shown while 'wait' polls input
         self.fd = fd
         self.out = out if out is not None else sys.stdout
+        # everything said or echoed, kept for the summary written at shutdown
+        self.transcript = collections.deque(maxlen=200_000)
         self.clock = clock
         self.cmds = {}        # name -> (fn, help)
         self.ticks = {}       # name -> Tick
@@ -96,6 +98,7 @@ class Shell:
             self._need_prompt = True
         self.out.write(msg if msg.endswith("\n") else msg + "\n")
         self.out.flush()
+        self.transcript.extend(msg.rstrip("\n").split("\n"))
 
     def stop(self):
         self._stop = True
@@ -163,6 +166,7 @@ class Shell:
                 self._prompt_up = False
                 self.out.write(line + "\n")
                 self.out.flush()
+                self.transcript.append(line)
             self._prompt_up = False     # the typed Enter moved to a new line
             self.dispatch(line)
             self._need_prompt = True
@@ -294,6 +298,7 @@ class Shell:
                 if self._echo or from_script:
                     self.out.write(line + "\n")
                     self.out.flush()
+                self.transcript.append(self.prompt + line)
                 ok = self.dispatch(line)
                 self._need_prompt = True
                 if from_script and not ok and self.abort_on_error \
