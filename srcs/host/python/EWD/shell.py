@@ -310,8 +310,9 @@ class Shell:
     # ---- builtin commands -----------------------------------------------------
     def _cmd_help(self, args):
         if args:
-            ent = self.cmds.get(args[0].lower())
-            return ent[1] if ent else f"no such command {args[0]!r}"
+            # abbreviated like any command (AbbrevError is reported by dispatch)
+            name = self.resolve(args[0].lower(), self.cmds, "command")
+            return self.cmds[name][1]
         return "commands:\n" + "\n".join(
             f"  {name:10s} {h.split(':', 1)[-1].strip() if ':' in h else h}"
             for name, (_, h) in sorted(self.cmds.items()) if not h.startswith("alias"))
