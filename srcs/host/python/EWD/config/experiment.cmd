@@ -1,7 +1,7 @@
-# EXPERIMENT: FB1 honest-AER control at BOGOMS 25, NO nukes (build 78a991c62e+)
-# Is the flat AERre about 0.92 (BOGOMS 10, run 131756, which was really FB4 and
-# had random nukes) down because of 10 ms frames?  Same script again at
-# BOGOMS 10 (rebuild with -DACB_BOGOMS_PER_FRAME=10u) if this one reads 0.95+.
+# EXPERIMENT: FB1 honest-AER at BOGOMS 50, NO nukes (build default 50u)
+# Same script as the BOGOMS 25 run (AERre 0.917 falling to 0.885-0.894, 900 s).
+# The 3 h soak at BOGOMS 50 read 0.956-0.986, so AER may rise with BOGOMS.
+# If 50 reads 0.95+, BOGOMS is the lever (frame period vs events lost).
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
