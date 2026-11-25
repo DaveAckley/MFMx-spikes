@@ -1,6 +1,6 @@
-# EXPERIMENT: FB1 honest-AER at BOGOMS 50, dwell 3 3 (was 2 3), NO nukes
+# EXPERIMENT: FB1 honest-AER at BOGOMS 50, dwell 4 8 (was 2 3), NO nukes
 # Same as the previous run (AERre 0.885/0.886/0.894 at 900 s) except dwell.
-# The 3 h soak (0.956-0.958) ran the old default dwell 3 3; is dwell the lever?
+# The 3 h soak (0.956-0.958, seam12.cmd) ran dwell 4 8; is dwell the lever?
 # If it reads 0.95+, dwell is it; else bisect from the soak's commit.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
@@ -11,7 +11,7 @@ events honest
 elide on
 grid off
 decay 4
-dwell 3 3
+dwell 4 8
 start
 seed 25 4
 feed on
