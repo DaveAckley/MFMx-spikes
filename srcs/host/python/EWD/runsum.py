@@ -80,6 +80,8 @@ def head_info(out, cmdline=None, elapsed=None):
     for l in out:
         if re.match(r"mfmx> (events|decay|policy|elide) ", l):
             r.append(l.strip())
+    if not any(re.match(r"mfmx> decay ", l) for l in out):
+        r.append("decay: NOT SET (the default autoseed type applies, not 4)")
     return r
 
 
