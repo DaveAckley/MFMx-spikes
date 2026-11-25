@@ -11,7 +11,6 @@
 #include "LiveAER.h" // live mAER feed
 #include "ZHostDecompressor.h" // report stream health
 #include "EthSeamHostPy.h" // eth-seam E1 management
-#include "t6-exports.h" // for getMFMxModuleVersion()
 
 namespace py = pybind11;
 
@@ -26,7 +25,10 @@ PYBIND11_MODULE(MFMx, m) {
   m.def("getSimDir", &MFM::getSimDir);  
 
   // Expose the MFMx version string
-  m.def("getVersion", &MFM::T6::getMFMxModuleVersion);  
+  // (was the cross build's generated t6-exports.h; now when this file was compiled)
+  m.def("getVersion", []() -> std::string {
+    return std::string("MFMx host ") + __DATE__ + " " + __TIME__;
+  });
 
   // Latest cumulative events per hub (see LiveAER.h): (seeded, [(key,events,ms)])
   m.def("liveAERSnapshot", []() {

@@ -5,7 +5,6 @@
 #include <fstream>
 #include "HostUtils.h" // for sleepUsec, strcmp
 #include "FailStrings.h" // for sleepUsec
-#include "t6-exports.h" // for transportblock_*
 #include "BlockCode.h"
 #include "EthSeamHost.h" // chipClosing before the fd goes
 
