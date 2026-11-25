@@ -80,6 +80,10 @@ def head_info(out, cmdline=None, elapsed=None):
     for l in out:
         if re.match(r"mfmx> (events|decay|policy|elide) ", l):
             r.append(l.strip())
+    for l in out:
+        if l.startswith("mfmx> #"):     # the script's first comment: its name
+            r.append("script: " + cut(l[len("mfmx> #"):].strip(), 160))
+            break
     if not any(re.match(r"mfmx> decay ", l) for l in out):
         r.append("decay: NOT SET (the default autoseed type applies, not 4)")
     return r
