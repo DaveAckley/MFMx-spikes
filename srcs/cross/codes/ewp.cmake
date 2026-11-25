@@ -38,7 +38,6 @@ target_link_libraries(ewp PRIVATE
   # Add any other libraries that need to be linked after your object files
 )
 
-set(EWP_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/t6-exports.h")
 set(EWP_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/ewp.bin")
 set(EWP_DISASM_PATH "${CMAKE_CURRENT_BINARY_DIR}/ewp.s")
 
@@ -50,18 +49,6 @@ add_custom_command(
   tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:ewp> ${EWP_BINFILE_PATH}
   COMMAND ${CMAKE_OBJDUMP} -C -D $<TARGET_FILE:ewp> > ${EWP_DISASM_PATH}  # Disassemble for debug
-  COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:ewp> | # Dump symbol table
-  sort -r -k 5 - | # alphabetize entries for OCD
-  perl -n ${PERL_FORMATTER_PATH} - > ${EWP_EXPORTS_HEADER}
-  COMMENT "Generating ${EWP_BINFILE_PATH} and ${EWP_EXPORTS_HEADER} from ewp ($<TARGET_FILE:ewp>)"
-)
-
-# --- Copy the generated header to a shared location ---
-set(SHARED_GENERATED_HEADERS_DIR "${CMAKE_SOURCE_DIR}/srcs/generated_headers")
-add_custom_command(
-  TARGET ewp POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${SHARED_GENERATED_HEADERS_DIR}
-  COMMAND ${CMAKE_COMMAND} -E copy ${EWP_EXPORTS_HEADER} ${SHARED_GENERATED_HEADERS_DIR}/t6-exports.h
-  COMMENT "Copying ${EWP_EXPORTS_HEADER} to shared location"
+  COMMENT "Generating ${EWP_BINFILE_PATH} from ewp ($<TARGET_FILE:ewp>)"
 )
 

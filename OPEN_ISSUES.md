@@ -178,6 +178,22 @@ ERISC_NOTES.md.
   20-site overlap band.  Suspect: quiet SAVE unload.  Built: unloadPacket
   pushes DL for changed SELF sites (CLAUDE.md SELF UNLOADS REPORT).  Next if
   turds persist: host-directed refresh of pixels not reported for N epochs.
+  RESOLVED IN PRACTICE (2026-11-24; turdhunt10-10..13, quiet pauses with `zoom specks`):
+  the turd rate went from about 3% of listed specks (8 of 249) to 0-1 per run
+  (turdhunt10-11: 1 in 281, -12: 0 in 275, -13: 0 in 245, with a very large nuke in
+  the middle of -13 that left a clean hole).  What changed, in order: SELF unloads
+  report; a TURD verdict that knows cache elision (an owner's SELF is stale by design
+  for a kept band, so "ring atom + owner empty" is not a turd); the EPOCH-OF-CHANGE
+  STAMP (reports carry the epoch their site last CHANGED, so a borrower's late report
+  loses to the owner's newer empty one); the idle close and idle pad (a partial car
+  ships when the change list is dry; epoch-marker padding pushes the LZ encoder's held
+  tail out); host-directed refresh (`zoom specks refresh`, hub queues the site).  We
+  cannot say which of the last three did it, three runs is a small sample.
+  STILL UNEXPLAINED: why a ring site sometimes went empty with no report at all (the
+  lone `R4` rows of turdhunt10-10); not seen since.  Host refresh still answers a batch
+  late inside a quiet pause (needs a periodic hub heartbeat car; not built).  The random
+  idle refresh is retired.  See CLAUDE.md (EPOCH-OF-CHANGE STAMP, HOST-DIRECTED REFRESH,
+  ACB IDLE CLOSE / PAD).
 - Live AER vs aer.py: run 012507 (14f6dfd) live final 4.65, 33.7, 84.9 vs
   aer.py last 60 s 14.9, last 300 s 50.1, total 97.7 (104 hubs): the live
   figure was trimmed (read low while hubs differ); now a plain mean.  Compare

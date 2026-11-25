@@ -49,7 +49,6 @@ target_compile_options(MFMx PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/host/include
     ${SHARED_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/srcs/generated_headers
   )
 
   get_filename_component(SPIKE_NAME "${CMAKE_SOURCE_DIR}" NAME)

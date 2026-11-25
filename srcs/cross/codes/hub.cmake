@@ -42,7 +42,6 @@ target_link_libraries(hub PRIVATE
   # Add any other libraries that need to be linked after your object files
 )
 
-set(HUB_EXPORTS_HEADER "${CMAKE_CURRENT_BINARY_DIR}/t6-exports.h")
 set(HUB_BINFILE_PATH "${CMAKE_BINARY_DIR}/bin/hub.bin")
 set(HUB_DISASM_PATH "${CMAKE_CURRENT_BINARY_DIR}/hub.s")
 
@@ -54,18 +53,6 @@ add_custom_command(
   tee -a ${CMAKE_SOURCE_DIR}/../CROSS_BUILD_HISTORICAL/cross-builds.dat # and preserve in amber
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:hub> ${HUB_BINFILE_PATH}
   COMMAND ${CMAKE_OBJDUMP} -C -D $<TARGET_FILE:hub> > ${HUB_DISASM_PATH}  # Disassemble for debug
-  COMMAND ${CMAKE_OBJDUMP} -C -t $<TARGET_FILE:hub> | # Dump symbol table
-  sort -r -k 5 - | # alphabetize entries for OCD
-  perl -n ${PERL_FORMATTER_PATH} - > ${HUB_EXPORTS_HEADER}
-  COMMENT "Generating ${HUB_BINFILE_PATH} and ${HUB_EXPORTS_HEADER} from hub ($<TARGET_FILE:hub>)"
-)
-
-# --- Copy the generated header to a shared location ---
-set(SHARED_GENERATED_HEADERS_DIR "${CMAKE_SOURCE_DIR}/srcs/generated_headers")
-add_custom_command(
-  TARGET hub POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${SHARED_GENERATED_HEADERS_DIR}
-  COMMAND ${CMAKE_COMMAND} -E copy ${HUB_EXPORTS_HEADER} ${SHARED_GENERATED_HEADERS_DIR}/t6-exports.h
-  COMMENT "Copying ${HUB_EXPORTS_HEADER} to shared location"
+  COMMENT "Generating ${HUB_BINFILE_PATH} from hub ($<TARGET_FILE:hub>)"
 )
 

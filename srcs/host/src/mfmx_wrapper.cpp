@@ -14,6 +14,40 @@
 
 namespace py = pybind11;
 
+namespace MFM {
+
+  /* The module version, "MFMx-" plus the compile time of THIS file in the
+     old formatSymbols.pl "leximited" form: each of year-2000, day-of-year
+     (0 based) and minute-of-day is written as its digit count followed by
+     its digits, dot separated.  2026-10-05 06:49 is "MFMx-226.3277.3409". */
+  static u32 monthIndex(const char * d) { // __DATE__ is "Mmm dd yyyy"
+    static const char * const names = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    for (u32 m = 0u; m < 12u; ++m)
+      if (d[0] == names[3u*m] && d[1] == names[3u*m+1u] &&
+          d[2] == names[3u*m+2u]) return m;
+    return 0u;
+  }
+
+  static std::string leximit(u32 n) {
+    const std::string digits = std::to_string(n);
+    return std::to_string(digits.size()) + digits;
+  }
+
+  std::string mfmxVersionString() {
+    static const char * const date = __DATE__;
+    static const char * const time = __TIME__;   // "hh:mm:ss"
+    const u32 year = (u32) std::atoi(date + 7);
+    const u32 day = (u32) std::atoi(date + 4);   // " 5" or "24"
+    static const u32 daysBefore[12] = {0u,31u,59u,90u,120u,151u,181u,212u,243u,273u,304u,334u};
+    const u32 mon = monthIndex(date);
+    const bool leap = (year % 4u == 0u && year % 100u != 0u) || year % 400u == 0u;
+    const u32 yday = daysBefore[mon] + (day - 1u) + ((leap && mon > 1u) ? 1u : 0u);
+    const u32 mins = (u32) std::atoi(time) * 60u + (u32) std::atoi(time + 3);
+    return "MFMx-" + leximit(year - 2000u) + "." + leximit(yday) + "." + leximit(mins);
+  }
+
+} // namespace MFM
+
 // This macro creates the Python module named 'MFMx'
 PYBIND11_MODULE(MFMx, m) {
   m.doc() = "pybind11 bindings for MFMx such as they is";
@@ -25,10 +59,7 @@ PYBIND11_MODULE(MFMx, m) {
   m.def("getSimDir", &MFM::getSimDir);  
 
   // Expose the MFMx version string
-  // (was the cross build's generated t6-exports.h; now when this file was compiled)
-  m.def("getVersion", []() -> std::string {
-    return std::string("MFMx host ") + __DATE__ + " " + __TIME__;
-  });
+  m.def("getVersion", &MFM::mfmxVersionString);
 
   // Latest cumulative events per hub (see LiveAER.h): (seeded, [(key,events,ms)])
   m.def("liveAERSnapshot", []() {

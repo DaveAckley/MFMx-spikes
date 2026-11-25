@@ -54,7 +54,6 @@ target_sources(crosslib PUBLIC
   src/T6Phaser.cpp
   src/TEFs.cpp
   src/TaskWorker.cpp
-  src/formatSymbols.pl
   src/t6main.cpp
 #  src/RunLevel.cpp
 )
@@ -97,13 +96,8 @@ add_custom_target(${GENERATED_LDSCRIPT_TARGET_NAME}
 # make crosslib depend on the loader script
 add_dependencies(crosslib ${GENERATED_LDSCRIPT_TARGET_NAME})
 
-# our hackogack objdump parser
-set(PERL_FORMATTER_PATH "${CMAKE_SOURCE_DIR}/srcs/cross/src/formatSymbols.pl")
 # and our hackogack size parser
 set(PERL_SIZER_PATH "${CMAKE_SOURCE_DIR}/srcs/cross/src/formatSize.pl")
-
-# --- Copy the generated header to a shared location ---
-set(SHARED_GENERATED_HEADERS_DIR "${CMAKE_SOURCE_DIR}/srcs/generated_headers")
 
 # Finally, suck in per-image cmakes
 include(codes/CrossCodes.cmake)

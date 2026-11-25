@@ -12,7 +12,6 @@ fi
 PRIMARY_BUILD_DIR="build_cross"
 HOST_BUILD_DIR="build_host" # For the pip build, this will be temporary
 TOOLCHAIN_FILE="srcs/cross/toolchain-cross.cmake" # Ensure this path is correct
-SHARED_GENERATED_HEADERS_DIR="srcs/generated_headers" # Must match CMakeLists.txt
 
 # Confirm we are where we expect
 DIR=$(dirname $(readlink -f $0))
@@ -27,7 +26,7 @@ fi
 if [ $# -gt 0 ] && [ "x$1" == "xnuke" ]; then
     shift
     echo -n REALCLEANING---
-    rm -rf ${DIR}/${HOST_BUILD_DIR} ${DIR}/${PRIMARY_BUILD_DIR} ${DIR}/${SHARED_GENERATED_HEADERS_DIR}
+    rm -rf ${DIR}/${HOST_BUILD_DIR} ${DIR}/${PRIMARY_BUILD_DIR}
     # NUKE pycaches?
     rm -rf ${DIR}/srcs/host/python/__pycache__  ${DIR}/srcs/host/python/*/__pycache__
     echo DONE
