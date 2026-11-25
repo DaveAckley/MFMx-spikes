@@ -2,7 +2,7 @@
 """runsum.py -- boil one MFMx run down to a small text file, and bundle it.
 
 mfmxctl calls write_bundle() at shutdown: the run directory then holds
-send.tgz (about 0.2-2 MB: runsum.txt, the console transcript and the
+send-<RUNDIR>.tgz (about 0.2-2 MB: runsum.txt, the console transcript and the
 small misc/ logs), so only that need be sent, not the 100 MB - 3 GB run
 directory.  The same code runs by hand on an old run (ON the QB):
 
@@ -230,7 +230,7 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
 
 
 def write_bundle(rundir, out, cmdline=None, elapsed=None, limit=8 << 20):
-    """Write rundir/runsum.txt and rundir/send.tgz (runsum.txt, console.txt
+    """Write rundir/runsum.txt and rundir/send-<rundir name>.tgz (runsum.txt, console.txt
     without mark lines, and every misc/*.txt up to `limit` bytes).  Returns
     a one-line report."""
     misc = os.path.join(rundir, "misc")
@@ -242,7 +242,9 @@ def write_bundle(rundir, out, cmdline=None, elapsed=None, limit=8 << 20):
     conpath = os.path.join(rundir, "console.txt")
     with open(conpath, "w") as f:
         f.write("\n".join(l for l in out if not l.startswith("{")) + "\n")
-    tgz = os.path.join(rundir, "send.tgz")
+    # named for the run, so bundles from many runs can sit in one directory
+    tgz = os.path.join(rundir, "send-"
+                       + os.path.basename(rundir.rstrip("/")) + ".tgz")
     with tarfile.open(tgz, "w:gz") as t:
         t.add(sumpath, arcname="runsum.txt")
         t.add(conpath, arcname="console.txt")
@@ -262,7 +264,7 @@ def main(argv=None):
     ap.add_argument("--grep", metavar="REGEX")
     ap.add_argument("--max", type=int, default=60)
     ap.add_argument("--bundle", action="store_true",
-                    help="write runsum.txt and send.tgz in the run directory")
+                    help="write runsum.txt and send-<RUNDIR>.tgz in the run directory")
     a = ap.parse_args(argv)
     if not os.path.isdir(os.path.join(a.rundir, "misc")):
         sys.exit(f"runsum: no {a.rundir}/misc")

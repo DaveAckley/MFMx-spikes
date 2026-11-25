@@ -895,19 +895,19 @@ def banner_free(out):
 
 
 def scenario_runsum():
-    """mfmxctl leaves runsum.txt and send.tgz in the run directory."""
+    """mfmxctl leaves runsum.txt and send-RUNDIR.tgz in the run directory."""
     import re
     import tarfile
     rc, out = run(FAST + "start\nshoot HOLD_AT_BIRTH 0\nwaitbolt\n"
                   "shoot NEW_LEADER 2 1\nwaitbolt\nquit\n",
                   extra_args=("--boot",))
-    m = re.search(r"run summary: (\S+/runsum\.txt); send (\S+/send\.tgz)", out)
+    m = re.search(r"run summary: (\S+/runsum\.txt); send (\S+/send-[^/\s]+\.tgz)", out)
     check("runsum: shutdown reports the files", rc == 0 and m is not None,
           out[-500:])
     if not m:
         return
     names = tarfile.open(m.group(2)).getnames()
-    check("runsum: send.tgz has the summary, console and misc logs",
+    check("runsum: send-RUNDIR.tgz has the summary, console and misc logs",
           "runsum.txt" in names and "console.txt" in names
           and any(n.startswith("misc/") for n in names), str(names))
     text = open(m.group(1)).read()

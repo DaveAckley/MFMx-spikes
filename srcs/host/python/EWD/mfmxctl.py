@@ -151,7 +151,7 @@ def add_ticks(sh, m, cyc, args):
 
 
 def write_run_summary(sh, m, t_start):
-    """Leave runsum.txt and send.tgz (a few hundred KB) in the run directory,
+    """Leave runsum.txt and send-<RUNDIR>.tgz (a few hundred KB) in the run directory,
     so only that need be copied off the machine.  Never fails the shutdown."""
     try:
         import runsum
