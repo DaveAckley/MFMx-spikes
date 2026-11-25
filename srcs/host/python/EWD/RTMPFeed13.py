@@ -235,6 +235,7 @@ class RTMPFeed:
         self.pendLock = threading.Lock()
         self.pendBytes = None          #< newest real frame not yet written
         self.statDrops = 0             #< real frames superseded unwritten
+        self.statResyncs = 0           #< stalls too long to catch up on
         self.statFrames = 0
         self.statDups = 0
         self.statMaxGap = 0.0          #< longest wait between real frames
@@ -355,12 +356,15 @@ class RTMPFeed:
                     f"30s: real {self.statFrames} dup {self.statDups} "
                     f"maxgap {self.statMaxGap:.2f}s "
                     f"maxwrite {self.statMaxWrite:.2f}s "
-                    f"drop {self.statDrops}")
+                    f"drop {self.statDrops} resync {self.statResyncs}")
                 self.statDrops = 0
+                self.statResyncs = 0
                 self.statFrames = 0
                 self.statDups = 0
                 self.statMaxGap = 0.0
                 self.statMaxWrite = 0.0
+
+    MAX_OWED = 5.0         #< longest stall (s) the pacer catches up on
 
     def pacer(self):
         """The ONLY writer of frames to ffmpeg: exactly one frame per
@@ -377,8 +381,14 @@ class RTMPFeed:
         The repeat is NOT re-rendered while the data is merely a little
         late; once it is stale enough for the NO DATA banner it is
         re-rendered, at most once a second, so the banner's seconds and
-        the clocks keep moving.  A tick more than one period late (a long
-        stall) resyncs to now instead of sending a burst."""
+        the clocks keep moving.
+
+        Like mains frequency, the LONG-TERM count is what matters: after
+        a late tick the deadlines are NOT reset, so the ticks that were
+        missed are written back to back (repeats of the newest frame)
+        until the frame count again equals wall time; short-term jitter
+        is fine, long-term drift is not.  Only a stall longer than
+        MAX_OWED seconds gives up and resyncs (counted in statResyncs)."""
         period = 1.0 / self.fps
         due = time.monotonic()
         bannerT = 0.0                   #< when we last re-rendered a repeat
@@ -387,7 +397,10 @@ class RTMPFeed:
             if now < due:
                 time.sleep(min(due - now, 0.05))
                 continue
-            due = due + period if now - due < period else now + period
+            if now - due > self.MAX_OWED:
+                due = now               # hopeless: give up the owed frames
+                self.statResyncs += 1
+            due += period
             try:
                 with self.pendLock:
                     data = self.pendBytes
