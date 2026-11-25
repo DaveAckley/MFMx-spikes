@@ -215,6 +215,18 @@ namespace MFM {
       // (AtomReport.h).  Idempotent: we are called until ready.
       theL1GridManagerControl.setReportEpoch((u16) cda.mArgs.mArg[1]);
 
+      // Mark each new scy once (we are called until ready), so a hang can
+      // be placed by cycle number: `.sc` carries the scy (low 16 bits).
+      {
+        static u32 sMarkedScy = 0xffffffffu;
+        const u32 scy = (u32) (u16) cda.mArgs.mArg[1];
+        if (scy != sMarkedScy) {
+          sMarkedScy = scy;
+          HBPTAG(.sc,scy);
+          LOGPTAG(.sc,scy);
+        }
+      }
+
       DTRIG(IHT,{
           HBPTAG(BOLTR_iNL,arg);
           LOGPTAG(BOLTR_iNL,arg);
