@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """mfmxctl -- command-line controller for the MFMx Blackhole machine.
 
-Replaces the Textual app (nu1011/nu1012).  One Python thread: a select() loop
+Replaces the old Textual app (removed; see git history).  One Python thread: a select() loop
 reads commands from stdin and runs periodic ticks (slowscan monitoring, bolt
 completion polling, optional RTMP frames) in between.  Works in a terminal,
 under emacs (M-x shell / M-x pdb), or with piped input.
@@ -81,7 +81,7 @@ def parse_args(argv):
                          "and starves the frame tick); 'scan' and the "
                          "after-timeout diagnosis still work")
     ap.add_argument("--slowscan-gap", type=float, default=0.2,
-                    help="sleep before each chip's scan (nu1011 used 0.2)")
+                    help="sleep before each chip's scan (the old Textual app used 0.2)")
     ap.add_argument("--dwell", type=float, nargs="+", default=[3.0], metavar="SECS",
                     help="SuperCycle dwell after RUN_EVENTS: SECS, or LO HI for a random range")
     ap.add_argument("--first-leader", type=int, default=2,
@@ -595,7 +595,7 @@ def main(argv=None):
                "all: every hub); restart: ask desynced hubs to restart their stream (default on); "
                "break: TEST, lose a byte of that hub's stream")
     sh.command("boot", lambda a: m.boot(),
-               "boot: configure + chip reset + QuietBox init (as nu1011 did at startup)")
+               "boot: configure + chip reset + QuietBox init (as the old Textual app did at startup)")
     sh.command("configure", lambda a: m.configure(), "configure: build layout/images/Blackholes from the dtoml")
     sh.command("chipreset", lambda a: m.reset_chips(), "chipreset: run 'tt-smi -r'")
     sh.command("init", lambda a: m.init_box(), "init: QuietBox.init() (starts the IHH/SuperCycle thread suspended)")

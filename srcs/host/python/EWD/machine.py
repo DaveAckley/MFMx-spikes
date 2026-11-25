@@ -1,7 +1,8 @@
 """machine.py -- the MFMx-facing side of mfmxctl.
 
-Ports what nu1011/nu1012 did in EWD.configureImageManager/run/start/stop/
-slowScan, minus Textual, and adds bolt tracking.
+Ports what the old Textual apps (nu1010-nu1012, removed; see git history)
+did in EWD.configureImageManager/run/start/stop/slowScan, minus Textual,
+and adds bolt tracking.
 
 BOLTS.  Two QuietBox flavours exist (see mock/mfmx/MFMx.py):
   async API   shootPHASER() returns a nonce at once; phaserStatus() reports
@@ -272,7 +273,7 @@ class Machine:
             print(*a)
 
     # ---- boot: configure -> chip reset -> init ----------------------------------
-    # NB: the order mirrors nu1011 exactly: configure (which already opens the
+    # NB: the order mirrors the old Textual app exactly: configure (which already opens the
     # devices and allocates TLBs via setStep) happens BEFORE 'tt-smi -r'.  That
     # looks odd -- see the notes in the hand-off message; kept as-is on purpose.
     def configure(self):
@@ -301,7 +302,7 @@ class Machine:
                     continue
                 maybe = f"{bd}/{v['binfile']}"
                 if os.path.isfile(maybe):
-                    # as in nu1011: every match is (re)made, so the LAST match wins
+                    # as in the old Textual app: every match is (re)made, so the LAST match wins
                     img = im.makeT6Image(k, v["code"], maybe)
                     for i, tag in ((5, "BINPOS"), (6, "BINP2S"), (7, "BINP3S")):
                         self.logkt("KEYK", f"{tag} {k} {hex(img.getBinWord(i))}")
@@ -479,7 +480,7 @@ class Machine:
         self.logkt("QB", f"constants: {self.qb.getConstants()}")
         self.logkt("QB", f"ranges: {self.qb.getRanges()}")
         self.qb.init()
-        self.qb.mDrawGrid = True             # nu1011's default checkbox value
+        self.qb.mDrawGrid = True             # the old app's default checkbox value
         self.async_api = hasattr(self.qb, "phaserStatus")
         self.has_fire_phaser = hasattr(self.qb, "firePHASER")
         self.inited = True
@@ -512,7 +513,7 @@ class Machine:
         return getattr(p, "name", str(p))
 
     def start(self):
-        """nu1011 start(): startEWProcessing on every chip (walks all BH init steps).
+        """old start(): startEWProcessing on every chip (walks all BH init steps).
         When firePHASER is available, fires HOLD_AT_BIRTH to L1 first so T6s
         pick it up during their init (between CODE_RUNNING and EVENT_WINDOWS).
         On return, hold_settled=True means the sequencer can skip the cycle's
@@ -755,7 +756,7 @@ class Machine:
 
     # ---- monitoring ---------------------------------------------------------------
     def slowscan(self, count=1):
-        """nu1011 slowScan(): per chip, pace then runSlowScans(count).
+        """old slowScan(): per chip, pace then runSlowScans(count).
         This is the hostblock-log path that still works when an 'hn' hart is hung."""
         self.need_booted()
         rets = []

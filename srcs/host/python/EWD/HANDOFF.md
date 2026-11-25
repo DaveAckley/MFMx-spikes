@@ -4,7 +4,7 @@ See also: /CLAUDE.md (start here, formatting rules, doc map), ../../tools/ERISC_
 
 ## Project
 Minimal CLI controller (`mfmxctl.py`) for the Tenstorrent Blackhole "QuietBox" --
-replaces the Textual-based nu1011/nu1012 apps.  One Python thread: a `select()`
+replaces the old Textual-based apps (nu1010-nu1012, removed; see git history).  One Python thread: a `select()`
 loop reads commands from stdin and runs periodic ticks in between.
 
 ## User preferences
