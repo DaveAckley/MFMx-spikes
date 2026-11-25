@@ -1,7 +1,7 @@
-# EXPERIMENT: FB1 honest-AER at BOGOMS 50, NO nukes (build default 50u)
-# Same script as the BOGOMS 25 run (AERre 0.917 falling to 0.885-0.894, 900 s).
-# The 3 h soak at BOGOMS 50 read 0.956-0.986, so AER may rise with BOGOMS.
-# If 50 reads 0.95+, BOGOMS is the lever (frame period vs events lost).
+# EXPERIMENT: FB1 honest-AER at BOGOMS 50, dwell 3 3 (was 2 3), NO nukes
+# Same as the previous run (AERre 0.885/0.886/0.894 at 900 s) except dwell.
+# The 3 h soak (0.956-0.958) ran the old default dwell 3 3; is dwell the lever?
+# If it reads 0.95+, dwell is it; else bisect from the soak's commit.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
@@ -11,7 +11,7 @@ events honest
 elide on
 grid off
 decay 4
-dwell 2 3
+dwell 3 3
 start
 seed 25 4
 feed on
