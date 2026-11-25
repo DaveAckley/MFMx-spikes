@@ -115,6 +115,16 @@ namespace MFM::DG {
   static constexpr u32 PER_BLACKHOLE_GRID_WIDTH = BLACKHOLE_ACTIVE_HUB_WIDTH * T6GRID_BASE_WIDTH;
   static constexpr u32 PER_BLACKHOLE_GRID_HEIGHT = BLACKHOLE_ACTIVE_HUB_HEIGHT * T6GRID_BASE_HEIGHT;
 
+  /* The ACTIVE grid: the sites the chips really cover (1918 x 1080).  It
+     is smaller than the DEMO_GLOBAL_GRID (the 1920 x 1080 display and
+     coordinate space) by the blank columns at the right, which belong to
+     no chip.  Use these, not the DEMO_GLOBAL_ sizes, to ask "is there a
+     chip here?" or to pick a random real site. */
+  static constexpr u32 ACTIVE_GRID_WIDTH =
+    PER_BLACKHOLE_GRID_WIDTH * BLACKHOLE_CHIP_ARRAY_WIDTH;
+  static constexpr u32 ACTIVE_GRID_HEIGHT =
+    PER_BLACKHOLE_GRID_HEIGHT * BLACKHOLE_CHIP_ARRAY_HEIGHT;
+
   /* GEOMETRY GUARDS.  Hub sizes are derived above, never repeated as
      literals elsewhere in C++ (Python: HubGeometry.py, checked against
      this file by scripts/hubgeom/hubgeom_check.sh).  These catch a
@@ -176,12 +186,18 @@ namespace MFM::DG {
     XX(PER_BLACKHOLE_GRID_WIDTH);
     XX(PER_BLACKHOLE_GRID_HEIGHT);
 
+    XX(ACTIVE_GRID_WIDTH);
+    XX(ACTIVE_GRID_HEIGHT);
+
 #undef XX    
     return ret;
   }
 
   static constexpr U16C getGlobalGridSize() {
     return U16C(DEMO_GLOBAL_GRID_WIDTH,DEMO_GLOBAL_GRID_HEIGHT);
+  }
+  static constexpr U16C getActiveGridSize() {
+    return U16C(ACTIVE_GRID_WIDTH,ACTIVE_GRID_HEIGHT);
   }
   /* DISPLAY ONLY.  A hub's T6Grid is drawn into the 1920x1080 image with
      its N and W cache rings cropped away, so a hub's SELF sites land on
@@ -213,8 +229,8 @@ namespace MFM::DG {
 
   static constexpr bool isValidChipCoord(U32C chipAddr) {
     return
-      chipAddr.x < BLACKHOLE_ACTIVE_HUB_WIDTH &&
-      chipAddr.y < BLACKHOLE_ACTIVE_HUB_HEIGHT;
+      chipAddr.x < BLACKHOLE_CHIP_ARRAY_WIDTH &&
+      chipAddr.y < BLACKHOLE_CHIP_ARRAY_HEIGHT;
   }
   static constexpr U16C getChipSites() {
     return U16C(PER_BLACKHOLE_GRID_WIDTH, PER_BLACKHOLE_GRID_HEIGHT);
@@ -269,8 +285,8 @@ namespace MFM::DG {
   static Address mapCoordToAddress(const Coord dgc) {
     Address ret;
     ret.mValidAddr = false;
-    if (dgc.x >= DEMO_GLOBAL_GRID_WIDTH) return ret;
-    if (dgc.y >= DEMO_GLOBAL_GRID_HEIGHT) return ret;
+    if (dgc.x >= ACTIVE_GRID_WIDTH) return ret;    // blank columns: no chip
+    if (dgc.y >= ACTIVE_GRID_HEIGHT) return ret;
     U16C chipsites = getChipSites();
     U32C cs32(chipsites.x,chipsites.y);
     U32C chipAddr = dgc/cs32;

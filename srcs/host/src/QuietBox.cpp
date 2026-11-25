@@ -198,6 +198,7 @@ namespace MFM {
   bool QuietBox::storeP4Atom(const DG::Coord to, const P4Atom atom) {
     DG::Address a = DG::mapCoordToAddress(to);
     if (!a.isValid()) return false;
+    if (a.mChipNum >= MAX_BLACKHOLES) return false;  // not a fatal draw
     Blackhole * bhp = getBlackholeIfPresent(a.mChipNum);
     if (!bhp) return false;
     NSIM nsim;

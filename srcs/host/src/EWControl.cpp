@@ -89,9 +89,10 @@ namespace MFM {
   }
 
   std::string EWControl::doSeed(u32 atomType) {
-    U16C fullGridSize = DG::getGlobalGridSize();
-    U32C loc(hostPRNG.Between(0,fullGridSize.x-1),
-             hostPRNG.Between(0,fullGridSize.y-1));
+    // only sites that some chip covers (not the blank display columns)
+    U16C activeGridSize = DG::getActiveGridSize();
+    U32C loc(hostPRNG.Between(0,activeGridSize.x-1),
+             hostPRNG.Between(0,activeGridSize.y-1));
 
     /* SEED IN HOST
     setAtom(loc,P4Atom::makeStartAtom());
