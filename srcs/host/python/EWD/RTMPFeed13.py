@@ -236,6 +236,7 @@ class RTMPFeed:
         self.pendBytes = None          #< newest real frame not yet written
         self.statDrops = 0             #< real frames superseded unwritten
         self.statResyncs = 0           #< stalls too long to catch up on
+        self.statMaxOwed = 0.0         #< most frames owed (behind) seen
         self.statFrames = 0
         self.statDups = 0
         self.statMaxGap = 0.0          #< longest wait between real frames
@@ -356,51 +357,68 @@ class RTMPFeed:
                     f"30s: real {self.statFrames} dup {self.statDups} "
                     f"maxgap {self.statMaxGap:.2f}s "
                     f"maxwrite {self.statMaxWrite:.2f}s "
-                    f"drop {self.statDrops} resync {self.statResyncs}")
+                    f"drop {self.statDrops} resync {self.statResyncs} "
+                    f"owed {self.statMaxOwed:.1f}")
                 self.statDrops = 0
                 self.statResyncs = 0
+                self.statMaxOwed = 0.0
                 self.statFrames = 0
                 self.statDups = 0
                 self.statMaxGap = 0.0
                 self.statMaxWrite = 0.0
 
-    MAX_OWED = 5.0         #< longest stall (s) the pacer catches up on
+    MAX_OWED = 5.0         #< longest stall (s) the pacer will pay back
+    SLEW_GAIN = 0.05       #< rate change per owed frame (fraction of fps)
+    MAX_SLEW = 0.25        #< most the rate may change: fps*(1 +- 0.25)
 
     def pacer(self):
-        """The ONLY writer of frames to ffmpeg: exactly one frame per
-        1/fps seconds of wall time, on absolute deadlines (no drift).
+        """The ONLY writer of frames to ffmpeg, holding the LONG-TERM
+        rate at exactly fps, like mains frequency.
 
         ffmpeg stamps raw frames by COUNT at -framerate, not by arrival
-        time.  Frames written faster than fps make the stream's timeline
-        run slow against the wall clock, and a player that plays it
-        faithfully falls further and further behind (minutes after a few
-        hours; a reload jumps back to the live edge).  Frames written
-        slower starve the player.  So: each tick writes the newest real
-        frame if one arrived since the last tick (an older unwritten one
-        is dropped, see statDrops), else repeats the last frame as is.
-        The repeat is NOT re-rendered while the data is merely a little
-        late; once it is stale enough for the NO DATA banner it is
-        re-rendered, at most once a second, so the banner's seconds and
-        the clocks keep moving.
+        time.  Frames written faster than fps on average make the stream's
+        timeline run slow against the wall clock, and a player that plays
+        it faithfully falls further and further behind (minutes after a
+        few hours; a reload jumps back to the live edge).  Frames written
+        slower starve the player.
 
-        Like mains frequency, the LONG-TERM count is what matters: after
-        a late tick the deadlines are NOT reset, so the ticks that were
-        missed are written back to back (repeats of the newest frame)
-        until the frame count again equals wall time; short-term jitter
-        is fine, long-term drift is not.  Only a stall longer than
-        MAX_OWED seconds gives up and resyncs (counted in statResyncs)."""
-        period = 1.0 / self.fps
-        due = time.monotonic()
+        So every frame time is fractional.  owed = (wall time * fps) -
+        frames written: positive when we are behind.  The next interval is
+        1/(fps * (1 + slew)) with slew = SLEW_GAIN * owed, limited to
+        +-MAX_SLEW: a little fast while behind, a little slow while ahead,
+        exactly fps when owed is 0 (an exponential correction, time
+        constant 1/(fps*SLEW_GAIN) s).  Stretching the correction out,
+        instead of writing the owed frames in a burst, gives real frames
+        time to arrive and displace repeats.  A stall that leaves more
+        than MAX_OWED seconds owed gives up and resyncs (statResyncs).
+
+        Each tick writes the newest real frame if one arrived since the
+        last tick (an older unwritten one is dropped, see statDrops), else
+        repeats the last frame as is.  The repeat is NOT re-rendered while
+        the data is merely a little late; once it is stale enough for the
+        NO DATA banner it is re-rendered, at most once a second, so the
+        banner's seconds and the clocks keep moving."""
+        fps = float(self.fps)
+        period = 1.0 / fps
+        minStep = period / (1.0 + self.MAX_SLEW)
+        t0 = time.monotonic()           #< when the frame count was zero
+        sent = 0                        #< frames written since t0
+        due = t0
         bannerT = 0.0                   #< when we last re-rendered a repeat
         while True:
             now = time.monotonic()
             if now < due:
                 time.sleep(min(due - now, 0.05))
                 continue
-            if now - due > self.MAX_OWED:
-                due = now               # hopeless: give up the owed frames
+            owed = (now - t0) * fps - sent
+            if owed > self.MAX_OWED * fps:
+                t0 += owed / fps        # hopeless: forgive the debt
+                owed = 0.0
                 self.statResyncs += 1
-            due += period
+            self.statMaxOwed = max(self.statMaxOwed, owed)
+            slew = min(self.MAX_SLEW,
+                       max(-self.MAX_SLEW, self.SLEW_GAIN * owed))
+            due = max(due + period / (1.0 + slew), now + minStep)
             try:
                 with self.pendLock:
                     data = self.pendBytes
@@ -409,6 +427,8 @@ class RTMPFeed:
                 if not real:
                     base = self.lastBase
                     if base is None:
+                        t0 = now        # nothing to send yet: no debt
+                        sent = 0
                         continue
                     data = self.lastBytes
                     realMono = self.lastRealMono
@@ -423,6 +443,7 @@ class RTMPFeed:
                         if self.lastRealMono == realMono:  # no new real one
                             self.lastBytes = data
                 self.writeFrame(data, real)
+                sent += 1
             except Exception as e:
                 self.ewd.logkt("FEEDSTAT", f"pacer: {e}")
                 time.sleep(1.0)
