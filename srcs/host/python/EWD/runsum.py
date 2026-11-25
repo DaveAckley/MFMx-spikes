@@ -229,9 +229,13 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
     return lines
 
 
+MARKS_TAIL_BYTES = 2 << 20      #< how much of the end of all.mfmk to bundle
+
+
 def write_bundle(rundir, out, cmdline=None, elapsed=None, limit=8 << 20):
     """Write rundir/runsum.txt and rundir/send-<rundir name>.tgz (runsum.txt, console.txt
-    without mark lines, and every misc/*.txt up to `limit` bytes).  Returns
+    without mark lines, the last 2 MB of all.mfmk, and every misc/*.txt up
+    to `limit` bytes).  Returns
     a one-line report."""
     misc = os.path.join(rundir, "misc")
     if not os.path.isdir(misc):
@@ -248,6 +252,17 @@ def write_bundle(rundir, out, cmdline=None, elapsed=None, limit=8 << 20):
     with tarfile.open(tgz, "w:gz") as t:
         t.add(sumpath, arcname="runsum.txt")
         t.add(conpath, arcname="console.txt")
+        marks = os.path.join(rundir, "all.mfmk")     # the END of the marks
+        if os.path.isfile(marks):
+            tailpath = os.path.join(rundir, "all.mfmk.tail")
+            with open(marks, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                f.seek(max(0, f.tell() - MARKS_TAIL_BYTES))
+                data = f.read()
+            data = data[data.find(b"\n") + 1:]      # whole lines only
+            with open(tailpath, "wb") as f:
+                f.write(data)
+            t.add(tailpath, arcname="all.mfmk.tail")
         for n in sorted(os.listdir(misc)):
             p = os.path.join(misc, n)
             if n.endswith(".txt") and os.path.getsize(p) <= limit:
