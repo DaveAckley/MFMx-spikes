@@ -613,7 +613,7 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 
 ## Cleanup / nice to have
 
-- AER status line should show the event counting method (2026-11-23, user
+- DONE 2026-11-24 (AERse / AERre, "est. " dropped; see CLAUDE.md): AER status line should show the event counting method (2026-11-23, user
   idea, not started).  The difference today is whether empty-site events are
   shortcut or actually run.  Avoid 'honest'/'cheating'.  Candidates: 'AERse'
   (Shortcut Empties) vs 'AERre' (Run Empties), or similar.  The user may drop

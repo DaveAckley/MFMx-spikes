@@ -303,7 +303,7 @@ source, comments, docs and commit messages).
   autoseed, using each hub's own clock between its marks, so lost or late
   marks only blur it.  It is a line of its own in the video overlay (between
   the LIVE line above and the version line below; RTMPFeed13 `extra`) and in
-  `status` (`live:`): `[140] est. AER: 1.57, 1.58, 1.57`
+  `status` (`live:`): `[140] AERre: 1.57, 1.58, 1.57` (since 2026-11-24 the label names the counting method, no "est. ": AERse = Shortcut Empties, events shortcut, empty draws credited free; AERre = Run Empties, events honest, empties shipped and run; machine.AER_LABELS, set from the mode applied at `start`)
   ([N] = hubs reporting, 140 = every hub: 35 per chip; then the last 1 minute,
   last 5 minutes and all since the autoseed, in that order like top's load
   averages; three significant digits).  mfmxctl logs the line once a minute to misc/mfmxctl-LIVEAER.txt

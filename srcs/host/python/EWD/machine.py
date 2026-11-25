@@ -187,6 +187,12 @@ def parse_policy(text):
 
 EVENT_MODES = ("shortcut", "honest")
 
+# The overlay's name for the event counting method: AER + a suffix that
+# says what happens to EMPTY draws (not "honest"/"cheating"): "se" =
+# Shortcut Empties (credited as free events), "re" = Run Empties (shipped
+# and run like any other event).
+AER_LABELS = {"shortcut": "AERse", "honest": "AERre"}
+
 
 def parse_events(text):
     """'shortcut' | 'honest' (any unique prefix, nothing else) -> name.
@@ -516,6 +522,7 @@ class Machine:
         out = []
         if self.seams:
             out.append(self._declare_seams())
+        self.events_running = self.events      # what the hubs now do (AER label)
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))
@@ -1115,6 +1122,10 @@ class Machine:
     def _run_secs(self):
         return (time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns) / 1e9
 
+    def aer_label(self):
+        """AERse / AERre for the event counting method the hubs run now."""
+        return AER_LABELS.get(getattr(self, "events_running", self.events), "AER")
+
     def _live_line(self):
         """The live AER line for the overlay ('' until any hub has
         reported; see LiveAER.py).  Never raises: the overlay must not cost
@@ -1123,7 +1134,7 @@ class Machine:
             return ""
         try:
             self.liveaer.update()
-            text = self.liveaer.text()
+            text = self.liveaer.text(self.aer_label())
             now = time.monotonic()
             if text and (self.live_logged is None
                          or now - self.live_logged >= self.live_log_secs):
@@ -1327,7 +1338,7 @@ class Machine:
                          f"{self.frames_real} sim, {self.frames_idle} placeholder")
         if self.liveaer is not None:
             self.liveaer.update()
-            lines.append(f"live: {self.liveaer.text() or 'AER: no hub has reported'}")
+            lines.append(f"live: {self.liveaer.text(self.aer_label()) or 'AER: no hub has reported'}")
         return "\n".join(lines)
 
     # ---- shutdown --------------------------------------------------------------------
@@ -1344,7 +1355,7 @@ class Machine:
 
         if self.liveaer is not None:         # the last live AER, for the record
             def final():
-                text = self.liveaer.text()
+                text = self.liveaer.text(self.aer_label())
                 if not text:
                     return "no hub had reported"
                 self.logkt("LIVEAER", f"{self._run_secs():.0f}s FINAL {text}")

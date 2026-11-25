@@ -134,9 +134,10 @@ class LiveAER:
             return "%.2f" % v
         return "%.3f" % v
 
-    def text(self):
+    def text(self, label="AER"):
         """One short line for the overlay, '' until any hub has reported:
-        '[140] est. AER: 1.57, 1.58, 1.57'.  [N] is the hubs reporting; the
+        '[140] AERre: 1.57, 1.58, 1.57'.  [N] is the hubs reporting; label
+        names the event counting method (machine.AER_LABELS); the
         three figures are the last 1 minute, the last 5 minutes and all (since
         the autoseed), in that order, like the load averages of top."""
         n = self.hubs()
@@ -144,4 +145,4 @@ class LiveAER:
             return ""
         figs = [self.fmt_aer(self.window_maer(w)) for w in self.windows]
         figs.append(self.fmt_aer(self.seed_maer()))
-        return "[%d] est. AER: %s" % (n, ", ".join(figs))
+        return "[%d] %s: %s" % (n, label, ", ".join(figs))
