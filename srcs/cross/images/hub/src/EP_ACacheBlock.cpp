@@ -52,6 +52,11 @@ namespace MFM {
     //    SNAP(100,LOGXTAG(HACUBLK,mCurrentACacheBlock));
     ACacheBlock & acb = *mCurrentACacheBlock;
     ACacheBlockPayload & pay = acb.payload();
+    // A car marked closable is CLOSED: T0 may seal and ship it at any moment,
+    // so a byte added now could miss the packet and the stream would lose it
+    // (the host then DESYNCs).  Refuse it; the encoder retries once T0 has
+    // given us the next car.  (A full car already refuses via addByte.)
+    if (pay.checkRCloseFlag()) return false;
     u32 wasused = pay.getCurrentLength();
     // A full car (data space filled, trailer appended: +4) is not a jump.
     bool fulltrailer = (wasused == (u32) mExpectLen + 4u) &&
