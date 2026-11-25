@@ -170,6 +170,21 @@ namespace MFM {
 #endif
     u32 mIdleCloses;            // cars marked closable while idle, for the .ic mark
 
+    /* IDLE PAD: the LZ encoder (lzmfmx::encode) emits in groups of 8 items
+       and keeps an 18-byte lookahead, so the last few reports before the
+       change list runs dry stay inside it, and an idle close has nothing
+       to ship.  Once the list is empty after reports were packed, append
+       PAD_RECORDS epoch-marker records (idempotent on the host) to push
+       the tail out; nothing more is sent while idle.  Build with
+       -DACB_IDLE_PAD=0u to go back. */
+#ifndef ACB_IDLE_PAD
+#define ACB_IDLE_PAD 1u
+#endif
+    static constexpr u32 PAD_RECORDS = 12u;   // ~240 raw bytes > group + lookahead
+    u8 mDirty;                  // reports packed since the last pad
+    u8 mPadLeft;                // pad records still to append
+    u32 mPadsStarted;           // pads begun, for the .ip mark
+
     U8C nextRefreshSite() ;
 
     bool restartStep(HostBlock & hb) ;  // true: restarting, no frame work now

@@ -665,6 +665,7 @@ namespace MFM {
             U8C arc;
             if (dl.popBackC(arc)) {
               // Yes. Make report
+              mDirty = 1u;
               ar.mAtom = t6g.getAtom(U16C(arc.x,arc.y));
               ar.mCoord = U16C(AtomReport::withStamp(arc.x,siteStampByte(arc,mEpochSent)),
                                arc.y);
@@ -674,6 +675,23 @@ namespace MFM {
               // Stash it (or die: We Just Cleared mARIO)
               mARIO.putObj(ar);
               continue;
+            }
+            /// (2a) List empty after reports: pad the stream so the encoder's
+            /// held tail comes out (ACB_IDLE_PAD)
+            if (ACB_IDLE_PAD) {
+              if (mDirty && mPadLeft == 0u) {
+                mDirty = 0u;
+                mPadLeft = PAD_RECORDS;
+                if ((++mPadsStarted % 256u) == 1u) LOGPTAG(.ip,mPadsStarted);
+              }
+              if (mPadLeft > 0u) {
+                --mPadLeft;
+                ar.mCoord = U16C(AtomReport::EPOCH_MARK_X,(u16) mEpochSent);
+                ar.mSpin1 = ar.mSpin2 = mARSpinner++;
+                ar.mAtom = P4Atom::makeEmptyAtom();
+                mARIO.putObj(ar);
+                continue;
+              }
             }
             /// (2b) List empty: spend this frame's refresh budget on random SELF sites
             if (mRefreshLeft > 0u) {
