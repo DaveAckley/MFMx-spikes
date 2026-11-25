@@ -82,6 +82,7 @@ namespace MFM {
     void init() ;
     void latchHostFeedback(const ACacheBlockPayload & pay) ; // NC, BEFORE init()
     bool takeRefreshSite(U8C & c) ; //< T0
+    bool closeIfData() ;        //< T0: mark the car being filled closable
     bool restartWanted() ;      //< T0: a request we have not answered
     void beginDrain() ;         //< T0
     bool isDraining() const ;   //< T1's source (no lock) and T0
@@ -155,6 +156,19 @@ namespace MFM {
     u32 mRefreshLeft;           // refresh reports still allowed this frame
     u32 mRefreshSent;           // reports sent as refresh, for the .rf mark
     u32 mRefreshQueued;         // host-asked sites queued, for the .hr mark
+
+    /* IDLE CLOSE: a car ships only when full or marked closable, and the
+       per-frame mark was commented out, so when the change list ran dry the
+       tail of the stream (up to a car's worth of reports) sat in the hub
+       until traffic resumed, and with no car shipped the host had nothing
+       to return a request in.  With this on, a frame that finds the change
+       list empty marks a car that has any bytes closable, so it ships.
+       Under load nothing changes (the list is not empty).  Build with
+       -DACB_IDLE_CLOSE=0u to go back. */
+#ifndef ACB_IDLE_CLOSE
+#define ACB_IDLE_CLOSE 1u
+#endif
+    u32 mIdleCloses;            // cars marked closable while idle, for the .ic mark
 
     U8C nextRefreshSite() ;
 

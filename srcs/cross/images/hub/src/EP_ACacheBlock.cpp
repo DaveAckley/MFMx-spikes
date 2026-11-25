@@ -182,6 +182,15 @@ namespace MFM {
     }
   }
 
+  bool ACacheBlockL1Control::closeIfData() {
+    AtomicScopeLock guard(mLock);   // T1 adds bytes to this car under mLock
+    if (!mCurrentACacheBlock) return false;
+    ACacheBlockPayload & pay = mCurrentACacheBlock->payload();
+    if (pay.getCurrentLength() == 0u || pay.checkRCloseFlag()) return false;
+    pay.setRCloseFlag();
+    return true;
+  }
+
   bool ACacheBlockL1Control::takeRefreshSite(U8C & c) {
     memoryFence();
     if (mRefreshN == 0u) return false;     // common case: no lock
@@ -591,8 +600,12 @@ namespace MFM {
           // ACCESS PAY
           ACacheBlock &acb = getCurrentACBOrDie();
 
-          // SET RCLOSE
-          //XXX LET'S FILL THE FOGGENCAR          acb.payload().setRCloseFlag();
+          // SET RCLOSE only when idle (see ACB_IDLE_CLOSE); a busy hub
+          // fills its cars (the XXX: let's fill the foggencar)
+          if (ACB_IDLE_CLOSE && dl.getLength() == 0u &&
+              mACBL1Control->closeIfData()) {
+            if ((++mIdleCloses % 256u) == 1u) LOGPTAG(.ic,mIdleCloses);
+          }
 
           // WAIT TIL SHIPT? how?
           mState = State::NEXT;
