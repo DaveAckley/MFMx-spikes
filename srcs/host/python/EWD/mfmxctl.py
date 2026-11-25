@@ -119,6 +119,37 @@ def setup_paths(args):
     return extra_bindirs
 
 
+def add_ticks(sh, m, cyc, args):
+    """The periodic ticks that run between commands."""
+    # 5 ms (was 0.2 and 0.1): the consensus time is only as fine as the tick
+    # that notices it, so 0.1 s ticks made every fast bolt read "0.1 s".  Both
+    # ticks return at once when nothing is pending.
+    sh.add_tick("bolts", 0.005, m.tick_bolts, True,
+                "poll the pending bolt's acks")
+    sh.add_tick("cycle", 0.005, cyc.tick, True,
+                "advance the SuperCycle state machine")
+    noscan = args.no_slowscan or args.slowscan_period <= 0
+    scan_tick = sh.add_tick("slowscan",
+                            args.slowscan_period
+                            if args.slowscan_period > 0 else 2.0,
+                            m.tick_slowscan, not noscan,
+                            "hostblock log monitoring (no-op until booted)")
+
+    def start_scan_ticks():
+        """After a bolt timeout: turn the slowscan tick on if it was off.
+        True only when this call changed it."""
+        if scan_tick.enabled:
+            return False
+        scan_tick.enabled = True
+        scan_tick.due = sh.clock()
+        return True
+    m.start_scan_ticks = start_scan_ticks
+    sh.add_tick("zhd", 1.0, m.tick_zhd, True,
+                "say/log when the set of desynced report streams changes")
+    sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None,
+                "graphics frame to the feed")
+
+
 def main(argv=None):
     args = parse_args(argv)
     bad = [f for f in args.script if not os.path.isfile(f)]
@@ -137,9 +168,11 @@ def main(argv=None):
 
     from mfmx import MFMx          # real module, or the mock (see setup_paths)
     import Config
-    from machine import Machine, NullFeed, fmt_ints
-    from shell import Shell, AbbrevError
-    from sequencer import SuperCycle, wait_quiet
+    from machine import Machine, NullFeed
+    from shell import Shell
+    from sequencer import SuperCycle
+    from cmdutil import Ctx
+    import cmd_machine, cmd_bolts, cmd_cycle, cmd_view, cmd_mock
 
     sh = Shell(prompt="mfmx> ")
     _ver = _git_version()
@@ -170,528 +203,11 @@ def main(argv=None):
     elif args.mock:
         m.feed = NullFeed()
 
-    # ---- commands ------------------------------------------------------------------
-    def need(args_, n, usage):
-        if len(args_) < n:
-            raise ValueError(f"usage: {usage}")
-
-    def kw(word, choices, what):
-        """A keyword argument, abbreviated like a command: exact match, else the
-        unique choice `word` is a prefix of (case blind); AbbrevError otherwise."""
-        return sh.resolve(word.lower(), choices, what)
-
-    def c_shoot(a):
-        if not a:
-            return ("usage: shoot CMD [int args...]\ncommands: "
-                    + ", ".join(m.cmd_names() if m.inited else ["(boot first)"]))
-        bolt = a[0].upper()
-        if m.inited:
-            try:
-                bolt = kw(bolt, [n.lower() for n in m.cmd_names()], "bolt command").upper()
-            except AbbrevError as e:
-                if not str(e).startswith("ambiguous"):
-                    pass            # unknown: m.fire explains and lists the real names
-                else:
-                    raise
-        bargs = [int(x, 0) for x in a[1:]]
-        if bolt == "NEW_LEADER":      # always 5 words: words persist from bolt to
-            bargs += [0] * (5 - len(bargs))   # bolt on the device, a stale blast must not fire
-        b = m.fire(bolt, bargs)
-        return (f"fired bolt #{b.seq} {b.cmd} nonce={b.nonce}; "
-                f"timeout {b.timeout:g}s (result is reported when it completes)"
-                if m.async_api else None)
-
-    def c_bolt(a):
-        if not a:
-            return m.bolt.describe(time.monotonic()) if m.bolt else "no bolt yet"
-        a = [sh.resolve(a[0], ("hist", "timeout", "diagnose"), "bolt subcommand")] + a[1:]
-        if a[0] == "hist":
-            now = time.monotonic()
-            return "\n".join(b.describe(now) for b in m.bolt_history) or "none"
-        if a[0] == "timeout":
-            need(a, 3, "bolt timeout CMD SECS")
-            m.timeouts[a[1].upper()] = float(a[2])
-            return f"{a[1].upper()} timeout {float(a[2]):g}s"
-        if a[0] == "diagnose":
-            need(a, 2, "bolt diagnose on|off")
-            m.diagnose = kw(a[1], ("on", "off"), "bolt diagnose") == "on"
-            return f"diagnose-on-timeout {m.diagnose}"
-        raise ValueError("usage: bolt [hist | timeout CMD SECS | diagnose on|off]")
-
-    def c_step(a):
-        m.need_booted()
-        if not a:
-            cur = "  ".join(f"bh{c}={m.pname(p)}" for c, p in m.steps())
-            return (cur + "\nstep names, in order (setStep goes up to HAS_T6_CODE_RUNNING):\n  "
-                    + "\n  ".join(n for n in MFMx.Step.__members__ if n != "STEP_COUNT"))
-        want = a[0]
-        P = MFMx.Step
-        names = [n for n in P.__members__ if n != "STEP_COUNT"]
-        if want.isdigit():
-            ph = P(int(want))
-        elif want.upper() in names:     # exact on purpose: setStep is not a place for guessing
-            ph = getattr(P, want.upper())
-        else:
-            raise ValueError(f"unknown step {want!r}; exact names are:\n  " + "\n  ".join(names))
-        return "\n".join(f"bh{bh.getChipNumber()}: setStep -> {bh.setStep(ph)}"
-                         for bh in m.bhs)
-
-    def c_decay(a):
-        if a:
-            m.decay = int(a[0])
-        return f"start decay type: {m.decay} (applied at next 'start')"
-
-    def c_policy(a):
-        from machine import CACHE_POLICIES, parse_policy
-        if a:
-            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
-                                              for _c, p in m.steps()):
-                return ("cache policy is applied when the code is deployed "
-                        "(at 'start'): set it before 'start'")
-            m.policy = parse_policy(a[0])
-        return (f"cache policy: {m.policy} (applied at next 'start'; "
-                f"one of {', '.join(CACHE_POLICIES)})")
-
-    def c_events(a):
-        from machine import EVENT_MODES, parse_events
-        if a:
-            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
-                                              for _c, p in m.steps()):
-                return ("the events mode is applied when the code is deployed "
-                        "(at 'start'): set it before 'start'")
-            m.events = parse_events(a[0])
-        return (f"events mode: {m.events} (applied at next 'start'; "
-                f"one of {', '.join(EVENT_MODES)})")
-
-    def c_elide(a):
-        if a:
-            if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
-                                              for _c, p in m.steps()):
-                return ("cache elision is applied when the code is deployed "
-                        "(at 'start'): set it before 'start'")
-            m.elide = kw(a[0], ("on", "off"), "elide option") == "on"
-        return (f"cache elision: {'on' if m.elide else 'off'} (applied at next 'start'; "
-                "four corners only)")
-
-    def c_scan(a):
-        return f"slowscan -> {m.slowscan(int(a[0]) if a else 1)}"
-
-    def c_dumpl1(a):
-        items = [t for w in a for t in w.split(",") if t]
-        if not items:
-            return ("usage: dumpl1 TAG[,TAG..] | TAGLO-TAGHI ...   (TAG like at023: "
-                    "a, t for Tensix, chip digit, NoC0 x and y base 36)")
-        try:
-            return m.dumpl1(items)
-        except ValueError as e:
-            return f"dumpl1: {e}"
-
-    def c_grid(a):
-        m.need_booted()
-        if a:
-            m.qb.mDrawGrid = kw(a[0], ("on", "off"), "grid") == "on"
-        return f"mDrawGrid {m.qb.mDrawGrid}"
-
-    def c_seed(a):
-        m.need_booted()
-        if len(a) > 2 or not all(w.isdigit() for w in a):
-            return "usage: seed [COUNT [TYPE]]"
-        n = int(a[0]) if a else 1
-        if not 1 <= n <= 1000:
-            return "seed count must be 1..1000"
-        # TYPE defaults to the 'decay' start type (FB1 = 4 if never set)
-        t = int(a[1]) if len(a) > 1 else (4 if m.decay is None else int(m.decay))
-        res = []
-        for _ in range(n):
-            r = m.ewc.doSeed(t)
-            m.logkt("SEED", r)
-            res.append(r)
-        if n == 1:
-            return res[0]
-        bad = [r for r in res if r.startswith("Bad")]
-        return f"seeded {n - len(bad)}/{n} type {t}" + (f"; failed: {bad[:3]}" if bad else "")
-
-    def c_nuke(a):
-        m.need_booted()
-        usage = "usage: nuke [big] [X Y R]"
-        big = bool(a) and not a[0].lstrip("-").isdigit() and \
-            kw(a[0], ("big",), "nuke option") == "big"
-        nums = a[1:] if big else a
-        if nums and (len(nums) != 3 or not all(w.isdigit() for w in nums)):
-            return usage
-        x, y, r = (int(w) for w in nums) if nums else (None, None, None)
-        res = cyc.queue_nuke(big, x, y, r)
-        m.logkt("NUKE", f"QUEUED {res}")
-        return res + ("" if cyc.state() == "running" else
-                      "  (the cycle is not running: it lands at its next NEW_LEADER)")
-
-    def c_autonuke(a):
-        m.need_booted()
-        usage = "usage: autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]  (seconds, sites)"
-        if not a or a[0].lower().startswith("st"):
-            return cyc.status().split("\n  autonuke", 1)[1].strip() if cyc.auto else "autonuke off"
-        if a[0].lower() == "off":
-            return cyc.clear_autonuke()
-        nums = a[1:] if a[0].lower() == "on" else a
-        try:
-            v = [float(w) for w in nums]
-        except ValueError:
-            return usage
-        if len(v) not in (0, 2, 4):
-            return usage
-        dlo, dhi = (v[0], v[1]) if len(v) >= 2 else (5.0, 300.0)
-        rlo, rhi = (int(v[2]), int(v[3])) if len(v) == 4 else (40, 400)
-        res = cyc.set_autonuke(dlo, dhi, rlo, rhi)
-        m.logkt("NUKE", res)
-        return res
-
-    def c_cycle(a):
-        sub = sh.resolve(a[0], ("status", "start", "hold", "step", "stop", "retry", "reset",
-                                "leader", "first", "birth", "repeat", "holdat",
-                                "waitpause"), "cycle subcommand") if a else "status"
-        if sub == "status":
-            return cyc.status()
-        if sub in ("start", "hold", "step", "stop", "retry"):
-            return getattr(cyc, sub)()
-        if sub == "reset":
-            cyc.reset()
-            return "cycle reset (counters, leader memory, birth-hold flag)"
-        if sub == "holdat":
-            if len(a) < 2:
-                return cyc.status().split("\n  holdat", 1)[1].strip() \
-                    if cyc.hold_at else "holdat not armed"
-            if a[1].lower() == "off":
-                return cyc.set_hold_at(None)
-            step = sh.resolve(a[1], ("NEW_LEADER", "RUN_EVENTS", "DWELL"), "cycle holdat STEP")
-            return cyc.set_hold_at(step, int(a[2]) if len(a) > 2 else 0)
-        if sub == "waitpause":
-            rest = [x for x in a[1:]]
-            quiet = None                    # seconds of report silence wanted
-            if "quiet" in [x.lower() for x in rest]:
-                i = [x.lower() for x in rest].index("quiet")
-                rest.pop(i)
-                quiet = float(rest.pop(i)) if i < len(rest) else 1.0
-            cap = float(rest[0]) if rest else 3600.0
-            end = time.monotonic() + cap
-            # poll_input: a typed quit / cycle stop / cycle holdat off works
-            # while we wait (a stop ends the wait; so does a stopped cycle)
-            while (not cyc.is_paused() and not cyc.frozen and cyc.state() != "idle"
-                   and not sh._stop and time.monotonic() < end):
-                sh.run_for(0.1, poll_input=True)
-            if not cyc.is_paused():
-                why = "interrupted" if sh._stop else f"not paused after {cap:g}s"
-                return f"{why}: " + cyc.state()
-            msg = "cycle paused: " + cyc.status().split("\n", 1)[1].strip()
-            if quiet is not None:
-                ok, waited, grew = wait_quiet(
-                    m.reports_total, lambda x: sh.run_for(x, poll_input=True),
-                    time.monotonic, quiet_s=quiet, cap=60.0,
-                    stop=lambda: sh._stop)
-                msg += (f"\nreports quiet for {quiet:g}s after {waited:.1f}s"
-                        if ok else f"\nreports still arriving after {waited:.0f}s")
-                if grew is not None:
-                    msg += f" ({grew} reports arrived while waiting)"
-            return msg
-        if sub == "repeat":
-            if len(a) > 1:
-                cyc.repeat = kw(a[1], ("on", "off"), "cycle repeat") == "on"
-            return (f"cycle repeat: {'on' if cyc.repeat else 'off'} (a corner may repeat; "
-                    "four corners only)")
-        if sub == "leader":
-            n = None if len(a) < 2 or (not a[1].isdigit() and
-                                       kw(a[1], ("random",), "cycle leader") == "random") else a[1]
-            return cyc.set_leader(n)
-        if sub == "first":
-            need(a, 2, "cycle first N")
-            cyc.first_leader = int(a[1])
-            return f"first leader {cyc.first_leader}"
-        if sub == "birth":
-            need(a, 2, "cycle birth done|pending")
-            cyc.held = kw(a[1], ("done", "pending"), "cycle birth") == "done"
-            return f"HOLD_AT_BIRTH {'treated as done' if cyc.held else 'will be sent first'}"
-        raise ValueError("usage: cycle [status|start|hold|step|stop|retry|reset|"
-                         "leader N|random|first N|birth done|pending|holdat STEP "
-                         "[SCY]|off|waitpause [SECS] [quiet [SECS]]]")
-
-    def c_feed(a):
-        sub = sh.resolve(a[0], ("on", "off", "status"), "feed subcommand") if a else "status"
-        ft = sh.ticks["frame"]
-        if sub == "on":
-            if m.feed is None or isinstance(m.feed, NullFeed) and not args.mock:
-                if args.mock:
-                    m.feed = NullFeed()
-                else:
-                    from RTMPFeed13 import RTMPFeed     # needs cv2/PIL/ffmpeg
-                    m.feed = RTMPFeed(m, "ewd")
-            ft.enabled, ft.errors = True, 0
-            ft.due = time.monotonic() + ft.period
-            return f"feed on: {type(m.feed).__name__}; frames go out at {1 / ft.period:.1f}/s once booted"
-        if sub == "off":
-            ft.enabled = False
-            return ("feed frames stopped (the feed object, and any ffmpeg it started, stays "
-                    "until exit; 'feed on' resumes)")
-        return (f"feed: {type(m.feed).__name__ if m.feed is not None else 'none'}, "
-                f"frame tick {'on' if ft.enabled else 'off'}")
-
-    def c_zoom(a):
-        z = m.zoom
-        if not a or a[0].lower().startswith("st"):
-            return z.status_long()
-        w = a[0].lower()
-        if w == "reset":
-            z.reset_box()
-            return "zoom: seen box forgotten; " + z.status()
-        if w == "map":
-            return z.occupancy_map(m.ewc.renderGraphicsGridWindowToImage().asNP()) + \
-                f"\ngrid drawing: {'ON (its crosses and labels count as occupied)' if m.qb.mDrawGrid else 'off'}"
-        if w == "region":
-            try:
-                x0, y0, x1, y1 = (int(v) for v in a[1:5])
-                if len(a) != 5:
-                    raise ValueError
-            except ValueError:
-                return "usage: zoom region X0 Y0 X1 Y1   (pixels; a hub's whole grid is hx*137-20..hx*137+157, hy*108-20..hy*108+128)"
-            return z.region_map(m.ewc.renderGraphicsGridWindowToImage().asNP(), x0, y0, x1, y1)
-        if w == "specks":
-            r = int(a[1]) if len(a) > 1 and a[1].isdigit() else 5
-            doref = "refresh" in [t.lower() for t in a[1:]]
-            rep = z.specks_report(m.ewc.renderGraphicsGridWindowToImage().asNP(), r,
-                                   annotate=m.specks_who,
-                                   later=lambda: m.ewc.renderGraphicsGridWindowToImage().asNP(),
-                                   refresh=m.specks_refresh if doref else None)
-            return rep + ("\n" + m.refresh_stats_text() if doref else "")
-        if w == "shrink":
-            on = (a[1].lower() if len(a) > 1 else "on")
-            if on not in ("on", "off"):
-                return "usage: zoom shrink [on|off]"
-            return z.set_shrink(on == "on")
-        if w in ("off", "auto"):
-            return z.set_mode(w)
-        try:
-            return z.set_mode("fixed", float(w))
-        except ValueError as e:
-            return f"usage: zoom [off|auto|reset|shrink on/off|SCALE|status]  ({e})"
-
-    def c_dwell(a):
-        if a:
-            return cyc.set_dwell(*a[:2])
-        return f"dwell {cyc.dwell[0]:g}-{cyc.dwell[1]:g}s"
-
-    def c_where(a):
-        return f"sim dir: {m.simDir}\nlog files: {m.simDir}misc/{m.logprefix}-<KEY>.txt"
-
-    def c_waitbolt(a):
-        """Run ticks until the pending bolt settles (for command files)."""
-        b = m.bolt
-        if b is None:
-            return "no bolt yet"
-        cap = float(a[0]) if a else b.timeout + 5.0
-        end = time.monotonic() + cap
-        while b.state == "pending" and time.monotonic() < end:
-            sh.run_for(0.1)
-        return b.describe(time.monotonic())
-
-    def c_quit(a):
-        state["close"] = bool(a) and kw(a[0], ("close",), "quit option") == "close"
-        sh.stop()
-
-    def c_mock(a):
-        if not a:
-            return mock.summary()
-        a = [sh.resolve(a[0], ("lamers", "slow", "delay", "clear"), "mock subcommand")] + a[1:]
-        if a[0] == "lamers":
-            need(a, 2, "mock lamers CHIP [TLBI...] [cmd NAME]   (no TLBIs = clear that chip)")
-            rest, cmd = a[2:], None
-            if "cmd" in rest:
-                i = rest.index("cmd")
-                need(rest, i + 2, "mock lamers CHIP [TLBI...] cmd NAME")
-                cmd, rest = rest[i + 1].upper(), rest[:i]
-            mock.set_lamers(a[1], rest, cmd)
-            return mock.summary()
-        if a[0] == "slow":
-            need(a, 4, "mock slow CHIP SECS TLBI...   (those tiles ack SECS late)")
-            mock.set_slow(a[1], a[3:], a[2])
-            return mock.summary()
-        if a[0] == "delay":
-            need(a, 4, "mock delay CMD LO HI")
-            mock.set_delay(a[1].upper(), a[2], a[3])
-            return mock.summary()
-        if a[0] == "clear":
-            mock.clear_lamers()
-            return "lamers cleared"
-        raise ValueError("usage: mock [lamers CHIP [TLBI..] [cmd NAME] | slow CHIP SECS TLBI.. | "
-                         "delay CMD LO HI | clear]")
-
-    def c_tlbi(a):
-        """Show tag and image name for one or more TLBIs."""
-        m.need_booted()
-        if not a:
-            return ("usage: tlbi [CHIP:]TLBI[,TLBI...] | lamers\n"
-                    "  tlbi 15          -- all chips, TLBI 15\n"
-                    "  tlbi 0:15,19     -- chip 0, TLBIs 15 and 19\n"
-                    "  tlbi lamers      -- TLBIs from last bolt's lamer set")
-        bh_by_chip = {bh.getChipNumber(): bh for bh in m.bhs}
-        pairs = []  # list of (chip, tlbi)
-        if a[0][:1].isalpha() and kw(a[0], ("lamers",), "tlbi option") == "lamers":
-            b = m.bolt
-            if b is None:
-                return "no bolt yet"
-            for (c, _nonce, _n, lamers) in b.rows:
-                if lamers:
-                    for tlbi in lamers:
-                        if isinstance(tlbi, int):
-                            pairs.append((c, tlbi))
-            if not pairs:
-                return "last bolt had no lamers (or lamers were '?')"
-        else:
-            spec = a[0]
-            chip_filter = None
-            if ':' in spec:
-                chip_str, tlbi_str = spec.split(':', 1)
-                chip_filter = int(chip_str)
-            else:
-                tlbi_str = spec
-            tlbis = [int(t) for t in tlbi_str.split(',')]
-            if chip_filter is not None:
-                pairs = [(chip_filter, tlbi) for tlbi in tlbis]
-            else:
-                for bh in m.bhs:
-                    for tlbi in tlbis:
-                        pairs.append((bh.getChipNumber(), tlbi))
-        lines = []
-        for chip, tlbi in pairs:
-            bh = bh_by_chip.get(chip)
-            if bh is None:
-                lines.append(f"bh{chip}:{tlbi}  (chip not present)")
-                continue
-            tag = bh.getTLBITag(tlbi)
-            img = bh.getTLBIImageName(tlbi) or "(no image)"
-            lines.append(f"bh{chip}:{tlbi}  {tag}  {img}")
-        return "\n".join(lines)
-
-    def c_who(a):
-        if len(a) != 2:
-            return "usage: who X Y   (a pixel of the picture, e.g. from zoom specks)"
-        try:
-            x, y = int(a[0]), int(a[1])
-        except ValueError:
-            return f"who: X and Y must be integers, not {a[0]!r} {a[1]!r}"
-        if not (0 <= x < 1920 and 0 <= y < 1080):
-            return f"who: ({x},{y}) is outside the 1920x1080 picture"
-        return m.who(x, y)
-
-    def c_zhd(a):
-        sub = kw(a[0], ("all", "restart", "break"), "zhd subcommand") if a else None
-        if sub == "restart":
-            if len(a) != 2:
-                return "usage: zhd restart on|off"
-            return m.zhd_restart(kw(a[1], ("on", "off"), "zhd restart") == "on")
-        if sub == "break":
-            tags = [t for arg in a[1:] for t in arg.split(",") if t]
-            return m.zhd_break(tags)
-        return m.zhd_text(verbose=sub == "all")
-    sh.command("zhd", c_zhd,
-               "zhd [all | restart on|off | break TAG[,TAG..]]: report-stream health (desynced hubs; "
-               "all: every hub); restart: ask desynced hubs to restart their stream (default on); "
-               "break: TEST, lose a byte of that hub's stream")
-    sh.command("boot", lambda a: m.boot(),
-               "boot: configure + chip reset + QuietBox init (as the old Textual app did at startup)")
-    sh.command("configure", lambda a: m.configure(), "configure: build layout/images/Blackholes from the dtoml")
-    sh.command("chipreset", lambda a: m.reset_chips(), "chipreset: run 'tt-smi -r'")
-    sh.command("init", lambda a: m.init_box(), "init: QuietBox.init() (starts the IHH/SuperCycle thread suspended)")
-    sh.command("start", lambda a: m.start(), "start: startEWProcessing on every chip (walks all phases; can be slow)")
-    sh.command("seams", lambda a: m.seams_report(),
-               "seams: eth-seam declarations, link status and health counters")
-    sh.command("stop", lambda a: m.stop(), "stop: stopEWProcessing (only on chips at event windows)")
-    sh.command("close", lambda a: m.close(), "close: full retreat of every chip (careful)")
-    sh.command("step", c_step,
-        "step [NAME|N]: show chip init steps and all step names, or setStep to "
-        "NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
-    sh.command("decay", c_decay, "decay [N]: show/set start decay type")
-    sh.command("events", c_events,
-        "events [shortcut|honest]: show/set the AER mode (before 'start')")
-    sh.command("elide", c_elide,
-        "elide [on|off]: keep bands shared by consecutive corners (before "
-        "'start')")
-    sh.command("policy", c_policy,
-        "policy [fourcorners|supercell]: show/set the cache policy (before "
-        "'start')")
-    sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
-               "status: phases, quietbox, bolt, timeouts, scans, cycle")
-    sh.command("cycle", c_cycle,
-               "cycle [status|start|hold|step|stop|retry|reset|leader N|first N|birth "
-               "done|pending|holdat STEP [SCY]|waitpause [SECS] [quiet [SECS]]]: "
-               "SuperCycle (holdat NEW_LEADER 150 pauses when NEW_LEADER is next once "
-               "scy >= 150; waitpause blocks a command file until paused; with 'quiet' "
-               "it then waits until no report has arrived for 1s, i.e. DLs and ACBs "
-               "drained)")
-    sh.command("dwell", c_dwell, "dwell [SECS | LO HI]: SuperCycle dwell after RUN_EVENTS")
-    sh.command("shoot", c_shoot,
-        "shoot CMD [ARGS]: fire a PHASER bolt (async; completion is reported)")
-    sh.command("waitbolt", c_waitbolt,
-               "waitbolt [SECS]: let ticks run until the pending bolt settles (default: its timeout + 5s)")
-    sh.command("bolt", c_bolt,
-        "bolt [hist | timeout CMD SECS | diagnose on|off]: bolt state and policy")
-    sh.command("scan", c_scan, "scan [N]: run slowscans now")
-    sh.command("dumpl1", c_dumpl1,
-               "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")
-    sh.command("frame", lambda a: m.frame() or "frame sent", "frame: render+send one graphics frame now")
-    sh.command("grid", c_grid, "grid [on|off]: QuietBox.mDrawGrid")
-    sh.command("seed", c_seed,
-        "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: "
-        "decay type)")
-    sh.command("autonuke", c_autonuke,
-        "autonuke [on|off|status] [DELAY_LO DELAY_HI [R_LO R_HI]]: repeatedly "
-        "nuke a random place after a random delay (defaults 5-300 s, radius "
-        "40-400) while the cycle runs")
-    sh.command("nuke", c_nuke,
-        "nuke [big] [X Y R]: erase a disc of sites (global coords) on every hub "
-        "at the next NEW_LEADER (random radius 10-100, big 100-1000)")
-    sh.command("tlbi", c_tlbi,
-        "tlbi [CHIP:]N[,N...] | lamers: show tag+image for TLBIs (e.g. tlbi "
-        "lamers, tlbi 15, tlbi 0:15,19)")
-    sh.command("where", c_where, "where: sim dir and log file locations")
-    sh.command("quit", c_quit, "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",
-               aliases=("exit",))
-    if mock is not None:
-        sh.command("mock", c_mock,
-            "mock [lamers CHIP TLBI.. | delay CMD LO HI | clear]: mock-only knobs")
-
-    # 5 ms (was 0.2 and 0.1): the consensus time is only as fine as the tick that notices it, so 0.1 s ticks
-    # made every fast bolt read "0.1 s".  Both ticks return at once when nothing is pending.
-    sh.add_tick("bolts", 0.005, m.tick_bolts, True, "poll the pending bolt's acks")
-    sh.add_tick("cycle", 0.005, cyc.tick, True, "advance the SuperCycle state machine")
-    noscan = args.no_slowscan or args.slowscan_period <= 0
-    scan_tick = sh.add_tick("slowscan",
-                            args.slowscan_period if args.slowscan_period > 0 else 2.0,
-                            m.tick_slowscan, not noscan,
-                            "hostblock log monitoring (no-op until booted)")
-
-    def start_scan_ticks():
-        """After a bolt timeout: turn the slowscan tick on if it was off.
-        True only when this call changed it."""
-        if scan_tick.enabled:
-            return False
-        scan_tick.enabled = True
-        scan_tick.due = sh.clock()
-        return True
-    m.start_scan_ticks = start_scan_ticks
-    sh.command("who", c_who,
-        "who X Y: which hub last painted picture pixel (x,y), from its self sites"
-        " or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze "
-        "with cycle hold first)")
-    sh.command("zoom", c_zoom,
-        "zoom [off|auto|reset|map|specks [R] [refresh] (also who for each; "
-        "refresh asks the hubs to re-report them)|region X0 Y0 X1 Y1|shrink "
-        "on/off|SCALE|status]: crop and scale the video (status shows per-stage "
-        "cost); auto fits the box of every non-empty site ever seen (shrink on: "
-        "of the last ~5 s instead, so it zooms back in), SCALE (1..64) is fixed; "
-        "off by default; grid must be off")
-    sh.command("feed", c_feed,
-        "feed [on|off|status]: start/stop sending graphics frames (RTMP feed, "
-        "built on first 'on')")
-    sh.add_tick("zhd", 1.0, m.tick_zhd, True, "say/log when the set of desynced report streams changes")
-    sh.add_tick("frame", 1 / 5.1, m.tick_frame, m.feed is not None, "graphics frame to the feed")
+    # ---- commands (cmd_*.py: functions taking (ctx, args)) -----------------------
+    ctx = Ctx(sh=sh, m=m, cyc=cyc, args=args, MFMx=MFMx, mock=mock, state=state)
+    for mod in (cmd_machine, cmd_bolts, cmd_cycle, cmd_view, cmd_mock):
+        mod.register(ctx)
+    add_ticks(sh, m, cyc, args)
 
     # SIGTERM/SIGHUP take the same orderly exit path as 'quit'
     for s in (signal.SIGTERM, signal.SIGHUP):

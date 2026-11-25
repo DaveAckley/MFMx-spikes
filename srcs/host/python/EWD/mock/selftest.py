@@ -887,6 +887,13 @@ def scenario_hubgeom():
           p.stdout[-400:] + p.stderr[-400:])
 
 
+def banner_free(out):
+    """out without the 'mfmxctl HEAD: <git subject>' banner line, whose
+    subject may contain any word (a commit message once said 'superseded')."""
+    return "\n".join(l for l in out.split("\n")
+                     if not l.startswith("mfmxctl HEAD:"))
+
+
 def scenario_command_file():
     d = tempfile.mkdtemp(prefix="selftest-cmd-")
     main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))
@@ -902,7 +909,7 @@ def scenario_command_file():
     check("script: exit 0", rc == 0, f"rc={rc}")
     check("script: bolts settle in order",
           "HOLD_AT_BIRTH(0) CONSENSUS" in out and "NEW_LEADER(2,1,0,0,0) CONSENSUS" in out
-          and "superseded" not in out.lower(), out[-900:])
+          and "superseded" not in banner_free(out).lower(), out[-900:])
     i = [out.find(t) for t in ("BEFORE", "SUBFILE-ONE", "SUBFILE-TWO", "AFTER", "STILL-ALIVE", "FROM-STDIN")]
     check("script: nested source runs in place, then stdin continues",
           all(x >= 0 for x in i) and i == sorted(i), str(i))
