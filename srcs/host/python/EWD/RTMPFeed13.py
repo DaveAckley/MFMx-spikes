@@ -98,15 +98,6 @@ def load_rtmp_target(stream):
     return f"rtmp://{host}:{port}/{app}/{stream}?user={user}&pass={pw}", pw
 
 
-def repeatBase(now, due, period):
-    """Base time for the next keepalive repeat's due time.  A repeat that
-    starts a little late (the poll quantum, rendering) still counts from
-    when it was DUE, so the average rate stays 1/period; if we are more
-    than one period behind (a long stall) resync to now instead of
-    sending a burst."""
-    return due if now - due < period else now
-
-
 class RTMPFeed:
     def redact(self, obj):
         """str(obj) with the stream password masked (for log files)."""
@@ -226,8 +217,9 @@ class RTMPFeed:
         # Frame pacing.  ffmpeg stamps raw input frames by COUNT at
         # -framerate, not by arrival time, so a stall in the (single
         # threaded) shell makes the stream run dry and the viewer
-        # rebuffers.  A keepalive thread repeats the last frame whenever
-        # the next real one is late.  Stats go to the FEEDSTAT log.
+        # rebuffers.  A pacer thread is the only writer: exactly fps frames
+        # per second, the newest real one or a repeat (see pacer()).
+        # Stats go to the FEEDSTAT log.
         self.writeLock = threading.Lock()
         self.lastBytes = None          #< last frame written, raw BGR bytes
         self.lastBase = None           #< last real image BEFORE overlays
@@ -239,7 +231,10 @@ class RTMPFeed:
         self.overlayLock = threading.Lock()
         self.lastWriteT = 0.0          #< monotonic time of last write
         self.lastRealT = 0.0           #< ... of last real frame
-        self.keepThread = None
+        self.keepThread = None         #< the pacer thread
+        self.pendLock = threading.Lock()
+        self.pendBytes = None          #< newest real frame not yet written
+        self.statDrops = 0             #< real frames superseded unwritten
         self.statFrames = 0
         self.statDups = 0
         self.statMaxGap = 0.0          #< longest wait between real frames
@@ -325,7 +320,7 @@ class RTMPFeed:
 
     def writeFrame(self, data, real):
         """Write one raw frame (bytes) to ffmpeg.  Also used by the
-        keepalive thread, hence the lock."""
+        pacer thread; the lock is a leftover guard."""
         with self.writeLock:
             t0 = time.monotonic()
             try:
@@ -359,55 +354,65 @@ class RTMPFeed:
                     "FEEDSTAT",
                     f"30s: real {self.statFrames} dup {self.statDups} "
                     f"maxgap {self.statMaxGap:.2f}s "
-                    f"maxwrite {self.statMaxWrite:.2f}s")
+                    f"maxwrite {self.statMaxWrite:.2f}s "
+                    f"drop {self.statDrops}")
+                self.statDrops = 0
                 self.statFrames = 0
                 self.statDups = 0
                 self.statMaxGap = 0.0
                 self.statMaxWrite = 0.0
 
-    def keepAlive(self):
-        """Whenever the next real frame is late, send the last real image
-        again with a fresh overlay: the clocks keep running and a
-        NO DATA line counts the seconds since the last real frame.
+    def pacer(self):
+        """The ONLY writer of frames to ffmpeg: exactly one frame per
+        1/fps seconds of wall time, on absolute deadlines (no drift).
 
-        ffmpeg stamps frames by COUNT (at self.fps), so the repeats must
-        arrive at the frame rate or the stream's clock and the player's
-        drift apart.  The first repeat waits 1.3 frame periods after the
-        last real frame (one may be about to arrive); after that each
-        repeat is due one period after the previous repeat was DUE (see
-        repeatBase), not after it actually started: the loop only polls
-        every 0.2 period and rendering takes about 70 ms, so counting from
-        the actual start made every repeat late (about 4.4 per second
-        instead of 5.1, a stream running 12 percent slow while idle, which
-        starves a player's buffer)."""
+        ffmpeg stamps raw frames by COUNT at -framerate, not by arrival
+        time.  Frames written faster than fps make the stream's timeline
+        run slow against the wall clock, and a player that plays it
+        faithfully falls further and further behind (minutes after a few
+        hours; a reload jumps back to the live edge).  Frames written
+        slower starve the player.  So: each tick writes the newest real
+        frame if one arrived since the last tick (an older unwritten one
+        is dropped, see statDrops), else repeats the last frame as is.
+        The repeat is NOT re-rendered while the data is merely a little
+        late; once it is stale enough for the NO DATA banner it is
+        re-rendered, at most once a second, so the banner's seconds and
+        the clocks keep moving.  A tick more than one period late (a long
+        stall) resyncs to now instead of sending a burst."""
         period = 1.0 / self.fps
-        late = 1.3 * period
-        dupBase = 0.0           #< the time our last repeat was due (or began)
-        dupEnd = 0.0            #< lastWriteT right after it
+        due = time.monotonic()
+        bannerT = 0.0                   #< when we last re-rendered a repeat
         while True:
-            time.sleep(0.2 * period)
-            base = self.lastBase
-            if base is None:
-                continue
             now = time.monotonic()
-            if self.lastWriteT == dupEnd:    # no real frame since our repeat
-                due = dupBase + period
-            else:
-                due = self.lastWriteT + late
-            if now >= due:
-                try:
-                    dupBase = repeatBase(now, due, period)
-                    stale = now - self.lastRealMono
-                    img = base.copy()
-                    sim = self.lastSimNanos + int(stale * 1e9)
-                    self.renderOverlay(img, sim, self.lastInfo, stale, self.lastExtra)
-                    data = np.ascontiguousarray(img).tobytes()
-                    self.lastBytes = data
-                    self.writeFrame(data, False)
-                    dupEnd = self.lastWriteT
-                except Exception as e:
-                    self.ewd.logkt("FEEDSTAT", f"keepalive: {e}")
-                    time.sleep(1.0)
+            if now < due:
+                time.sleep(min(due - now, 0.05))
+                continue
+            due = due + period if now - due < period else now + period
+            try:
+                with self.pendLock:
+                    data = self.pendBytes
+                    self.pendBytes = None
+                real = data is not None
+                if not real:
+                    base = self.lastBase
+                    if base is None:
+                        continue
+                    data = self.lastBytes
+                    realMono = self.lastRealMono
+                    stale = now - realMono
+                    if stale >= 1.5 and now - bannerT >= 1.0:
+                        bannerT = now
+                        img = base.copy()
+                        sim = self.lastSimNanos + int(stale * 1e9)
+                        self.renderOverlay(img, sim, self.lastInfo,
+                                           stale, self.lastExtra)
+                        data = np.ascontiguousarray(img).tobytes()
+                        if self.lastRealMono == realMono:  # no new real one
+                            self.lastBytes = data
+                self.writeFrame(data, real)
+            except Exception as e:
+                self.ewd.logkt("FEEDSTAT", f"pacer: {e}")
+                time.sleep(1.0)
 
     def drawTextOnImage(self,img,atext,xy,cachedfont):
         bfbox = cachedfont.renderBox
@@ -626,7 +631,7 @@ class RTMPFeed:
             self.drawStaleBanner(bgrimage,stale)
 
     def sendGraphicsFrame(self,bgrimage,simnanos,info,extra=""): # fully rendered BGR image as numpy array
-        # keep the bare image so the keepalive can redraw a fresh overlay
+        # keep the bare image so the pacer can redraw a NO DATA overlay
         self.lastBase = bgrimage.copy()
         self.lastSimNanos = simnanos
         self.lastInfo = info
@@ -636,9 +641,12 @@ class RTMPFeed:
         self.framesSentThisSubproc += 1
         data = np.ascontiguousarray(bgrimage).tobytes()
         self.lastBytes = data
-        self.writeFrame(data, True)
+        with self.pendLock:
+            if self.pendBytes is not None:
+                self.statDrops += 1     # superseded before its tick
+            self.pendBytes = data
         if self.keepThread is None:
-            self.keepThread = threading.Thread(target=self.keepAlive,
+            self.keepThread = threading.Thread(target=self.pacer,
                                                daemon=True)
             self.keepThread.start()
             
