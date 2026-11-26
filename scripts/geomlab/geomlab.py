@@ -43,6 +43,7 @@ Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
        python3 geomlab.py --ewtiles    (picture of the EW tiling)
        python3 geomlab.py --ewblock    (one hub-sized block of EWs)
        python3 geomlab.py --ewrect     (today's hub on the EW tiling)
+       python3 geomlab.py --ewsnap     (that hub rounded to whole EWs)
 Needs numpy and PIL (no scipy).  About 20 s for all layouts.
 """
 
@@ -313,8 +314,25 @@ def layout_ew_blocks():
                         f"({k * k * EW_SITES} sites)")
 
 
+def layout_rect_snap():
+    """Today's hubs rounded to whole EWs: every EW (perfect lattice)
+    belongs to the hub whose rectangle holds its center (clamped onto
+    the grid at the edges).  Same hub array and neighbors as rect,
+    sawtooth hub edges, every interior EW whole."""
+    i, j = ew_tile_index()
+    cx = np.clip(i * R - j * (R + 1), 0, W - 1)
+    cy = np.clip(i * (R + 1) + j * R, 0, H - 1)
+    hx = cx // HG.T6GRID_BASE_WIDTH
+    hy = cy // HG.T6GRID_BASE_HEIGHT
+    part = (hy * HUBS_X + hx).astype(np.int64)
+    return Layout("rect-snap", part, np.arange(NH, dtype=np.int64),
+                  corner_shifts(OW, OH),
+                  "rect hubs rounded to whole EWs (EW centre rule)")
+
+
 LAYOUTS = {
     "rect": layout_rect,
+    "rect-snap": layout_rect_snap,
     "dia-brick": layout_diamond_brick,
     "dia-rotated": layout_diamond_rotated,
     "dia-multi48": lambda: layout_diamond_multi(48),
@@ -599,11 +617,13 @@ def ew_picture(path, size, scale, block=False):
               f"bounding box {sw - 12} x {sh - 12} sites")
 
 
-def ew_rect_picture(path, scale, hub=(2, 2)):
+def ew_rect_picture(path, scale, hub=(2, 2), snap=False):
     """One of today's hubs (SELF, BW x BH) on the perfect EW tiling:
     EWs wholly inside it bright, EWs cut by its edge half bright,
     all others dark, hub outlined in white.  The hub is placed where
-    it really is (hub coords, default (2,2) of chip 0)."""
+    it really is (hub coords, default (2,2) of chip 0).  snap: light
+    every EW with a MAJORITY (21 of 41) of its sites inside, darken the
+    rest: the hub rounded to whole EWs."""
     from PIL import Image
     i, j = ew_tile_index()
     bw = HG.T6GRID_BASE_WIDTH
@@ -629,7 +649,11 @@ def ew_rect_picture(path, scale, hub=(2, 2)):
     cx = ti * R - tj * (R + 1)
     cy = ti * (R + 1) + tj * R
     img[(cx == XX[win]) & (cy == YY[win])] *= 0.45
-    lvl = np.where(full[key], 1.0, np.where(cut[key], 0.55, 0.18))
+    if snap:
+        major = inside * 2 > EW_SITES
+        lvl = np.where(major[key], 1.0, 0.18)
+    else:
+        lvl = np.where(full[key], 1.0, np.where(cut[key], 0.55, 0.18))
     img *= lvl[:, :, None]
     big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
     if scale >= 4:
@@ -651,6 +675,16 @@ def ew_rect_picture(path, scale, hub=(2, 2)):
     print(f"hub {hub} {bw} x {bh} = {bw * bh} sites: {nf} whole EWs "
           f"({nf * EW_SITES} sites, {nf * EW_SITES / (bw * bh):.3f}), "
           f"{nc} EWs cut by the edge ({cutin} of their sites inside)")
+    if snap:
+        lit = major[key]
+        cin = np.zeros(nkeys, dtype=bool)
+        centre = (cx == XX[win]) & (cy == YY[win])
+        cin[key[centre & inrect]] = True
+        print(f"snapped: {int(major.sum())} EWs = {int(lit.sum())} "
+              f"sites; {int((lit & ~inrect).sum())} gained outside, "
+              f"{int((~lit & inrect).sum())} lost inside; majority rule "
+              f"and centre-inside rule differ on "
+              f"{int((major != cin).sum())} EWs")
 
 
 # ---------------------------------------------------------------- checks
@@ -749,6 +783,9 @@ def main():
     ap.add_argument("--ewrect", action="store_true",
                     help="today's hub (2,2) on the EW tiling: whole EWs "
                          "bright, cut EWs half (OUT/ew-rect.png)")
+    ap.add_argument("--ewsnap", action="store_true",
+                    help="as --ewrect, but light every EW with a "
+                         "majority inside (OUT/ew-snap.png)")
     ap.add_argument("--tileable", action="store_true",
                     help="which diamonds / squares EWs cover exactly")
     args = ap.parse_args()
@@ -761,6 +798,11 @@ def main():
         return 0
     if args.tileable:
         report_tileable()
+        return 0
+    if args.ewsnap:
+        os.makedirs(args.out, exist_ok=True)
+        ew_rect_picture(os.path.join(args.out, "ew-snap.png"),
+                        args.zscale, snap=True)
         return 0
     if args.ewrect:
         os.makedirs(args.out, exist_ok=True)
