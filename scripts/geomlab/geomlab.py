@@ -41,6 +41,7 @@ Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
        python3 geomlab.py --check      (self-test against HubGeometry)
        python3 geomlab.py --tileable   (exact EW covers of shapes)
        python3 geomlab.py --ewtiles    (picture of the EW tiling)
+       python3 geomlab.py --ewblock    (one hub-sized block of EWs)
 Needs numpy and PIL (no scipy).  About 20 s for all layouts.
 """
 
@@ -526,28 +527,52 @@ def zoom_picture(path, own, lives, shifts, never, centre, size, scale):
     sheet.save(path)
 
 
-def ew_picture(path, size, scale):
+def ew_picture(path, size, scale, block=False):
     """Close-up of the perfect EW tiling: every 41-site window its own
     color, center site darker.  Color (i + 2j) mod 5 of the tile index
     differs across every edge and corner contact (+-a, +-b, a+-b), so
-    five colors are enough."""
+    five colors are enough.  block: show one hub-sized k x k block of
+    EWs (as ew-blocks uses) at full color, everything else dimmed, and
+    frame the picture around the block (size is then ignored)."""
     from PIL import Image
     i, j = ew_tile_index()
-    x0 = W // 2 - size // 2
-    y0 = H // 2 - size // 2
-    ti = i[y0:y0 + size, x0:x0 + size]
-    tj = j[y0:y0 + size, x0:x0 + size]
+    k = int(round(math.sqrt(HG.SITES_PER_HUB / EW_SITES)))
+    inblk = None
+    if block:
+        bi = np.floor_divide(i, k)
+        bj = np.floor_divide(j, k)
+        mi = bi[H // 2, W // 2]
+        mj = bj[H // 2, W // 2]
+        inblk = (bi == mi) & (bj == mj)
+        ys, xs = np.nonzero(inblk)
+        pad = 6
+        x0 = max(int(xs.min()) - pad, 0)
+        y0 = max(int(ys.min()) - pad, 0)
+        sw = min(int(xs.max()) + pad + 1, W) - x0
+        sh = min(int(ys.max()) + pad + 1, H) - y0
+    else:
+        x0 = W // 2 - size // 2
+        y0 = H // 2 - size // 2
+        sw = size
+        sh = size
+    win = (slice(y0, y0 + sh), slice(x0, x0 + sw))
+    ti = i[win]
+    tj = j[win]
     img = PALETTE[(ti + 2 * tj) % 5].copy()
     cx = ti * R - tj * (R + 1)
     cy = ti * (R + 1) + tj * R
-    centre = ((cx == XX[y0:y0 + size, x0:x0 + size]) &
-              (cy == YY[y0:y0 + size, x0:x0 + size]))
+    centre = (cx == XX[win]) & (cy == YY[win])
     img[centre] *= 0.45
+    if block:
+        img[~inblk[win]] = 0.25 * img[~inblk[win]] + 0.1
     big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
     if scale >= 4:
         big[scale - 1::scale, :, :] *= 0.75
         big[:, scale - 1::scale, :] *= 0.75
     Image.fromarray((big * 255).astype(np.uint8)).save(path)
+    if block:
+        print(f"block of {k}x{k} EWs = {int(inblk.sum())} sites, "
+              f"bounding box {sw - 12} x {sh - 12} sites")
 
 
 # ---------------------------------------------------------------- checks
@@ -639,6 +664,9 @@ def main():
     ap.add_argument("--ewtiles", action="store_true",
                     help="close-up of the perfect EW tiling "
                          "(OUT/ew-tiling.png; --zsize, --zscale)")
+    ap.add_argument("--ewblock", action="store_true",
+                    help="one hub-sized block of EWs with its edges "
+                         "(OUT/ew-block.png; --zscale)")
     ap.add_argument("--tileable", action="store_true",
                     help="which diamonds / squares EWs cover exactly")
     args = ap.parse_args()
@@ -651,6 +679,11 @@ def main():
         return 0
     if args.tileable:
         report_tileable()
+        return 0
+    if args.ewblock:
+        os.makedirs(args.out, exist_ok=True)
+        ew_picture(os.path.join(args.out, "ew-block.png"),
+                   0, args.zscale, block=True)
         return 0
     if args.ewtiles:
         os.makedirs(args.out, exist_ok=True)
