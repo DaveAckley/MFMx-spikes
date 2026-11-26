@@ -37,6 +37,7 @@ write 137 / 108 here).  Pictures: OUT/NAME.png, hub colors, dead
 centers of the first shift darkened, never-live sites red.
 
 Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
+       [--zoom X,Y] [--zsize SITES] [--zscale PX]  (close-ups: NAME-zoom.png)
        python3 geomlab.py --check      (self-test against HubGeometry)
        python3 geomlab.py --tileable   (exact EW covers of shapes)
 Needs numpy and PIL (no scipy).  About 20 s for all layouts.
@@ -364,12 +365,11 @@ def measure(lay):
     cache_keys = []
     pair_keys = []
     site = (YY * W + XX).astype(np.int64)
-    first_live = None
+    lives = []
     for s in lay.shifts:
         lab = shifted(lay.part, s)
         live = live_mask(lab)
-        if first_live is None:
-            first_live = live
+        lives.append(live)
         live_count += live
         dead.append(1.0 - live.mean())
         hub_s = np.where(lab >= 0, hop[np.maximum(lab, 0)], -1)
@@ -424,28 +424,105 @@ def measure(lay):
     ok = owned > 0
     m["pack_hub"] = float(EW_SITES * best_hub[ok].sum() / owned[ok].sum())
     m["pack_all"] = float(EW_SITES * best_all / owned.sum())
-    return m, own, first_live, never
+    return m, own, lives, never
 
 
 # --------------------------------------------------------------- picture
 
+PALETTE = np.array([
+    (0.90, 0.30, 0.25),
+    (0.25, 0.60, 0.90),
+    (0.45, 0.80, 0.30),
+    (0.95, 0.75, 0.20),
+    (0.65, 0.35, 0.85),
+    (0.20, 0.80, 0.75),
+    (0.95, 0.50, 0.75),
+    (0.55, 0.45, 0.25),
+    (0.75, 0.75, 0.75),
+    (0.30, 0.35, 0.65),
+    (0.85, 0.55, 0.30),
+    (0.40, 0.55, 0.40),
+])
+
+
+def hub_rgb(own):
+    """One color per hub; hubs whose sites touch (Moore neighbors)
+    always get different palette colors (greedy graph coloring)."""
+    pairs = set()
+    for a, b in ((own[:, :-1], own[:, 1:]),
+                 (own[:-1, :], own[1:, :]),
+                 (own[:-1, :-1], own[1:, 1:]),
+                 (own[:-1, 1:], own[1:, :-1])):
+        d = (a != b) & (a >= 0) & (b >= 0)
+        for x, y in np.unique(np.stack([a[d], b[d]], axis=1), axis=0):
+            pairs.add((int(x), int(y)))
+            pairs.add((int(y), int(x)))
+    ngb = [[] for _ in range(NH)]
+    for x, y in pairs:
+        ngb[x].append(y)
+    color = [-1] * NH
+    for h in sorted(range(NH), key=lambda h: -len(ngb[h])):
+        used = {color[g] for g in ngb[h]}
+        c = 0
+        while c in used:
+            c += 1
+        color[h] = c % len(PALETTE)
+    return PALETTE[color]
+
+
 def picture(path, own, live, never):
     from PIL import Image
-    h = np.arange(NH)
-    hue = (h * 0.6180339887) % 1.0
-    hx = h % HUBS_X
-    hy = h // HUBS_X
-    light = np.where((hx + hy) % 2 == 0, 0.80, 0.62)
-    rgb = np.zeros((NH, 3))
-    for k, phase in enumerate((0.0, 1.0 / 3.0, 2.0 / 3.0)):
-        rgb[:, k] = light * (0.55 + 0.45 *
-                             np.cos(2 * math.pi * (hue - phase)))
+    rgb = hub_rgb(own)
     img = np.zeros((H, W, 3))
     ok = own >= 0
     img[ok] = rgb[own[ok]]
     img[ok & ~live] *= 0.35
     img[never] = (0.9, 0.1, 0.1)
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
+
+
+def zoom_picture(path, own, lives, shifts, never, centre, size, scale):
+    """Close-up, one square of scale x scale pixels per site, a size x
+    size site window around centre, one panel per shift (2 across).
+    Colors are the owning hub, dark = dead center in that shift, red =
+    never live; thin lines separate sites."""
+    from PIL import Image, ImageDraw
+    rgb = hub_rgb(own)
+    cx, cy = centre
+    x0 = min(max(cx - size // 2, 0), W - size)
+    y0 = min(max(cy - size // 2, 0), H - size)
+    crop = own[y0:y0 + size, x0:x0 + size]
+    base = np.zeros((size, size, 3))
+    ok = crop >= 0
+    base[ok] = rgb[crop[ok]]
+    gap = 4
+    bar = 18
+    side = size * scale
+    cols = 2
+    rows = (len(shifts) + cols - 1) // cols
+    sheet = Image.new("RGB",
+                      (cols * side + (cols + 1) * gap,
+                       rows * (side + bar) + (rows + 1) * gap),
+                      (0, 0, 0))
+    draw = ImageDraw.Draw(sheet)
+    for k, (live, s) in enumerate(zip(lives, shifts)):
+        img = base.copy()
+        lv = live[y0:y0 + size, x0:x0 + size]
+        img[ok & ~lv] *= 0.35
+        img[never[y0:y0 + size, x0:x0 + size]] = (0.9, 0.1, 0.1)
+        big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
+        if scale >= 4:
+            big[scale - 1::scale, :, :] *= 0.75
+            big[:, scale - 1::scale, :] *= 0.75
+        px = gap + (k % cols) * (side + gap)
+        py = gap + (k // cols) * (side + bar + gap)
+        draw.text((px + 2, py + 3),
+                  f"shift {s}   sites x {x0}..{x0 + size - 1}, "
+                  f"y {y0}..{y0 + size - 1}",
+                  fill=(230, 230, 230))
+        tile = Image.fromarray((big * 255).astype(np.uint8))
+        sheet.paste(tile, (px, py + bar))
+    sheet.save(path)
 
 
 # ---------------------------------------------------------------- checks
@@ -525,6 +602,13 @@ def main():
     ap.add_argument("--out", default="geomlab-out")
     ap.add_argument("--only", default="")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--zoom", default="",
+                    help="X,Y centre of the close-ups (default: a hub "
+                         "corner inside chip 0)")
+    ap.add_argument("--zsize", type=int, default=100,
+                    help="close-up width in sites")
+    ap.add_argument("--zscale", type=int, default=6,
+                    help="pixels per site in the close-ups")
     ap.add_argument("--check", action="store_true",
                     help="self-test: rect reproduces the real T6Grid")
     ap.add_argument("--tileable", action="store_true",
@@ -541,6 +625,10 @@ def main():
         report_tileable()
         return 0
     names = [n for n in args.only.split(",") if n] or list(LAYOUTS)
+    if args.zoom:
+        zc = tuple(int(v) for v in args.zoom.split(","))
+    else:
+        zc = (2 * HG.T6GRID_BASE_WIDTH, 2 * HG.T6GRID_BASE_HEIGHT)
     os.makedirs(args.out, exist_ok=True)
     lines = [f"grid {W} x {H}, {NH} hubs, R {R}, ring/shift {OW}",
              HEAD]
@@ -549,7 +637,7 @@ def main():
     notes = []
     for n in names:
         lay = LAYOUTS[n]()
-        m, own, live, never = measure(lay)
+        m, own, lives, never = measure(lay)
         line = row(n, m)
         print(line, flush=True)
         lines.append(line)
@@ -557,7 +645,9 @@ def main():
                      f"store max {m['store_max']}, ring max "
                      f"{m['ring_max']}, neighbor pairs {m['pairs']} "
                      f"({m['seam_pairs']} cross a chip seam)")
-        picture(os.path.join(args.out, n + ".png"), own, live, never)
+        picture(os.path.join(args.out, n + ".png"), own, lives[0], never)
+        zoom_picture(os.path.join(args.out, n + "-zoom.png"), own, lives,
+                     lay.shifts, never, zc, args.zsize, args.zscale)
     lines.append("")
     lines.extend(notes)
     print("")

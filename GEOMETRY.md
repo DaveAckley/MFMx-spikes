@@ -282,7 +282,10 @@ analog (+-20, 0), (0, +-20)); a center is live iff its window stays in
 one part; a hub's ring is the union of what it borrows over the
 shifts.  `--check` asserts that `rect` reproduces the real hub (store
 177 x 148 = 26,196, ring 11,400); `--tileable` runs the exact EW-cover
-test.  Pictures land in DIR/NAME.png.
+test.  Pictures land in DIR/NAME.png (whole grid, first shift) and
+DIR/NAME-zoom.png (one square per site, one panel per shift, around
+`--zoom X,Y`, default a hub corner in chip 0; `--zsize`, `--zscale`).
+Touching hubs always get different colors; dark = dead center.
 
 First results (2026-11-25):
 
