@@ -277,6 +277,18 @@ flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
+## Ideas: EWP log delivery; host-side atom type census (2026-11-26, not started)
+
+- EWP logging: every T6 has an hn hart, but the EWP image does not
+  deliver its log block yet (never needed before), so EWP LOGPTAG marks
+  are lost and EWP HBPTAG marks need a slowscan (`scan 140`).  Set it
+  up when EWP marks matter (e.g. bytephys `.pt` / `.pf`).
+- Host census (Liv): the host counts atom types in what it displays
+  (the 1920x1080 site image it already has) and logs the census
+  somewhere, e.g. per minute in misc/ and in runsum.txt; would answer
+  'did 5 eradicate 8' directly.  Maybe expand the 'logo block' (the
+  stream overlay text) to show some of it.
+
 ## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE BUILT, first run got no timing)
 
 SPIKE (2026-11-26, built, cross-built, host-tested; NOT run on the QB):
@@ -307,11 +319,12 @@ FIRST RUN 20261126-122857 (a95e377, 21 min): ran clean (140 hubs,
 0 bolt timeouts, consensus 0.12 s, 0 desynced streams), so bytecode
 types 7 and 8 ran on the EWPs without hanging anything; AERre 0.92-0.94
 in the FB1 phase (types 4+7), 0.654 once FB4 (5+8) filled the grid.
-But NO `.pt` marks (and so no `.pf` check either): an EWP has no hn
-hart, so its LOGPTAG marks go nowhere and its HBPTAG marks sit in its
-HostBlock ring (8192 u16, the latest ~300 marks) until a slowscan reads
-it, and experiment runs turn slowscan off (the boom runs' `.pf` got out
-because slowscan was on).  Rerun (experiment.cmd): `scan 140` (one
+But NO `.pt` marks (and so no `.pf` check either): the EWP image does
+not deliver its log block yet (every T6 has an hn hart; EWP logging was
+just never needed before), so its LOGPTAG marks go nowhere and its
+HBPTAG marks sit in its HostBlock ring (8192 u16, the latest ~300
+marks) until a slowscan reads it, and experiment runs turn slowscan off
+(the boom runs' `.pf` got out because slowscan was on).  Rerun (experiment.cmd): `scan 140` (one
 sweep of all 140 tiles per chip) ends each phase; `.pt` every 4096
 events.  5 vs 8 head to head: not readable from the tgz (colors were
 identical in that build); FB4 vs FB4 is a neutral voter model, so the

@@ -28,9 +28,9 @@ namespace MFM {
   static const volatile u32 * PT_WALL_CLOCK_LO =
     (volatile u32 *) 0xffb1'21f0u;
   /* Small enough that a sparse phase still logs: an EWP's marks reach
-     the host ONLY through its HostBlock ring (EWPs have no hn to deliver
-     the log block), which holds the latest ~300 marks and is read only
-     by slowscan (mfmxctl `scan 140` sweeps every tile of each chip). */
+     the host ONLY through its HostBlock ring (the EWP image does not
+     deliver its log block yet), which holds the latest ~300 marks and is
+     read only by slowscan (mfmxctl `scan 140` sweeps every tile). */
   static constexpr u32 PT_EVENTS_PER_MARK = 1u << 12;
 
   /* What NativeFB.h and BytePhys.h need from the EWP. */

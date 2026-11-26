@@ -64,7 +64,7 @@ unless the user asks for a rename.
   (and friends) go into the HostBlock buffer that slowscan reads, so it still
   works when hn is sick.  That ring keeps the LATEST
   marks (packString drops the oldest words when full; a torn mark at the head is OK).  When a mark must survive a hang, emit LOGPTAG and
-  HBPTAG back to back.  EWP marks (no hn there) reach the host ONLY through slowscan:
+  HBPTAG back to back.  EWP marks (the EWP image does not deliver its log block yet) reach the host ONLY through slowscan:
   a run that needs them must `scan 140` (every tile per chip) at the end.  Slowscan prints with Eprintf (stderr): capture
   stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):
@@ -123,7 +123,8 @@ unless the user asks for a rename.
   Every EWP logs `.pt:TYPE:EVENTS:TICKS:INSNS.` (cycles in physics per
   type, every 4096 events); runsum.txt "physics timing" prints the
   bytecode/native ratio.  EWP MARKS reach the host ONLY via slowscan
-  (an EWP has no hn: LOGPTAG goes nowhere, HBPTAG waits in its
+  (the EWP image does not deliver its log block yet: LOGPTAG goes
+  nowhere, HBPTAG waits in its
   HostBlock ring, latest ~300 marks), so a run that wants them must
   `scan 140` (sweep all 140 tiles per chip) before quitting; run 122857
   had slowscan off and got none.
