@@ -305,6 +305,9 @@ SMALLER WORLD (`--box 1600x900`, liv 2026-11-26): 2x3@0,0 (7x3 hubs,
 grid 154x190) and ewsnap10 (1061 KB, 170x206); 3x2@0,0 (4x5 hubs, 100
 EWPs, SELF 200x90) fits fourcorners (985 KB) but is one column over u8
 under ewsnap10 (TW 256); 3x3, 4x2, 2x4 still overflow L1 and/or u8.
+At 1440x810: 3x3@0,0 (4x3 hubs, 96 EWPs, 8 per hub, SELF 180x135) FITS
+under fourcorners (1113 KB, grid 220x175, 38 KB free) but not ewsnap10
+(1240 KB, 89 KB over); 2x4 fits fourcorners (2 blank rows); 4x2 is u8.
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
