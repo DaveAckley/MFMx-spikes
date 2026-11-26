@@ -107,12 +107,15 @@ def vertex_shifts(w):
 # --------------------------------------------------------------- layouts
 
 class Layout:
-    def __init__(self, name, part, hub_of_part, shifts, note):
+    def __init__(self, name, part, hub_of_part, shifts, note,
+                 part_at=None):
         self.name = name
         self.part = part                    # H x W int64, -1 = none
         self.hub_of_part = hub_of_part      # int64 array, part -> hub
         self.shifts = shifts
         self.note = note
+        # part labels for one shift; default: the partition slid by s
+        self.part_at = part_at or (lambda s: shifted(self.part, s))
 
     def owner(self):
         own = np.full(self.part.shape, -1, dtype=np.int64)
@@ -277,8 +280,19 @@ def layout_diamond_multi(side, fenced=False):
                   vertex_shifts(OW), note)
 
 
+_EW_INDEX = None
+
+
 def ew_tile_index():
-    """(i, j) of the EW tile (lattice (4,5),(-5,4)) holding each site."""
+    """(i, j) of the EW tile (lattice (4,5),(-5,4)) holding each site
+    (computed once)."""
+    global _EW_INDEX
+    if _EW_INDEX is None:
+        _EW_INDEX = _ew_tile_index()
+    return _EW_INDEX
+
+
+def _ew_tile_index():
     ax, ay = R, R + 1
     bx, by = -(R + 1), R
     det = ax * by - bx * ay                 # 41
@@ -320,14 +334,21 @@ def layout_rect_snap():
     the grid at the edges).  Same hub array and neighbors as rect,
     sawtooth hub edges, every interior EW whole."""
     i, j = ew_tile_index()
-    cx = np.clip(i * R - j * (R + 1), 0, W - 1)
-    cy = np.clip(i * (R + 1) + j * R, 0, H - 1)
-    hx = cx // HG.T6GRID_BASE_WIDTH
-    hy = cy // HG.T6GRID_BASE_HEIGHT
-    part = (hy * HUBS_X + hx).astype(np.int64)
-    return Layout("rect-snap", part, np.arange(NH, dtype=np.int64),
+    cx = i * R - j * (R + 1)
+    cy = i * (R + 1) + j * R
+
+    def part_at(s):
+        # each cycle the hub's event area is every EW whose CENTER lies
+        # in its rectangle shifted by s (edge hubs extend off the grid)
+        hx = np.clip((cx - s[0]) // HG.T6GRID_BASE_WIDTH, 0, HUBS_X - 1)
+        hy = np.clip((cy - s[1]) // HG.T6GRID_BASE_HEIGHT, 0, HUBS_Y - 1)
+        return (hy * HUBS_X + hx).astype(np.int64)
+
+    return Layout("rect-snap", part_at((0, 0)),
+                  np.arange(NH, dtype=np.int64),
                   corner_shifts(OW, OH),
-                  "rect hubs rounded to whole EWs (EW centre rule)")
+                  "rect hubs rounded to whole EWs (EW centre rule), "
+                  "shifted areas snapped too", part_at)
 
 
 LAYOUTS = {
@@ -385,10 +406,11 @@ def measure(lay):
     xchg = []
     cache_keys = []
     pair_keys = []
+    bor_keys = []
     site = (YY * W + XX).astype(np.int64)
     lives = []
     for s in lay.shifts:
-        lab = shifted(lay.part, s)
+        lab = lay.part_at(s)
         live = live_mask(lab)
         lives.append(live)
         live_count += live
@@ -397,8 +419,34 @@ def measure(lay):
         bor = (hub_s >= 0) & (own >= 0) & (hub_s != own)
         xchg.append(np.bincount(hub_s[bor], minlength=NH))
         cache_keys.append(site[bor] * NH + hub_s[bor])
+        bor_keys.append(site[bor] * NH + hub_s[bor])
         pair_keys.append(hub_s[bor] * NH + own[bor])
     m["dead"] = 100.0 * float(np.mean(dead))
+    ei, ej = ew_tile_index()
+    ecx = ei * R - ej * (R + 1)
+    ecy = ei * (R + 1) + ej * R
+    latc = (ecx == XX) & (ecy == YY)
+    m["deadL"] = 100.0 * float(np.mean(
+        [1.0 - lv[latc].mean() for lv in lives]))
+    # Are the borrowed bands unions of whole EWs?  Count, per (hub,
+    # EW) pair, borrowed sites; whole iff 41 (EWs cut by the grid edge
+    # are skipped).
+    ekey = compact_ids(ei, ej)
+    inside = np.bincount(ekey.ravel(), minlength=int(ekey.max()) + 1)
+    whole_ew = inside[ekey] == EW_SITES
+    parts_ok = True
+    ews = []
+    for bk in bor_keys:
+        site_ok = whole_ew.ravel()[bk // NH]
+        pk = ekey.ravel()[bk // NH][site_ok] * NH + bk[site_ok] % NH
+        _, cnt = np.unique(pk, return_counts=True)
+        parts_ok &= bool((cnt == EW_SITES).all())
+        per_hub = np.bincount(np.unique(pk) % NH, minlength=NH)
+        ews.append(per_hub)
+    m["bands_whole"] = parts_ok
+    ews = np.array(ews)
+    m["band_ews"] = (int(ews[:, owned > 0].min()),
+                     int(ews[:, owned > 0].max()))
     # Dead area scales like boundary / area, i.e. 1/sqrt(hub area), so
     # also quote it as if hubs had today's SITES_PER_HUB (fair to
     # layouts that leave hubs idle and so have bigger regions).
@@ -842,6 +890,10 @@ def main():
         line = row(n, m)
         print(line, flush=True)
         lines.append(line)
+        notes.append(f"  {n}: lattice-centre dead {m['deadL']:.1f}%; "
+                     f"borrowed bands whole EWs: {m['bands_whole']}, "
+                     f"EWs borrowed per hub per cycle {m['band_ews'][0]}"
+                     f"..{m['band_ews'][1]}")
         notes.append(f"  {n}: {lay.note}; unowned {m['unowned']}, "
                      f"store max {m['store_max']}, ring max "
                      f"{m['ring_max']}, neighbor pairs {m['pairs']} "

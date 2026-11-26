@@ -291,7 +291,7 @@ First results (2026-11-25):
 
     layout       hubs sites/hub min/mean/max  cv   dead% never% ring xchg ngb  hops    pack
     rect          140 14796/14796/14796      .000  11.7  0.00  0.69 4137 7.0  1(  0)  0.876
-    rect-snap     140 14760/14796/14842      .002  11.7  0.00  0.71 4138 7.0  1(  0)  0.988
+    rect-snap     140 14760/14796/14842      .002  11.7  0.00  0.69 4137 7.0  1(  0)  0.988
     dia-brick     139  9970/14902/22020      .112   9.1  0.00  0.50 3169 7.3  4(244)  0.900
     dia-rotated    65   702/31868/45000      .524   5.2  0.00  0.28 4056 6.1  1(  0)  0.938
     dia-multi48   140 11424/14796/18432      .112  10.1  0.00  0.56 3468 5.6  2(  8)  0.894
@@ -323,9 +323,23 @@ What they say so far:
   EW of the perfect lattice belongs to the hub holding its center;
   the majority-of-sites rule differs on 1 EW in 410 at hub (2,2)).
   Same hub array, balance, neighbors and dead area as rect, ring
-  0.71, but every interior EW is whole: packing 0.988 like ew-blocks.
+  0.69 (snapped shifts; 0.71 with plain shifts), but every interior EW is whole: packing 0.988 like ew-blocks.
   Hub edges become EW sawtooth (up to 4 sites past the rectangle).
   `--ewrect` / `--ewsnap` draw one hub before and after.
+  The per-cycle event areas are snapped the same way (an EW is in hub
+  h's area for corner s iff its center is in h's rectangle shifted by
+  s), so EVERY owned, borrowed and lent set is a union of whole EWs
+  (the lab checks it: `borrowed bands whole EWs: True`).  Interior
+  hubs own 360-362 EWs and borrow / lend 108-111 EWs per cycle; the
+  counts differ by hub (round-off) but are a fixed function of hub
+  position, corner and lattice offset, so a hub can work them out at
+  init.  Membership is arithmetic: the 41 values of (4*dx + 5*dy) mod
+  41 over the EW's offsets are all distinct, so a site's offset to
+  its EW center is TABLE[(4x + 5y - c0) mod 41] (c0 = lattice offset),
+  and its band follows from which shifted rectangle the center is in.
+  Dead centers: 11.7% for random centers (a window anywhere still
+  straddles the sawtooth), but 0.0% for windows ON the lattice: every
+  lattice EW lies wholly in one hub's area in every cycle.
 - Diamond rings cost less (0.50-0.56 of SELF vs 0.69) for the same
   Manhattan reach, and fewer neighbors are borrowed from per cycle.
 Not modelled yet: cache elision, exchange packets (vs sites), the real
