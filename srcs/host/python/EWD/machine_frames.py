@@ -42,6 +42,17 @@ class FrameMixin:
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
         arr = img.asNP()
+        # `grid edges on`: hub ownership edges painted on a COPY (show);
+        # zoom still scans the unpainted image, so the lines never count
+        # as occupied sites
+        show = arr
+        try:
+            show = self.edges.apply(arr, getattr(self, "policy", None))
+        except Exception as e:            # never lose the stream over it
+            self.edges.on = False
+            self.say(f"grid edges disabled: {type(e).__name__}: {e}")
+        if self.zoom.mode == "off":
+            arr = show
         if self.zoom.mode != "off":
             try:
                 # one thread: notice a finished bolt between the zoom stages,
@@ -50,7 +61,7 @@ class FrameMixin:
                 b = self.bolt
                 pending = b is not None and b.state == "pending"
                 arr = self.zoom.apply(arr, between=self.poll_bolt,
-                                      scan=not pending)
+                                      scan=not pending, show=show)
             except Exception as e:           # never lose the stream over zoom
                 self.zoom.set_mode("off")
                 self.say(f"zoom disabled: {type(e).__name__}: {e}")

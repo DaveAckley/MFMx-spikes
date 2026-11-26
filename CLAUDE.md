@@ -101,6 +101,12 @@ unless the user asks for a rename.
   repeats.  On this branch the T6Grid ring is 22 for EVERY policy
   (181 x 152), so compare fourcorners and ewsnap on the same build.
   Design and checks: GEOMETRY.md sec 10.  Hub + host change: ./build_all.sh.
+  `grid edges [on|off]` (any time, no chips needed): white single-pixel
+  hub ownership edges painted on a COPY of each frame
+  (srcs/host/python/EWD/ewoverlay.py; zig-zag under ewsnap, rectangles
+  otherwise); zoom scans the unpainted image, so the lines never count
+  as occupied.  geomlab --crosscheck checks its owner map against
+  EWLattice.h.
 - scripts/geomlab/geomlab.py  host-only lab comparing tilings (rect,
   diamonds in brick rows / rotated / clumped, EW-lattice blocks) on dead
   area, ring, exchange, hub balance, neighbor hops, EW packing, with

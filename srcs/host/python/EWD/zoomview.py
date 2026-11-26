@@ -390,13 +390,17 @@ class ZoomView:
         return cv2.warpAffine(up, m, (self.w, self.h), flags=cv2.INTER_LINEAR,
                               borderMode=cv2.BORDER_CONSTANT, borderValue=bg)
 
-    def apply(self, img, between=None, scan=True):
+    def apply(self, img, between=None, scan=True, show=None):
         """img: (h,w,3) uint8.  Returns the frame to send (img itself when off).
         between: called after each stage (the one thread's chance to notice a
         finished bolt).  scan=False leaves out the box scan this frame (the box
-        and view stay as they were)."""
+        and view stay as they were).  show: the image to crop and scale
+        (default img), e.g. img with an overlay; the box scan always reads
+        img."""
+        if show is None:
+            show = img
         if self.mode == "off":
-            return img
+            return show
         if self.mode == "auto" or self.box is None:
             if scan:
                 t0 = time.perf_counter()
@@ -412,8 +416,8 @@ class ZoomView:
         if between:
             between()
         if v is None:
-            return img
+            return show
         t0 = time.perf_counter()
-        out = self.render(img, *v)
+        out = self.render(show, *v)
         self.note_cost("render", t0)
         return out

@@ -415,6 +415,12 @@ def crosscheck():
         d = int((hdr.part_at(s) != lab.part_at(s)).sum())
         print(f"area for shift {s}: {d} sites differ")
         bad += d
+    # mfmxctl's display overlay (EWD/ewoverlay.py) must agree too
+    import ewoverlay
+    ov = ewoverlay.owner_map("ewsnap", W, H)
+    d = int((ov != hdr.part).sum())
+    print(f"ewoverlay owner map: {d} sites differ")
+    bad += d
     print("crosscheck " + ("ok" if bad == 0 else f"FAILED ({bad})"))
     return 0 if bad == 0 else 1
 

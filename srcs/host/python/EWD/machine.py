@@ -79,6 +79,8 @@ class Machine(BootMixin, SeamMixin, WatchMixin, FrameMixin, BoltMixin):
         self.hold_settled = False      # True when start() pre-settled HOLD_AT_BIRTH
         self.feed = None
         self.zoom = ZoomView()
+        from ewoverlay import EdgeOverlay
+        self.edges = EdgeOverlay()      # `grid edges on`: hub boundaries
         self.frames_real = self.frames_idle = 0
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         self.timeouts = dict(DEFAULT_TIMEOUTS)

@@ -685,6 +685,11 @@ def scenario_cache_policy():
     rc, out = run("policy fourcorners\npolicy bogus\npolicy\nquit\n")
     check("policy: bad name explained, shell survives",
           "want one of supercell, fourcorners" in out and rc == 0, out[-500:])
+    rc, out = run("policy ew\ngrid edges on\ngrid edges\ngrid edges off\n"
+                  "quit\n")
+    check("grid edges: on/off without chips, says zig-zag under ewsnap",
+          "grid edges on (zig-zag EW hub boundaries" in out
+          and "grid edges off (zig-zag" in out, out[-600:])
     rc, out = run("policy ew\nboot\nstart\nmock\nstatus\nquit\n")
     check("policy: ewsnap (prefix 'ew') reaches the chips as policy=2",
           "cache policy: ewsnap (applied" in out and "policy=2" in out,

@@ -85,6 +85,15 @@ def c_quit(ctx, a):
 
 def c_grid(ctx, a):
     m = ctx.m
+    if a and kw(a[0], ("on", "off", "edges"), "grid") == "edges":
+        # display overlay only (ewoverlay.py): no chips needed
+        if len(a) > 1:
+            m.edges.on = kw(a[1], ("on", "off"), "grid edges") == "on"
+        pol = getattr(m, "policy", None)
+        kind = "zig-zag EW" if pol == "ewsnap" else "rectangle"
+        return (f"grid edges {'on' if m.edges.on else 'off'} "
+                f"({kind} hub boundaries for policy {pol}, white, display "
+                f"only)")
     m.need_booted()
     if a:
         m.qb.mDrawGrid = kw(a[0], ("on", "off"), "grid") == "on"
@@ -207,7 +216,10 @@ def register(ctx):
     sh.command("where", partial(c_where, ctx), "where: sim dir and log file locations")
     sh.command("quit", partial(c_quit, ctx), "quit [close]: stop events, shut down, exit ('close' retreats chips fully)",
                aliases=("exit",))
-    sh.command("grid", partial(c_grid, ctx), "grid [on|off]: QuietBox.mDrawGrid")
+    sh.command("grid", partial(c_grid, ctx),
+               "grid [on|off]: QuietBox.mDrawGrid (crosses, labels); "
+               "grid edges [on|off]: white single-pixel hub ownership "
+               "edges over the picture (zig-zag under policy ewsnap)")
     sh.command("scan", partial(c_scan, ctx), "scan [N]: run slowscans now")
     sh.command("dumpl1", partial(c_dumpl1, ctx),
                "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")
