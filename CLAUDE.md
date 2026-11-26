@@ -36,10 +36,14 @@ unless the user asks for a rename.
 
 - Branch `eth-seam`.  Claude commits on LOCAL branch `latest` and rebuilds
   the bundle:  sg claude -c 'git bundle create /data/claude/CLAUDES_PLACE/claude.bundle HEAD latest'
-  DIAGONAL TILES work (EW lattice / rect-snap, GEOMETRY.md sec 10) is on
-  local branch `diagonal-tiles` (made from latest 25a522d); while it is
-  checked out the bundle is  ... claude.bundle HEAD latest diagonal-tiles
-  and HEAD must be the tip of the branch being worked on.
+  `latest` is ALWAYS Claude's current work (user's choice, 2026-11-25):
+  whatever line of work is active is committed on `latest`, so the
+  user's  git merge --ff-only claude/latest  always gets it.  The
+  diagonal-tiles work (EW lattice, GEOMETRY.md sec 10) is on latest
+  since 25a522d; branch `diagonal-tiles` is kept in the bundle too
+  (bundle: ... claude.bundle HEAD latest diagonal-tiles, both at the same
+  tip while that work is active).  CAUTION for the user: merging
+  claude/latest into eth-seam brings the diagonal-tiles commits with it.
   then ALWAYS verifies  git bundle list-heads <bundle>  equals
   `git rev-parse HEAD` (a silent failure once left it stale).
 - The user runs `git fetch claude`, `git merge --ff-only claude/latest`,
