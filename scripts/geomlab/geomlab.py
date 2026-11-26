@@ -430,6 +430,7 @@ def measure(lay):
     m["hop_far"] = int((dist > 1).sum())
     m["pairs"] = len(pairs)
     m["seam_pairs"] = int(seam)
+    m["pair_list"] = list(zip(pa.tolist(), pb.tolist()))
 
     strict = live_mask(lay.part, strict=True)
     best_hub = np.zeros(NH)
@@ -466,10 +467,14 @@ PALETTE = np.array([
 ])
 
 
-def hub_rgb(own):
-    """One color per hub; hubs whose sites touch (Moore neighbors)
-    always get different palette colors (greedy graph coloring)."""
+def hub_rgb(own, extra=()):
+    """One color per hub; hubs whose sites touch (Moore neighbors), or
+    that are listed in extra (e.g. hubs that exchange caches), always
+    get different palette colors (greedy graph coloring)."""
     pairs = set()
+    for x, y in extra:
+        pairs.add((int(x), int(y)))
+        pairs.add((int(y), int(x)))
     for a, b in ((own[:, :-1], own[:, 1:]),
                  (own[:-1, :], own[1:, :]),
                  (own[:-1, :-1], own[1:, 1:]),
@@ -491,9 +496,9 @@ def hub_rgb(own):
     return PALETTE[color]
 
 
-def picture(path, own, live, never):
+def picture(path, own, live, never, pairs=()):
     from PIL import Image
-    rgb = hub_rgb(own)
+    rgb = hub_rgb(own, pairs)
     img = np.zeros((H, W, 3))
     ok = own >= 0
     img[ok] = rgb[own[ok]]
@@ -502,13 +507,14 @@ def picture(path, own, live, never):
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
 
 
-def zoom_picture(path, own, lives, shifts, never, centre, size, scale):
+def zoom_picture(path, own, lives, shifts, never, centre, size, scale,
+                 pairs=()):
     """Close-up, one square of scale x scale pixels per site, a size x
     size site window around centre, one panel per shift (2 across).
     Colors are the owning hub, dark = dead center in that shift, red =
     never live; thin lines separate sites."""
     from PIL import Image, ImageDraw
-    rgb = hub_rgb(own)
+    rgb = hub_rgb(own, pairs)
     cx, cy = centre
     x0 = min(max(cx - size // 2, 0), W - size)
     y0 = min(max(cy - size // 2, 0), H - size)
@@ -840,9 +846,11 @@ def main():
                      f"store max {m['store_max']}, ring max "
                      f"{m['ring_max']}, neighbor pairs {m['pairs']} "
                      f"({m['seam_pairs']} cross a chip seam)")
-        picture(os.path.join(args.out, n + ".png"), own, lives[0], never)
+        picture(os.path.join(args.out, n + ".png"), own, lives[0], never,
+                m["pair_list"])
         zoom_picture(os.path.join(args.out, n + "-zoom.png"), own, lives,
-                     lay.shifts, never, zc, args.zsize, args.zscale)
+                     lay.shifts, never, zc, args.zsize, args.zscale,
+                     m["pair_list"])
     lines.append("")
     lines.extend(notes)
     print("")
