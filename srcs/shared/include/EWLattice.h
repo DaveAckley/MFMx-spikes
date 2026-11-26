@@ -231,5 +231,206 @@ namespace MFM {
       return Rect{ox - STORE_MARGIN, oy - STORE_MARGIN,
                   ox + bw + STORE_MARGIN, oy + bh + STORE_MARGIN};
     }
+
+    /* ---- what one hub needs to know (step 3: the hub side) ---- */
+
+    enum : s32 {
+      NEAR_INF = 1 << 20,               //< 'no limit' for accessibleRect
+    };
+
+    /* The permanent edges hub H assumes for its neighbor at (dx, dy)
+       (each -1, 0 or 1): only H's own permanent sides that run PARALLEL
+       to the offset are shared with that neighbor; the others never meet
+       H's event area, so they need not be known. */
+    static u8 neighborPermEdges(u8 permH, s32 dx, s32 dy) {
+      u8 m = permH;
+      if (dx != 0) m &= (u8) ~((1u << D4_W) | (1u << D4_E));
+      if (dy != 0) m &= (u8) ~((1u << D4_N) | (1u << D4_S));
+      return m;
+    }
+
+    /* Global sites hub (hx, hy) may touch: everything except what lies
+       beyond its SELF rectangle on a permanent side (the rule
+       GridManager::isAccessible uses).  Not the global grid: a one-chip
+       run's edge is in the middle of the global grid. */
+    static Rect accessibleRect(s32 hx, s32 hy, u8 permEdges) {
+      const s32 bw = (s32) DG::T6GRID_BASE_WIDTH;
+      const s32 bh = (s32) DG::T6GRID_BASE_HEIGHT;
+      Rect r{-NEAR_INF, -NEAR_INF, NEAR_INF, NEAR_INF};
+      if (permEdges & (1u << D4_W)) r.x0 = hx * bw;
+      if (permEdges & (1u << D4_E)) r.x1 = (hx + 1) * bw;
+      if (permEdges & (1u << D4_N)) r.y0 = hy * bh;
+      if (permEdges & (1u << D4_S)) r.y1 = (hy + 1) * bh;
+      return r;
+    }
+
+    /* BandWalk: the sites of a band, i.e. of every EW whose center is in
+       mCenters, in canonical order (centers row-major, then site index
+       0..SITES-1), skipping sites outside mAccess.  Yields hub-LOCAL
+       coordinates (global minus mLocal0) and an ordinal (sites yielded
+       so far), so a car packer can stop and resume, and the receiver can
+       check that both ends are at the same place.  All zeros = an empty
+       walk. */
+    struct BandWalk {
+      Rect mCenters;                    //< band: EW centers, global
+      Rect mAccess;                     //< accessible sites, global
+      Pt mLocal0;                       //< global site of local (0,0)
+      CenterIter mIt;                   //< current center
+      u8 mK;                            //< site index within its EW
+      u16 mOrdinal;                     //< sites yielded before this one
+
+      BandWalk()
+        : mCenters{0, 0, 0, 0}
+        , mAccess{0, 0, 0, 0}
+        , mLocal0{0, 0}
+        , mIt(Rect{0, 0, 0, 0})
+        , mK(0)
+        , mOrdinal(0) { }
+
+      void init(const Rect & centers, const Rect & access, Pt local0) {
+        mCenters = centers;
+        mAccess = access;
+        mLocal0 = local0;
+        restart();
+      }
+
+      void restart() {
+        mIt = CenterIter(mCenters);
+        mK = 0;
+        mOrdinal = 0;
+        settle();
+      }
+
+      bool atEnd() const { return mIt.done(); }
+      u16 ordinal() const { return mOrdinal; }
+      Pt globalSite() const { return siteOf(mIt.get(), mK); }
+
+      Pt localSite() const {
+        const Pt g = globalSite();
+        return Pt{g.x - mLocal0.x, g.y - mLocal0.y};
+      }
+
+      void next() {
+        ++mOrdinal;
+        advance();
+        settle();
+      }
+
+    private:
+      void advance() {
+        if (++mK >= (u32) SITES) {
+          mK = 0;
+          mIt.next();
+        }
+      }
+
+      void settle() {
+        while (!mIt.done() && !mAccess.contains(globalSite())) advance();
+      }
+    };
+
+    /* CENTER TABLE: the live event centers of one event area as runs of
+       consecutive x in hub-local coordinates, row-major, with running
+       counts, so a uniform pick is one draw r < mTotal and a binary
+       search. */
+    enum : u32 {
+      CT_MAX_RUNS = 320,                //< measured max ~256 (geomlab)
+    };
+
+    struct CenterTable {
+      u32 mTotal;                       //< live centers
+      u16 mRuns;                        //< runs used
+      u16 mPad;
+      u16 mCum[CT_MAX_RUNS];            //< live centers before run i
+      u8 mY[CT_MAX_RUNS];               //< local row of run i
+      u8 mX0[CT_MAX_RUNS];              //< local first x of run i
+      u8 mLen[CT_MAX_RUNS];             //< length of run i
+
+      /* The r'th live center (r < mTotal), local coordinates. */
+      Pt pick(u32 r) const {
+        u32 lo = 0;
+        u32 hi = mRuns;                 // run i holds [mCum[i], next)
+        while (hi - lo > 1u) {
+          const u32 mid = (lo + hi) / 2u;
+          if (mCum[mid] <= r) lo = mid;
+          else hi = mid;
+        }
+        return Pt{(s32) mX0[lo] + (s32) (r - mCum[lo]), (s32) mY[lo]};
+      }
+    };
+
+    /* Bits for a w x h local area, row-major (scratch for the builder:
+       2 * bitBytes(w, h) bytes). */
+    static constexpr u32 bitBytes(u32 w, u32 h) { return (w * h + 7u) / 8u; }
+
+    static bool getBit(const u8 * bits, u32 i) {
+      return (bits[i >> 3] >> (i & 7u)) & 1u;
+    }
+
+    static void setBit(u8 * bits, u32 i) {
+      bits[i >> 3] = (u8) (bits[i >> 3] | (1u << (i & 7u)));
+    }
+
+    /* Fill t with the live centers of event area `area` (EW centers,
+       global) for a hub storing w x h local sites from global local0
+       whose accessible sites are `access`.  A site is a live center iff
+       it is accessible, its EW center is in area, and every site of its
+       window is either inaccessible or has its EW center in area.
+       scratch: 2 * bitBytes(w, h) bytes.  Returns false if the runs do
+       not fit (t is then unusable). */
+    static bool buildCenterTable(CenterTable & t, const Rect & area,
+                                 const Rect & access, Pt local0,
+                                 u32 w, u32 h, u8 * scratch) {
+      const u32 nb = bitBytes(w, h);
+      u8 * winOk = scratch;             // may be part of the window
+      u8 * cand = scratch + nb;         // may be a center
+      for (u32 i = 0; i < 2u * nb; ++i) scratch[i] = 0u;
+      for (u32 y = 0; y < h; ++y) {
+        for (u32 x = 0; x < w; ++x) {
+          const s32 gx = local0.x + (s32) x;
+          const s32 gy = local0.y + (s32) y;
+          const u32 i = y * w + x;
+          if (!access.contains(Pt{gx, gy})) {
+            setBit(winOk, i);
+            continue;
+          }
+          if (area.contains(centerOf(gx, gy))) {
+            setBit(winOk, i);
+            setBit(cand, i);
+          }
+        }
+      }
+      t.mTotal = 0u;
+      t.mRuns = 0u;
+      t.mPad = 0u;
+      for (u32 y = 0; y < h; ++y) {
+        bool inRun = false;
+        for (u32 x = 0; x < w; ++x) {
+          bool live = getBit(cand, y * w + x);
+          for (u32 k = 0; live && k < (u32) SITES; ++k) {
+            const s32 wx = (s32) x + OFFSETS.dx[k];
+            const s32 wy = (s32) y + OFFSETS.dy[k];
+            live = wx >= 0 && wy >= 0 && wx < (s32) w && wy < (s32) h &&
+              getBit(winOk, (u32) wy * w + (u32) wx);
+          }
+          if (live && !inRun) {
+            if (t.mRuns >= CT_MAX_RUNS) return false;
+            t.mCum[t.mRuns] = (u16) t.mTotal;
+            t.mY[t.mRuns] = (u8) y;
+            t.mX0[t.mRuns] = (u8) x;
+            t.mLen[t.mRuns] = 0u;
+            ++t.mRuns;
+            inRun = true;
+          }
+          if (live) {
+            ++t.mLen[t.mRuns - 1u];
+            ++t.mTotal;
+          } else {
+            inRun = false;
+          }
+        }
+      }
+      return true;
+    }
   };
 }

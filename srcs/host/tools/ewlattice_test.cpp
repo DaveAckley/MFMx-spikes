@@ -14,6 +14,12 @@
 //     the borrower's area (brute force), in the same order at both ends
 //   * every stored site (owned or borrowed EW) lies in the hub's
 //     storeBox
+//   * HUB SIDE, for every legal chip layout (1, 2 and 4 chips): a hub's
+//     assumed neighbor rectangles give the same bands as the true ones;
+//     borrower and lender BandWalks yield the same global sites in the
+//     same order with the same ordinals, inside both stores; own kept EWs
+//     plus the bands cover exactly the hub's accessible area; the center
+//     tables pick exactly the brute-force live centers
 // and prints the EW counts (owned, borrowed per condition) and sizes.
 //
 // ewlattice_test --dump FILE  instead writes, for scripts/geomlab, the
@@ -336,6 +342,194 @@ int dump(const char * path) {
   return g_bad ? 1 : 0;
 }
 
+// ---- hub side (step 3) over the legal chip layouts ----
+
+struct Layout {
+  const char * name;
+  u32 chips;                    //< bit per chip present
+};
+
+const Layout LAYOUTS[] = {
+  {"0123", 0xfu},
+  {"01", 0x3u},
+  {"23", 0xcu},
+  {"02", 0x5u},
+  {"13", 0xau},
+  {"0", 0x1u},
+  {"1", 0x2u},
+  {"2", 0x4u},
+  {"3", 0x8u},
+};
+
+constexpr s32 CHX = (s32) DG::BLACKHOLE_ACTIVE_HUB_WIDTH;
+constexpr s32 CHY = (s32) DG::BLACKHOLE_ACTIVE_HUB_HEIGHT;
+constexpr s32 SW = BW + 2 * L::STORE_MARGIN;   // store width
+constexpr s32 SH = BH + 2 * L::STORE_MARGIN;   // store height
+
+bool present(const Layout & lay, s32 hx, s32 hy) {
+  if (hx < 0 || hy < 0 || hx >= HX || hy >= HY) return false;
+  const u32 chip = (u32) ((hy / CHY) * 2 + (hx / CHX));
+  return (lay.chips >> chip) & 1u;
+}
+
+u8 permOf(const Layout & lay, s32 hx, s32 hy) {
+  u8 pe = 0;
+  if (!present(lay, hx - 1, hy)) pe |= (u8) (1u << D4_W);
+  if (!present(lay, hx + 1, hy)) pe |= (u8) (1u << D4_E);
+  if (!present(lay, hx, hy - 1)) pe |= (u8) (1u << D4_N);
+  if (!present(lay, hx, hy + 1)) pe |= (u8) (1u << D4_S);
+  return pe;
+}
+
+L::Pt local0Of(s32 hx, s32 hy) {
+  return L::Pt{hx * BW - L::STORE_MARGIN, hy * BH - L::STORE_MARGIN};
+}
+
+std::vector<L::Pt> centersIn(const L::Rect & r) {
+  std::vector<L::Pt> v;
+  for (L::CenterIter it(r); !it.done(); it.next()) v.push_back(it.get());
+  return v;
+}
+
+struct WalkSite {
+  s32 gx;
+  s32 gy;
+  u16 ord;
+};
+
+std::vector<WalkSite> walk(const L::Rect & band, const L::Rect & acc,
+                           L::Pt local0) {
+  std::vector<WalkSite> v;
+  L::BandWalk bw;
+  bw.init(band, acc, local0);
+  for (; !bw.atEnd(); bw.next()) {
+    const L::Pt l = bw.localSite();
+    check(l.x >= 0 && l.y >= 0 && l.x < SW && l.y < SH,
+          "walk site outside the store");
+    const L::Pt g = bw.globalSite();
+    check(g.x - local0.x == l.x && g.y - local0.y == l.y, "local coords");
+    v.push_back(WalkSite{g.x, g.y, bw.ordinal()});
+  }
+  return v;
+}
+
+void testHubSide() {
+  const Corner4 corners[] = {C4_SE, C4_SW, C4_NW, C4_NE};
+  std::vector<u8> scratch((size_t) (2 * L::bitBytes(SW, SH)));
+  u32 maxRuns = 0;
+  u32 minLive = 1u << 30;
+  u32 maxLive = 0;
+  long tables = 0;
+  for (const Layout & lay : LAYOUTS) {
+    for (s32 hy = 0; hy < HY; ++hy) {
+      for (s32 hx = 0; hx < HX; ++hx) {
+        if (!present(lay, hx, hy)) continue;
+        const u8 pe = permOf(lay, hx, hy);
+        const L::Rect rh = L::hubRect(hx, hy, pe);
+        const L::Rect acc = L::accessibleRect(hx, hy, pe);
+        const L::Pt l0 = local0Of(hx, hy);
+        const bool doTables =
+          lay.chips != 0xfu || ((hx + hy) % 3) == 0;   // sample the box
+        for (int ci = -1; ci < 4; ++ci) {
+          const L::Rect area =
+            ci < 0 ? rh : L::eventArea(rh, corners[ci]);
+          // coverage: kept own EWs + bands == accessible area sites
+          std::vector<u8> seen((size_t) (SW * SH), 0);
+          auto mark = [&](const std::vector<WalkSite> & v) {
+            for (const WalkSite & w : v) {
+              const s32 lx = w.gx - l0.x;
+              const s32 ly = w.gy - l0.y;
+              if (lx < 0 || ly < 0 || lx >= SW || ly >= SH) continue;
+              const s32 i = ly * SW + lx;
+              check(seen[(size_t) i] == 0, "site walked twice");
+              seen[(size_t) i] = 1;
+            }
+          };
+          mark(walk(L::intersect(rh, area), acc, l0));
+          for (s32 d8 = 0; ci >= 0 && d8 < 8; ++d8) {
+            const S8C dv = S8C::makeS8CFromDir8((Dir8) d8);
+            const s32 nx = hx + dv.x;
+            const s32 ny = hy + dv.y;
+            if (!present(lay, nx, ny)) continue;
+            const u8 pn = permOf(lay, nx, ny);
+            const L::Rect rn = L::hubRect(nx, ny, pn);
+            const L::Rect rnAssumed =
+              L::hubRect(nx, ny, L::neighborPermEdges(pe, dv.x, dv.y));
+            const L::Rect bTrue = L::band(rh, rn, corners[ci]);
+            const L::Rect bMine = L::band(rh, rnAssumed, corners[ci]);
+            const std::vector<L::Pt> ct = centersIn(bTrue);
+            const std::vector<L::Pt> cm = centersIn(bMine);
+            bool same = ct.size() == cm.size();
+            for (size_t i = 0; same && i < ct.size(); ++i)
+              same = ct[i].x == cm[i].x && ct[i].y == cm[i].y;
+            check(same, "assumed neighbor rect changes the band");
+            // the lender's own view of the same band
+            const L::Rect rhAssumed =
+              L::hubRect(hx, hy, L::neighborPermEdges(pn, -dv.x, -dv.y));
+            const L::Rect bLend = L::band(rhAssumed, rn, corners[ci]);
+            const std::vector<WalkSite> wb = walk(bMine, acc, l0);
+            const std::vector<WalkSite> wl =
+              walk(bLend, L::accessibleRect(nx, ny, pn), local0Of(nx, ny));
+            bool agree = wb.size() == wl.size();
+            for (size_t i = 0; agree && i < wb.size(); ++i)
+              agree = wb[i].gx == wl[i].gx && wb[i].gy == wl[i].gy &&
+                wb[i].ord == wl[i].ord;
+            check(agree, "borrower and lender walk differently");
+            mark(wb);
+          }
+          // what must be covered: accessible store sites, center in area
+          for (s32 y = 0; y < SH; ++y) {
+            for (s32 x = 0; x < SW; ++x) {
+              const L::Pt g{l0.x + x, l0.y + y};
+              const bool want =
+                acc.contains(g) && area.contains(L::centerOf(g.x, g.y));
+              check(want == (seen[(size_t) (y * SW + x)] != 0),
+                    "kept + bands != accessible area");
+            }
+          }
+          if (!doTables) continue;
+          L::CenterTable t;
+          const bool fit =
+            L::buildCenterTable(t, area, acc, l0, SW, SH, scratch.data());
+          check(fit, "center table overflow");
+          if (!fit) continue;
+          ++tables;
+          maxRuns = t.mRuns > maxRuns ? t.mRuns : maxRuns;
+          if (ci >= 0) {
+            minLive = t.mTotal < minLive ? t.mTotal : minLive;
+            maxLive = t.mTotal > maxLive ? t.mTotal : maxLive;
+          }
+          // brute force, row-major
+          std::vector<L::Pt> live;
+          for (s32 y = 0; y < SH; ++y) {
+            for (s32 x = 0; x < SW; ++x) {
+              const L::Pt g{l0.x + x, l0.y + y};
+              bool ok = acc.contains(g) &&
+                area.contains(L::centerOf(g.x, g.y));
+              for (u32 k = 0; ok && k < (u32) L::SITES; ++k) {
+                const L::Pt w = L::siteOf(g, k);
+                ok = !acc.contains(w) ||
+                  area.contains(L::centerOf(w.x, w.y));
+              }
+              if (ok) live.push_back(L::Pt{x, y});
+            }
+          }
+          bool same = live.size() == t.mTotal;
+          for (u32 r = 0; same && r < t.mTotal; ++r) {
+            const L::Pt p = t.pick(r);
+            same = p.x == live[r].x && p.y == live[r].y;
+          }
+          check(same, "center table differs from brute force");
+        }
+      }
+    }
+  }
+  printf("hub side: %zu layouts ok-checked; %ld center tables, max %u runs "
+         "(capacity %u), live centers per corner %u..%u\n",
+         sizeof(LAYOUTS) / sizeof(LAYOUTS[0]), tables, maxRuns,
+         (u32) L::CT_MAX_RUNS, minLive, maxLive);
+}
+
 }  // namespace
 
 int main(int argc, char ** argv) {
@@ -345,6 +539,7 @@ int main(int argc, char ** argv) {
   testIter();
   testOwnership();
   testConditions();
+  testHubSide();
   if (g_bad) {
     printf("ewlattice_test: %d FAILED\n", g_bad);
     return 1;
