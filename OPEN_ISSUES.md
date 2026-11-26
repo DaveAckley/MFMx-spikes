@@ -250,7 +250,11 @@ centers, cache shift = two EW layers (SHIFT 18); work on branch
 diagonal-tiles.  Step 1 DONE: srcs/shared/include/EWLattice.h + native
 ewlattice_test (all checks, 3 mutations caught).  Step 2 DONE: geomlab
 `ewlattice` layout + `--crosscheck` (header == lab model, 0 sites
-differ; GEOMETRY.md sec 10).  Next: step 3, hub code behind a compile
+differ; GEOMETRY.md sec 10).  Step 3 BUILT, NOT RUN: `policy ewsnap`
+(CP_EWSNAP = 2): ring 22 for all policies on the branch, center tables
+(.ct mark), CacheLoader band walks with ordinal check, ownership by EW
+center, elision only on a repeated corner.  Next: step 4 on the QB,
+fourcorners vs ewsnap on the same build.  (Old plan text:) step 3, hub code behind a compile
 flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.

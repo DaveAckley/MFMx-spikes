@@ -76,7 +76,8 @@ def parse_ethseams(specs, chips):
     return seams
 
 
-CACHE_POLICIES = ("supercell", "fourcorners")   # CachePolicyId 0, 1 (CachingPolicy.h)
+CACHE_POLICIES = ("supercell", "fourcorners", "ewsnap")  # CachePolicyId 0, 1, 2 (CachingPolicy.h)
+CORNER_POLICIES = ("fourcorners", "ewsnap")      # NEW_LEADER argument is a Corner4
 
 
 def leximit(n):
@@ -125,7 +126,7 @@ def parse_tile_range(text):
 
 
 def parse_policy(text):
-    """'supercell' | 'fourcorners' (any unique prefix, nothing else) -> name.
+    """'supercell' | 'fourcorners' | 'ewsnap' (any unique prefix, nothing else) -> name.
     Raises ValueError."""
     t = str(text).strip().lower()
     hits = [p for p in CACHE_POLICIES if t and p.startswith(t)]

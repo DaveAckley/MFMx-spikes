@@ -28,6 +28,14 @@ namespace MFM {
                       diagonals do not exchange.  Events run over our own
                       area shifted toward the corner.
 
+       CP_EWSNAP      Four corners on the EW lattice (EWLattice.h, branch
+                      diagonal-tiles): same roles and Corner4 argument,
+                      but every set (owned, borrowed, lent, event area)
+                      is whole EWs, event centers come from per-corner
+                      center tables, and bands are the minimal disjoint
+                      ones.  Only bounds()/plan() below are shared; the
+                      bands and centers live in CacheLoader and Grid.
+
      The policy is chosen per run by the host (mfmxctl 'policy', two
      HostFlags bits), so both are always compiled in.  No virtual
      functions (T6 code has no vtables): the policies are structs of
@@ -38,6 +46,7 @@ namespace MFM {
   enum CachePolicyId : u8 {
     CP_SUPERCELL = 0,
     CP_FOURCORNERS = 1,
+    CP_EWSNAP = 2,
     CP_COUNT
   };
 
@@ -51,7 +60,14 @@ namespace MFM {
   }
 
   inline const char * cachePolicyName(CachePolicyId id) {
-    return id == CP_FOURCORNERS ? "fourcorners" : "supercell";
+    return id == CP_FOURCORNERS ? "fourcorners"
+         : id == CP_EWSNAP ? "ewsnap"
+         : "supercell";
+  }
+
+  /* Policies whose NEW_LEADER argument is a Corner4. */
+  inline bool isCornerPolicy(CachePolicyId id) {
+    return id == CP_FOURCORNERS || id == CP_EWSNAP;
   }
 
   /* What we do with the neighbor in one Dir8 direction. */
@@ -164,8 +180,8 @@ namespace MFM {
 
   struct CachingPolicies {
     static DirPlan plan(CachePolicyId id, u8 arg, Dir8 d8, const PolicyCtx & c) {
-      return id == CP_FOURCORNERS ? FourCornersPolicy::plan(arg, d8, c)
-                                  : SuperCellPolicy::plan(arg, d8, c);
+      return isCornerPolicy(id) ? FourCornersPolicy::plan(arg, d8, c)
+                                : SuperCellPolicy::plan(arg, d8, c);
     }
 
     /* CACHE ELISION: may direction d8 stay put across a change of argument
@@ -175,6 +191,14 @@ namespace MFM {
        LOAD is needed.  Four corners only: every hub computes the same answer
        for its end of a link, and the opposite end gets the opposite role. */
     static bool keepAcross(CachePolicyId id, u8 prev, u8 next, Dir8 d8) {
+      if (id == CP_EWSNAP) {
+        // minimal bands change with the corner: only a repeat keeps them
+        PolicyCtx c0;
+        c0.weLead = false;
+        c0.peerLeads = false;
+        c0.noLeader = false;
+        return prev == next && plan(id, next, d8, c0) != DirPlan::NONE;
+      }
       if (id != CP_FOURCORNERS) return false;
       PolicyCtx c;
       c.weLead = false;
@@ -185,8 +209,8 @@ namespace MFM {
     }
 
     static EventBounds bounds(CachePolicyId id, u8 arg, const PolicyCtx & c) {
-      return id == CP_FOURCORNERS ? FourCornersPolicy::bounds(arg, c)
-                                  : SuperCellPolicy::bounds(arg, c);
+      return isCornerPolicy(id) ? FourCornersPolicy::bounds(arg, c)
+                                : SuperCellPolicy::bounds(arg, c);
     }
 
     /* A PERMANENT edge (no neighbor hub, HubEdges.h) is not a dead band:

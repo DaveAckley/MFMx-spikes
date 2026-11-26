@@ -254,7 +254,7 @@ class SuperCycle:
             return n
         if self.leader is None:
             return self.first_leader
-        if self.repeat and getattr(self.m, "policy", None) == "fourcorners":
+        if self.repeat and getattr(self.m, "policy", None) in ("fourcorners", "ewsnap"):
             return self.rng.randrange(NLEADERS)
         return self.rng.choice([l for l in range(NLEADERS) if l != self.leader])
 

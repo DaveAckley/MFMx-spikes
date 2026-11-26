@@ -49,6 +49,14 @@ namespace MFM {
       HBPTAG(.pe,(u32) mPermEdges);
     }
 
+    // EW LATTICE (policy ewsnap, EWLattice.h): our global hub coordinates
+    // and the center tables, built once here.
+    mHubX = (s32) DG::getChipHubOrigin(hb.mChipNum).x + hubInChipCoord.x;
+    mHubY = (s32) DG::getChipHubOrigin(hb.mChipNum).y + hubInChipCoord.y;
+    mEWSnap = cachePolicyFromHostFlags(hb.mHostFlags) == CP_EWSNAP;
+    for (u32 i = 0; i < CENTER_TABLES; ++i) mCenterLive[i] = 0u;
+    if (mEWSnap) buildCenterTables();
+
     // INIT SELECT AUTOSEEDING (the host can switch a whole chip off,
     // HBF_NO_AUTOSEED, to check that atoms really cross the seams)
     if (ct6.x >= 5 && ct6.y >= 5 &&
@@ -129,7 +137,7 @@ namespace MFM {
     ewbounds.stop.y = eb.y1;    //exclusive
 
     if (everyEventShipped()) {  // no AER cheating: empty centers get shipped too
-      found = selectRandomSite(ewbounds);
+      found = drawCenter(ewbounds);
       SNAP(10,HBPTAG(SEEKT,found));
       return true;
     }
@@ -139,7 +147,7 @@ namespace MFM {
     // huge and warps comparisons: 100 keeps that distortion modest.
     constexpr u32 MAX_TRIES = 100u;
     for (u32 i = 0u; i < MAX_TRIES; ++i) {
-      U16C s = selectRandomSite(ewbounds);
+      U16C s = drawCenter(ewbounds);
       P4Atom a = mT6GridPtr->getAtom(s);
       if (!a.isEmpty()) {
         mEWsEmptyCenters += i;  // i draws hit empty sites: events that did nothing
@@ -157,6 +165,44 @@ namespace MFM {
     //                (u16) between(T6Grid::SELF_ORIGIN.y+4,T6Grid::SELF_MAX.y-4-1));
     return U16C((u16) between(b.start.x,b.stop.x-1),
                 (u16) between(b.start.y,b.stop.y-1));
+  }
+
+  U16C GridManager::drawCenter(U16CRange b) {
+    if (!mEWSnap) return selectRandomSite(b);
+    const u32 c = theL1GridManagerControl.mSuperCellLeader;
+    const EWLattice::CenterTable & t =
+      theCenterTables[c <= (u32) C4_MAX ? c + 1u : 0u];
+    MFM_API_ASSERT(t.mTotal > 0u, ILLEGAL_STATE);
+    const EWLattice::Pt p = t.pick(between(0u, t.mTotal - 1u));
+    return U16C((u16) p.x, (u16) p.y);
+  }
+
+  void GridManager::buildCenterTables() {
+    typedef EWLattice L;
+    const L::Rect own = L::hubRect(mHubX, mHubY, mPermEdges);
+    const L::Rect acc = L::accessibleRect(mHubX, mHubY, mPermEdges);
+    const L::Pt l0 = localOrigin();
+    for (u32 i = 0; i < CENTER_TABLES; ++i) {
+      const L::Rect area =
+        i == 0u ? own : L::eventArea(own, (Corner4) (i - 1u));
+      if (!L::buildCenterTable(theCenterTables[i], area, acc, l0,
+                               T6Grid::FULL_WIDTH, T6Grid::FULL_HEIGHT,
+                               theCenterScratch))
+        ENGINE_FAIL(OUT_OF_ROOM);
+      mCenterLive[i] = theCenterTables[i].mTotal;
+    }
+  }
+
+  bool GridManager::ownsSite(U16C gridc) const {
+    if (!mEWSnap)
+      return gridc.x >= T6Grid::SELF_ORIGIN.x &&
+        gridc.x < T6Grid::SELF_MAX.x &&
+        gridc.y >= T6Grid::SELF_ORIGIN.y &&
+        gridc.y < T6Grid::SELF_MAX.y;
+    const EWLattice::Pt l0 = localOrigin();
+    const EWLattice::Pt c =
+      EWLattice::centerOf(l0.x + (s32) gridc.x, l0.y + (s32) gridc.y);
+    return EWLattice::hubRect(mHubX, mHubY, mPermEdges).contains(c);
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {

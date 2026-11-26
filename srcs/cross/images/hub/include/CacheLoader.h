@@ -8,6 +8,10 @@ namespace MFM {
   struct CacheLoader {
 
     U8CRange::iterator mLocalItr; //< a site or cache range, in local coords
+    /* Policy ewsnap: the band as a walk over whole EWs (EWLattice.h);
+       mLocalItr is unused then. */
+    EWLattice::BandWalk mBand;
+    u8 mEWSnap;                   //< walk mBand instead of mLocalItr
     Dir8 mDir8; //< our index in cacheloaders (and where leader/follower is from us?)
     s8 mDestType; //< >0 -> leader, <0 -> follower, =0 -> uninitted or not-in-use (e.g., off-edge)
 
@@ -20,7 +24,11 @@ namespace MFM {
       mDir8 = d8;
     }
 
-    bool needsAnotherPacket() const { return mDestType != 0 && !mLocalItr.atEnd(); }
+    bool walkDone() const {
+      return mEWSnap ? mBand.atEnd() : mLocalItr.atEnd();
+    }
+
+    bool needsAnotherPacket() const { return mDestType != 0 && !walkDone(); }
 
     void loadPacketIfNeeded(GridManager & gm) ;
 
@@ -30,7 +38,10 @@ namespace MFM {
 
     void unloadPacket(GridManager & gm, InterHubBlock & ihb) ;
 
-    void restartIterator() { mLocalItr.restart(); }
+    void restartIterator() {
+      if (mEWSnap) mBand.restart();
+      else mLocalItr.restart();
+    }
     
   };
 

@@ -84,6 +84,19 @@ unless the user asks for a rename.
   CenterIter (row-major walk of the centers in a rectangle), hubRect,
   eventArea, band, storeBox; SHIFT = 18 (two EW layers).  Native test
   srcs/host/tools/ewlattice_test.cpp (in run_native_tests.sh).
+- POLICY EWSNAP (branch diagonal-tiles, 2026-11-25, BUILT, not run):
+  `policy ewsnap` (or --policy ewsnap; CachePolicyId 2) = four corners on
+  the EW lattice: every owned/borrowed/lent set is whole EWs
+  (EWLattice.h), bands are minimal and disjoint (CacheLoader walks them
+  with EWLattice::BandWalk; the car's startsAt carries the walk ordinal,
+  BADC on mismatch), event centers are drawn uniformly from five center
+  tables built at hub init (GridManager::buildCenterTables; mark
+  `.ct:N0:N1:N2:N3:N4.` hex live centers, no corner / SE / SW / NW / NE,
+  logged with `.cp`), a site is reported by the hub owning its EW
+  (GridManager::ownsSite), elision keeps a band only when the corner
+  repeats.  On this branch the T6Grid ring is 22 for EVERY policy
+  (181 x 152), so compare fourcorners and ewsnap on the same build.
+  Design and checks: GEOMETRY.md sec 10.  Hub + host change: ./build_all.sh.
 - scripts/geomlab/geomlab.py  host-only lab comparing tilings (rect,
   diamonds in brick rows / rotated / clumped, EW-lattice blocks) on dead
   area, ring, exchange, hub balance, neighbor hops, EW packing, with

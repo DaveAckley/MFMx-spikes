@@ -19,6 +19,9 @@ namespace MFM {
   DLGridList theDLGridList;
   L1GridManagerControl theL1GridManagerControl;
   u16 theSiteStamps[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT];
+  EWLattice::CenterTable theCenterTables[CENTER_TABLES];
+  u8 theCenterScratch[2u * EWLattice::bitBytes(DG::T6GRID_WIDTH,
+                                               DG::T6GRID_HEIGHT)];
 
   /*
   bool processInterHubCars(u32 ngbidx, HostBlock & hb,bool inside) {

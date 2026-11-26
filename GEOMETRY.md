@@ -1,5 +1,10 @@
 # GEOMETRY (how MFMx tiles the grid onto the QuietBox)
 
+BRANCH diagonal-tiles: the ring is 22 (EWLattice STORE_MARGIN), so the
+T6Grid is 181 x 152 (330,148 bytes) for every policy there; the numbers
+below were written for OW = OH = 20 (177 x 148) unless they say SHIFT 18
+or ewsnap.
+
 DRAFT 2026-11-25, written from the code at b6aca6f (DemoGlobal.h,
 NgbCacheMgr.h, CachingPolicy.h, HubEdges.h, EwpBlock.cpp, nu1012.dtoml)
 and the docs.  Numbers below are for the CURRENT inputs (2x2 cells,
@@ -393,7 +398,13 @@ What they say so far:
 Not modelled yet: cache elision, exchange packets (vs sites), the real
 hub's u8 coordinate box, non-uniform shifts.
 
-### STEP 3 PLAN: rect-snap in the hub (branch diagonal-tiles, DRAFT)
+### STEP 3: rect-snap in the hub (branch diagonal-tiles; BUILT, not run)
+
+Status 2026-11-25: A-G built as planned.  Cross build of hub and ewp
+clean; hub L1 ends at 0xe2c9c of 0x120000 (~245 KB free; the center
+tables are 5 x 1608 B, their build scratch 6878 B); native suite 27/27;
+mock selftest scenario cache_policy checks `policy ewsnap` -> policy=2.
+Not yet run on the QB (step 4).  The plan as written:
 
 From reading CacheLoader.cpp, Grid.cpp (seekRandomNonEmptySite), T6Grid.h,
 CachingPolicy.h, HostFlags.h, machine_boot.py.

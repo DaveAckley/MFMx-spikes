@@ -53,6 +53,17 @@ namespace MFM {
         HBPTAG(.pe,(u32) gm.mPermEdges);
         LOGPTAG(.ee,(u32) everyEventShipped());   // 1 = no AER cheating
         HBPTAG(.ee,(u32) everyEventShipped());
+        if (gm.mEWSnap) {
+          // .ct:N0:N1:N2:N3:N4. live event centers per center table (hex;
+          // no corner, SE, SW, NW, NE), policy ewsnap only
+          char ctb[64];
+          snprintf(ctb, sizeof(ctb), "%x:%x:%x:%x:%x.",
+                   (unsigned) gm.mCenterLive[0], (unsigned) gm.mCenterLive[1],
+                   (unsigned) gm.mCenterLive[2], (unsigned) gm.mCenterLive[3],
+                   (unsigned) gm.mCenterLive[4]);
+          LOGPTAG(.ct,ctb);
+          HBPTAG(.ct,ctb);
+        }
         // .ck:STATUS:AICLK:AXICLK:ARCCLK:LIMIT. (hex; clocks in MHz) as
         // read from the ARC tile by hart NC at init (InterHub.cpp);
         // STATUS 0 = ok (ArcTelemetry.h).  Logged here, with .cp, because
@@ -144,6 +155,25 @@ namespace MFM {
           cl.mDestType = -1;
         }
         cl.mDir8 = d8;
+        cl.mEWSnap = gm.mEWSnap ? 1u : 0u;
+        if (gm.mEWSnap) {
+          // The band is whole EWs (EWLattice.h): the neighbor's EWs in our
+          // event area if we borrow, ours in its area if we lend; both
+          // ends compute the same rectangle and walk it the same way.
+          typedef EWLattice L;
+          const Corner4 c4 = (Corner4) (mConfiguredSCL & 3u);
+          const L::Rect me = L::hubRect(gm.mHubX, gm.mHubY, gm.mPermEdges);
+          const L::Rect you =
+            L::hubRect(gm.mHubX + d8nREGV.x, gm.mHubY + d8nREGV.y,
+                       L::neighborPermEdges(gm.mPermEdges, d8nREGV.x,
+                                            d8nREGV.y));
+          L::Rect band{0, 0, 0, 0};                // NONE: empty walk
+          if (plan == DirPlan::SEND_SITES) band = L::band(you, me, c4);
+          else if (plan == DirPlan::RECV_CACHES) band = L::band(me, you, c4);
+          cl.mBand.init(band,
+                        L::accessibleRect(gm.mHubX, gm.mHubY, gm.mPermEdges),
+                        gm.localOrigin());
+        }
       }
     }
   }
@@ -155,7 +185,7 @@ namespace MFM {
     if (!mHaveLoaded) return;                    // nothing held yet
     if (nextCorner < 0 || nextCorner > 3) return;
     const CachePolicyId policy = cachePolicyFromHostFlags(hb.mHostFlags);
-    if (policy != CP_FOURCORNERS) return;        // only four corners shares bands
+    if (!isCornerPolicy(policy)) return;         // only corner policies share bands
     for (u32 i = 0; i < CACHELOADER_COUNT; ++i) {
       const CacheLoader & cl = get(i);
       if (cl.isThatUnused()) continue;           // no neighbor that way
@@ -315,6 +345,20 @@ namespace MFM {
     }
     // Now it's carrying no atoms
 
+    if (mEWSnap) {
+      // ewsnap: startsAt carries the walk ordinal (low, high byte), which
+      // the receiver checks against its own
+      const u16 ord = mBand.ordinal();
+      patoms.setStartsAt(U8C((u8) (ord & 0xffu), (u8) (ord >> 8)));
+      while (!mBand.atEnd()) {
+        if (patoms.isFull()) break;
+        const EWLattice::Pt l = mBand.localSite();
+        patoms.pushAtomAtEndOfPacketOrDie(t6grid.getAtom(U8C((u8) l.x,
+                                                             (u8) l.y)));
+        mBand.next();
+      }
+      MFM_API_ASSERT(patoms.isFull() || mBand.atEnd(),ILLEGAL_STATE);
+    } else {
     patoms.setStartsAt(*itr);
     LOGPTAG(STitr,patoms.getStartsAt());
     // Now we've marked where we're starting
@@ -326,9 +370,10 @@ namespace MFM {
       patoms.pushAtomAtEndOfPacketOrDie(a);
     }
     MFM_API_ASSERT(patoms.isFull() || itr.atEnd(),ILLEGAL_STATE);    // can't stop unless car full or itr done..
+    }
 
-    if (itr.atEnd()) LOGPTAG(lodDONE,dir8ToByteString(mDir8));
-    else LOGPTAG(lod@,itr.at);
+    if (walkDone()) LOGPTAG(lodDONE,dir8ToByteString(mDir8));
+    else if (!mEWSnap) LOGPTAG(lod@,itr.at);
 
     LOGPTAG(SHI#,patoms.getAtomsInPacket());
     // MUST include the IHPHeader: patoms.getCurrentPayloadSize() alone
@@ -357,7 +402,16 @@ namespace MFM {
     u32 nextIdx = 0;
     u32 atomsInPacket = patoms.getAtomsInPacket();
 
-    if (atomsInPacket > 0) {
+    if (mEWSnap && atomsInPacket > 0) {
+      const U8C theyAreAt = patoms.getStartsAt();
+      const u16 theirs = (u16) (theyAreAt.x | ((u16) theyAreAt.y << 8));
+      if (theirs != mBand.ordinal()) {
+        Buf32 b32;
+        LOGPTAG(BADC,formatIHBlockBuf32(b32,ihb,(Dir8) 99,99));
+        sleepCycles(1'000'000);
+      }
+      HBASSERT_EQ(theirs,mBand.ordinal()); // ILLEGAL_STATE
+    } else if (atomsInPacket > 0) {
       LOGPTAG(uPKTRge,itr.range); 
       U8C theyAreAt = patoms.getStartsAt();
       U8C weShouldBeAt = NgbCacheMgr::mapDestCToUs(mDir8, isThatAFollower(), theyAreAt);
@@ -372,25 +426,30 @@ namespace MFM {
       HBASSERT_EQ(itr.at,weShouldBeAt); // ILLEGAL_STATE
     }
 
-    while (!itr.atEnd()) {
+    while (!walkDone()) {
       if (nextIdx >= atomsInPacket) break; // Ain't Got No More
-      U8C ac = *itr++;
+      U8C ac;
+      if (mEWSnap) {
+        const EWLattice::Pt l = mBand.localSite();
+        ac = U8C((u8) l.x, (u8) l.y);
+        mBand.next();
+      } else {
+        ac = *itr++;
+      }
       P4Atom a = patoms.getAtomFromPacketOrDie(nextIdx++);
-      /* A follower's SAVE unload lands in its own SELF sites (a leader's
-         LOAD unload lands in its cache ring).  A changed SELF site must
-         be reported by its owner, so it goes through the DL; ring sites
-         stay quiet (Grid.h). */
+      /* A follower's SAVE unload lands in its own sites (a leader's LOAD
+         unload lands in its cache ring).  A changed site of ours must be
+         reported by us, so it goes through the DL; cache sites stay
+         quiet (Grid.h).  'Ours' is the SELF rectangle, or for ewsnap the
+         EWs whose centers are in our hub rectangle. */
       const U16C gc(ac.x,ac.y);
-      const bool intoSelf =
-        gc.x >= T6Grid::SELF_ORIGIN.x && gc.x < T6Grid::SELF_MAX.x &&
-        gc.y >= T6Grid::SELF_ORIGIN.y && gc.y < T6Grid::SELF_MAX.y;
-      if (intoSelf) gm.setAtomOrDrop(gc,a);  // pushes only if it changed
+      if (gm.ownsSite(gc)) gm.setAtomOrDrop(gc,a);  // pushes only if it changed
       else gm.setAtomQuiet(gc,a);
     }
-    MFM_API_ASSERT(itr.atEnd() || nextIdx >= atomsInPacket,ILLEGAL_STATE);    // can't stop unless car empty or itr done..
+    MFM_API_ASSERT(walkDone() || nextIdx >= atomsInPacket,ILLEGAL_STATE);    // can't stop unless car empty or itr done..
 
-    if (itr.atEnd()) LOGPTAG(uDONE,dir8ToByteString(mDir8));
-    else if (atomsInPacket > 0) LOGPTAG(uGOON,itr.at);
+    if (walkDone()) LOGPTAG(uDONE,dir8ToByteString(mDir8));
+    else if (atomsInPacket > 0 && !mEWSnap) LOGPTAG(uGOON,itr.at);
     patoms.setToZeroAtoms();
     u32 pktsize = pay.getCurrentPayloadSize(); // incl. IHPHeader, see loadPacket
     //LOGPTAG(unPSZ,pktsize);

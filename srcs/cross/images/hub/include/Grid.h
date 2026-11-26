@@ -8,6 +8,7 @@
 #include "MDist.h"
 #include "DemoGlobal.h"
 #include "EP_ACacheBlock.h"
+#include "EWLattice.h" // policy ewsnap: EW lattice geometry
 
 namespace MFM {
   /* "NO AER CHEATING" MODE (run time, host flag HBF_EVERY_EVENT, set by the
@@ -315,6 +316,15 @@ namespace MFM {
      when the site changed, not by when they were emitted. */
   extern u16 theSiteStamps[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT];
 
+  /* POLICY EWSNAP (EWLattice.h, branch diagonal-tiles): the live event
+     centers of this hub per event area, built once at init.  Index 0 =
+     no corner yet (own EWs only), 1 + Corner4 (SE, SW, NW, NE) after a
+     NEW_LEADER.  The scratch is used only while building. */
+  static constexpr u32 CENTER_TABLES = 5u;
+  extern EWLattice::CenterTable theCenterTables[CENTER_TABLES];
+  extern u8 theCenterScratch[2u * EWLattice::bitBytes(DG::T6GRID_WIDTH,
+                                                      DG::T6GRID_HEIGHT)];
+
   inline void stampSiteWritten(U16C gridc) {
     L1GridManagerControl & c = theL1GridManagerControl;
     theSiteStamps[gridc.x][gridc.y] =
@@ -374,6 +384,26 @@ namespace MFM {
 
     U16C selectRandomSite(U16CRange bounds) ;
 
+    /* A random event center: uniform in bounds, or (policy ewsnap)
+       uniform over the live centers of the current corner's table. */
+    U16C drawCenter(U16CRange bounds) ;
+
+    /* Policy ewsnap: build theCenterTables (ENGINE_FAIL if a table does
+       not fit). */
+    void buildCenterTables() ;
+
+    /* Global site of our grid's (0,0). */
+    EWLattice::Pt localOrigin() const {
+      return EWLattice::Pt{
+        mGlobalOriginX - (s32) DG::T6GRID_OVERLAP_WIDTH,
+        mGlobalOriginY - (s32) DG::T6GRID_OVERLAP_HEIGHT};
+    }
+
+    /* Is grid site gridc ours, i.e. reported by us when it changes: in
+       our SELF rectangle, or (policy ewsnap) in an EW whose center is
+       in our hub rectangle. */
+    bool ownsSite(U16C gridc) const ;
+
     S16C siteNumberToOffset(u32 sn) const {
       const MDist4 md;
       SPoint sp = md.getPoint(sn);
@@ -427,6 +457,10 @@ namespace MFM {
     u8 mPermEdges;              //< HubEdges::PE_* sides with no neighbor hub
     s32 mGlobalOriginX;         //< global site x of our first SELF site (NukeBlast.h)
     s32 mGlobalOriginY;         //< global site y of our first SELF site
+    s32 mHubX;                  //< global hub column (EWLattice.h)
+    s32 mHubY;                  //< global hub row
+    bool mEWSnap;               //< cache policy is CP_EWSNAP
+    u32 mCenterLive[CENTER_TABLES]; //< ewsnap: live centers per table
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;
     ACacheBlockL1Control * mACBL1Ctrl;

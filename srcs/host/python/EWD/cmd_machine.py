@@ -200,7 +200,7 @@ def register(ctx):
         "elide [on|off]: keep bands shared by consecutive corners (before "
         "'start')")
     sh.command("policy", partial(c_policy, ctx),
-        "policy [fourcorners|supercell]: show/set the cache policy (before "
+        "policy [fourcorners|supercell|ewsnap]: show/set the cache policy (before "
         "'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")

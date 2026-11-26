@@ -685,6 +685,10 @@ def scenario_cache_policy():
     rc, out = run("policy fourcorners\npolicy bogus\npolicy\nquit\n")
     check("policy: bad name explained, shell survives",
           "want one of supercell, fourcorners" in out and rc == 0, out[-500:])
+    rc, out = run("policy ew\nboot\nstart\nmock\nstatus\nquit\n")
+    check("policy: ewsnap (prefix 'ew') reaches the chips as policy=2",
+          "cache policy: ewsnap (applied" in out and "policy=2" in out,
+          out[-900:])
     rc, out = run("boot\nstart\nmock\nquit\n")
     check("policy: default run tells chips policy=1", "policy=1" in out, out[-500:])
     rc, out = run("policy supercell\nboot\nstart\nmock\nquit\n")
