@@ -248,8 +248,9 @@ brick rows / EW blocks do not fit the physical hub array, clumps of
 small diamonds do).  CHOSEN (liv, 2026-11-25): rect-snap, random
 centers, cache shift = two EW layers (SHIFT 18); work on branch
 diagonal-tiles.  Step 1 DONE: srcs/shared/include/EWLattice.h + native
-ewlattice_test (all checks, 3 mutations caught).  Next: step 2, the lab
-uses the header's band rectangles; step 3, hub code behind a compile
+ewlattice_test (all checks, 3 mutations caught).  Step 2 DONE: geomlab
+`ewlattice` layout + `--crosscheck` (header == lab model, 0 sites
+differ; GEOMETRY.md sec 10).  Next: step 3, hub code behind a compile
 flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.

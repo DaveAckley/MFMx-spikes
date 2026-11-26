@@ -39,6 +39,7 @@ centers of the first shift darkened, never-live sites red.
 Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
        [--zoom X,Y] [--zsize SITES] [--zscale PX]  (close-ups: NAME-zoom.png)
        python3 geomlab.py --check      (self-test against HubGeometry)
+       python3 geomlab.py --crosscheck (EWLattice.h == lab rect-snap)
        python3 geomlab.py --tileable   (exact EW covers of shapes)
        python3 geomlab.py --ewtiles    (picture of the EW tiling)
        python3 geomlab.py --ewblock    (one hub-sized block of EWs)
@@ -328,7 +329,7 @@ def layout_ew_blocks():
                         f"({k * k * EW_SITES} sites)")
 
 
-def layout_rect_snap():
+def layout_rect_snap(shift=OW, name="rect-snap"):
     """Today's hubs rounded to whole EWs: every EW (perfect lattice)
     belongs to the hub whose rectangle holds its center (clamped onto
     the grid at the edges).  Same hub array and neighbors as rect,
@@ -344,16 +345,84 @@ def layout_rect_snap():
         hy = np.clip((cy - s[1]) // HG.T6GRID_BASE_HEIGHT, 0, HUBS_Y - 1)
         return (hy * HUBS_X + hx).astype(np.int64)
 
-    return Layout("rect-snap", part_at((0, 0)),
+    return Layout(name, part_at((0, 0)),
                   np.arange(NH, dtype=np.int64),
-                  corner_shifts(OW, OH),
-                  "rect hubs rounded to whole EWs (EW center rule), "
-                  "shifted areas snapped too", part_at)
+                  corner_shifts(shift, shift),
+                  f"rect hubs rounded to whole EWs (EW center rule), "
+                  f"shifted areas snapped too, shift {shift}", part_at)
+
+
+# ------------------------------------------------- EWLattice.h (diag-tiles)
+
+REPO = os.path.join(HERE, "..", "..")
+EWL_HEADER = os.path.join(REPO, "srcs", "shared", "include", "EWLattice.h")
+EWL_TEST = os.path.join(REPO, "srcs", "host", "tools", "ewlattice_test.cpp")
+WORK_DIR = "geomlab-out"        # main() points this at --out
+
+
+def ewl_shift():
+    """SHIFT as EWLattice.h defines it (read from the header)."""
+    import re
+    with open(EWL_HEADER) as f:
+        m = re.search(r"\bSHIFT = (\d+),", f.read())
+    return int(m.group(1))
+
+
+def ewl_dump():
+    """Build ewlattice_test and load its --dump: the header's owner of
+    every grid site and the hub whose event area holds it, per Corner4
+    (SE, SW, NW, NE = the order of corner_shifts)."""
+    import subprocess
+    os.makedirs(WORK_DIR, exist_ok=True)
+    exe = os.path.join(WORK_DIR, "ewlattice_test")
+    out = os.path.join(WORK_DIR, "ewlattice.dump")
+    inc = os.path.join(REPO, "srcs")
+    subprocess.run(["g++", "-std=c++17", "-O2",
+                    "-I" + os.path.join(inc, "host", "include"),
+                    "-I" + os.path.join(inc, "shared", "include"),
+                    EWL_TEST,
+                    os.path.join(inc, "host", "src", "FATAL.cpp"),
+                    "-o", exe], check=True)
+    subprocess.run([exe, "--dump", out], check=True,
+                   stdout=subprocess.DEVNULL)
+    raw = np.fromfile(out, dtype=np.uint8)
+    assert raw[:4].tobytes() == b"EWL1", "bad ewlattice dump"
+    w, h = np.frombuffer(raw[4:12].tobytes(), dtype=np.uint32)
+    assert (w, h) == (W, H), (w, h)
+    maps = np.frombuffer(raw[12:].tobytes(), dtype=np.int16)
+    return maps.reshape(5, H, W).astype(np.int64)
+
+
+def layout_ewlattice():
+    """rect-snap exactly as EWLattice.h computes it (via the dump)."""
+    maps = ewl_dump()
+    shift = ewl_shift()
+    shifts = corner_shifts(shift, shift)
+    by_shift = {s: maps[1 + k] for k, s in enumerate(shifts)}
+    return Layout("ewlattice", maps[0], np.arange(NH, dtype=np.int64),
+                  shifts, f"EWLattice.h rect-snap, SHIFT {shift}",
+                  lambda s: by_shift[s])
+
+
+def crosscheck():
+    """EWLattice.h vs the lab's own rect-snap at the same shift: every
+    site's owner and per-condition area hub must agree."""
+    hdr = layout_ewlattice()
+    lab = layout_rect_snap(ewl_shift(), "rect-snap-lab")
+    bad = int((hdr.part != lab.part).sum())
+    print(f"owner: {bad} sites differ")
+    for s in hdr.shifts:
+        d = int((hdr.part_at(s) != lab.part_at(s)).sum())
+        print(f"area for shift {s}: {d} sites differ")
+        bad += d
+    print("crosscheck " + ("ok" if bad == 0 else f"FAILED ({bad})"))
+    return 0 if bad == 0 else 1
 
 
 LAYOUTS = {
     "rect": layout_rect,
     "rect-snap": layout_rect_snap,
+    "ewlattice": layout_ewlattice,
     "dia-brick": layout_diamond_brick,
     "dia-rotated": layout_diamond_rotated,
     "dia-multi48": lambda: layout_diamond_multi(48),
@@ -847,6 +916,8 @@ def main():
                     help="close-up width in sites")
     ap.add_argument("--zscale", type=int, default=6,
                     help="pixels per site in the close-ups")
+    ap.add_argument("--crosscheck", action="store_true",
+                    help="EWLattice.h vs the lab's rect-snap, site by site")
     ap.add_argument("--check", action="store_true",
                     help="self-test: rect reproduces the real T6Grid")
     ap.add_argument("--ewtiles", action="store_true",
@@ -869,9 +940,13 @@ def main():
         for k in LAYOUTS:
             print(k)
         return 0
+    global WORK_DIR
+    WORK_DIR = args.out
     if args.check:
         check_rect()
         return 0
+    if args.crosscheck:
+        return crosscheck()
     if args.tileable:
         report_tileable()
         return 0

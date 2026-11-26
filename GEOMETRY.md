@@ -356,6 +356,19 @@ What they say so far:
   same order, all stored sites inside storeBox.  Measured: interior hubs
   own 360-362 EWs, borrow 98-101 EWs per condition; storeBox 181 x 152 =
   27,512 sites (today 177 x 148 = 26,196); 51,109 EWs touch the grid.
+- Step 2 (2026-11-25): geomlab's `ewlattice` layout is EWLattice.h's
+  own answer (ewlattice_test --dump: owner and per-Corner4 area hub of
+  every grid site), and `--crosscheck` compares it with the lab's
+  independent rect-snap at the header's SHIFT: 0 sites differ in the
+  owner map and in all four conditions (the same check at shift 20
+  differs on ~62k sites per condition, so it can fail); it is in
+  run_native_tests.sh as geomlab_crosscheck.  Measured at SHIFT 18:
+      layout     dead% ring xchg  ngb hops pack  runs/hub-corner
+      rect        11.7 0.69 4137  7.0 1    0.876 101 (1 per row)
+      ewlattice   11.7 0.62 3754  7.0 1    0.988 217 (max 253)
+  Exchange is 9% below today; dead area does not depend on the shift.
+  Union of stored sites per hub is at most 24,928, under today's
+  26,196, but a rectangular store needs the 181 x 152 storeBox.
 - CENTER TABLES (random centers stay: MFM picks centers in an
   unspecified order, no site starved; dead sites are accepted).  A hub
   can pick uniformly among exactly its live centers for the current

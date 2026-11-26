@@ -92,6 +92,8 @@ run physguard_test g++ $CXXFLAGS -I$SRCS/cross/include $INC physguard_test.cpp -
 run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$OUT/nukeblast_test"
 # EW lattice + rect-snap hub geometry (branch diagonal-tiles): tiling, center walk, bands agree at both ends
 run ewlattice_test g++ $CXXFLAGS $INC ewlattice_test.cpp ../src/FATAL.cpp -o "$OUT/ewlattice_test"
+# EWLattice.h vs geomlab's own rect-snap model, site by site (needs numpy)
+run geomlab_crosscheck sh -c 'printf "#!/bin/sh\npython3 \"%s\" --crosscheck --out \"%s\"\n" "$(pwd)/../../../scripts/geomlab/geomlab.py" "$1/geomlab" > "$1/geomlab_crosscheck" && chmod +x "$1/geomlab_crosscheck"' x "$OUT"
 run nuke_cycle_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/nuke_cycle_test.py" > "$1/nuke_cycle_test" && chmod +x "$1/nuke_cycle_test"' x "$OUT"
 run zoom_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/zoom_test.py" > "$1/zoom_test" && chmod +x "$1/zoom_test"' x "$OUT"
 

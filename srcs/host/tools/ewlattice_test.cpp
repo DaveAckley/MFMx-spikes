@@ -15,8 +15,14 @@
 //   * every stored site (owned or borrowed EW) lies in the hub's
 //     storeBox
 // and prints the EW counts (owned, borrowed per condition) and sizes.
+//
+// ewlattice_test --dump FILE  instead writes, for scripts/geomlab, the
+// header's view of every grid site: magic "EWL1", u32 width, u32 height,
+// then five s16 arrays (row-major): the owning hub, and the hub whose
+// event area holds the site in Corner4 0..3 (SE, SW, NW, NE).
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 #include <random>
 
@@ -272,9 +278,68 @@ void testConditions() {
   printf("EWs touching the grid: %zu\n", centers.size());
 }
 
+// The hub (index) among the 5 x 5 hubs around p whose rectangle rectOf(h)
+// contains p (exactly one is expected).
+template <class F>
+s32 findHub(L::Pt p, F rectOf) {
+  s32 cx = p.x / BW;
+  s32 cy = p.y / BH;
+  s32 found = -1;
+  for (s32 dy = -2; dy <= 2; ++dy) {
+    for (s32 dx = -2; dx <= 2; ++dx) {
+      const s32 hx = cx + dx;
+      const s32 hy = cy + dy;
+      if (hx < 0 || hy < 0 || hx >= HX || hy >= HY) continue;
+      const s32 h = hy * HX + hx;
+      if (rectOf(h).contains(p)) {
+        check(found < 0, "dump: two hubs claim a center");
+        found = h;
+      }
+    }
+  }
+  check(found >= 0, "dump: no hub claims a center");
+  return found;
+}
+
+int dump(const char * path) {
+  FILE * f = fopen(path, "wb");
+  if (!f) {
+    printf("cannot write %s\n", path);
+    return 1;
+  }
+  const Corner4 corners[] = {C4_SE, C4_SW, C4_NW, C4_NE};
+  const u32 dims[2] = {(u32) GW, (u32) GH};
+  fwrite("EWL1", 1, 4, f);
+  fwrite(dims, sizeof(u32), 2, f);
+  std::vector<s16> row((size_t) GW);
+  for (int k = -1; k < 4; ++k) {
+    for (s32 y = 0; y < GH; ++y) {
+      for (s32 x = 0; x < GW; ++x) {
+        const L::Pt c = L::centerOf(x, y);
+        s32 h;
+        if (k < 0) {
+          h = findHub(c, [](s32 i) { return hubRectOf(i); });
+        } else {
+          const Corner4 c4 = corners[k];
+          h = findHub(c, [c4](s32 i) {
+            return L::eventArea(hubRectOf(i), c4);
+          });
+        }
+        row[(size_t) x] = (s16) h;
+      }
+      fwrite(row.data(), sizeof(s16), row.size(), f);
+    }
+  }
+  fclose(f);
+  printf("ewlattice dump: %s (%d x %d, owner + 4 conditions)%s\n", path,
+         (int) GW, (int) GH, g_bad ? ", WITH FAILURES" : "");
+  return g_bad ? 1 : 0;
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char ** argv) {
+  if (argc == 3 && strcmp(argv[1], "--dump") == 0) return dump(argv[2]);
   testOffsets();
   testTiling();
   testIter();
