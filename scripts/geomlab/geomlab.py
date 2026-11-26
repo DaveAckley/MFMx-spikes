@@ -40,6 +40,7 @@ Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
        [--zoom X,Y] [--zsize SITES] [--zscale PX]  (close-ups: NAME-zoom.png)
        python3 geomlab.py --check      (self-test against HubGeometry)
        python3 geomlab.py --tileable   (exact EW covers of shapes)
+       python3 geomlab.py --ewtiles    (picture of the EW tiling)
 Needs numpy and PIL (no scipy).  About 20 s for all layouts.
 """
 
@@ -525,6 +526,30 @@ def zoom_picture(path, own, lives, shifts, never, centre, size, scale):
     sheet.save(path)
 
 
+def ew_picture(path, size, scale):
+    """Close-up of the perfect EW tiling: every 41-site window its own
+    color, center site darker.  Color (i + 2j) mod 5 of the tile index
+    differs across every edge and corner contact (+-a, +-b, a+-b), so
+    five colors are enough."""
+    from PIL import Image
+    i, j = ew_tile_index()
+    x0 = W // 2 - size // 2
+    y0 = H // 2 - size // 2
+    ti = i[y0:y0 + size, x0:x0 + size]
+    tj = j[y0:y0 + size, x0:x0 + size]
+    img = PALETTE[(ti + 2 * tj) % 5].copy()
+    cx = ti * R - tj * (R + 1)
+    cy = ti * (R + 1) + tj * R
+    centre = ((cx == XX[y0:y0 + size, x0:x0 + size]) &
+              (cy == YY[y0:y0 + size, x0:x0 + size]))
+    img[centre] *= 0.45
+    big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
+    if scale >= 4:
+        big[scale - 1::scale, :, :] *= 0.75
+        big[:, scale - 1::scale, :] *= 0.75
+    Image.fromarray((big * 255).astype(np.uint8)).save(path)
+
+
 # ---------------------------------------------------------------- checks
 
 def tileable(region):
@@ -611,6 +636,9 @@ def main():
                     help="pixels per site in the close-ups")
     ap.add_argument("--check", action="store_true",
                     help="self-test: rect reproduces the real T6Grid")
+    ap.add_argument("--ewtiles", action="store_true",
+                    help="close-up of the perfect EW tiling "
+                         "(OUT/ew-tiling.png; --zsize, --zscale)")
     ap.add_argument("--tileable", action="store_true",
                     help="which diamonds / squares EWs cover exactly")
     args = ap.parse_args()
@@ -623,6 +651,11 @@ def main():
         return 0
     if args.tileable:
         report_tileable()
+        return 0
+    if args.ewtiles:
+        os.makedirs(args.out, exist_ok=True)
+        ew_picture(os.path.join(args.out, "ew-tiling.png"),
+                   args.zsize, args.zscale)
         return 0
     names = [n for n in args.only.split(",") if n] or list(LAYOUTS)
     if args.zoom:
