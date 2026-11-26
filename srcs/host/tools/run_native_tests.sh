@@ -90,6 +90,9 @@ run t6sjrun_mock sh -c 'g++ '"$CXXFLAGS"' t6sjrun.cpp -o "$1/t6sjrun_bin" && pri
 run physguard_test g++ $CXXFLAGS -I$SRCS/cross/include $INC physguard_test.cpp -o "$OUT/physguard_test"
 # nuke: geometry over the real 140-hub layout, and the host side (blast rides one NEW_LEADER bolt as words 2..4)
 run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$OUT/nukeblast_test"
+# bytecode physics spike: bytecode FB1/FB4 == native FB1/FB4 window by window, machine faults; BytePrograms.h current
+run bytephys_test g++ $CXXFLAGS $INC bytephys_test.cpp ../src/FATAL.cpp -o "$OUT/bytephys_test"
+run bpasm_check sh -c 'printf "#!/bin/sh\npython3 \"%s\" --check\n" "$(pwd)/../../../scripts/bytephys/bpasm.py" > "$1/bpasm_check" && chmod +x "$1/bpasm_check"' x "$OUT"
 # EW lattice + rect-snap hub geometry (branch diagonal-tiles): tiling, center walk, bands agree at both ends
 run ewlattice_test g++ $CXXFLAGS $INC ewlattice_test.cpp ../src/FATAL.cpp -o "$OUT/ewlattice_test"
 # EWLattice.h vs geomlab's own rect-snap model, site by site (needs numpy)

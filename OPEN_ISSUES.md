@@ -277,7 +277,32 @@ flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
-## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, NOT started)
+## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE BUILT, not run)
+
+SPIKE (2026-11-26, built, cross-built, host-tested; NOT run on the QB):
+srcs/shared/include/BytePhys.h is a tiny switch-dispatch stack machine
+(23 opcodes; u32 operand stack 16 deep and u16 call stack 8 deep in the
+Machine, 84 bytes, living in fB beside mFastEW; every push, pop, call,
+jump, site and field checked; per-event fuel 10,000; a fault FAILs into
+the physics RecoverPoint, one FAIL line per kind so `.pw` names it).
+scripts/bytephys/bpasm.py assembles fb1.bp / fb4.bp into the generated
+BytePrograms.h (opcode numbers parsed from BytePhys.h; `--check` in
+run_native_tests.sh).  Native FB1/FB4 moved unchanged into
+srcs/shared/include/NativeFB.h so the host test runs the same code:
+srcs/host/tools/bytephys_test.cpp shows bytecode == native, window and
+random draws, on 18,000 windows under 3 random streams (two mutations
+caught), and every machine fault is caught.  EWP: types 7 (FB1) and 8
+(FB4) are the bytecode versions, colored like FB1/FB4 on the host; every
+EWP times every event of types 4, 5, 7, 8 (tile wall clock, AI clock
+cycles, around guardedPhysics) and logs `.pt:TYPE:EVENTS:TICKS:INSNS.`
+(hex) every 65,536 events of a type; runsum.txt's "physics timing"
+section sums them over all tiles and prints cycles/event and the
+bytecode/native ratio.  Sizes: FB1 129 bytes, FB4 29 bytes of bytecode;
+instructions/event about 112 (FB1, mean over the test's mix) and 369
+(FB4); interpreter 1.3 KB of code; fB 708 B, so hart B's stack shrinks
+to ~7.45 KB.  First run: experiment.cmd (native and bytecode side by
+side, FB1 then FB4 phase, 20 min).
+
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
 hart B's 8 KB fast RAM, not EWP L1: fAll 16 B + fB 576 B (Physics, with

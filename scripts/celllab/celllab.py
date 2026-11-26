@@ -25,12 +25,13 @@ THE L1 MODEL (calibrated on the hub image of f291f11, ring 28):
 
 THE EWP SIDE (printed after the table): heavier physics loads the EWPs.
 The EWP image is the same in every cell shape (one per T6 that is not a
-hub), so its budget does not depend on the cell: today's image (f291f11)
-ends at 0x1e924 (122 KB: 86 KB code, of which physics ~2.3 KB; 14 KB bss;
-16 KB HostBlock), leaving about 1029 KB of the same 0x120000 budget for
-physics code and data.  Physics runs on hart B, whose 8 KB fast (local)
-RAM holds fAll (16 B), fB (576 B: Physics, including the current EW
-mFastEW) and the stack (the rest, ~7.6 KB).  The stack must stay in fast
+hub), so its budget does not depend on the cell: the bytephys spike image
+ends at 0x1f6b4 (125 KB: 89 KB code, of which physics + the bytecode
+machine ~3 KB; 14 KB bss; 16 KB HostBlock), leaving about 1026 KB of the
+same 0x120000 budget for physics code and data.  Physics runs on hart B,
+whose 8 KB fast (local) RAM holds fAll (16 B), fB (720 B: Physics,
+including the current EW mFastEW, the bytecode machine and the timing
+counters) and the stack (the rest, ~7.45 KB).  The stack must stay in fast
 RAM (moving it is a big performance loss, per TT), so it is the tight
 limit for complex physics, not L1.
 
@@ -107,15 +108,19 @@ POLICIES = {
 
 EWP_MAX = 8                     # EwpBlock HBASSERT_LT
 
-# The EWP image (f291f11; the same image in every cell shape, so its
-# budget does not depend on the cell).  Same _BUD.ld.in: 0x120000 of L1.
-EWP_END = 0x1e924               # .hostblock end
-EWP_TEXT = 0x1586c              # all code
-EWP_PHYSICS_TEXT = 2350         # Physics::* (doFastPhysics, doTransition)
-EWP_RODATA = 0x131c
+# The EWP image (bytephys spike build, 2026-11-26; the same image in every
+# cell shape, so its budget does not depend on the cell).  Same
+# _BUD.ld.in: 0x120000 of L1.
+EWP_BUILD = "bytephys spike"
+EWP_END = 0x1b634 + 0x4080      # .hostblock end
+EWP_TEXT = 0x1647c              # all code
+EWP_PHYSICS_TEXT = 3200         # Physics::* + BytePhys::Machine::run
+EWP_RODATA = 0x1468
 EWP_BSS = 0x384c                # log cars 9840, EWP car 2096, fT2 2576 ...
-EWP_HOSTBLOCK = 0x4074
-EWP_STACK = 8192 - 576          # hart B: 8 KB local RAM minus .fastram_b
+EWP_HOSTBLOCK = 0x4080
+EWP_FALL = 16                   # .fastram_all
+EWP_FB = 0x2d0                  # .fastram_b: Physics (EW, VM, timing)
+EWP_STACK = 8192 - EWP_FALL - EWP_FB   # hart B: the rest of 8 KB
 EWP_STACK_HW = 784              # measured high-water (boom recovery run)
 
 
@@ -229,7 +234,7 @@ def row(r):
 def ewp_report(l1, ewp_per_hub=None):
     free = l1 - EWP_END
     lines = [
-        f"EWP L1 (one image for every cell shape; f291f11): image "
+        f"EWP L1 (one image for every cell shape; {EWP_BUILD}): image "
         f"{EWP_END // 1024} KB = code {EWP_TEXT // 1024} KB (physics "
         f"~{EWP_PHYSICS_TEXT / 1024:.1f} KB of it), rodata "
         f"{EWP_RODATA // 1024} KB, bss {EWP_BSS // 1024} KB (log cars, "
@@ -237,10 +242,11 @@ def ewp_report(l1, ewp_per_hub=None):
         f"  free for physics code + data: {free // 1024} KB of the "
         f"{l1 // 1024} KB budget ({(L1_FULL - EWP_END) // 1024} KB of the "
         f"full L1)",
-        f"  hart B fast RAM 8192 B = fAll 16 + fB 576 (Physics, with the "
-        f"current EW mFastEW) + stack {EWP_STACK - 16} B (high-water seen "
-        f"{EWP_STACK_HW} B); the stack stays in fast RAM (performance), so "
-        f"bigger physics locals or fast state come out of it",
+        f"  hart B fast RAM 8192 B = fAll {EWP_FALL} + fB {EWP_FB} "
+        f"(Physics: the current EW mFastEW, the bytecode machine, timing) "
+        f"+ stack {EWP_STACK} B (high-water seen {EWP_STACK_HW} B); the "
+        f"stack stays in fast RAM (performance), so bigger physics locals "
+        f"or fast state come out of it",
     ]
     if ewp_per_hub:
         lines.append("  EWP L1 free per hub region: " + ", ".join(
@@ -283,8 +289,9 @@ def check():
     ok("noc" not in evaluate((4, 1, 2, 0), "ewsnap")["flags"],
        "4x1 inner hub is direct")
     ok("noc" not in evaluate((3, 3, 2, 2), "ewsnap")["flags"], "SE ok")
-    ok(EWP_END == 0x1a8b0 + EWP_HOSTBLOCK, "EWP image end = hostblock end")
-    ok("1029 KB of the 1152" in ewp_report(L1_HUB), "EWP free at the 0x120000 budget")
+    ok(EWP_END == 0x1f6b4, "EWP image end = hostblock end")
+    ok("1026 KB of the 1152" in ewp_report(L1_HUB),
+       "EWP free at the 0x120000 budget")
     print("celllab --check:", "FAILED" if bad else "ok",
           f"(fixed {FIXED_BYTES} B)")
     return 1 if bad else 0

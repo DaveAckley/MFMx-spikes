@@ -2,6 +2,7 @@
 
 #include "EwpBlock.h" // for EwpPayload
 #include "RecoverPoint.h" // for RecoverPoint
+#include "BytePhys.h"     // the bytecode spike's machine
 
 namespace MFM {
   struct Physics {
@@ -15,6 +16,21 @@ namespace MFM {
     RecoverPoint mRecover;      // FAIL during physics jumps here (this hart's
                                 // fAll.mRecover points at it while physics
                                 // runs); lives here, not on the stack
+
+    // Bytecode spike (BytePhys.h, types PHY_BFB1/PHY_BFB4): the machine's
+    // operand and call stacks live here in fast RAM, beside mFastEW.
+    BytePhys::Machine mVM;
+
+    // Physics timing (`.pt` mark): per timed type, events, wall-clock
+    // ticks (AI clock cycles) spent in guardedPhysics, and bytecode
+    // instructions, since the last mark.
+    enum : u32 {
+      PT_SLOTS = 4,             //< FB1, FB4, BFB1, BFB4
+    };
+    u32 mPtEvents[PT_SLOTS];
+    u32 mPtTicks[PT_SLOTS];
+    u32 mPtInsns[PT_SLOTS];
+    void notePhysicsTime(u32 type, u32 ticks) ;
 
     enum GuardedResult : u32 { GR_FALSE = 0, GR_TRUE = 1, GR_JUMPED = 2 };
     GuardedResult guardedPhysics() ;

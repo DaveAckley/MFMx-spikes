@@ -526,6 +526,8 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
 
         case 4u: // MINFB and
         case 5u: // MAXFB
+        case 7u: // MINFB and MAXFB as bytecode (BytePhys spike)
+        case 8u:
           {
             constexpr u32 slowBits = 1u;
             u32 val = a.mStg[1]; // get hidden counter

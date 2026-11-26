@@ -272,6 +272,59 @@ def hub_marks(rundir):
     return r
 
 
+# Physics timing (EWP `.pt:TYPE:EVENTS:TICKS:INSNS.` marks, hex, from
+# srcs/cross/images/ewp/src/Physics.cpp): summed over every tile log,
+# mean AI clock cycles per event per physics type (4 FB1, 5 FB4 native;
+# 7 FB1, 8 FB4 bytecode, the BytePhys spike) and bytecode instructions
+# per event.  A pair (4,7) or (5,8) gives the interpreter's overhead.
+PT_NAMES = {4: "FB1 native", 5: "FB4 native", 7: "FB1 bytecode",
+            8: "FB4 bytecode"}
+
+
+def physics_timing(rundir):
+    import glob
+    files = sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk")))
+    tot = {}
+    tiles = {}
+    for path in files:
+        try:
+            with open(path, "r", errors="replace") as f:
+                for l in f:
+                    i = l.find(" .pt:")
+                    if i < 0:
+                        continue
+                    v = l[i + 5:].strip().rstrip("}").rstrip(".")
+                    try:
+                        t, n, ticks, ins = (int(x, 16) for x in v.split(":"))
+                    except ValueError:
+                        continue    # torn mark
+                    e = tot.setdefault(t, [0, 0, 0])
+                    e[0] += n
+                    e[1] += ticks
+                    e[2] += ins
+                    tiles.setdefault(t, set()).add(path)
+        except OSError:
+            pass
+    if not tot:
+        return []
+    r = section("physics timing (EWP .pt marks, AI clock cycles per event)")
+    for t in sorted(tot):
+        n, ticks, ins = tot[t]
+        if n == 0:
+            continue
+        name = PT_NAMES.get(t, f"type {t}")
+        extra = f", {ins / n:.1f} bytecode insns/event" if ins else ""
+        r.append(f"type {t} ({name}): {n} events on {len(tiles[t])} tiles, "
+                 f"{ticks / n:.0f} cycles/event{extra}")
+    for nat, byt in ((4, 7), (5, 8)):
+        if nat in tot and byt in tot and tot[nat][0] and tot[byt][0]:
+            a = tot[nat][1] / tot[nat][0]
+            b = tot[byt][1] / tot[byt][0]
+            r.append(f"bytecode / native, {PT_NAMES[nat].split()[0]}: "
+                     f"{b / a:.2f}x")
+    return r
+
+
 def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
               outpath=None):
     """The summary as a list of lines.  out: console lines."""
@@ -279,6 +332,7 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
     lines = [f"runsum of {os.path.basename(rundir.rstrip('/'))}"]
     for part in (head_info(out, cmdline, elapsed), bolts(misc), feed(misc),
                  aer(misc), misc_counts(misc), hub_marks(rundir),
+                 physics_timing(rundir),
                  console(out), tail(out)):
         lines.extend(part)
     if pat:

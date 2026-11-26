@@ -1,0 +1,23 @@
+; fb4.bp -- FB4 in BytePhys bytecode: PHY_FB4 in
+; srcs/cross/images/ewp/src/Physics.cpp (no random draws).  Not copied:
+; the every-millionth FB4 log mark.
+
+        push 0          ; ca.mStg[1]++
+        push 0
+        getf stg1
+        push 1
+        add
+        setf stg1
+        push 1          ; for sn = 1..40: atom sn = ca
+loop:
+        push 0
+        over
+        copy
+        push 1
+        add
+        dup
+        push 41
+        lt
+        jnz loop
+        drop
+        halt1           ; return true
