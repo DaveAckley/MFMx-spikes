@@ -393,6 +393,64 @@ What they say so far:
 Not modelled yet: cache elision, exchange packets (vs sites), the real
 hub's u8 coordinate box, non-uniform shifts.
 
+### STEP 3 PLAN: rect-snap in the hub (branch diagonal-tiles, DRAFT)
+
+From reading CacheLoader.cpp, Grid.cpp (seekRandomNonEmptySite), T6Grid.h,
+CachingPolicy.h, HostFlags.h, machine_boot.py.
+
+A. A THIRD CACHE POLICY, not a compile flag.  HostFlags already carries a
+   2-bit policy id (HBF_CACHEPOL0/1); CP_EWSNAP = 2 (`policy ewsnap` in
+   mfmxctl).  One image runs fourcorners or ewsnap per run, so the A/B
+   comparison uses the same build.  Its Dir8 roles (borrow 3, lend 3)
+   and NEW_LEADER Corner4 argument are four corners'; sequencer.py's
+   `cycle repeat` check must accept it too.
+B. STORAGE.  T6GRID_OVERLAP 20 -> 22 (= STORE_MARGIN), so the T6Grid is
+   the 181 x 152 storeBox for both policies; HubGeometry.py, the
+   BlockCode.h T6GRID literal (12*181*152+4 = 330,148) and
+   hubgeom_check follow; static_assert OVERLAP >= STORE_MARGIN.  Side
+   effect: fourcorners on this branch runs with 22-wide rings (an OW
+   change like 10 -> 15 -> 20 before), so the baseline is rerun on this
+   build.  L1: +16 KB grid, +~8 KB per-site tables, ~10 KB center
+   tables, of ~278 KB free (check hub.map).
+C. BANDS.  Disjoint minimal bands, band(H, N, c) = N's EWs inside H's
+   event area: no site travels to two neighbors (today's rect strips
+   overlap at the corner squares: W, N and NW each get a copy of a SELF
+   corner and all three send it back at SAVE).  Elision then keeps a
+   direction only when its band rectangle is the same under the old and
+   new corner (same corner: all; others: none at first).  A hub needs a
+   neighbor's rectangle: same as its own shifted by the hub pitch, with
+   only the permanent sides that run parallel to the offset (they are
+   shared); the native test checks this against every hub's own view
+   for the 1-, 2- and 4-chip layouts.
+D. WALKING A BAND (CacheLoader).  A resumable EWLattice::BandWalk
+   (CenterIter + site index k + ordinal) yields hub-local coordinates
+   of the ACCESSIBLE sites of the band's EWs in canonical order.
+   Accessible = not beyond a permanent side of the walking hub (the
+   rule isAccessible already uses, NOT the global grid: a 1-chip run's
+   edge is mid-grid); both ends agree because the sides involved are
+   shared (tested).  CacheLoader keeps a U8CRange iterator for the old
+   policies and a BandWalk for ewsnap.  The packet's mStartsAt check
+   (BADC) becomes the walk ordinal (u16 packed into the U8C).  unload's
+   "into SELF" test (DL report vs quiet) becomes "an EW we own".
+E. EVENT CENTERS.  Five center tables (no corner yet, SE, SW, NW, NE)
+   built at hub init by EWLattice code: label each stored site with the
+   hub whose area holds its EW center, keep the sites whose 41 window
+   sites carry our label or are inaccessible, store runs (y, x0, len)
+   plus running counts; capacity ~320 runs per table, overflow is an
+   ENGINE_FAIL at init.  seekRandomNonEmptySite draws r < N and
+   binary-searches when the policy is ewsnap; mark `.ct:N0:N1:N2:N3:N4`
+   (live centers per table) and the init time.
+F. HOST.  mfmxctl `policy ewsnap` (machine_util, cmd_machine, --policy),
+   Blackhole.setCachePolicy comment, l1grid.py (OW 22),
+   cachepolicy_test at OW 22.  Display crop uses OW automatically; a
+   hub's sawtooth tip sites outside its rectangle are labelled RING by
+   who/specks (cosmetic, noted).
+G. TESTS FIRST.  EWLattice additions (neighbor rects, BandWalk,
+   accessibility, center-table builder) native-tested before any hub
+   edit; then cross build hub + ewp; native suite; mock selftest.
+   Step 4: one experiment.cmd running fourcorners and ewsnap back to
+   back on the same build (AER, bolts, xchg.py, zhd, turds, `.ct`).
+
 ## 11. Open questions
 
 - What OW = 20 buys over a smaller ring (sec 5).
