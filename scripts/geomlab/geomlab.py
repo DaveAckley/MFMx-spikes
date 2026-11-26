@@ -347,7 +347,7 @@ def layout_rect_snap():
     return Layout("rect-snap", part_at((0, 0)),
                   np.arange(NH, dtype=np.int64),
                   corner_shifts(OW, OH),
-                  "rect hubs rounded to whole EWs (EW centre rule), "
+                  "rect hubs rounded to whole EWs (EW center rule), "
                   "shifted areas snapped too", part_at)
 
 
@@ -407,6 +407,10 @@ def measure(lay):
     cache_keys = []
     pair_keys = []
     bor_keys = []
+    runs_max = 0
+    runs_n = []
+    live_n = []
+    rowsY = np.broadcast_to(YY, (H, W))
     site = (YY * W + XX).astype(np.int64)
     lives = []
     for s in lay.shifts:
@@ -420,6 +424,18 @@ def measure(lay):
         xchg.append(np.bincount(hub_s[bor], minlength=NH))
         cache_keys.append(site[bor] * NH + hub_s[bor])
         bor_keys.append(site[bor] * NH + hub_s[bor])
+        # CENTER TABLE: this cycle's live centers of each hub, as runs
+        # of consecutive x in each row (what a hub would store to pick
+        # a center uniformly: per row, runs + a running count).
+        lh = np.where(live, hub_s, -1)
+        prev = np.full_like(lh, -1)
+        prev[:, 1:] = lh[:, :-1]
+        st = (lh >= 0) & (lh != prev)
+        per_row = np.bincount(lh[st] * H + rowsY[st],
+                              minlength=NH * H)
+        runs_max = max(runs_max, int(per_row.max()))
+        runs_n.append(np.bincount(lh[st], minlength=NH))
+        live_n.append(np.bincount(lh[lh >= 0], minlength=NH))
         pair_keys.append(hub_s[bor] * NH + own[bor])
     m["dead"] = 100.0 * float(np.mean(dead))
     ei, ej = ew_tile_index()
@@ -444,6 +460,12 @@ def measure(lay):
         per_hub = np.bincount(np.unique(pk) % NH, minlength=NH)
         ews.append(per_hub)
     m["bands_whole"] = parts_ok
+    rn = np.array(runs_n)[:, owned > 0]
+    ln = np.array(live_n)[:, owned > 0]
+    m["runs_max"] = runs_max
+    m["runs_mean"] = float(rn.mean())
+    m["runs_top"] = int(rn.max())
+    m["live_rng"] = (int(ln.min()), int(ln.max()))
     ews = np.array(ews)
     m["band_ews"] = (int(ews[:, owned > 0].min()),
                      int(ews[:, owned > 0].max()))
@@ -555,15 +577,15 @@ def picture(path, own, live, never, pairs=()):
     Image.fromarray((img * 255).astype(np.uint8)).save(path)
 
 
-def zoom_picture(path, own, lives, shifts, never, centre, size, scale,
+def zoom_picture(path, own, lives, shifts, never, center, size, scale,
                  pairs=()):
     """Close-up, one square of scale x scale pixels per site, a size x
-    size site window around centre, one panel per shift (2 across).
+    size site window around center, one panel per shift (2 across).
     Colors are the owning hub, dark = dead center in that shift, red =
     never live; thin lines separate sites."""
     from PIL import Image, ImageDraw
     rgb = hub_rgb(own, pairs)
-    cx, cy = centre
+    cx, cy = center
     x0 = min(max(cx - size // 2, 0), W - size)
     y0 = min(max(cy - size // 2, 0), H - size)
     crop = own[y0:y0 + size, x0:x0 + size]
@@ -634,8 +656,8 @@ def ew_picture(path, size, scale, block=False):
     img = PALETTE[(ti + 2 * tj) % 5].copy()
     cx = ti * R - tj * (R + 1)
     cy = ti * (R + 1) + tj * R
-    centre = (cx == XX[win]) & (cy == YY[win])
-    img[centre] *= 0.45
+    center = (cx == XX[win]) & (cy == YY[win])
+    img[center] *= 0.45
     if block:
         img[~inblk[win]] = 0.25 * img[~inblk[win]] + 0.1
     big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
@@ -653,7 +675,7 @@ def ew_picture(path, size, scale, block=False):
         rect[ry0:ry0 + bh, rx0:rx0 + bw] = True
         both = int((rect & inblk).sum())
         print(f"hub rectangle {bw} x {bh} = {bw * bh} sites on the same "
-              f"centre: {both} shared, {int(inblk.sum()) - both} only "
+              f"center: {both} shared, {int(inblk.sum()) - both} only "
               f"in the block, {bw * bh - both} only in the rectangle")
         px0 = (rx0 - x0) * scale
         py0 = (ry0 - y0) * scale
@@ -732,12 +754,12 @@ def ew_rect_picture(path, scale, hub=(2, 2), snap=False):
     if snap:
         lit = major[key]
         cin = np.zeros(nkeys, dtype=bool)
-        centre = (cx == XX[win]) & (cy == YY[win])
-        cin[key[centre & inrect]] = True
+        center = (cx == XX[win]) & (cy == YY[win])
+        cin[key[center & inrect]] = True
         print(f"snapped: {int(major.sum())} EWs = {int(lit.sum())} "
               f"sites; {int((lit & ~inrect).sum())} gained outside, "
               f"{int((~lit & inrect).sum())} lost inside; majority rule "
-              f"and centre-inside rule differ on "
+              f"and center-inside rule differ on "
               f"{int((major != cin).sum())} EWs")
 
 
@@ -770,7 +792,7 @@ def report_tileable(limit=120):
                        if abs(2 * x + hx) + abs(2 * y + hy) <= d}
                 if reg and tileable(reg):
                     hits.append((d / 2, hx / 2, hy / 2))
-    print(f"diamonds (radius, centre offset) EW-tileable up to "
+    print(f"diamonds (radius, center offset) EW-tileable up to "
           f"{limit}: {hits}")
     sq = [s for s in range(1, limit)
           if tileable({(x, y) for x in range(s) for y in range(s)})]
@@ -819,7 +841,7 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--zoom", default="",
-                    help="X,Y centre of the close-ups (default: a hub "
+                    help="X,Y center of the close-ups (default: a hub "
                          "corner inside chip 0)")
     ap.add_argument("--zsize", type=int, default=100,
                     help="close-up width in sites")
@@ -890,10 +912,14 @@ def main():
         line = row(n, m)
         print(line, flush=True)
         lines.append(line)
-        notes.append(f"  {n}: lattice-centre dead {m['deadL']:.1f}%; "
+        notes.append(f"  {n}: lattice-center dead {m['deadL']:.1f}%; "
                      f"borrowed bands whole EWs: {m['bands_whole']}, "
                      f"EWs borrowed per hub per cycle {m['band_ews'][0]}"
                      f"..{m['band_ews'][1]}")
+        notes.append(f"  {n}: center table: <= {m['runs_max']} runs per "
+                     f"row, {m['runs_mean']:.0f} runs per hub-cycle "
+                     f"(max {m['runs_top']}), live centers per "
+                     f"hub-cycle {m['live_rng'][0]}..{m['live_rng'][1]}")
         notes.append(f"  {n}: {lay.note}; unowned {m['unowned']}, "
                      f"store max {m['store_max']}, ring max "
                      f"{m['ring_max']}, neighbor pairs {m['pairs']} "

@@ -209,7 +209,7 @@ hubs, 4 corners.
 The eth-seam layer depends on the cell shape only through E, the number
 of edge hubs on a seam (E/W: one per cell row, 10 / cell height; N/S:
 one per cell column, 14 / cell width).  A seam needs 3E-2 channels
-between two cards, 3E with the centre diagonals.  Channels per link with
+between two cards, 3E with the center diagonals.  Channels per link with
 4 live links (from ERISC_SEAM_DESIGN sec 13):
 
 | cell | E/W E | ch/link | N/S E | ch/link |
@@ -310,7 +310,7 @@ What they say so far:
   small diamonds (multi48) land between, at 10.1%.
 - Fencing every small diamond (events may not cross ANY diamond edge)
   is worse than today: 16.0%.
-- No diamond (any radius, any centre offset) and no square can be
+- No diamond (any radius, any center offset) and no square can be
   covered exactly by EWs; only blocks on the EW lattice (tilted about
   51 degrees, stair-step edges) can (ew-blocks 0.988, edges only).
   Diamonds pack better than rectangles (0.90 vs 0.88).
@@ -343,6 +343,27 @@ What they say so far:
   lattice EW lies wholly in one hub's area in every cycle.
 - Diamond rings cost less (0.50-0.56 of SELF vs 0.69) for the same
   Manhattan reach, and fewer neighbors are borrowed from per cycle.
+- CENTER TABLES (random centers stay: MFM picks centers in an
+  unspecified order, no site starved; dead sites are accepted).  A hub
+  can pick uniformly among exactly its live centers for the current
+  corner from a run list: the live centers as runs of consecutive x
+  (row y, x0, length) in row-major order, plus a running count.  Pick
+  r < N (one draw), binary-search the counts (8 steps for 256 runs),
+  site = (x0 + r - count, y).  The lab measures the run lists per hub
+  and corner (`center table:` note lines):
+      rect         1 run per row,  101 runs per hub-corner (max 124)
+      rect-snap  <=17 per row,     217 runs per hub-corner (max 256)
+      dia-multi48 <=3 per row,     187 runs per hub-corner (max 305)
+  (rect-snap's extra runs are the rows that cut through the sawtooth
+  teeth of its top and bottom edges.)  At ~5 bytes per run that is
+  about 1.3 KB per corner, 5 KB per hub for four corners.  Built at
+  hub init: per corner, label each site with the hub whose shifted
+  rectangle holds its EW center (TABLE lookup above), then keep sites
+  whose 41 window sites all carry this hub's label (or are off-grid),
+  about 4 x 26k x 41 checks.  never% = 0 in every layout: every site is
+  a live center in at least one corner.  N differs between hubs (edge
+  hubs have more live centers), so per-site event rates differ a
+  little between hubs, as they do today at permanent edges.
 Not modelled yet: cache elision, exchange packets (vs sites), the real
 hub's u8 coordinate box, non-uniform shifts.
 
