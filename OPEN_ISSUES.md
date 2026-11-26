@@ -288,15 +288,23 @@ EWP section; GEOMETRY.md sec 9).
 
 Idea: compile physics to bytecode run by an interpreter on hart B.
 - Explicit VM operand/call stacks in fB beside mFastEW, sized up front.
-- Load-time verifier: no recursion (call graph a DAG), declared max
-  operand depth per function (cf. JVM max_stack, WebAssembly validation),
-  so each element's worst-case stack use is known before it runs; refuse
-  anything over budget.  The interpreter's own native frame is fixed and
-  measured once (the stack canaries already do this), so the 8 KB becomes
-  an explicit split: interpreter frame + VM stacks.
-- Per-event fuel (instruction budget): runaway physics ends as a clean
-  failed event, not a hang; a VM fault is a return code, simpler than the
-  RecoverPoint longjmp (which catches FAILs, not loops).
+  The interpreter NEVER recurses natively: a bytecode call pushes a frame
+  on the VM call stack and the dispatch loop continues, so native stack
+  use is constant (interpreter frame + deepest primitive, measured once
+  with the stack canaries) and the 8 KB is an explicit split.
+- Bytecode recursion is FINE (liv): overflowing a VM stack is just a
+  failed bounds check, and the engine longjmps to the existing
+  RecoverPoint (same policy as today: commit the pre-event window with
+  the center erased, log it).  Same for a bad opcode or jump target and
+  for running out of per-event fuel (an instruction budget; stack bounds
+  stop runaway recursion, fuel stops infinite loops).  Cheap checks: the
+  compiler records each function's max operand depth, so one check at
+  call entry covers every push in that frame.
+- A load-time verifier (declared depths, cf. JVM max_stack, WebAssembly
+  validation) is then OPTIONAL: an early warning that reports problems
+  before they happen, not a safety requirement.
+- Caveat: a primitive must never fault while holding a lock
+  (AtomicScopeLock does not recover): check arguments before locking.
 - Bytecode lives in L1 as data: lots of element code, even different
   element sets on different EWPs.
 - THE MAIN HOPE FOR A WIN (liv): rich native primitives, so most event
