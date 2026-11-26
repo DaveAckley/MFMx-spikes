@@ -42,6 +42,7 @@ Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
        python3 geomlab.py --tileable   (exact EW covers of shapes)
        python3 geomlab.py --ewtiles    (picture of the EW tiling)
        python3 geomlab.py --ewblock    (one hub-sized block of EWs)
+       python3 geomlab.py --ewrect     (today's hub on the EW tiling)
 Needs numpy and PIL (no scipy).  About 20 s for all layouts.
 """
 
@@ -598,6 +599,60 @@ def ew_picture(path, size, scale, block=False):
               f"bounding box {sw - 12} x {sh - 12} sites")
 
 
+def ew_rect_picture(path, scale, hub=(2, 2)):
+    """One of today's hubs (SELF, BW x BH) on the perfect EW tiling:
+    EWs wholly inside it bright, EWs cut by its edge half bright,
+    all others dark, hub outlined in white.  The hub is placed where
+    it really is (hub coords, default (2,2) of chip 0)."""
+    from PIL import Image
+    i, j = ew_tile_index()
+    bw = HG.T6GRID_BASE_WIDTH
+    bh = HG.T6GRID_BASE_HEIGHT
+    rx0 = hub[0] * bw
+    ry0 = hub[1] * bh
+    pad = 2 * R + 2
+    x0 = rx0 - pad
+    y0 = ry0 - pad
+    sw = bw + 2 * pad
+    sh = bh + 2 * pad
+    win = (slice(y0, y0 + sh), slice(x0, x0 + sw))
+    ti = i[win]
+    tj = j[win]
+    key = compact_ids(ti, tj)
+    inrect = np.zeros(key.shape, dtype=bool)
+    inrect[pad:pad + bh, pad:pad + bw] = True
+    nkeys = int(key.max()) + 1
+    inside = np.bincount(key[inrect], minlength=nkeys)
+    full = inside == EW_SITES
+    cut = (inside > 0) & ~full
+    img = PALETTE[(ti + 2 * tj) % 5].copy()
+    cx = ti * R - tj * (R + 1)
+    cy = ti * (R + 1) + tj * R
+    img[(cx == XX[win]) & (cy == YY[win])] *= 0.45
+    lvl = np.where(full[key], 1.0, np.where(cut[key], 0.55, 0.18))
+    img *= lvl[:, :, None]
+    big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
+    if scale >= 4:
+        big[scale - 1::scale, :, :] *= 0.75
+        big[:, scale - 1::scale, :] *= 0.75
+    px0 = pad * scale
+    py0 = pad * scale
+    px1 = px0 + bw * scale
+    py1 = py0 + bh * scale
+    t = max(scale // 2, 2)
+    big[py0:py0 + t, px0:px1] = 1.0
+    big[py1 - t:py1, px0:px1] = 1.0
+    big[py0:py1, px0:px0 + t] = 1.0
+    big[py0:py1, px1 - t:px1] = 1.0
+    Image.fromarray((big * 255).astype(np.uint8)).save(path)
+    nf = int(full.sum())
+    nc = int(cut.sum())
+    cutin = int(inside[cut].sum())
+    print(f"hub {hub} {bw} x {bh} = {bw * bh} sites: {nf} whole EWs "
+          f"({nf * EW_SITES} sites, {nf * EW_SITES / (bw * bh):.3f}), "
+          f"{nc} EWs cut by the edge ({cutin} of their sites inside)")
+
+
 # ---------------------------------------------------------------- checks
 
 def tileable(region):
@@ -691,6 +746,9 @@ def main():
                     help="one hub-sized block of EWs with its edges and "
                          "today's hub rectangle outlined "
                          "(OUT/ew-block.png; --zscale)")
+    ap.add_argument("--ewrect", action="store_true",
+                    help="today's hub (2,2) on the EW tiling: whole EWs "
+                         "bright, cut EWs half (OUT/ew-rect.png)")
     ap.add_argument("--tileable", action="store_true",
                     help="which diamonds / squares EWs cover exactly")
     args = ap.parse_args()
@@ -703,6 +761,11 @@ def main():
         return 0
     if args.tileable:
         report_tileable()
+        return 0
+    if args.ewrect:
+        os.makedirs(args.out, exist_ok=True)
+        ew_rect_picture(os.path.join(args.out, "ew-rect.png"),
+                        args.zscale)
         return 0
     if args.ewblock:
         os.makedirs(args.out, exist_ok=True)
