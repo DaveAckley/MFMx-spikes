@@ -23,11 +23,15 @@ THE L1 MODEL (calibrated on the hub image of f291f11, ring 28):
                     other harts' needs are not modeled)
 --atom-bytes, --fixed, --l1 and --no-side-tables change the model.
 
-Hub position: with both cell dimensions > 1 the hub sits at the NW
-(0,0) or SE (CW-1,CH-1) corner.  Per cell the two are mirror images
-(same hops to every EWP and to the neighbor hubs, NoC0 out and NoC1
-back swap roles), so they differ only in where the idle T6s go at the
-chip edge and in seam wiring (EthSeam.h), which this lab does not model.
+Hub position: NoC0 only runs east and south, NoC1 only west and north
+(NRIUtils.cpp preferNoC).  So only a hub at the NW (0,0) or SE
+(CW-1,CH-1) corner reaches EVERY EWP of its cell on one NoC (NW: out on
+NoC0, replies on NoC1; SE: the reverse) without wrapping around the
+torus; a NE/SW corner or an inner hub has EWPs in mixed directions
+(flag 'noc').  For a 1-wide cell the two ends are the NW/SE corners.
+NW and SE are mirror images per cell (same hops), so they differ only
+in where the idle T6s go at the chip edge and in seam wiring
+(EthSeam.h), which this lab does not model.
 
 Columns (one row per cell shape and policy):
   cell     CWxCH@HX,HY
@@ -44,6 +48,8 @@ Columns (one row per cell shape and policy):
            with SELF scaled, same aspect, until the hub just fits L1
   flags    u8    TW or TH > 255 (u8 grid coords, GEOMETRY.md sec 8)
            ewp8  more than 8 EWPs per cell (EwpBlock HBASSERT_LT)
+           noc   hub not at NW/SE: some EWPs need the other NoC or a
+                 torus wrap
            L1    over the 0x120000 budget;  L1!  over even 0x180000
 
 Usage:
@@ -144,6 +150,8 @@ def evaluate(cell, policy, atom_bytes=ATOM_BYTES, fixed=FIXED_BYTES,
         flags.append("u8")
     if cw * ch - 1 > EWP_MAX:
         flags.append("ewp8")
+    if (hx, hy) not in ((0, 0), (cw - 1, ch - 1)):
+        flags.append("noc")
     if use > L1_FULL:
         flags.append("L1!")
     elif use > l1:
@@ -218,6 +226,10 @@ def check():
     ok("ewp8" in r["flags"], "3x4: 11 EWPs flagged")
     ok(parse_cell("3x3") == (3, 3, 2, 2), "default hub SE")
     ok(parse_cell("4x2@0,0") == (4, 2, 0, 0), "parse 4x2@0,0")
+    ok("noc" not in evaluate((3, 3, 0, 0), "ewsnap")["flags"], "NW ok")
+    ok("noc" in evaluate((3, 3, 2, 0), "ewsnap")["flags"], "NE flagged")
+    ok("noc" in evaluate((3, 3, 1, 1), "ewsnap")["flags"], "center flagged")
+    ok("noc" in evaluate((1, 3, 0, 1), "ewsnap")["flags"], "1x3 middle")
     print("celllab --check:", "FAILED" if bad else "ok",
           f"(fixed {FIXED_BYTES} B)")
     return 1 if bad else 0

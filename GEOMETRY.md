@@ -294,8 +294,11 @@ hub's SELF must grow to cover HD, and NONE of 3x3, 4x2, 2x4 fits:
 and every one of them also breaks the u8 grid coordinates (TW or TH >
 255).  With HD fixed, only 1x2, 2x1, 2x2 and 1x3 fit (`--fits`).  12 B
 per site (no DLGridList or stamps) AND the full 1.5 MB L1 would let them
-cover 141-167% of HD, but the u8 limit stays.  NW vs SE hub is a mirror
-image per cell (same hops); it matters only for idle T6s and seams.
+cover 141-167% of HD, but the u8 limit stays.  HUB POSITION: NoC0 runs
+only east and south, NoC1 only west and north, so only a NW or SE hub
+reaches all its EWPs on one NoC (replies on the other) with no torus
+wrap; the lab flags any other position `noc`.  NW and SE are mirror
+images per cell (same hops); they differ only for idle T6s and seams.
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
