@@ -60,8 +60,10 @@ def c_cycle(ctx, a):
     if sub == "repeat":
         if len(a) > 1:
             cyc.repeat = kw(a[1], ("on", "off"), "cycle repeat") == "on"
-        return (f"cycle repeat: {'on' if cyc.repeat else 'off'} (a corner may repeat; "
-                "four corners only)")
+        what = ("the next corner is any of the 4, so it may repeat"
+                if cyc.repeat else "the next corner always differs")
+        return (f"cycle repeat: {'on' if cyc.repeat else 'off'} ({what}; "
+                "corner policies only)")
     if sub == "leader":
         n = None if len(a) < 2 or (not a[1].isdigit() and
                                    kw(a[1], ("random",), "cycle leader") == "random") else a[1]
