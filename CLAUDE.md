@@ -2,7 +2,10 @@
 
 Read this first.  It is auto-loaded by Claude Code from the repo root.
 Everything below is 7-bit ASCII on purpose (the user wants only ASCII in
-source, comments, docs and commit messages).
+source, comments, docs and commit messages).  Use AMERICAN spelling in
+all new or edited text (center, color, neighbor, behavior; not centre,
+colour, neighbour, behaviour).  Old identifiers such as CENTRE_FIRST stay
+unless the user asks for a rename.
 
 ## 1. CODE FORMATTING (the user cares a lot; applies to all NEW or
 ##    substantially edited C/C++/Python code)
