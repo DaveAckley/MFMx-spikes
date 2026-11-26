@@ -277,6 +277,41 @@ flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
+## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, NOT started)
+
+Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
+hart B's 8 KB fast RAM, not EWP L1: fAll 16 B + fB 576 B (Physics, with
+the current EW mFastEW, which liv wants to stay there) + ~7.6 KB stack
+(high-water seen 784 B).  The stack must stay in fast RAM (moving it out
+is a big performance loss, per TT).  EWP L1 has ~1029 KB free (celllab
+EWP section; GEOMETRY.md sec 9).
+
+Idea: compile physics to bytecode run by an interpreter on hart B.
+- Explicit VM operand/call stacks in fB beside mFastEW, sized up front.
+- Load-time verifier: no recursion (call graph a DAG), declared max
+  operand depth per function (cf. JVM max_stack, WebAssembly validation),
+  so each element's worst-case stack use is known before it runs; refuse
+  anything over budget.  The interpreter's own native frame is fixed and
+  measured once (the stack canaries already do this), so the 8 KB becomes
+  an explicit split: interpreter frame + VM stacks.
+- Per-event fuel (instruction budget): runaway physics ends as a clean
+  failed event, not a hang; a VM fault is a return code, simpler than the
+  RecoverPoint longjmp (which catches FAILs, not loops).
+- Bytecode lives in L1 as data: lots of element code, even different
+  element sets on different EWPs.
+- THE MAIN HOPE FOR A WIN (liv): rich native primitives, so most event
+  time is spent in native code and interpretation is only glue: atom
+  access and atom subfield access, and EW scans such as "find a closest
+  atom of type X, breaking ties uniformly at random"; also symmetry
+  mapping, random draws, type tests.
+- Cost: plain switch dispatch on an in-order RV32 is often 5-20x slower
+  per op than native; mitigations: computed-goto dispatch (GCC), a
+  register VM, superinstructions, and above all the primitives.  Needs a
+  compiler from the element language to the bytecode.
+- First measurement (cheap): hand-write FB1 for a tiny switch-dispatch
+  interpreter on the EWP and compare AER with native FB1 on the same
+  build: the real overhead factor on this core, before designing a format.
+
 ## Design idea: raise the AI clock (2026-11-22, steps 1 and 2 DONE: arcpeek and arcmsg RUN)
 
 The chip runs at 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale toward AER 1.6 at best.
