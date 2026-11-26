@@ -308,6 +308,12 @@ under ewsnap10 (TW 256); 3x3, 4x2, 2x4 still overflow L1 and/or u8.
 At 1440x810: 3x3@0,0 (4x3 hubs, 96 EWPs, 8 per hub, SELF 180x135) FITS
 under fourcorners (1113 KB, grid 220x175, 38 KB free) but not ewsnap10
 (1240 KB, 89 KB over); 2x4 fits fourcorners (2 blank rows); 4x2 is u8.
+At qHD 960x540 EVERY shape with <= 8 EWPs fits (1xN, Nx1, 2x2, 2x3,
+3x2, 2x4, 4x2, 3x3).  3x3@0,0: SELF 120x90, grid 160x130 fourcorners
+(802 KB, 349 KB free) or 176x146 ewsnap10 (894 KB, 257 KB free).  L1 is
+no longer the limit; the ring is: xchg 0.32-0.35 for 3x3, 0.51-0.56 for
+2x2 (whose SELF is only ~27-36% of what it stores).  The spare L1 could
+go to bigger atoms (`--atom-bytes`).
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
