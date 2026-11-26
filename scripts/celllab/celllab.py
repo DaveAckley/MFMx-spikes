@@ -253,7 +253,8 @@ def main(argv):
                     choices=sorted(POLICIES), help="repeatable; default "
                     "fourcorners and ewsnap10")
     ap.add_argument("--atom-bytes", type=int, default=ATOM_BYTES,
-                    help="bytes per stored atom (P4Atom 12)")
+                    help="bytes per stored atom (P4Atom 12; P4 is locked "
+                    "for this round, so a what-if only)")
     ap.add_argument("--fixed", type=int, default=FIXED_BYTES,
                     help="fixed hub L1 bytes (default measured)")
     ap.add_argument("--l1", type=lambda s: int(s, 0), default=L1_HUB,

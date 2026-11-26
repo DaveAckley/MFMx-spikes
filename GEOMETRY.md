@@ -312,8 +312,11 @@ At qHD 960x540 EVERY shape with <= 8 EWPs fits (1xN, Nx1, 2x2, 2x3,
 3x2, 2x4, 4x2, 3x3).  3x3@0,0: SELF 120x90, grid 160x130 fourcorners
 (802 KB, 349 KB free) or 176x146 ewsnap10 (894 KB, 257 KB free).  L1 is
 no longer the limit; the ring is: xchg 0.32-0.35 for 3x3, 0.51-0.56 for
-2x2 (whose SELF is only ~27-36% of what it stores).  The spare L1 could
-go to bigger atoms (`--atom-bytes`).
+2x2 (whose SELF is only ~27-36% of what it stores).  The atom size is
+NOT a free knob: P4Atom (Parameter set 4: size, type bits, ECC) is
+locked for this round (liv, 2026-11-26), so `--atom-bytes` is for
+what-ifs only; heavier physics mostly loads the EWPs (code, windows),
+whose L1 this lab does not model.
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
