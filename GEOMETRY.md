@@ -416,7 +416,13 @@ differs:
 noise as far as known); most of the drop from 0.936 is the build (ring
 22 and the rest), not ewsnap.  Stale (dropped late) reports are ~1.6x
 fourcorners', all dropped correctly (0 turds); during the quiet pause
-fourcorners still gained 16,593 stale, ewsnap none.  By eye (liv):
+fourcorners still gained 16,593 stale, ewsnap none.  WRITABLE SITES
+(lab, 2026-11-26): under ewsnap every site lies in a lattice EW wholly
+inside one hub's area, whose center is therefore live, so a full-window
+physics (FB4) can write EVERY site in EVERY cycle: 0 sites uncovered by
+any live window, vs 4,680 (0.23%) in rect's worst cycle (the corners of
+each event area, where live centers are >= 8 away).  'Dead' under
+ewsnap means only 'cannot be a center this cycle'.  By eye (liv):
 less tile 'boxiness', FB1 colonies less affected by hub boundaries,
 zig-zag edges visible at times.
 
