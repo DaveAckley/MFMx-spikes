@@ -46,7 +46,7 @@ Columns (one row per cell shape and policy):
   xchg     sites borrowed per cycle / SELF (four corners: shift*(BW+BH)
            - shift^2, shift = ring for fourcorners, 18 for ewsnap*)
   hops     max NoC hops hub -> EWP in the cell (Manhattan)
-  fits-box the biggest box (and % of HD area) this cell could cover
+  fits-box the biggest box (and % of the --box area) this cell could cover
            with SELF scaled, same aspect, until the hub just fits L1
   flags    u8    TW or TH > 255 (u8 grid coords, GEOMETRY.md sec 8)
            ewp8  more than 8 EWPs per cell (EwpBlock HBASSERT_LT)
@@ -58,6 +58,7 @@ Usage:
   celllab.py                     every cell with 2..9 tiles (+ policies)
   celllab.py 2x2@1,1 3x3@2,2 4x2@0,0 2x4@1,3
   celllab.py --policy ewsnap10 --atom-bytes 16 3x3@0,0
+  celllab.py --box 1600x900 3x3@0,0   a smaller world
   celllab.py --check             self-test (reproduces today's numbers)
 """
 
@@ -125,7 +126,7 @@ def default_cells():
 
 
 def evaluate(cell, policy, atom_bytes=ATOM_BYTES, fixed=FIXED_BYTES,
-             side_tables=True, l1=L1_HUB):
+             side_tables=True, l1=L1_HUB, box=(BOX_W, BOX_H)):
     cw, ch, hx, hy = cell
     ring, shift, scratch = POLICIES[policy]
     cx = T6_X // cw                     # cells (hubs) per chip, across
@@ -133,10 +134,10 @@ def evaluate(cell, policy, atom_bytes=ATOM_BYTES, fixed=FIXED_BYTES,
     hubs = cx * cy
     ewp = hubs * (cw * ch - 1)
     idle = T6_X * T6_Y - hubs * cw * ch
-    bw = (BOX_W // CHIPS_X) // cx       # floor, as DemoGlobal.h
-    bh = (BOX_H // CHIPS_Y) // cy
-    blank_w = BOX_W - bw * cx * CHIPS_X
-    blank_h = BOX_H - bh * cy * CHIPS_Y
+    bw = (box[0] // CHIPS_X) // cx      # floor, as DemoGlobal.h
+    bh = (box[1] // CHIPS_Y) // cy
+    blank_w = box[0] - bw * cx * CHIPS_X
+    blank_h = box[1] - bh * cy * CHIPS_Y
     tw = bw + 2 * ring
     th = bh + 2 * ring
     sites = tw * th
@@ -184,12 +185,12 @@ def evaluate(cell, policy, atom_bytes=ATOM_BYTES, fixed=FIXED_BYTES,
         "xchg": borrowed / float(bw * bh),
         "hops": hops, "flags": flags,
         "fit_w": fit_w, "fit_h": fit_h,
-        "fit_pct": 100.0 * fit_w * fit_h / (BOX_W * BOX_H),
+        "fit_pct": 100.0 * fit_w * fit_h / (box[0] * box[1]),
     }
 
 
 HEADER = ("cell       policy       hubs   ewp e/h idle   SELF     blank  "
-          "grid       KB   free   xchg hops  fits-box (HD%) flags")
+          "grid       KB   free   xchg hops  fits-box (box%) flags")
 
 
 def row(r):
@@ -259,6 +260,8 @@ def main(argv):
                     help="hub L1 budget (default 0x120000)")
     ap.add_argument("--no-side-tables", action="store_true",
                     help="drop DLGridList and site stamps (6 B/site)")
+    ap.add_argument("--box", default=f"{BOX_W}x{BOX_H}",
+                    help="world to cover, WxH (default HD 1920x1080)")
     ap.add_argument("--fits", action="store_true",
                     help="list only rows with no flags")
     ap.add_argument("--check", action="store_true", help="self-test")
@@ -266,8 +269,9 @@ def main(argv):
     if a.check:
         return check()
     cells = [parse_cell(c) for c in a.cells] if a.cells else default_cells()
+    box = tuple(int(v) for v in a.box.lower().split("x"))
     pols = a.policy or ["fourcorners", "ewsnap10"]
-    print(f"model: {a.atom_bytes} B/atom"
+    print(f"box {box[0]}x{box[1]}; model: {a.atom_bytes} B/atom"
           f"{'' if a.no_side_tables else ' + 6 B side tables'} per stored "
           f"site, fixed {a.fixed // 1024} KB, budget {a.l1 // 1024} KB "
           f"(full L1 {L1_FULL // 1024} KB)")
@@ -275,7 +279,7 @@ def main(argv):
     for c in cells:
         for p in pols:
             r = evaluate(c, p, a.atom_bytes, a.fixed,
-                         not a.no_side_tables, a.l1)
+                         not a.no_side_tables, a.l1, box)
             if a.fits and r["flags"]:
                 continue
             print(row(r))

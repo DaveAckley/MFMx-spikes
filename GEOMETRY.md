@@ -300,6 +300,11 @@ its hub cannot be reached without a torus wrap.  Any hub position in a
 1xN or Nx1 cell is fine (no turns); with both dimensions > 1 only a NW
 or SE hub keeps every EWP direct.  The lab flags the rest `noc`.  NW and SE are mirror
 images per cell (same hops); they differ only for idle T6s and seams.
+SMALLER WORLD (`--box 1600x900`, liv 2026-11-26): 2x3@0,0 (7x3 hubs,
+105 EWPs, 5 per hub, SELF 114x150) FITS under both fourcorners (951 KB,
+grid 154x190) and ewsnap10 (1061 KB, 170x206); 3x2@0,0 (4x5 hubs, 100
+EWPs, SELF 200x90) fits fourcorners (985 KB) but is one column over u8
+under ewsnap10 (TW 256); 3x3, 4x2, 2x4 still overflow L1 and/or u8.
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
