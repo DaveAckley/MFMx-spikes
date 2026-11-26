@@ -4,6 +4,16 @@ import string
 
 class CachedFont:
     MAX_GLYPHS = 1024
+    # Overlay text is COMPOSITED over the picture (False: the old opaque
+    # glyph cells, bg color behind every character).  Each glyph first
+    # darkens the picture under a halo (its shape grown by HALO_PX) to
+    # 1 - HALO_DIM of its brightness, then draws in fg through its own
+    # antialiased coverage, so the grid shows everywhere but a thin
+    # shadow around the letters and the text stays readable over atoms.
+    COMPOSITE = True
+    BOX = False                 # True: dim each glyph's whole cell instead
+    HALO_PX = 3
+    HALO_DIM = 0.85
     def __init__(self,fontcache,key,aspectRatio=0.6,preload=True):
         self.fc = fontcache
         self.key = key
@@ -16,6 +26,12 @@ class CachedFont:
         self.PILImage = Image.new("RGB", (self.renderBox[1],self.renderBox[0]), bg)
 
         self.fontImg = np.zeros((self.renderBox[0],self.renderBox[1]*self.MAX_GLYPHS,3), np.uint8)
+        # COMPOSITE drawing (2026-11-26): per glyph, its coverage (0..1)
+        # and a halo (the coverage grown by HALO_PX, so HALO_PX bigger on
+        # every side than the cell); see drawCodepoint.
+        self.fg = np.array(fg[::-1], np.float32)   # BGR, like the frames
+        self.alpha = {}         # fontImg index -> (h, w) float32 coverage
+        self.halo = {}          # fontImg index -> (h+2P, w+2P) float32
         self.codepoints = {}    # unicode point -> fontImg index
         self.firstFreeIndex = 0
         self.errors = 0
@@ -37,8 +53,11 @@ class CachedFont:
 
     def drawCodepoint(self,codepoint,img,dx,dy):
         idx = self.codepoints.get(codepoint,None)
-        if not idx:
-            idx = self.defineCodepoint(codepoint)
+        if idx is None:         # (was 'not idx': index 0 was redefined
+            idx = self.defineCodepoint(codepoint)   # on every draw)
+        if CachedFont.COMPOSITE:
+            self._composite(idx,img,dx,dy)
+            return
         (x,y) = self._coordsForIndex(idx)
         s = self.renderBox
         glyph = self.fontImg[y:y+s[0], x:x+s[1]]
@@ -53,6 +72,62 @@ class CachedFont:
                 self.fc.ewd.logkt(f"FC{self.errors}",f"cp='{codepoint}', args={args}\n{''.join(sl)}")
                 if self.errors > 100: exit(1)
 
+    @staticmethod
+    def _blit_box(img, x0, y0, h, w):
+        """Clip the box (x0,y0,w,h) to img: -> (image slices, mask
+        slices) or None if nothing is left."""
+        H, W = img.shape[0], img.shape[1]
+        ix0, iy0 = max(x0, 0), max(y0, 0)
+        ix1, iy1 = min(x0 + w, W), min(y0 + h, H)
+        if ix0 >= ix1 or iy0 >= iy1:
+            return None
+        return ((slice(iy0, iy1), slice(ix0, ix1)),
+                (slice(iy0 - y0, iy1 - y0), slice(ix0 - x0, ix1 - x0)))
+
+    def _composite(self,idx,img,dx,dy):
+        """Halo, then the glyph, over img (BGR uint8) at cell (dx,dy).
+        Clipped at the image edges; never raises for a box outside."""
+        P = CachedFont.HALO_PX
+        halo = self.halo[idx]
+        if halo is None:        # blank glyph (space): nothing to draw
+            return
+        b = self._blit_box(img, dx - P, dy - P, halo.shape[0], halo.shape[1])
+        if b is not None:
+            (iy, ix), (my, mx) = b
+            keep = 1.0 - CachedFont.HALO_DIM * halo[my, mx]
+            img[iy, ix] = (img[iy, ix] * keep[..., None]).astype(np.uint8)
+        a = self.alpha[idx]
+        b = self._blit_box(img, dx, dy, a.shape[0], a.shape[1])
+        if b is None:
+            return
+        (iy, ix), (my, mx) = b
+        am = a[my, mx][..., None]
+        region = img[iy, ix].astype(np.float32)
+        img[iy, ix] = (region * (1.0 - am) + self.fg * am + 0.5).astype(np.uint8)
+
+    def _define_masks(self,idx,codepoint):
+        """Coverage and halo of one glyph, for _composite."""
+        h, w = self.renderBox
+        P = CachedFont.HALO_PX
+        m = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(m).text((0,0), codepoint, fill=255, anchor="la",
+                               font=self.PILFont)
+        a = np.asarray(m, np.float32) / 255.0
+        self.alpha[idx] = a
+        # halo = coverage grown by P (max over a (2P+1)^2 square of shifts)
+        pad = np.zeros((h + 2*P, w + 2*P), np.float32)
+        pad[P:P+h, P:P+w] = a
+        halo = pad.copy()
+        if CachedFont.BOX:      # the whole cell, no grown shape
+            halo[P:P+h, P:P+w] = 1.0
+            self.halo[idx] = halo
+            return
+        for oy in range(-P, P + 1):
+            for ox in range(-P, P + 1):
+                if oy or ox:
+                    halo = np.maximum(halo, np.roll(np.roll(pad, oy, 0), ox, 1))
+        self.halo[idx] = halo if a.any() else None
+
     def defineCodepoint(self,codepoint):
         idx = self.firstFreeIndex
         self.firstFreeIndex += 1
@@ -64,6 +139,7 @@ class CachedFont:
         ocrgb = np.array(self.PILImage)
         ocbgr = ocrgb[:, :, ::-1].copy()
         self.fontImg[0:ocbgr.shape[0], x:x+ocbgr.shape[1]] = ocbgr
+        self._define_masks(idx,codepoint)
         self.codepoints[codepoint] = idx
         return idx
 
