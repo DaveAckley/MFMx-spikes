@@ -68,6 +68,10 @@ source, comments, docs and commit messages).
 
 ## 3. DOCUMENT MAP (every file below links to the others)
 
+- GEOMETRY.md  how the grid is tiled onto the box: terms (cell vs
+  supercell, SELF, ring, band), the derivation of 137 x 108 / 177 x 148,
+  the T6Grid map, caching policies and event bounds, dead bands,
+  permanent edges, and every place a geometry change would touch.
 - srcs/host/tools/ERISC_SEAM_DESIGN.md  design of the eth-seam, sections
   1-18.  Sec 15 Dir4 wiring, 16 slice 1, 17 slice 2 (diagonals), 18 slice 3
   (N/S seam, 2x2 array, centre diagonals).
