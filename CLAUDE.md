@@ -64,9 +64,10 @@ unless the user asks for a rename.
   (and friends) go into the HostBlock buffer that slowscan reads, so it still
   works when hn is sick.  That ring keeps the LATEST
   marks (packString drops the oldest words when full; a torn mark at the head is OK).  When a mark must survive a hang, emit LOGPTAG and
-  HBPTAG back to back.  LOG CARS DIE after 65.5 s with no mark (OPEN_ISSUES Bugs, 2026-11-26):
-  a tile silent that long (most EWPs; hubs during a long host stall)
-  stops logging for good; its HB marks still work.  Slowscan prints with Eprintf (stderr): capture
+  HBPTAG back to back.  LOG CARS DIED after 65.5 s with no mark (OPEN_ISSUES Bugs, 2026-11-26;
+  FIXED in EP_LogBlock.cpp, not yet run): a tile silent that long (most
+  EWPs; hubs during a long host stall) stopped logging for good, so EWP
+  marks reached the host only via slowscan before the fix.  Slowscan prints with Eprintf (stderr): capture
   stderr too when a run may hang.
 - DEFINITION OF DONE for a commit (docs are part of the change):
   * Fixed a bug or finished an item: MOVE its entry from OPEN_ISSUES.md to
@@ -124,7 +125,7 @@ unless the user asks for a rename.
   Every EWP logs `.pt:TYPE:EVENTS:TICKS:INSNS.` (cycles in physics per
   type, every 4096 events); runsum.txt "physics timing" prints the
   bytecode/native ratio.  RESULT run 141643 (from `scan 140` ring dumps;
-  the log path died, see LOG CARS DIE): bytecode 4.4x native for FB1
+  the log path died, see LOG CARS DIED): bytecode 4.4x native for FB1
   (2163 vs 488 cycles/event), 6.6x for FB4 (21879 vs 3313), ~50 cycles
   per bytecode instruction, no faults.
   `seed N 7` / `decay 7` etc.  The host draws bytecode types as a

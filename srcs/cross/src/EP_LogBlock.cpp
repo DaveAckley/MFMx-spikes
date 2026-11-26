@@ -39,7 +39,21 @@ namespace MFM {
 
       u32 nowms = millisElapsed();
       u32 diff = nowms - mBaseTicks;
-      if (diff >= U16_MAX) return false; 
+      // A mark's time is a u16 ms offset from the car's base.  An EMPTY
+      // car has no offsets yet, so after a long quiet spell restart its
+      // clock instead of refusing the mark: refusing left a car that
+      // could never take a mark nor close (readyToClose only saw the
+      // last WRITTEN offset), killing the tile's log for good (OPEN_ISSUES
+      // 'Log car dies after 65.5 s of silence', 2026-11-26).
+      if (diff > LogBlockPayload::LBP_HIGH_TICKS_MARK && pay.mDataUsed == 0) {
+        mBaseTicks = nowms;
+        pay.reset(nowms);
+        diff = 0u;
+      }
+      if (diff >= U16_MAX) { // non-empty car not shipped yet: lose the mark
+        ++mMarksMissed;
+        return false;
+      }
 
       u16 diff16 = (u16) diff;
       mLastTickOffset = diff16;
@@ -86,6 +100,12 @@ namespace MFM {
     }
 
     LogBlockPayload & pay = mCurrentLogBlock->payload();
+    // Also by the car's AGE, not only its last mark: a car holding marks
+    // ships within LBP_HIGH_TICKS_MARK ms of opening even if no more
+    // marks come, so it never reaches the u16 offset limit (writeMark).
+    if (pay.mDataUsed > 0u &&
+        millisElapsed() - mBaseTicks > LogBlockPayload::LBP_HIGH_TICKS_MARK)
+      return true;              // close for age
     if (pay.mDataUsed > LogBlockPayload::LBP_HIGH_BYTES_MARK) {
       EACH(1'000, {
           HBPTAG(CLOGspace,pay.mDataUsed);

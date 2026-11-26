@@ -148,7 +148,7 @@ ERISC_NOTES.md.
   mfmxctl with `python3 -X faulthandler` (or PYTHONFAULTHANDLER=1) and quit with
   plain `q`; compare with `q c`.  Low priority.
 
-## Log car dies after 65.5 s of silence: hub and EWP logging stops for good (2026-11-26, FOUND, not fixed)
+## Log car dies after 65.5 s of silence: hub and EWP logging stops for good (2026-11-26, FIXED, cross-built, not yet run)
 
 LogBlockL1Control::writeMark (srcs/cross/src/EP_LogBlock.cpp) stamps each
 mark with a u16 ms offset from the car's mBaseTicks and REFUSES the mark
@@ -167,6 +167,14 @@ never paused the hubs that long.  Fix idea: readyToClose also ships a
 non-empty car once millisElapsed() - mBaseTicks passes the 30 s mark,
 and writeMark rebases an EMPTY car (mBaseTicks = now, payload reset)
 instead of refusing; count refused marks.
+FIX (2026-11-26, as above): readyToClose ships a car holding marks once
+it is older than LBP_HIGH_TICKS_MARK (30 s) by the clock, and writeMark
+restarts an empty car's clock after 30 s quiet; a mark is still refused
+(mMarksMissed++) only when a non-empty car could not be shipped for
+65.5 s (no empty car back from the host).  Cross-built clean (hub ends
+0xfc125).  Check (experiment.cmd, no sweeps): ~560 files in tiles/ (hub
+and EWP), physics timing over ~105 EWPs per chip, hub `.ev` marks to the
+end of the run, live AER line throughout.
 
 ## Unproven on hardware
 
