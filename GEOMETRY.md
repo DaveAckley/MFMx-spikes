@@ -316,7 +316,14 @@ no longer the limit; the ring is: xchg 0.32-0.35 for 3x3, 0.51-0.56 for
 NOT a free knob: P4Atom (Parameter set 4: size, type bits, ECC) is
 locked for this round (liv, 2026-11-26), so `--atom-bytes` is for
 what-ifs only; heavier physics mostly loads the EWPs (code, windows),
-whose L1 this lab does not model.
+whose L1 the lab now reports too: the EWP image is the same in every
+cell shape and ends at 0x1e924 (122 KB: 86 KB code, physics only ~2.3 KB
+of it; 14 KB bss; 16 KB HostBlock), so each EWP has about 1029 KB of
+the 0x120000 budget (1413 KB of full L1) free for physics code and
+data.  Physics runs on hart B with its stack in 8 KB local RAM (7.6 KB
+usable, high-water seen 784 B): deep or recursive physics hits that
+before L1.  Fitting complex physics in EWP L1 is a later design
+question (liv).
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 

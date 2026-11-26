@@ -23,6 +23,14 @@ THE L1 MODEL (calibrated on the hub image of f291f11, ring 28):
                     other harts' needs are not modeled)
 --atom-bytes, --fixed, --l1 and --no-side-tables change the model.
 
+THE EWP SIDE (printed after the table): heavier physics loads the EWPs.
+The EWP image is the same in every cell shape (one per T6 that is not a
+hub), so its budget does not depend on the cell: today's image (f291f11)
+ends at 0x1e924 (122 KB: 86 KB code, of which physics ~2.3 KB; 14 KB bss;
+16 KB HostBlock), leaving about 1029 KB of the same 0x120000 budget for
+physics code and data.  Physics runs on hart B, whose stack lives in its
+8 KB local RAM (7.6 KB after .fastram_b), not in L1.
+
 Hub position: NoC0 only runs east and south, NoC1 only west and north
 (NRIUtils.cpp preferNoC).  An EWP at offset (dx, dy) from its hub is
 DIRECT when dx and dy are not of opposite signs: then one NoC goes there
@@ -95,6 +103,17 @@ POLICIES = {
 }
 
 EWP_MAX = 8                     # EwpBlock HBASSERT_LT
+
+# The EWP image (f291f11; the same image in every cell shape, so its
+# budget does not depend on the cell).  Same _BUD.ld.in: 0x120000 of L1.
+EWP_END = 0x1e924               # .hostblock end
+EWP_TEXT = 0x1586c              # all code
+EWP_PHYSICS_TEXT = 2350         # Physics::* (doFastPhysics, doTransition)
+EWP_RODATA = 0x131c
+EWP_BSS = 0x384c                # log cars 9840, EWP car 2096, fT2 2576 ...
+EWP_HOSTBLOCK = 0x4074
+EWP_STACK = 8192 - 576          # hart B: 8 KB local RAM minus .fastram_b
+EWP_STACK_HW = 784              # measured high-water (boom recovery run)
 
 
 def parse_cell(text):
@@ -204,6 +223,28 @@ def row(r):
             f"{' '.join(r['flags'])}")
 
 
+def ewp_report(l1, ewp_per_hub=None):
+    free = l1 - EWP_END
+    lines = [
+        f"EWP L1 (one image for every cell shape; f291f11): image "
+        f"{EWP_END // 1024} KB = code {EWP_TEXT // 1024} KB (physics "
+        f"~{EWP_PHYSICS_TEXT / 1024:.1f} KB of it), rodata "
+        f"{EWP_RODATA // 1024} KB, bss {EWP_BSS // 1024} KB (log cars, "
+        f"one EWP car), hostblock {EWP_HOSTBLOCK // 1024} KB",
+        f"  free for physics code + data: {free // 1024} KB of the "
+        f"{l1 // 1024} KB budget ({(L1_FULL - EWP_END) // 1024} KB of the "
+        f"full L1)",
+        f"  physics stack: hart B local RAM, {EWP_STACK} B (high-water "
+        f"seen {EWP_STACK_HW} B); deep or recursive physics hits this "
+        f"first",
+    ]
+    if ewp_per_hub:
+        lines.append("  EWP L1 free per hub region: " + ", ".join(
+            f"{c} {n} x {free // 1024} = {n * free // 1024} KB"
+            for c, n in ewp_per_hub))
+    return "\n".join(lines)
+
+
 def check():
     bad = 0
 
@@ -238,6 +279,8 @@ def check():
     ok("noc" not in evaluate((4, 1, 2, 0), "ewsnap")["flags"],
        "4x1 inner hub is direct")
     ok("noc" not in evaluate((3, 3, 2, 2), "ewsnap")["flags"], "SE ok")
+    ok(EWP_END == 0x1a8b0 + EWP_HOSTBLOCK, "EWP image end = hostblock end")
+    ok("1029 KB of the 1152" in ewp_report(L1_HUB), "EWP free at the 0x120000 budget")
     print("celllab --check:", "FAILED" if bad else "ok",
           f"(fixed {FIXED_BYTES} B)")
     return 1 if bad else 0
@@ -288,6 +331,8 @@ def main(argv):
                                      (0 if a.no_side_tables else 6))
     print(f"room: about {room} stored sites fit the budget "
           f"(~{int(room ** 0.5)} square)")
+    print(ewp_report(a.l1, [(f"{c[0]}x{c[1]}", c[0] * c[1] - 1)
+                            for c in cells][:6]))
     return 0
 
 

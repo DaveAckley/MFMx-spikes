@@ -116,8 +116,10 @@ unless the user asks for a rename.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and
-  how much of HD each shape could cover; `--check`, `--fits`,
-  `--atom-bytes`, `--no-side-tables`, `--l1`.  GEOMETRY.md sec 9.
+  how much of HD each shape could cover; `--box WxH`, `--check`,
+  `--fits`, `--atom-bytes` (what-if: P4Atom is locked), `--no-side-tables`,
+  `--l1`; also the EWP L1 budget (image size, free L1, hart B stack).
+  GEOMETRY.md sec 9.
 - scripts/geomlab/geomlab.py  host-only lab comparing tilings (rect,
   diamonds in brick rows / rotated / clumped, EW-lattice blocks) on dead
   area, ring, exchange, hub balance, neighbor hops, EW packing, with
