@@ -260,9 +260,17 @@ fourcorners 0.922 on the same build; 0.936 on the older ring-20 build
 ~1.6x as many stale reports (1.70M vs 1.06M in 900 s), harmless so far
 (3 h autonuke soak 005008: clean, 0 timeouts, 0 desynced, 0 turds, FB1
 extinct at ~65 min; stale 1.65% of reports, even over hubs, sd 0.23%);
-BIG TILES (2026-11-26, BUILT, NOT RUN): `policy ewsnap10` = radius-10
-tiles (EWLattice10), ring 28 for all policies on the build; first run
-is experiment.cmd (1 h, shortcut, seed 25 4, no nukes);
+BIG TILES (2026-11-26, RUN 093329): `policy ewsnap10` = radius-10
+tiles (EWLattice10), ring 28 for all policies on the build.  Run
+093329 (1 h, shortcut, seed 25 4, later FB4 seeds, cycle repeat off,
+6 nukes by hand): 0 timeouts, 0 desynced, 0 turds, `.cp:3` and `.ct`
+on all 140 hubs, packed-grid AERse ~1.38 FB1, ~0.66 after FB4 took
+over.  OPEN: live AER fell from [140] to [135] hubs right after the
+30 min quiet pause (LIVEAER 1943 s -> 2004 s) and stayed there, while
+bolts kept full consensus: 5 hubs stopped delivering `.ev` marks (hn
+log path?).  Not seen in the ewsnap runs.  Needs the tiles: on the QB,
+count `.ev:` per tiles/*.mfmk and look at the last lines of the low
+ones;
 why AER fell ~1.5% between builds 0d56df5 and 48f3a20 (ring 22?) is not
 chased (cf. the parked AER gap).  (Old plan text:) step 3, hub code behind a compile
 flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.

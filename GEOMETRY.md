@@ -277,6 +277,26 @@ Other limits that a bigger or different hub grid would hit:
   T6Grid, but TW, TH <= 255 caps a hub grid at about 255 x 255 = 65,025
   sites stored before the u8 coordinate assumptions must go.
 
+CELL LAB (scripts/celllab/celllab.py, 2026-11-26): other cell shapes
+(CW x CH T6s, hub at the NW or SE corner) -> hubs per chip, EWPs, the
+SELF needed to cover HD, the stored grid for a policy's ring, and hub
+L1 against the 0x120000 budget.  L1 model: 12 B atom + 4 B DLGridList
++ 2 B stamp per stored site (+2 bits scratch for ewsnap*) plus a fixed
+436 KB, calibrated so 2x2 ewsnap10 reproduces the f291f11 image end
+(0xfa474) exactly.  At 18 B/site the budget holds about 40,700 stored
+sites (~201 square).  Result: bigger cells mean fewer hubs, so each
+hub's SELF must grow to cover HD, and NONE of 3x3, 4x2, 2x4 fits:
+    cell  hubs/chip EWPs  SELF     grid(ewsnap10)  KB    covers within L1
+    2x2   7x5       105   137x108  193x164         1001  140% of HD
+    3x3   4x3        96   240x180  296x236         1681   48%
+    4x2   3x5       105   320x108  376x164         1535   55%
+    2x4   7x2        98   137x270  193x326         1558   54%
+and every one of them also breaks the u8 grid coordinates (TW or TH >
+255).  With HD fixed, only 1x2, 2x1, 2x2 and 1x3 fit (`--fits`).  12 B
+per site (no DLGridList or stamps) AND the full 1.5 MB L1 would let them
+cover 141-167% of HD, but the u8 limit stays.  NW vs SE hub is a mirror
+image per cell (same hops); it matters only for idle T6s and seams.
+
 ## 10. Geometry lab: other tilings (scripts/geomlab)
 
 `python3 scripts/geomlab/geomlab.py [--out DIR]` (numpy + PIL, host
