@@ -1,12 +1,11 @@
-# EXPERIMENT: ewsnap 3 h soak with autonuke (EW-lattice four corners), FB1 honest, seed 25 4, dwell 4 8, specks hourly
+# EXPERIMENT: ewsnap 3 h soak with autonuke (EW-lattice four corners), FB1 shortcut (AERse), no seed, dwell 4 8, specks hourly
 # Three hours of `policy ewsnap` on the diagonal-tiles build: how it holds
-# up as the grid fills.  Like the step 4 runs (honest, elide on, decay 4,
+# up as the grid fills.  Like the step 4 runs (elide on, decay 4,
 # dwell 4 8, cycle repeat on) but with `autonuke on 1 100 100 1000` (as
 # in liv's dave13.cmd: a blast every 1-100 s, radius 100-1000; AER is then
-# NOT comparable with step 4)
-# and `seed 25 4` once at the
-# start (honest mode fills slowly from the lone autoseed; seeds cost
-# ~0.015 AER in earlier runs).  18 blocks of 10 min, `status` and `zhd`
+# NOT comparable with step 4), and with `events shortcut` (AERse, liv's
+# choice: empty draws credited, so the grid fills fast from the lone
+# autoseed) and no `seed`.  18 blocks of 10 min, `status` and `zhd`
 # after each; at each hour a quiet pause (holdat RUN_EVENTS, waitpause
 # quiet) and `zoom specks` (turd check), then the cycle resumes.  `zhd
 # all` at the end (stale reports per hub).  Step 4 for comparison:
@@ -16,13 +15,12 @@
 # The first comment line above is the experiment's name in runsum.txt.
 tick slowscan off
 policy ewsnap
-events honest
+events shortcut
 elide on
 grid off
 decay 4
 dwell 4 8
 start
-seed 25 4
 feed on
 zoom auto
 zoom shrink on
