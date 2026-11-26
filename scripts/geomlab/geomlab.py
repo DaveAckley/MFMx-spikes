@@ -569,6 +569,29 @@ def ew_picture(path, size, scale, block=False):
     if scale >= 4:
         big[scale - 1::scale, :, :] *= 0.75
         big[:, scale - 1::scale, :] *= 0.75
+    if block:
+        # Today's hub rectangle (SELF, BW x BH), same centroid, white
+        # outline on the site borders.
+        bw = HG.T6GRID_BASE_WIDTH
+        bh = HG.T6GRID_BASE_HEIGHT
+        rx0 = int(round(xs.mean())) - bw // 2
+        ry0 = int(round(ys.mean())) - bh // 2
+        rect = np.zeros(inblk.shape, dtype=bool)
+        rect[ry0:ry0 + bh, rx0:rx0 + bw] = True
+        both = int((rect & inblk).sum())
+        print(f"hub rectangle {bw} x {bh} = {bw * bh} sites on the same "
+              f"centre: {both} shared, {int(inblk.sum()) - both} only "
+              f"in the block, {bw * bh - both} only in the rectangle")
+        px0 = (rx0 - x0) * scale
+        py0 = (ry0 - y0) * scale
+        px1 = px0 + bw * scale
+        py1 = py0 + bh * scale
+        t = max(scale // 2, 2)
+        white = (1.0, 1.0, 1.0)
+        big[py0:py0 + t, px0:px1] = white
+        big[py1 - t:py1, px0:px1] = white
+        big[py0:py1, px0:px0 + t] = white
+        big[py0:py1, px1 - t:px1] = white
     Image.fromarray((big * 255).astype(np.uint8)).save(path)
     if block:
         print(f"block of {k}x{k} EWs = {int(inblk.sum())} sites, "
@@ -665,7 +688,8 @@ def main():
                     help="close-up of the perfect EW tiling "
                          "(OUT/ew-tiling.png; --zsize, --zscale)")
     ap.add_argument("--ewblock", action="store_true",
-                    help="one hub-sized block of EWs with its edges "
+                    help="one hub-sized block of EWs with its edges and "
+                         "today's hub rectangle outlined "
                          "(OUT/ew-block.png; --zscale)")
     ap.add_argument("--tileable", action="store_true",
                     help="which diamonds / squares EWs cover exactly")
