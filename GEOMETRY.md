@@ -398,7 +398,29 @@ What they say so far:
 Not modelled yet: cache elision, exchange packets (vs sites), the real
 hub's u8 coordinate box, non-uniform shifts.
 
-### STEP 3: rect-snap in the hub (branch diagonal-tiles; BUILT, not run)
+### STEP 4: first QB runs (2026-11-26)
+
+Same script both runs (seam4, FB1 honest, elide on, dwell 4 8, cycle
+repeat on, no seed, no nukes, 900 s, then a quiet pause and zoom
+specks), same build (48f3a20 / dbdad67, rings 22), only the policy
+differs:
+
+    run                     AERre 1m/5m/all     bolts NL/RE s  stale@900s  specks/turds
+    234532 ewsnap           0.910/0.914/0.919   0.116/0.108    1,704,826   18 / 0
+    000500 fourcorners      0.914/0.917/0.922   0.116/0.101    1,064,534   22 / 0
+    165051 fourcorners r20  0.932/0.933/0.936   0.113/0.098      782,404   (none taken)
+
+0 timeouts and 0 desynced streams in all three; `.ct` on all 140 hubs
+(ewsnap), live centers 9,888..18,445 per corner.  Reading: ewsnap costs
+~0.3% AER against fourcorners on the same build (inside run-to-run
+noise as far as known); most of the drop from 0.936 is the build (ring
+22 and the rest), not ewsnap.  Stale (dropped late) reports are ~1.6x
+fourcorners', all dropped correctly (0 turds); during the quiet pause
+fourcorners still gained 16,593 stale, ewsnap none.  By eye (liv):
+less tile 'boxiness', FB1 colonies less affected by hub boundaries,
+zig-zag edges visible at times.
+
+### STEP 3: rect-snap in the hub (branch diagonal-tiles; BUILT, RUN)
 
 Status 2026-11-25: A-G built as planned.  Cross build of hub and ewp
 clean; hub L1 ends at 0xe2c9c of 0x120000 (~245 KB free; the center

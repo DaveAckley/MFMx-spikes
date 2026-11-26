@@ -253,8 +253,13 @@ ewlattice_test (all checks, 3 mutations caught).  Step 2 DONE: geomlab
 differ; GEOMETRY.md sec 10).  Step 3 BUILT, NOT RUN: `policy ewsnap`
 (CP_EWSNAP = 2): ring 22 for all policies on the branch, center tables
 (.ct mark), CacheLoader band walks with ordinal check, ownership by EW
-center, elision only on a repeated corner.  Next: step 4 on the QB,
-fourcorners vs ewsnap on the same build.  (Old plan text:) step 3, hub code behind a compile
+center, elision only on a repeated corner.  Step 4 RUN (2026-11-26,
+GEOMETRY.md sec 10): ewsnap clean (0 timeouts, 0 turds), AERre 0.919 vs
+fourcorners 0.922 on the same build; 0.936 on the older ring-20 build
+(so the build, not ewsnap, costs most of that).  OPEN: ewsnap drops
+~1.6x as many stale reports (1.70M vs 1.06M in 900 s), harmless so far;
+why AER fell ~1.5% between builds 0d56df5 and 48f3a20 (ring 22?) is not
+chased (cf. the parked AER gap).  (Old plan text:) step 3, hub code behind a compile
 flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
