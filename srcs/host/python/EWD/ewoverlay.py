@@ -7,13 +7,15 @@ pixel lines along every hub boundary.
 
 Ownership follows the cache policy:
   fourcorners, supercell  the SELF rectangles (straight lines)
-  ewsnap                  every EW of the perfect lattice belongs to the
-                          hub whose rectangle holds its center
-                          (srcs/shared/include/EWLattice.h): zig-zag lines
+  ewsnap, ewsnap10        every tile of the perfect lattice (radius T = 4
+                          or 10) belongs to the hub whose rectangle holds
+                          its center (srcs/shared/include/EWLattice.h):
+                          zig-zag lines
 
-The EW lattice is repeated here from EWLattice.h (radius 4, centers where
-(4x + 5y) mod 41 == 0, C0 = 0); scripts/geomlab/geomlab.py --crosscheck
-compares owner_map('ewsnap') with the header's own owner map site by site.
+The tile lattice is repeated here from EWLattice.h (radius T, centers where
+(T x + (T+1) y) mod (2T^2 + 2T + 1) == 0, C0 = 0);
+scripts/geomlab/geomlab.py --crosscheck compares owner_map('ewsnap') with
+the header's own owner map site by site.
 Hubs at the edge of the whole box keep EWs that hang off it (clamped), as
 the header's permanent edges do on the full 2 x 2 array.
 """
@@ -22,25 +24,28 @@ import numpy as np
 
 import HubGeometry as HG
 
-EW_RADIUS = 4                   # EWLattice.h RADIUS
-EW_KX = EW_RADIUS               # EWLattice.h KX
-EW_KY = EW_RADIUS + 1           # EWLattice.h KY
-EW_SITES = 2 * EW_RADIUS * EW_RADIUS + 2 * EW_RADIUS + 1   # 41
+EW_TILE_RADIUS = {"ewsnap": 4, "ewsnap10": 10}   # EWLattice.h RADIUS
 EW_C0 = 0                       # EWLattice.h C0
 
 HUBS_X = HG.ACTIVE_HUB_WIDTH * HG.CHIP_ARRAY_WIDTH
 HUBS_Y = HG.ACTIVE_HUB_HEIGHT * HG.CHIP_ARRAY_HEIGHT
 
 
-def _offset_table():
-    """dx[r], dy[r]: the EW offset whose residue (KX*dx + KY*dy) mod 41
-    is r (EWLattice.h OffsetTable)."""
-    dx = np.zeros(EW_SITES, dtype=np.int64)
-    dy = np.zeros(EW_SITES, dtype=np.int64)
-    for ox in range(-EW_RADIUS, EW_RADIUS + 1):
-        for oy in range(-EW_RADIUS, EW_RADIUS + 1):
-            if abs(ox) + abs(oy) <= EW_RADIUS:
-                r = (EW_KX * ox + EW_KY * oy) % EW_SITES
+def tile_sites(t):
+    """Sites of a radius-t Manhattan diamond (41 at t = 4)."""
+    return 2 * t * t + 2 * t + 1
+
+
+def _offset_table(t):
+    """dx[r], dy[r]: the tile offset whose residue (t dx + (t+1) dy) mod
+    tile_sites(t) is r (EWLattice.h EWOffsetTable)."""
+    n = tile_sites(t)
+    dx = np.zeros(n, dtype=np.int64)
+    dy = np.zeros(n, dtype=np.int64)
+    for ox in range(-t, t + 1):
+        for oy in range(-t, t + 1):
+            if abs(ox) + abs(oy) <= t:
+                r = (t * ox + (t + 1) * oy) % n
                 dx[r] = ox
                 dy[r] = oy
     return dx, dy
@@ -51,9 +56,10 @@ def owner_map(policy, width=HG.DEMO_GLOBAL_GRID_WIDTH,
     """Owning hub index (hy * HUBS_X + hx) of every site of a height x
     width image, by the policy's rule."""
     yy, xx = np.mgrid[0:height, 0:width]
-    if policy == "ewsnap":
-        dx, dy = _offset_table()
-        r = (EW_KX * xx + EW_KY * yy - EW_C0) % EW_SITES
+    if policy in EW_TILE_RADIUS:
+        t = EW_TILE_RADIUS[policy]
+        dx, dy = _offset_table(t)
+        r = (t * xx + (t + 1) * yy - EW_C0) % tile_sites(t)
         cx = xx - dx[r]
         cy = yy - dy[r]
     else:

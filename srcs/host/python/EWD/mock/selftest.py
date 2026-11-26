@@ -685,15 +685,21 @@ def scenario_cache_policy():
     rc, out = run("policy fourcorners\npolicy bogus\npolicy\nquit\n")
     check("policy: bad name explained, shell survives",
           "want one of supercell, fourcorners" in out and rc == 0, out[-500:])
-    rc, out = run("policy ew\ngrid edges on\ngrid edges\ngrid edges off\n"
+    rc, out = run("policy ewsnap\ngrid edges on\ngrid edges\ngrid edges off\n"
                   "quit\n")
     check("grid edges: on/off without chips, says zig-zag under ewsnap",
-          "grid edges on (zig-zag EW hub boundaries" in out
+          "grid edges on (zig-zag T=4 hub boundaries" in out
           and "grid edges off (zig-zag" in out, out[-600:])
-    rc, out = run("policy ew\nboot\nstart\nmock\nstatus\nquit\n")
-    check("policy: ewsnap (prefix 'ew') reaches the chips as policy=2",
+    rc, out = run("policy ewsnap\nboot\nstart\nmock\nstatus\nquit\n")
+    check("policy: ewsnap (exact name, also a prefix of ewsnap10) reaches "
+          "the chips as policy=2",
           "cache policy: ewsnap (applied" in out and "policy=2" in out,
           out[-900:])
+    rc, out = run("policy ewsnap10\ngrid edges on\nboot\nstart\nmock\n"
+                  "quit\n")
+    check("policy: ewsnap10 reaches the chips as policy=3, edges T=10",
+          "cache policy: ewsnap10 (applied" in out and "policy=3" in out
+          and "zig-zag T=10" in out, out[-900:])
     rc, out = run("boot\nstart\nmock\nquit\n")
     check("policy: default run tells chips policy=1", "policy=1" in out, out[-500:])
     rc, out = run("policy supercell\nboot\nstart\nmock\nquit\n")

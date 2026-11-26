@@ -1,9 +1,10 @@
 # GEOMETRY (how MFMx tiles the grid onto the QuietBox)
 
-BRANCH diagonal-tiles: the ring is 22 (EWLattice STORE_MARGIN), so the
-T6Grid is 181 x 152 (330,148 bytes) for every policy there; the numbers
-below were written for OW = OH = 20 (177 x 148) unless they say SHIFT 18
-or ewsnap.
+BRANCH diagonal-tiles: the ring is 28 since 2026-11-26 (EWLattice10
+STORE_MARGIN = SHIFT 18 + T 10; it was 22 = 18 + 4 for the step 4 runs
+and the 3 h soak), so the T6Grid is 193 x 164 (379,828 bytes) for every
+policy there; the numbers below were written for OW = OH = 20 (177 x
+148) unless they say SHIFT 18, ewsnap or ewsnap10.
 
 DRAFT 2026-11-25, written from the code at b6aca6f (DemoGlobal.h,
 NgbCacheMgr.h, CachingPolicy.h, HubEdges.h, EwpBlock.cpp, nu1012.dtoml)
@@ -458,6 +459,38 @@ any T > 4 gives that up (no diamond is EW-tileable, sec 10 above) and
 hub loads spread (cv 0.002 -> 0.035).  By eye (liv):
 less tile 'boxiness', FB1 colonies less affected by hub boundaries,
 zig-zag edges visible at times.
+
+### EWSNAP10: radius-10 tiles in the hub (2026-11-26; BUILT, NOT RUN)
+
+`policy ewsnap10` (CachePolicyId 3, the last id the two HostFlags bits
+allow) is ewsnap on radius-10 tiles (221 sites, lattice (10,11),
+(-11,10)).  EWLattice.h is now a template on the tile radius,
+EWLatticeT<T>: EWLattice = <4>, EWLattice10 = <10>; what does not
+depend on T (Pt, Rect, shifts, accessibleRect, CenterTable, the radius-4
+WINDOW offsets) is in EWGeom.  Live centers are still sites whose whole
+radius-4 window lies in the area (buildCenterTable now checks the
+WINDOW, not the tile).  The hub picks T at init (GridManager::mEWTile
+from ewTileRadius(policy)); GridManager::buildCenterTablesT<L> and
+ownsSiteT<L>, CacheLoader initEWBand<L>, and EWAnyBandWalk (holds a T=4
+and a T=10 walk, mTile says which) carry it.  Cost: STORE_MARGIN = 18 +
+10 = 28, so the ring is 28 for EVERY policy on this build (T6Grid
+193 x 164; hub image ends at 0xfa474 of the 0x120000 L1, about 154 KB
+free; +76 KB of .bss); ewsnap and fourcorners runs on this build are
+not directly comparable with the ring-22 runs.  No-starvation needs
+SHIFT > T + 4 (static_assert): the snapped edge's non-center zone
+reaches about T + 4 either side and the area edge moves 2 SHIFT between
+opposite corners, so T <= 13 with SHIFT 18.  ewlattice_test (T = 4, 8,
+10; ~50 s) checks everything it checked for T = 4 plus a new full-box
+check that every grid site is a live center in some corner (0 starved
+for all three):
+    T    sites  owned/hub (interior)  borrowed/cond  store    max runs  live/corner
+    4    41     14760..14842          98..101        181x152  253       9871..18445
+    8    145    14645..14935          27..29         189x160  256       9737..18513
+    10   221    14365..15028          15..22         193x164  261       9444..18692
+`--dump FILE T` dumps T = 4, 8 or 10; ewoverlay owner_map('ewsnap10')
+matches the T = 10 dump (0 sites differ), `grid edges on` draws the
+T = 10 zig-zags.  T = 8 would be one more typedef and a policy id (none
+left in the two HostFlags bits).
 
 ### STEP 3: rect-snap in the hub (branch diagonal-tiles; BUILT, RUN)
 

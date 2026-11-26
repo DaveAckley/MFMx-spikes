@@ -83,8 +83,9 @@ unless the user asks for a rename.
   supercell, SELF, ring, band), the derivation of 137 x 108 / 177 x 148,
   the T6Grid map, caching policies and event bounds, dead bands,
   permanent edges, and every place a geometry change would touch.
-- srcs/shared/include/EWLattice.h  (branch diagonal-tiles) the perfect EW
-  tiling and rect-snap hub geometry: residue table, site -> EW center,
+- srcs/shared/include/EWLattice.h  (branch diagonal-tiles) the perfect
+  radius-T diamond tilings (template EWLatticeT<T>; EWLattice = T 4,
+  EWLattice10 = T 10) and rect-snap hub geometry: residue table, site -> EW center,
   CenterIter (row-major walk of the centers in a rectangle), hubRect,
   eventArea, band, storeBox; SHIFT = 18 (two EW layers).  Native test
   srcs/host/tools/ewlattice_test.cpp (in run_native_tests.sh).
@@ -98,8 +99,13 @@ unless the user asks for a rename.
   `.ct:N0:N1:N2:N3:N4.` hex live centers, no corner / SE / SW / NW / NE,
   logged with `.cp`), a site is reported by the hub owning its EW
   (GridManager::ownsSite), elision keeps a band only when the corner
-  repeats.  On this branch the T6Grid ring is 22 for EVERY policy
-  (181 x 152), so compare fourcorners and ewsnap on the same build.
+  repeats.  On this branch the T6Grid ring is 28 for EVERY policy
+  (193 x 164; 22 before 2026-11-26), so compare fourcorners and ewsnap on
+  the same build.  `policy ewsnap10` (CachePolicyId 3, 2026-11-26,
+  BUILT, not run) is the same on radius-10 tiles (EWLattice10, 221
+  sites): EWLattice.h is a template on the tile radius (EWLatticeT<T>),
+  the hub picks T at init (GridManager::mEWTile, EWAnyBandWalk); events
+  keep radius-4 windows.  GEOMETRY.md sec 10 'EWSNAP10'.
   Design and checks: GEOMETRY.md sec 10.  Hub + host change: ./build_all.sh.
   `grid edges [on|off]` (any time, no chips needed): white single-pixel
   hub ownership edges painted on a COPY of each frame

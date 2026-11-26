@@ -53,7 +53,8 @@ namespace MFM {
     // and the center tables, built once here.
     mHubX = (s32) DG::getChipHubOrigin(hb.mChipNum).x + hubInChipCoord.x;
     mHubY = (s32) DG::getChipHubOrigin(hb.mChipNum).y + hubInChipCoord.y;
-    mEWSnap = cachePolicyFromHostFlags(hb.mHostFlags) == CP_EWSNAP;
+    mEWTile = ewTileRadius(cachePolicyFromHostFlags(hb.mHostFlags));
+    mEWSnap = mEWTile != 0u;
     for (u32 i = 0; i < CENTER_TABLES; ++i) mCenterLive[i] = 0u;
     if (mEWSnap) buildCenterTables();
 
@@ -178,12 +179,17 @@ namespace MFM {
   }
 
   void GridManager::buildCenterTables() {
-    typedef EWLattice L;
-    const L::Rect own = L::hubRect(mHubX, mHubY, mPermEdges);
-    const L::Rect acc = L::accessibleRect(mHubX, mHubY, mPermEdges);
-    const L::Pt l0 = localOrigin();
+    if (mEWTile == 10u) buildCenterTablesT<EWLattice10>();
+    else buildCenterTablesT<EWLattice>();
+  }
+
+  template <class L>
+  void GridManager::buildCenterTablesT() {
+    const EWGeom::Rect own = L::hubRect(mHubX, mHubY, mPermEdges);
+    const EWGeom::Rect acc = L::accessibleRect(mHubX, mHubY, mPermEdges);
+    const EWGeom::Pt l0 = localOrigin();
     for (u32 i = 0; i < CENTER_TABLES; ++i) {
-      const L::Rect area =
+      const EWGeom::Rect area =
         i == 0u ? own : L::eventArea(own, (Corner4) (i - 1u));
       if (!L::buildCenterTable(theCenterTables[i], area, acc, l0,
                                T6Grid::FULL_WIDTH, T6Grid::FULL_HEIGHT,
@@ -199,10 +205,16 @@ namespace MFM {
         gridc.x < T6Grid::SELF_MAX.x &&
         gridc.y >= T6Grid::SELF_ORIGIN.y &&
         gridc.y < T6Grid::SELF_MAX.y;
-    const EWLattice::Pt l0 = localOrigin();
-    const EWLattice::Pt c =
-      EWLattice::centerOf(l0.x + (s32) gridc.x, l0.y + (s32) gridc.y);
-    return EWLattice::hubRect(mHubX, mHubY, mPermEdges).contains(c);
+    return mEWTile == 10u ? ownsSiteT<EWLattice10>(gridc)
+                          : ownsSiteT<EWLattice>(gridc);
+  }
+
+  template <class L>
+  bool GridManager::ownsSiteT(U16C gridc) const {
+    const EWGeom::Pt l0 = localOrigin();
+    const EWGeom::Pt c =
+      L::centerOf(l0.x + (s32) gridc.x, l0.y + (s32) gridc.y);
+    return L::hubRect(mHubX, mHubY, mPermEdges).contains(c);
   }
 
   bool GridManager::matchesEW(const EventWindow & ew,U16C center) const {

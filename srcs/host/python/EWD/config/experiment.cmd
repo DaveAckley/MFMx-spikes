@@ -1,20 +1,23 @@
-# EXPERIMENT: ewsnap 3 h soak with autonuke (EW-lattice four corners), FB1 shortcut (AERse), no seed, dwell 4 8, specks hourly
-# Three hours of `policy ewsnap` on the diagonal-tiles build: how it holds
-# up as the grid fills.  Like the step 4 runs (elide on, decay 4,
-# dwell 4 8, cycle repeat on) but with `autonuke on 1 100 100 1000` (as
-# in liv's dave13.cmd: a blast every 1-100 s, radius 100-1000; AER is then
-# NOT comparable with step 4), and with `events shortcut` (AERse, liv's
-# choice: empty draws credited, so the grid fills fast from the lone
-# autoseed) and no `seed`.  18 blocks of 10 min, `status` and `zhd`
-# after each; at each hour a quiet pause (holdat RUN_EVENTS, waitpause
-# quiet) and `zoom specks` (turd check), then the cycle resumes.  `zhd
-# all` at the end (stale reports per hub).  Step 4 for comparison:
-# 234532 ewsnap AERre 0.919, stale 1.70M per 900 s, 0 turds.
+# EXPERIMENT: ewsnap10 first run (radius-10 tiles snapped to hubs), FB1 shortcut (AERse), seed 25 4, no nukes, dwell 4 8, 1 h
+# First run of `policy ewsnap10` (CachePolicyId 3, EWLattice10): every
+# hub owns whole radius-10 diamonds (221 sites) of the close-packed
+# lattice (10,11),(-11,10), so hub boundaries are zig-zags with
+# 21-site straight 45-degree runs instead of ewsnap's 9.  Events still
+# use radius-4 windows; cache shift still 18.  This build has the
+# T6Grid ring 28 for EVERY policy (193 x 164), so ewsnap/fourcorners
+# numbers from it are not directly comparable with the ring-22 runs.
+# Shortcut mode (AERse) and `seed 25 4` so the grid fills fast; NO
+# autonuke, so colonies can meet the boundaries (type
+# `autonuke on 1 100 100 1000` live for fun, `grid edges on` to see the
+# zig-zags).  6 blocks of 10 min with `status` and `zhd`; quiet pause
+# and `zoom specks` at 30 and 60 min; `zhd all` at the end.
+# Expect: `.cp:3` and `.ct` on all 140 hubs, no BADC, 0 timeouts,
+# 0 desynced streams, few or no turds.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
 tick slowscan off
-policy ewsnap
+policy ewsnap10
 events shortcut
 elide on
 grid off
@@ -28,96 +31,42 @@ zoom status
 zhd
 cycle repeat on
 cycle start
-autonuke on 1 100 100 1000
-echo block 1 of 18 (10 min each)
+wait 30
+seed 25 4
+echo block 1 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 2 of 18 (10 min each)
+echo block 2 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 3 of 18 (10 min each)
+echo block 3 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 4 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 5 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 6 of 18 (10 min each)
-wait 600
-status
-zhd
-echo hour 1: quiet pause and zoom specks
+echo 30 min: quiet pause and zoom specks
 cycle holdat RUN_EVENTS 0
 cycle waitpause 120 quiet
 zoom specks
 zhd
 cycle start
-echo block 7 of 18 (10 min each)
+echo block 4 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 8 of 18 (10 min each)
+echo block 5 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 9 of 18 (10 min each)
+echo block 6 of 6 (10 min each)
 wait 600
 status
 zhd
-echo block 10 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 11 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 12 of 18 (10 min each)
-wait 600
-status
-zhd
-echo hour 2: quiet pause and zoom specks
+echo 60 min: quiet pause and zoom specks
 cycle holdat RUN_EVENTS 0
 cycle waitpause 120 quiet
 zoom specks
 zhd
-cycle start
-echo block 13 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 14 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 15 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 16 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 17 of 18 (10 min each)
-wait 600
-status
-zhd
-echo block 18 of 18 (10 min each)
-wait 600
-status
-zhd
-echo hour 3: quiet pause and zoom specks
-cycle holdat RUN_EVENTS 0
-cycle waitpause 120 quiet
-zoom specks
-zhd
-autonuke status
 zhd all
 quit close

@@ -95,7 +95,7 @@ namespace MFM {
     void setStartDecayType(u16 decaytype) {
       mCodeManager.setStartDecayType(decaytype);
     }
-    void setCachePolicy(u8 policy) {          //< 0 supercell, 1 fourcorners, 2 ewsnap (CachingPolicy.h)
+    void setCachePolicy(u8 policy) {          //< 0 supercell, 1 fourcorners, 2 ewsnap, 3 ewsnap10 (CachingPolicy.h)
       mCodeManager.setCachePolicy(policy);
     }
     void setEveryEvent(bool on) {             //< honest AER (HBF_EVERY_EVENT)

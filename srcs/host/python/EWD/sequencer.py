@@ -26,6 +26,7 @@ import random
 import time
 
 from machine import fmt_ints
+from machine_util import CORNER_POLICIES
 
 STEPS = ("NEW_LEADER", "RUN_EVENTS", "DWELL")
 NLEADERS = 4
@@ -254,7 +255,7 @@ class SuperCycle:
             return n
         if self.leader is None:
             return self.first_leader
-        if self.repeat and getattr(self.m, "policy", None) in ("fourcorners", "ewsnap"):
+        if self.repeat and getattr(self.m, "policy", None) in CORNER_POLICIES:
             return self.rng.randrange(NLEADERS)
         return self.rng.choice([l for l in range(NLEADERS) if l != self.leader])
 

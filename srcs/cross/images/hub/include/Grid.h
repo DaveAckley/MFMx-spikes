@@ -316,9 +316,9 @@ namespace MFM {
      when the site changed, not by when they were emitted. */
   extern u16 theSiteStamps[DG::T6GRID_WIDTH][DG::T6GRID_HEIGHT];
 
-  /* POLICY EWSNAP (EWLattice.h, branch diagonal-tiles): the live event
-     centers of this hub per event area, built once at init.  Index 0 =
-     no corner yet (own EWs only), 1 + Corner4 (SE, SW, NW, NE) after a
+  /* POLICY EWSNAP / EWSNAP10 (EWLattice.h, branch diagonal-tiles): the
+     live event centers of this hub per event area, built once at init.
+     Index 0 = no corner yet (own tiles only), 1 + Corner4 (SE, SW, NW, NE) after a
      NEW_LEADER.  The scratch is used only while building. */
   static constexpr u32 CENTER_TABLES = 5u;
   extern EWLattice::CenterTable theCenterTables[CENTER_TABLES];
@@ -388,9 +388,15 @@ namespace MFM {
        uniform over the live centers of the current corner's table. */
     U16C drawCenter(U16CRange bounds) ;
 
-    /* Policy ewsnap: build theCenterTables (ENGINE_FAIL if a table does
-       not fit). */
+    /* Policy ewsnap/ewsnap10: build theCenterTables (ENGINE_FAIL if a
+       table does not fit). */
     void buildCenterTables() ;
+
+    template <class L>
+    void buildCenterTablesT() ;
+
+    template <class L>
+    bool ownsSiteT(U16C gridc) const ;
 
     /* Global site of our grid's (0,0). */
     EWLattice::Pt localOrigin() const {
@@ -400,8 +406,8 @@ namespace MFM {
     }
 
     /* Is grid site gridc ours, i.e. reported by us when it changes: in
-       our SELF rectangle, or (policy ewsnap) in an EW whose center is
-       in our hub rectangle. */
+       our SELF rectangle, or (policy ewsnap/ewsnap10) in a tile whose
+       center is in our hub rectangle. */
     bool ownsSite(U16C gridc) const ;
 
     S16C siteNumberToOffset(u32 sn) const {
@@ -459,7 +465,8 @@ namespace MFM {
     s32 mGlobalOriginY;         //< global site y of our first SELF site
     s32 mHubX;                  //< global hub column (EWLattice.h)
     s32 mHubY;                  //< global hub row
-    bool mEWSnap;               //< cache policy is CP_EWSNAP
+    bool mEWSnap;               //< an EW-lattice policy (ewsnap*)
+    u8 mEWTile;                 //< its tile radius: 4 or 10 (else 0)
     u32 mCenterLive[CENTER_TABLES]; //< ewsnap: live centers per table
     DLGridList * mDLGridListPtr;
     T6Grid * mT6GridPtr;

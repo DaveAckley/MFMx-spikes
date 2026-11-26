@@ -260,6 +260,9 @@ fourcorners 0.922 on the same build; 0.936 on the older ring-20 build
 ~1.6x as many stale reports (1.70M vs 1.06M in 900 s), harmless so far
 (3 h autonuke soak 005008: clean, 0 timeouts, 0 desynced, 0 turds, FB1
 extinct at ~65 min; stale 1.65% of reports, even over hubs, sd 0.23%);
+BIG TILES (2026-11-26, BUILT, NOT RUN): `policy ewsnap10` = radius-10
+tiles (EWLattice10), ring 28 for all policies on the build; first run
+is experiment.cmd (1 h, shortcut, seed 25 4, no nukes);
 why AER fell ~1.5% between builds 0d56df5 and 48f3a20 (ring 22?) is not
 chased (cf. the parked AER gap).  (Old plan text:) step 3, hub code behind a compile
 flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.

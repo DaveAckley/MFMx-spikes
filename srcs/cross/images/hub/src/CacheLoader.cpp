@@ -10,6 +10,26 @@
 #include "HubEdges.h"      //< neighbor hub existence
 
 namespace MFM {
+
+  /* Policy ewsnap/ewsnap10: point cl's walk at its band of whole tiles
+     (EWLattice.h): the neighbor's tiles in our event area if we borrow,
+     ours in its area if we lend; both ends compute the same rectangle
+     and walk it the same way. */
+  template <class L>
+  static void initEWBand(CacheLoader & cl, const GridManager & gm,
+                         DirPlan plan, Corner4 c4, S8C dv) {
+    const EWGeom::Rect me = L::hubRect(gm.mHubX, gm.mHubY, gm.mPermEdges);
+    const EWGeom::Rect you =
+      L::hubRect(gm.mHubX + dv.x, gm.mHubY + dv.y,
+                 L::neighborPermEdges(gm.mPermEdges, dv.x, dv.y));
+    EWGeom::Rect band{0, 0, 0, 0};               // NONE: empty walk
+    if (plan == DirPlan::SEND_SITES) band = L::band(you, me, c4);
+    else if (plan == DirPlan::RECV_CACHES) band = L::band(me, you, c4);
+    cl.mBand.template init<L>(band,
+                              L::accessibleRect(gm.mHubX, gm.mHubY,
+                                                gm.mPermEdges),
+                              gm.localOrigin());
+  }
   CacheLoaders theL1CacheLoaders;
 
   void CacheLoaders::configureCacheLoaders(u8 arg) {
@@ -55,7 +75,7 @@ namespace MFM {
         HBPTAG(.ee,(u32) everyEventShipped());
         if (gm.mEWSnap) {
           // .ct:N0:N1:N2:N3:N4. live event centers per center table (hex;
-          // no corner, SE, SW, NW, NE), policy ewsnap only
+          // no corner, SE, SW, NW, NE), policies ewsnap and ewsnap10
           char ctb[64];
           snprintf(ctb, sizeof(ctb), "%x:%x:%x:%x:%x.",
                    (unsigned) gm.mCenterLive[0], (unsigned) gm.mCenterLive[1],
@@ -157,22 +177,11 @@ namespace MFM {
         cl.mDir8 = d8;
         cl.mEWSnap = gm.mEWSnap ? 1u : 0u;
         if (gm.mEWSnap) {
-          // The band is whole EWs (EWLattice.h): the neighbor's EWs in our
-          // event area if we borrow, ours in its area if we lend; both
-          // ends compute the same rectangle and walk it the same way.
-          typedef EWLattice L;
           const Corner4 c4 = (Corner4) (mConfiguredSCL & 3u);
-          const L::Rect me = L::hubRect(gm.mHubX, gm.mHubY, gm.mPermEdges);
-          const L::Rect you =
-            L::hubRect(gm.mHubX + d8nREGV.x, gm.mHubY + d8nREGV.y,
-                       L::neighborPermEdges(gm.mPermEdges, d8nREGV.x,
-                                            d8nREGV.y));
-          L::Rect band{0, 0, 0, 0};                // NONE: empty walk
-          if (plan == DirPlan::SEND_SITES) band = L::band(you, me, c4);
-          else if (plan == DirPlan::RECV_CACHES) band = L::band(me, you, c4);
-          cl.mBand.init(band,
-                        L::accessibleRect(gm.mHubX, gm.mHubY, gm.mPermEdges),
-                        gm.localOrigin());
+          if (gm.mEWTile == 10u)
+            initEWBand<EWLattice10>(cl, gm, plan, c4, d8nREGV);
+          else
+            initEWBand<EWLattice>(cl, gm, plan, c4, d8nREGV);
         }
       }
     }
@@ -352,7 +361,7 @@ namespace MFM {
       patoms.setStartsAt(U8C((u8) (ord & 0xffu), (u8) (ord >> 8)));
       while (!mBand.atEnd()) {
         if (patoms.isFull()) break;
-        const EWLattice::Pt l = mBand.localSite();
+        const EWGeom::Pt l = mBand.localSite();
         patoms.pushAtomAtEndOfPacketOrDie(t6grid.getAtom(U8C((u8) l.x,
                                                              (u8) l.y)));
         mBand.next();
@@ -430,7 +439,7 @@ namespace MFM {
       if (nextIdx >= atomsInPacket) break; // Ain't Got No More
       U8C ac;
       if (mEWSnap) {
-        const EWLattice::Pt l = mBand.localSite();
+        const EWGeom::Pt l = mBand.localSite();
         ac = U8C((u8) l.x, (u8) l.y);
         mBand.next();
       } else {

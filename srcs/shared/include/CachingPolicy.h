@@ -36,6 +36,11 @@ namespace MFM {
                       ones.  Only bounds()/plan() below are shared; the
                       bands and centers live in CacheLoader and Grid.
 
+       CP_EWSNAP10    CP_EWSNAP on radius-10 tiles (EWLattice10, 221
+                      sites): every set is whole tiles, so hub edges
+                      have longer straight 45-degree runs; events still
+                      use radius-4 windows.
+
      The policy is chosen per run by the host (mfmxctl 'policy', two
      HostFlags bits), so both are always compiled in.  No virtual
      functions (T6 code has no vtables): the policies are structs of
@@ -47,6 +52,7 @@ namespace MFM {
     CP_SUPERCELL = 0,
     CP_FOURCORNERS = 1,
     CP_EWSNAP = 2,
+    CP_EWSNAP10 = 3,
     CP_COUNT
   };
 
@@ -62,12 +68,19 @@ namespace MFM {
   inline const char * cachePolicyName(CachePolicyId id) {
     return id == CP_FOURCORNERS ? "fourcorners"
          : id == CP_EWSNAP ? "ewsnap"
+         : id == CP_EWSNAP10 ? "ewsnap10"
          : "supercell";
   }
 
   /* Policies whose NEW_LEADER argument is a Corner4. */
   inline bool isCornerPolicy(CachePolicyId id) {
-    return id == CP_FOURCORNERS || id == CP_EWSNAP;
+    return id == CP_FOURCORNERS || id == CP_EWSNAP || id == CP_EWSNAP10;
+  }
+
+  /* Tile radius of an EW-lattice policy (EWLattice.h), 0 for the
+     others. */
+  inline u8 ewTileRadius(CachePolicyId id) {
+    return id == CP_EWSNAP ? 4u : id == CP_EWSNAP10 ? 10u : 0u;
   }
 
   /* What we do with the neighbor in one Dir8 direction. */
@@ -191,7 +204,7 @@ namespace MFM {
        LOAD is needed.  Four corners only: every hub computes the same answer
        for its end of a link, and the opposite end gets the opposite role. */
     static bool keepAcross(CachePolicyId id, u8 prev, u8 next, Dir8 d8) {
-      if (id == CP_EWSNAP) {
+      if (ewTileRadius(id) != 0u) {
         // minimal bands change with the corner: only a repeat keeps them
         PolicyCtx c0;
         c0.weLead = false;

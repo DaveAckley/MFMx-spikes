@@ -8,9 +8,9 @@ namespace MFM {
   struct CacheLoader {
 
     U8CRange::iterator mLocalItr; //< a site or cache range, in local coords
-    /* Policy ewsnap: the band as a walk over whole EWs (EWLattice.h);
-       mLocalItr is unused then. */
-    EWLattice::BandWalk mBand;
+    /* Policy ewsnap/ewsnap10: the band as a walk over whole tiles
+       (EWLattice.h, radius 4 or 10); mLocalItr is unused then. */
+    EWAnyBandWalk mBand;
     u8 mEWSnap;                   //< walk mBand instead of mLocalItr
     Dir8 mDir8; //< our index in cacheloaders (and where leader/follower is from us?)
     s8 mDestType; //< >0 -> leader, <0 -> follower, =0 -> uninitted or not-in-use (e.g., off-edge)

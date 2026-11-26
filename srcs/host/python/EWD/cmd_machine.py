@@ -5,6 +5,7 @@ adds them to the shell.  ctx is the cmdutil.Ctx built by mfmxctl.main."""
 from functools import partial
 
 from cmdutil import kw
+from machine_util import EW_TILE_RADIUS
 
 
 def c_step(ctx, a):
@@ -90,7 +91,8 @@ def c_grid(ctx, a):
         if len(a) > 1:
             m.edges.on = kw(a[1], ("on", "off"), "grid edges") == "on"
         pol = getattr(m, "policy", None)
-        kind = "zig-zag EW" if pol == "ewsnap" else "rectangle"
+        kind = (f"zig-zag T={EW_TILE_RADIUS[pol]}" if pol in EW_TILE_RADIUS
+                else "rectangle")
         return (f"grid edges {'on' if m.edges.on else 'off'} "
                 f"({kind} hub boundaries for policy {pol}, white, display "
                 f"only)")
@@ -209,7 +211,7 @@ def register(ctx):
         "elide [on|off]: keep bands shared by consecutive corners (before "
         "'start')")
     sh.command("policy", partial(c_policy, ctx),
-        "policy [fourcorners|supercell|ewsnap]: show/set the cache policy (before "
+        "policy [fourcorners|supercell|ewsnap|ewsnap10]: show/set the cache policy (before "
         "'start')")
     sh.command("status", lambda a: m.status() + "\n" + cyc.status(),
                "status: phases, quietbox, bolt, timeouts, scans, cycle")
@@ -219,7 +221,7 @@ def register(ctx):
     sh.command("grid", partial(c_grid, ctx),
                "grid [on|off]: QuietBox.mDrawGrid (crosses, labels); "
                "grid edges [on|off]: white single-pixel hub ownership "
-               "edges over the picture (zig-zag under policy ewsnap)")
+               "edges over the picture (zig-zag under policy ewsnap/ewsnap10)")
     sh.command("scan", partial(c_scan, ctx), "scan [N]: run slowscans now")
     sh.command("dumpl1", partial(c_dumpl1, ctx),
                "dumpl1 TAG[,TAG..] | TAGLO-TAGHI: whole L1 (1.5MB) of each Tensix tile to dumps/N/TAG.l1")

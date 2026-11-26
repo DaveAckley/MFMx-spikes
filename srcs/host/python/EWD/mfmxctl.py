@@ -62,8 +62,9 @@ def parse_args(argv):
                     help="keep the cache bands shared by consecutive corners instead of "
                          "saving and reloading them (four corners only)")
     ap.add_argument("--policy", default="fourcorners",
-                    help="cache policy: fourcorners (default), supercell or "
-                         "ewsnap (EW lattice, branch diagonal-tiles)")
+                    help="cache policy: fourcorners (default), supercell, "
+                         "ewsnap (EW lattice, branch diagonal-tiles) or "
+                         "ewsnap10 (radius-10 tiles)")
     ap.add_argument("--link-wait", type=float, default=6.0,
                     help="boot preflight: seconds to wait for every declared "
                          "eth-seam link to report Up after a chip reset")
