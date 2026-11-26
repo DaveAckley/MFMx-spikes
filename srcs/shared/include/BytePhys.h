@@ -88,6 +88,19 @@ namespace MFM {
       SITES = 41,                       //< EventWindow::ATOM_COUNT
     };
 
+    /* The physics types run as bytecode (ewp/src/Physics.cpp PHY_BFB1,
+       PHY_BFB4).  The host draws them like their native twins but
+       darkened (tintBytecode), so the two can be told apart on screen.
+       Add any new bytecode type here. */
+    inline bool isBytecodeType(u32 type) {
+      return type == 7u || type == 8u;
+    }
+
+    /* Darken one color channel of a bytecode type to 5/8. */
+    inline u8 tintBytecode(u8 channel) {
+      return (u8) (((u32) channel * 5u) / 8u);
+    }
+
     struct Program {
       const u8 * mCode;
       u16 mLength;

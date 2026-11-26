@@ -121,7 +121,10 @@ unless the user asks for a rename.
   srcs/shared/include/NativeFB.h; bytephys_test proves them identical.
   Every EWP logs `.pt:TYPE:EVENTS:TICKS:INSNS.` (cycles in physics per
   type); runsum.txt "physics timing" prints the bytecode/native ratio.
-  `seed N 7` / `decay 7` etc.  OPEN_ISSUES 'physics as bytecode'.
+  `seed N 7` / `decay 7` etc.  The host draws bytecode types as a
+  DARKER (5/8) copy of their native twin's color
+  (BytePhys::isBytecodeType / tintBytecode, in ZHostDecompressor.cpp and
+  CodeManager.cpp).  OPEN_ISSUES 'physics as bytecode'.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

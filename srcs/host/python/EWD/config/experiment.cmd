@@ -8,7 +8,7 @@
 # runsum.txt's "physics timing" section gives cycles/event per type and
 # the bytecode/native ratio.  AER is a mix of both types, so read the
 # timing section, not AER.  FB1 phase: autoseed type 4 plus `seed 25 4`
-# and `seed 25 7` (both colored like FB1).  After 10 min, FB4 phase:
+# and `seed 25 7` (bytecode drawn darker).  After 10 min, FB4 phase:
 # `seed 3 5` and `seed 3 8` (FB4s take over).  fourcorners, events
 # honest, no nukes.  Expect: no `.pf` marks (no machine faults), ratios
 # somewhere around 3-10x.

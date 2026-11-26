@@ -5,6 +5,7 @@
 #include "OurTLBs.h"
 #include "Blackhole.h"
 #include "ImageCode.h"
+#include "BytePhys.h"   // bytecode types are drawn darker
 
 namespace MFM {
   u32 ZHostDecompressor::mMade = 0;
@@ -110,6 +111,9 @@ namespace MFM {
     default:
       c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
     }
+    if (BytePhys::isBytecodeType(t))  // darker twin of the native color
+      for (u32 i = 0u; i < 3u; ++i)
+        c.mRGB[i] = BytePhys::tintBytecode(c.mRGB[i]);
     return c;
   }
 

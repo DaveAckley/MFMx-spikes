@@ -295,7 +295,8 @@ caught), and every machine fault is caught.  EWP: types 7 (FB1) and 8
 (FB4) are the bytecode versions, colored like FB1/FB4 on the host; every
 EWP times every event of types 4, 5, 7, 8 (tile wall clock, AI clock
 cycles, around guardedPhysics) and logs `.pt:TYPE:EVENTS:TICKS:INSNS.`
-(hex) every 65,536 events of a type; runsum.txt's "physics timing"
+(hex) every 65,536 events of a type (bytecode types are drawn as a
+darker copy of the native color); runsum.txt's "physics timing"
 section sums them over all tiles and prints cycles/event and the
 bytecode/native ratio.  Sizes: FB1 129 bytes, FB4 29 bytes of bytecode;
 instructions/event about 112 (FB1, mean over the test's mix) and 369

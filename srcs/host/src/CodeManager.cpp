@@ -20,6 +20,7 @@
 #include "UxC.h"
 #include "dev_mem_map.h" // for MEM_L1_SIZE
 #include "HostRandom.h" // for hostPRNG
+#include "BytePhys.h"   // bytecode types are drawn darker
 
 namespace MFM {
 
@@ -546,6 +547,9 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
         default:
           c.set((u8) (t*50), 20u, (u8) (255-(t*50)));
         }
+        if (BytePhys::isBytecodeType(t))  // darker twin of the native color
+          for (u32 i = 0u; i < 3u; ++i)
+            c.mRGB[i] = BytePhys::tintBytecode(c.mRGB[i]);
         {
           U16C pixc;
           if (!DG::gridCoordToPixel(t6origin+atomc, pixc)) continue; // N/W rings cropped
