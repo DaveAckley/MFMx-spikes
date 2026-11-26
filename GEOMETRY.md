@@ -323,7 +323,8 @@ What they say so far:
   EW of the perfect lattice belongs to the hub holding its center;
   the majority-of-sites rule differs on 1 EW in 410 at hub (2,2)).
   Same hub array, balance, neighbors and dead area as rect, ring
-  0.69 (snapped shifts; 0.71 with plain shifts), but every interior EW is whole: packing 0.988 like ew-blocks.
+  0.69 (snapped shifts; 0.71 with plain shifts), but every interior
+  EW is whole: packing 0.988 like ew-blocks.
   Hub edges become EW sawtooth (up to 4 sites past the rectangle).
   `--ewrect` / `--ewsnap` draw one hub before and after.
   The per-cycle event areas are snapped the same way (an EW is in hub
