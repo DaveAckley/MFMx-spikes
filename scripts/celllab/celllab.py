@@ -28,8 +28,11 @@ The EWP image is the same in every cell shape (one per T6 that is not a
 hub), so its budget does not depend on the cell: today's image (f291f11)
 ends at 0x1e924 (122 KB: 86 KB code, of which physics ~2.3 KB; 14 KB bss;
 16 KB HostBlock), leaving about 1029 KB of the same 0x120000 budget for
-physics code and data.  Physics runs on hart B, whose stack lives in its
-8 KB local RAM (7.6 KB after .fastram_b), not in L1.
+physics code and data.  Physics runs on hart B, whose 8 KB fast (local)
+RAM holds fAll (16 B), fB (576 B: Physics, including the current EW
+mFastEW) and the stack (the rest, ~7.6 KB).  The stack must stay in fast
+RAM (moving it is a big performance loss, per TT), so it is the tight
+limit for complex physics, not L1.
 
 Hub position: NoC0 only runs east and south, NoC1 only west and north
 (NRIUtils.cpp preferNoC).  An EWP at offset (dx, dy) from its hub is
@@ -234,9 +237,10 @@ def ewp_report(l1, ewp_per_hub=None):
         f"  free for physics code + data: {free // 1024} KB of the "
         f"{l1 // 1024} KB budget ({(L1_FULL - EWP_END) // 1024} KB of the "
         f"full L1)",
-        f"  physics stack: hart B local RAM, {EWP_STACK} B (high-water "
-        f"seen {EWP_STACK_HW} B); deep or recursive physics hits this "
-        f"first",
+        f"  hart B fast RAM 8192 B = fAll 16 + fB 576 (Physics, with the "
+        f"current EW mFastEW) + stack {EWP_STACK - 16} B (high-water seen "
+        f"{EWP_STACK_HW} B); the stack stays in fast RAM (performance), so "
+        f"bigger physics locals or fast state come out of it",
     ]
     if ewp_per_hub:
         lines.append("  EWP L1 free per hub region: " + ", ".join(

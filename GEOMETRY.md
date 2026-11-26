@@ -320,9 +320,11 @@ whose L1 the lab now reports too: the EWP image is the same in every
 cell shape and ends at 0x1e924 (122 KB: 86 KB code, physics only ~2.3 KB
 of it; 14 KB bss; 16 KB HostBlock), so each EWP has about 1029 KB of
 the 0x120000 budget (1413 KB of full L1) free for physics code and
-data.  Physics runs on hart B with its stack in 8 KB local RAM (7.6 KB
-usable, high-water seen 784 B): deep or recursive physics hits that
-before L1.  Fitting complex physics in EWP L1 is a later design
+data.  Physics runs on hart B, whose 8 KB fast RAM holds fAll (16 B),
+fB (576 B: Physics, with the current EW mFastEW, as liv wants) and the
+stack (~7.6 KB; high-water seen 784 B).  The stack must stay in fast RAM
+(moving it out is a big performance loss, per TT), so deep or recursive
+physics, or more fast per-event state, hits that 8 KB before L1.  Fitting complex physics in EWP L1 is a later design
 question (liv).
 
 ## 10. Geometry lab: other tilings (scripts/geomlab)
