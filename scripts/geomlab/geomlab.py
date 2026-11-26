@@ -426,6 +426,47 @@ def crosscheck():
     return 0 if bad == 0 else 1
 
 
+def tile_centers(t):
+    """Center (x, y) of the radius-t close-packed diamond holding each
+    site: the Lee-sphere tiling with lattice (t, t+1), (-(t+1), t); a
+    site is a center iff (t*x + (t+1)*y) mod (2t^2+2t+1) == 0, and the
+    residue names the site's offset in its diamond.  t = R is the EW
+    lattice itself."""
+    n = 2 * t * t + 2 * t + 1
+    dx = np.zeros(n, dtype=np.int64)
+    dy = np.zeros(n, dtype=np.int64)
+    for ox in range(-t, t + 1):
+        for oy in range(-t, t + 1):
+            if abs(ox) + abs(oy) <= t:
+                r = (t * ox + (t + 1) * oy) % n
+                dx[r] = ox
+                dy[r] = oy
+    r = (t * XX + (t + 1) * YY) % n
+    return XX - dx[r], YY - dy[r]
+
+
+def layout_snap_t(t, shift=None):
+    """rect-snap with BIG tiles: close-packed radius-t diamonds (t >= R),
+    each belonging to the hub whose rectangle holds its center; each
+    cycle's area is the big tiles whose centers lie in the shifted
+    rectangle.  Events stay radius R.  t = R is rect-snap."""
+    if shift is None:
+        shift = ewl_shift()
+    cx, cy = tile_centers(t)
+
+    def part_at(s):
+        hx = np.clip((cx - s[0]) // HG.T6GRID_BASE_WIDTH, 0, HUBS_X - 1)
+        hy = np.clip((cy - s[1]) // HG.T6GRID_BASE_HEIGHT, 0, HUBS_Y - 1)
+        return (hy * HUBS_X + hx).astype(np.int64)
+
+    n = 2 * t * t + 2 * t + 1
+    return Layout(f"snap{t}", part_at((0, 0)),
+                  np.arange(NH, dtype=np.int64),
+                  corner_shifts(shift, shift),
+                  f"rect hubs snapped to radius-{t} close-packed diamonds "
+                  f"({n} sites), shift {shift}", part_at)
+
+
 LAYOUTS = {
     "rect": layout_rect,
     "rect-snap": layout_rect_snap,
@@ -436,6 +477,10 @@ LAYOUTS = {
     "dia-multi50": lambda: layout_diamond_multi(50),
     "dia-fenced48": lambda: layout_diamond_multi(48, fenced=True),
     "ew-blocks": layout_ew_blocks,
+    "snap4": lambda: layout_snap_t(4),
+    "snap6": lambda: layout_snap_t(6),
+    "snap10": lambda: layout_snap_t(10),
+    "snap15": lambda: layout_snap_t(15),
 }
 
 

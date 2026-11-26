@@ -429,7 +429,18 @@ in an area; 1 on the last site before a straight orthogonal edge; 5 on
 a straight 45-degree edge (the 5 sites of a window face); 0 = unwritable.
 Whole grid, per cycle:  rect P(0) 0.23% P(1) 2.91% P(<=4) 6.02%;
 ewsnap 0 / 0.49% / 3.46%; dia-multi48 0 / 0.09% / 0.42%; dia-brick
-0 / 0.08% / 0.37%.  By eye (liv):
+0 / 0.08% / 0.37%.  BIG-TILE SNAP (liv's axis, geomlab snap4/6/10/15):
+hubs keep their rectangles but own close-packed radius-T diamonds by
+their centers (lattice (T,T+1),(-(T+1),T)); events stay radius 4; T >= 4
+keeps every site writable.  Longer 45-degree runs as T grows:
+    T    P(1)   P(<=4)  dead%  sites/hub min..max   EW pack  store max
+    4    0.49%  3.46%   11.7   14760..14842         0.988    24928
+    6    0.26%  2.31%   11.6   14620..14980         0.887    24990
+    10   0.16%  1.48%   11.5   14201..15209         0.907    25636
+    15   0.11%  1.03%   11.2   13468..16136         0.897    26936
+Only T = 4 keeps hub edges on the EW lattice (whole EWs, packing 0.988);
+any T > 4 gives that up (no diamond is EW-tileable, sec 10 above) and
+hub loads spread (cv 0.002 -> 0.035).  By eye (liv):
 less tile 'boxiness', FB1 colonies less affected by hub boundaries,
 zig-zag edges visible at times.
 
