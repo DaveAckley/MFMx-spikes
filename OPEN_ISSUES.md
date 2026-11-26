@@ -645,6 +645,12 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 
 ## Cleanup / nice to have
 
+- Mock only (2026-11-25, seen on latest and diagonal-tiles): under
+  `--mock`, `zoom auto` turns itself off at the first frame with
+  `zoom disabled: IndexError: index 108 is out of bounds for axis 0 with
+  size 108` (the mock frame is probably smaller than the 1920 x 1080 the
+  zoom code assumes).  QB runs are not affected as far as known.
+
 - DONE 2026-11-24 (AERse / AERre, "est. " dropped; see CLAUDE.md): AER status line should show the event counting method (2026-11-23, user
   idea, not started).  The difference today is whether empty-site events are
   shortcut or actually run.  Avoid 'honest'/'cheating'.  Candidates: 'AERse'

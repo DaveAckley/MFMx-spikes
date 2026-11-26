@@ -222,13 +222,64 @@ def grep(outpath, rundir, pat, mx):
     return r
 
 
+# Hub init marks worth seeing in every summary (tiles/*.mfmk): per tag,
+# how many hubs logged it and its most common values; for colon-separated
+# hex fields also each field's min..max.  .cp = cache policy id, .ct =
+# ewsnap live centers per center table (no corner, SE, SW, NW, NE).
+HUB_MARK_TAGS = (".cp:", ".ct:")
+HUB_MARK_VALUES = 6
+
+
+def hub_marks(rundir):
+    import glob
+    r = section("hub marks (first per hub, tiles/*.mfmk)")
+    files = sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk")))
+    if not files:
+        return r + ["[no tile logs]"]
+    for tag in HUB_MARK_TAGS:
+        vals = []
+        for path in files:
+            try:
+                with open(path, "r", errors="replace") as f:
+                    for l in f:
+                        i = l.find(" " + tag)
+                        if i >= 0:
+                            v = l[i + 1 + len(tag):].strip().rstrip("}")
+                            vals.append(v.rstrip("."))
+                            break
+            except OSError:
+                pass
+        if not vals:
+            r.append(f"{tag} none of {len(files)} hubs")
+            continue
+        common = {}
+        for v in vals:
+            common[v] = common.get(v, 0) + 1
+        top = sorted(common.items(), key=lambda kv: -kv[1])
+        shown = ", ".join(f"{v} x{n}" for v, n in top[:HUB_MARK_VALUES])
+        more = "" if len(top) <= HUB_MARK_VALUES else \
+            f", +{len(top) - HUB_MARK_VALUES} more"
+        r.append(f"{tag} {len(vals)} of {len(files)} hubs: {shown}{more}")
+        fields = [v.split(":") for v in vals]
+        if len(top) > 1 and all(len(f) == len(fields[0]) for f in fields):
+            try:
+                nums = [[int(x, 16) for x in f] for f in fields]
+                rng = [f"{min(c)}..{max(c)}" for c in zip(*nums)]
+                r.append(f"{tag} fields (decimal) min..max: "
+                         + " ".join(rng))
+            except ValueError:
+                pass
+    return r
+
+
 def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
               outpath=None):
     """The summary as a list of lines.  out: console lines."""
     misc = os.path.join(rundir, "misc")
     lines = [f"runsum of {os.path.basename(rundir.rstrip('/'))}"]
     for part in (head_info(out, cmdline, elapsed), bolts(misc), feed(misc),
-                 aer(misc), misc_counts(misc), console(out), tail(out)):
+                 aer(misc), misc_counts(misc), hub_marks(rundir),
+                 console(out), tail(out)):
         lines.extend(part)
     if pat:
         lines.extend(grep(outpath, rundir, pat, mx))
