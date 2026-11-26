@@ -416,7 +416,22 @@ differs:
 noise as far as known); most of the drop from 0.936 is the build (ring
 22 and the rest), not ewsnap.  Stale (dropped late) reports are ~1.6x
 fourcorners', all dropped correctly (0 turds); during the quiet pause
-fourcorners still gained 16,593 stale, ewsnap none.  WRITABLE SITES
+fourcorners still gained 16,593 stale, ewsnap none.  3 H SOAK (run
+20261126-005008, 8d8b7a0, ewsnap, FB1 shortcut/AERse, `autonuke on 1
+100 100 1000` = 200 blasts of radius 100-1000, one manual `seed 25 4`
+at scy 32 after the first die-off): CLEAN for 10,871 s: 1,720 + 1,719
+bolts, consensus mean 0.118 / 0.107 s, max 0.265, none over 0.3 s, 0
+timeouts, 140 streams 0 desynced 0 restarts, feed 150.5 per 30 s (one
+12 s gap, at the first quiet pause).  FB1 went EXTINCT at about 3,950 s
+(scy ~575; AERse then sits at the empty-grid 109-110 to the end), as
+liv expected under those nukes; the first hourly specks (just before)
+saw 8 lone atoms, 0 turds, all STILL with current SELF history; the
+later two saw 0 occupied sites.  Stale reports: 12,103,440 of 738M
+(1.65%), all before the extinction (flat after), per hub 0.93-2.16%
+(sd 0.23%): spread evenly over hubs, so structural (owner SAVE report
+plus borrower report of the same change), not a local fault.  So the
+soak proves ewsnap stable over 3 h of heavy nuking; it says nothing
+about long-run fill or turds on a full grid.  WRITABLE SITES
 (lab, 2026-11-26): under ewsnap every site lies in a lattice EW wholly
 inside one hub's area, whose center is therefore live, so a full-window
 physics (FB4) can write EVERY site in EVERY cycle: 0 sites uncovered by
