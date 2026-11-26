@@ -90,6 +90,8 @@ run t6sjrun_mock sh -c 'g++ '"$CXXFLAGS"' t6sjrun.cpp -o "$1/t6sjrun_bin" && pri
 run physguard_test g++ $CXXFLAGS -I$SRCS/cross/include $INC physguard_test.cpp -o "$OUT/physguard_test"
 # nuke: geometry over the real 140-hub layout, and the host side (blast rides one NEW_LEADER bolt as words 2..4)
 run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$OUT/nukeblast_test"
+# EW lattice + rect-snap hub geometry (branch diagonal-tiles): tiling, center walk, bands agree at both ends
+run ewlattice_test g++ $CXXFLAGS $INC ewlattice_test.cpp ../src/FATAL.cpp -o "$OUT/ewlattice_test"
 run nuke_cycle_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/nuke_cycle_test.py" > "$1/nuke_cycle_test" && chmod +x "$1/nuke_cycle_test"' x "$OUT"
 run zoom_test sh -c 'printf "#!/bin/sh\npython3 \"%s\"\n" "$(pwd)/zoom_test.py" > "$1/zoom_test" && chmod +x "$1/zoom_test"' x "$OUT"
 

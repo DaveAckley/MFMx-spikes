@@ -245,7 +245,13 @@ packing.  Lab built: scripts/geomlab/geomlab.py, results and reading in
 GEOMETRY.md sec 10 (diamonds cut the dead area 11.7% -> 9-10%, rings
 0.69 -> 0.5-0.56; no diamond packs EWs exactly, only EW-lattice blocks;
 brick rows / EW blocks do not fit the physical hub array, clumps of
-small diamonds do).  Next: liv picks candidates; then a hub-side
+small diamonds do).  CHOSEN (liv, 2026-11-25): rect-snap, random
+centers, cache shift = two EW layers (SHIFT 18); work on branch
+diagonal-tiles.  Step 1 DONE: srcs/shared/include/EWLattice.h + native
+ewlattice_test (all checks, 3 mutations caught).  Next: step 2, the lab
+uses the header's band rectangles; step 3, hub code behind a compile
+flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
+Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
 ## Design idea: raise the AI clock (2026-11-22, steps 1 and 2 DONE: arcpeek and arcmsg RUN)

@@ -343,6 +343,19 @@ What they say so far:
   lattice EW lies wholly in one hub's area in every cycle.
 - Diamond rings cost less (0.50-0.56 of SELF vs 0.69) for the same
   Manhattan reach, and fewer neighbors are borrowed from per cycle.
+- EWLattice.h (branch diagonal-tiles, 2026-11-25) implements rect-snap
+  with SHIFT = 18 (two close-packed EW layers).  Every band is the set
+  of EWs whose centers lie in a rectangle (intersect(neighbor's rect,
+  own rect moved by the Corner4 shift)); CenterIter walks those centers
+  row-major (first x of a row: x = 31 * (C0 - 5y) mod 41, then +41) and
+  each EW's 41 sites go in residue order, the same at both ends.  A
+  permanent side reaches SHIFT + RADIUS past the grid.  ewlattice_test
+  (real 14 x 10 hubs, all four corners): every site has one owner, every
+  center is in exactly one event area, area = kept + one band per
+  neighbor, each band equals the lender's own brute-force list in the
+  same order, all stored sites inside storeBox.  Measured: interior hubs
+  own 360-362 EWs, borrow 98-101 EWs per condition; storeBox 181 x 152 =
+  27,512 sites (today 177 x 148 = 26,196); 51,109 EWs touch the grid.
 - CENTER TABLES (random centers stay: MFM picks centers in an
   unspecified order, no site starved; dead sites are accepted).  A hub
   can pick uniformly among exactly its live centers for the current

@@ -36,6 +36,10 @@ unless the user asks for a rename.
 
 - Branch `eth-seam`.  Claude commits on LOCAL branch `latest` and rebuilds
   the bundle:  sg claude -c 'git bundle create /data/claude/CLAUDES_PLACE/claude.bundle HEAD latest'
+  DIAGONAL TILES work (EW lattice / rect-snap, GEOMETRY.md sec 10) is on
+  local branch `diagonal-tiles` (made from latest 25a522d); while it is
+  checked out the bundle is  ... claude.bundle HEAD latest diagonal-tiles
+  and HEAD must be the tip of the branch being worked on.
   then ALWAYS verifies  git bundle list-heads <bundle>  equals
   `git rev-parse HEAD` (a silent failure once left it stale).
 - The user runs `git fetch claude`, `git merge --ff-only claude/latest`,
@@ -75,6 +79,11 @@ unless the user asks for a rename.
   supercell, SELF, ring, band), the derivation of 137 x 108 / 177 x 148,
   the T6Grid map, caching policies and event bounds, dead bands,
   permanent edges, and every place a geometry change would touch.
+- srcs/shared/include/EWLattice.h  (branch diagonal-tiles) the perfect EW
+  tiling and rect-snap hub geometry: residue table, site -> EW center,
+  CenterIter (row-major walk of the centers in a rectangle), hubRect,
+  eventArea, band, storeBox; SHIFT = 18 (two EW layers).  Native test
+  srcs/host/tools/ewlattice_test.cpp (in run_native_tests.sh).
 - scripts/geomlab/geomlab.py  host-only lab comparing tilings (rect,
   diamonds in brick rows / rotated / clumped, EW-lattice blocks) on dead
   area, ring, exchange, hub balance, neighbor hops, EW packing, with
