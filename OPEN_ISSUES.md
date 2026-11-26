@@ -148,6 +148,26 @@ ERISC_NOTES.md.
   mfmxctl with `python3 -X faulthandler` (or PYTHONFAULTHANDLER=1) and quit with
   plain `q`; compare with `q c`.  Low priority.
 
+## Log car dies after 65.5 s of silence: hub and EWP logging stops for good (2026-11-26, FOUND, not fixed)
+
+LogBlockL1Control::writeMark (srcs/cross/src/EP_LogBlock.cpp) stamps each
+mark with a u16 ms offset from the car's mBaseTicks and REFUSES the mark
+when the offset would be >= 65,535.  readyToClose ships a car for time
+only when mLastTickOffset (the offset of the last mark WRITTEN) is over
+30,000.  So a car that sees no mark for 65.5 s after it opened can never
+take a mark nor close: that tile's log is dead for the rest of the run
+(its HB marks still work).  Run 20261126-141643: all 140 hubs' log marks
+stopped at ~666 s, when `scan 140` blocked mfmxctl for 10 min (no bolts,
+so the hubs logged nothing), and never came back though the cycle ran on
+to scy ~190; only 3 EWPs (which logged `.pt` often enough) ever
+delivered: every other EWP logs nothing for its first minute, so its
+first car died at once.  Explains the 0 `.pt` of run 122857 and the
+lost LIVE AER line ('no hub has reported') after the sweep.  Earlier runs
+never paused the hubs that long.  Fix idea: readyToClose also ships a
+non-empty car once millisElapsed() - mBaseTicks passes the 30 s mark,
+and writeMark rebases an EMPTY car (mBaseTicks = now, payload reset)
+instead of refusing; count refused marks.
+
 ## Unproven on hardware
 
 - Zoom slows host-observed consensus from about 0.06 s to 0.4-0.7 s (2026-11-23, built a mitigation, NOT yet run): proven by toggling `zoom off`/`zoom auto` mid-run.  Mitigation: poll the bolt between zoom stages, skip the box scan while a bolt is pending, per-stage timers in `zoom status` (CLAUDE.md).  To check: with zoom auto, consensus back near 0.1 s?  If not, the `cost:` line shows which stage (scan, step, render, whole frame) is long; render is one call and cannot be split without work (bands, or a worker thread).  The numpy fallback is used when cv2 is missing: the cost line says so.
@@ -279,10 +299,9 @@ sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
 ## Ideas: EWP log delivery; host-side atom type census (2026-11-26, not started)
 
-- EWP logging: every T6 has an hn hart, but the EWP image does not
-  deliver its log block yet (never needed before), so EWP LOGPTAG marks
-  are lost and EWP HBPTAG marks need a slowscan (`scan 140`).  Set it
-  up when EWP marks matter (e.g. bytephys `.pt` / `.pf`).
+- EWP logging: the EWP log path is the same as the hub's and works;
+  EWPs just die of 'Log car dies after 65.5 s of silence' (Bugs) because
+  they log nothing in their first minute.
 - Host census (Liv): the host counts atom types in what it displays
   (the 1920x1080 site image it already has) and logs the census
   somewhere, e.g. per minute in misc/ and in runsum.txt; would answer
@@ -315,21 +334,30 @@ instructions/event about 112 (FB1, mean over the test's mix) and 369
 (FB4); interpreter 1.3 KB of code; fB 708 B, so hart B's stack shrinks
 to ~7.45 KB.  First run: experiment.cmd (native and bytecode side by
 side, FB1 then FB4 phase, 20 min).
-FIRST RUN 20261126-122857 (a95e377, 21 min): ran clean (140 hubs,
-0 bolt timeouts, consensus 0.12 s, 0 desynced streams), so bytecode
-types 7 and 8 ran on the EWPs without hanging anything; AERre 0.92-0.94
-in the FB1 phase (types 4+7), 0.654 once FB4 (5+8) filled the grid.
-But NO `.pt` marks (and so no `.pf` check either): the EWP image does
-not deliver its log block yet (every T6 has an hn hart; EWP logging was
-just never needed before), so its LOGPTAG marks go nowhere and its
-HBPTAG marks sit in its HostBlock ring (8192 u16, the latest ~300
-marks) until a slowscan reads it, and experiment runs turn slowscan off
-(the boom runs' `.pf` got out because slowscan was on).  Rerun (experiment.cmd): `scan 140` (one
-sweep of all 140 tiles per chip) ends each phase; `.pt` every 4096
-events.  5 vs 8 head to head: not readable from the tgz (colors were
-identical in that build); FB4 vs FB4 is a neutral voter model, so the
-winner should be a coin flip unless bytecode's slower events lose more
-to obsolescence.
+FIRST RUN 20261126-122857 (a95e377, 21 min): ran clean (140 hubs, 0
+bolt timeouts, consensus 0.12 s, 0 desynced streams); AERre 0.92-0.94 in
+the FB1 phase (types 4+7), 0.654 once FB4 (5+8) filled the grid; NO
+`.pt` marks at all (the log-car bug, see 'Log car dies after 65.5 s of
+silence' under Bugs).
+SECOND RUN 20261126-141643 (6058a42, `.pt` every 4096 events, `scan
+140` sweeps after each phase; whole run dir in CLAUDES_PLACE): RESULT,
+from the sweeps' HostBlock ring dumps in all.mfmk (all 105 EWP
+positions per chip; the log path again carried only 3 EWPs), AI clock
+cycles per event (800 MHz), mean over all marks:
+  type 4 FB1 native      488
+  type 7 FB1 bytecode   2163   28.6 insns/event   4.4x native
+  type 5 FB4 native     3313
+  type 8 FB4 bytecode  21879  369.0 insns/event   6.6x native
+So the interpreter costs about 50-60 cycles per bytecode instruction
+(FB4: (21879-3313)/369 = 50), i.e. it is slow per instruction; the
+program and the switch's jump table sit in L1, not fast RAM, which
+probably costs a load or two per instruction (unmeasured).  Native FB4
+is also slow: ~83 cycles per 12-byte atom copy.  No `.pf` (no machine
+faults) in any log or ring dump.  5 vs 8: in the FB4-phase ring dumps
+type 8 had 151M events to type 5's 89M, so bytecode FB4 held more of
+the grid at the end despite being 6.6x slower per event (consistent with
+a neutral voter model plus chance).  The sweeps cost ~10 min each (PC
+snapshots + 15 perl runs per tile) and blocked mfmxctl.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
