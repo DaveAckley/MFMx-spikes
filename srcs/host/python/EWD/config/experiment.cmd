@@ -1,4 +1,4 @@
-# EXPERIMENT: bytephys spike, native vs bytecode FB1 then FB4 side by side (types 4/7, then 5/8), honest, 20 min
+# EXPERIMENT: bytephys spike rerun, native vs bytecode FB1 then FB4 (types 4/7, then 5/8), slowscan sweeps for .pt, 20 min
 # First run of the bytecode physics spike (OPEN_ISSUES 'physics as
 # bytecode'): types 7 and 8 are FB1 and FB4 run by the BytePhys machine
 # (srcs/shared/include/BytePhys.h, scripts/bytephys/*.bp), proven
@@ -12,6 +12,12 @@
 # `seed 3 5` and `seed 3 8` (FB4s take over).  fourcorners, events
 # honest, no nukes.  Expect: no `.pf` marks (no machine faults), ratios
 # somewhere around 3-10x.
+# RERUN (first run 20261126-122857 had NO .pt marks): an EWP's marks
+# reach the host only through its HostBlock ring, read only by slowscan,
+# and this script turns slowscan off.  So `scan 140` (one sweep of all
+# 140 tiles per chip) ends each phase, and .pt now comes every 4096
+# events (was 65536).  Needs ./build_all.sh (EWP image + the host tint:
+# bytecode types 7/8 are drawn darker).
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
@@ -40,6 +46,8 @@ echo FB1 phase, block 2 of 2 (5 min)
 wait 300
 status
 zhd
+echo sweep every tile for the FB1-phase .pt marks
+scan 140
 echo FB4 phase: seed native (5) and bytecode (8) FB4
 seed 3 5
 seed 3 8
@@ -51,4 +59,6 @@ echo FB4 phase, block 2 of 2 (5 min)
 wait 300
 status
 zhd
+echo sweep every tile for the FB4-phase .pt marks
+scan 140
 quit close

@@ -277,7 +277,7 @@ flag (CacheLoader walks, center tables, bigger T6Grid); step 4, QB.
 Earlier plan: liv picks candidates; then a hub-side
 sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
-## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE BUILT, not run)
+## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE BUILT, first run got no timing)
 
 SPIKE (2026-11-26, built, cross-built, host-tested; NOT run on the QB):
 srcs/shared/include/BytePhys.h is a tiny switch-dispatch stack machine
@@ -295,7 +295,7 @@ caught), and every machine fault is caught.  EWP: types 7 (FB1) and 8
 (FB4) are the bytecode versions, colored like FB1/FB4 on the host; every
 EWP times every event of types 4, 5, 7, 8 (tile wall clock, AI clock
 cycles, around guardedPhysics) and logs `.pt:TYPE:EVENTS:TICKS:INSNS.`
-(hex) every 65,536 events of a type (bytecode types are drawn as a
+(hex) every 4096 events of a type (65,536 in the first run; bytecode types are drawn as a
 darker copy of the native color); runsum.txt's "physics timing"
 section sums them over all tiles and prints cycles/event and the
 bytecode/native ratio.  Sizes: FB1 129 bytes, FB4 29 bytes of bytecode;
@@ -303,6 +303,20 @@ instructions/event about 112 (FB1, mean over the test's mix) and 369
 (FB4); interpreter 1.3 KB of code; fB 708 B, so hart B's stack shrinks
 to ~7.45 KB.  First run: experiment.cmd (native and bytecode side by
 side, FB1 then FB4 phase, 20 min).
+FIRST RUN 20261126-122857 (a95e377, 21 min): ran clean (140 hubs,
+0 bolt timeouts, consensus 0.12 s, 0 desynced streams), so bytecode
+types 7 and 8 ran on the EWPs without hanging anything; AERre 0.92-0.94
+in the FB1 phase (types 4+7), 0.654 once FB4 (5+8) filled the grid.
+But NO `.pt` marks (and so no `.pf` check either): an EWP has no hn
+hart, so its LOGPTAG marks go nowhere and its HBPTAG marks sit in its
+HostBlock ring (8192 u16, the latest ~300 marks) until a slowscan reads
+it, and experiment runs turn slowscan off (the boom runs' `.pf` got out
+because slowscan was on).  Rerun (experiment.cmd): `scan 140` (one
+sweep of all 140 tiles per chip) ends each phase; `.pt` every 4096
+events.  5 vs 8 head to head: not readable from the tgz (colors were
+identical in that build); FB4 vs FB4 is a neutral voter model, so the
+winner should be a coin flip unless bytecode's slower events lose more
+to obsolescence.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
