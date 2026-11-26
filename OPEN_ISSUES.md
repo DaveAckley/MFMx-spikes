@@ -8,6 +8,16 @@ ERISC_NOTES.md.
 
 ## Bugs
 
+- AER 0.04-0.05 below the 11-19 soak (2026-11-25, PARKED by the user).  Honest
+  FB1 AERre reads 0.94 flat now (dwell 4 8, no seeds; run 20261125-165051)
+  against 0.987 at 180 s and 0.977 at 900 s in soak 124337 (same metric).
+  Ruled out: BOGOMS, dwell (+0.03), seeding/fill, host cycle timing.  The hubs
+  do ~5% fewer events per dwell second: something hub-side in the last week.
+  Not bisected.  How, if it matters: CLAUDE.md "AER GAP, PARKED".
+- Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621, 3.1 h
+  in, the leader (bh2) went mostly silent; not investigated.  The `.sc` mark
+  (scy at NEW_LEADER entry) is now in every run to help next time.
+
 - EWP/hub car handshake lost at boot (2026-11-21, seam21 at OW=20; fix
   PROVEN, MECHANISM NOT ESTABLISHED).  68 of 140 hubs ran ZERO events (AER
   0.50 vs 0.96) and one hub died at init (at14b, getAnkleOrDie).  Evidence from
