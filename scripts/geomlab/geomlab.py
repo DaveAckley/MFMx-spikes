@@ -37,7 +37,8 @@ write 137 / 108 here).  Pictures: OUT/NAME.png, hub colors, dead
 centers of the first shift darkened, never-live sites red.
 
 Usage: python3 geomlab.py [--out DIR] [--only NAME[,NAME..]] [--list]
-       [--zoom X,Y] [--zsize SITES] [--zscale PX]  (close-ups: NAME-zoom.png)
+       [--zoom X,Y] [--zsize SITES] [--zscale PX]  (close-ups: NAME-zoom.png,
+       NAME-intensity.png)
        python3 geomlab.py --check      (self-test against HubGeometry)
        python3 geomlab.py --crosscheck (EWLattice.h == lab rect-snap)
        python3 geomlab.py --tileable   (exact EW covers of shapes)
@@ -463,6 +464,17 @@ def live_mask(lab, strict=False):
     return ok
 
 
+def intensity(live):
+    """SITE INTENSITY: per site, how many live centers' windows contain
+    it this cycle (41 deep inside an area; 1 on a straight orthogonal
+    edge; 5 on a straight 45-degree edge; 0 = no window can write it)."""
+    pad = np.pad(live.astype(np.int16), R)
+    out = np.zeros(live.shape, dtype=np.int16)
+    for dx, dy in OFFSETS:
+        out += pad[R + dy:R + dy + H, R + dx:R + dx + W]
+    return out
+
+
 def measure(lay):
     own = lay.owner()
     hop = lay.hub_of_part
@@ -488,10 +500,15 @@ def measure(lay):
     rowsY = np.broadcast_to(YY, (H, W))
     site = (YY * W + XX).astype(np.int64)
     lives = []
+    ihist = np.zeros(EW_SITES + 1, dtype=np.int64)
+    isum = np.zeros((H, W), dtype=np.int32)
     for s in lay.shifts:
         lab = lay.part_at(s)
         live = live_mask(lab)
         lives.append(live)
+        it = intensity(live)
+        ihist += np.bincount(it.ravel(), minlength=EW_SITES + 1)
+        isum += it
         live_count += live
         dead.append(1.0 - live.mean())
         hub_s = np.where(lab >= 0, hop[np.maximum(lab, 0)], -1)
@@ -513,6 +530,11 @@ def measure(lay):
         live_n.append(np.bincount(lh[lh >= 0], minlength=NH))
         pair_keys.append(hub_s[bor] * NH + own[bor])
     m["dead"] = 100.0 * float(np.mean(dead))
+    pi = ihist / ihist.sum()
+    m["int0"] = 100.0 * float(pi[0])
+    m["int1"] = 100.0 * float(pi[1])
+    m["int4"] = 100.0 * float(pi[:5].sum())
+    m["int_sum"] = (int(isum.min()), float(isum.mean()), int(isum.max()))
     ei, ej = ew_tile_index()
     ecx = ei * R - ej * (R + 1)
     ecy = ei * (R + 1) + ej * R
@@ -838,6 +860,44 @@ def ew_rect_picture(path, scale, hub=(2, 2), snap=False):
               f"{int((major != cin).sum())} EWs")
 
 
+def intensity_picture(path, lives, shifts, centre, size, scale):
+    """Close-up of site intensity, one panel per shift: gray level =
+    intensity / 41 (white = 41, deep inside an area), intensity 1 orange,
+    0 red."""
+    from PIL import Image, ImageDraw
+    cx, cy = centre
+    x0 = min(max(cx - size // 2, 0), W - size)
+    y0 = min(max(cy - size // 2, 0), H - size)
+    gap = 4
+    bar = 18
+    side = size * scale
+    cols = 2
+    rows = (len(shifts) + cols - 1) // cols
+    sheet = Image.new("RGB",
+                      (cols * side + (cols + 1) * gap,
+                       rows * (side + bar) + (rows + 1) * gap),
+                      (0, 0, 0))
+    draw = ImageDraw.Draw(sheet)
+    for k, (live, s) in enumerate(zip(lives, shifts)):
+        it = intensity(live)[y0:y0 + size, x0:x0 + size]
+        g = (it.astype(np.float64) / EW_SITES)[:, :, None]
+        img = np.repeat(g, 3, axis=2) * 0.9 + 0.05
+        img[it == 1] = (1.0, 0.55, 0.0)
+        img[it == 0] = (0.9, 0.1, 0.1)
+        big = np.repeat(np.repeat(img, scale, axis=0), scale, axis=1)
+        if scale >= 4:
+            big[scale - 1::scale, :, :] *= 0.85
+            big[:, scale - 1::scale, :] *= 0.85
+        px = gap + (k % cols) * (side + gap)
+        py = gap + (k // cols) * (side + bar + gap)
+        draw.text((px + 2, py + 3),
+                  f"intensity, shift {s}  (white 41, orange 1, red 0)",
+                  fill=(230, 230, 230))
+        tile = Image.fromarray((big * 255).astype(np.uint8))
+        sheet.paste(tile, (px, py + bar))
+    sheet.save(path)
+
+
 # ---------------------------------------------------------------- checks
 
 def tileable(region):
@@ -997,6 +1057,11 @@ def main():
                      f"borrowed bands whole EWs: {m['bands_whole']}, "
                      f"EWs borrowed per hub per cycle {m['band_ews'][0]}"
                      f"..{m['band_ews'][1]}")
+        notes.append(f"  {n}: site intensity per cycle P(0) "
+                     f"{m['int0']:.2f}% P(1) {m['int1']:.2f}% P(<=4) "
+                     f"{m['int4']:.2f}%; summed over the cycle min/mean/max "
+                     f"{m['int_sum'][0]}/{m['int_sum'][1]:.1f}/"
+                     f"{m['int_sum'][2]}")
         notes.append(f"  {n}: center table: <= {m['runs_max']} runs per "
                      f"row, {m['runs_mean']:.0f} runs per hub-cycle "
                      f"(max {m['runs_top']}), live centers per "
@@ -1010,6 +1075,8 @@ def main():
         zoom_picture(os.path.join(args.out, n + "-zoom.png"), own, lives,
                      lay.shifts, never, zc, args.zsize, args.zscale,
                      m["pair_list"])
+        intensity_picture(os.path.join(args.out, n + "-intensity.png"),
+                          lives, lay.shifts, zc, args.zsize, args.zscale)
     lines.append("")
     lines.extend(notes)
     print("")

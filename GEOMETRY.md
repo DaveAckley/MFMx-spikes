@@ -422,7 +422,14 @@ inside one hub's area, whose center is therefore live, so a full-window
 physics (FB4) can write EVERY site in EVERY cycle: 0 sites uncovered by
 any live window, vs 4,680 (0.23%) in rect's worst cycle (the corners of
 each event area, where live centers are >= 8 away).  'Dead' under
-ewsnap means only 'cannot be a center this cycle'.  By eye (liv):
+ewsnap means only 'cannot be a center this cycle'.  SITE INTENSITY
+(liv's measure; geomlab `intensity()`, notes line and NAME-intensity.png):
+per site and cycle, how many live centers' windows contain it.  41 deep
+in an area; 1 on the last site before a straight orthogonal edge; 5 on
+a straight 45-degree edge (the 5 sites of a window face); 0 = unwritable.
+Whole grid, per cycle:  rect P(0) 0.23% P(1) 2.91% P(<=4) 6.02%;
+ewsnap 0 / 0.49% / 3.46%; dia-multi48 0 / 0.09% / 0.42%; dia-brick
+0 / 0.08% / 0.37%.  By eye (liv):
 less tile 'boxiness', FB1 colonies less affected by hub boundaries,
 zig-zag edges visible at times.
 
