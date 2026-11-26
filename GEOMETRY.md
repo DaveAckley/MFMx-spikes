@@ -271,7 +271,56 @@ Other limits that a bigger or different hub grid would hit:
   T6Grid, but TW, TH <= 255 caps a hub grid at about 255 x 255 = 65,025
   sites stored before the u8 coordinate assumptions must go.
 
-## 10. Open questions
+## 10. Geometry lab: other tilings (scripts/geomlab)
+
+`python3 scripts/geomlab/geomlab.py [--out DIR]` (numpy + PIL, host
+only, ~20 s) lays candidate tilings on the real 1918 x 1080 grid and
+the 14 x 10 physical hub array and measures them with ONE model (see
+the script's header): each supercycle the whole partition slides by a
+shift vector (four corners: (+-OW, +-OH); diamond layouts: the vertex
+analog (+-20, 0), (0, +-20)); a center is live iff its window stays in
+one part; a hub's ring is the union of what it borrows over the
+shifts.  `--check` asserts that `rect` reproduces the real hub (store
+177 x 148 = 26,196, ring 11,400); `--tileable` runs the exact EW-cover
+test.  Pictures land in DIR/NAME.png.
+
+First results (2026-11-25):
+
+    layout       hubs sites/hub min/mean/max  cv   dead% never% ring xchg ngb  hops    pack
+    rect          140 14796/14796/14796      .000  11.7  0.00  0.69 4137 7.0  1(  0)  0.876
+    dia-brick     139  9970/14902/22020      .112   9.1  0.00  0.50 3169 7.3  4(244)  0.900
+    dia-rotated    65   702/31868/45000      .524   5.2  0.00  0.28 4056 6.1  1(  0)  0.938
+    dia-multi48   140 11424/14796/18432      .112  10.1  0.00  0.56 3468 5.6  2(  8)  0.894
+    dia-fenced48  140 11424/14796/18432      .112  16.0  0.00  0.56 3468 5.6  2(  8)  0.835
+    ew-blocks     139  8192/14902/23836      .101  10.0  0.00  0.53 3112 7.2  3(218)  0.988
+
+(dia-rotated's 5.2% is 7.7% at today's hub size: it leaves 75 hubs
+idle.  hops = max physical distance to a neighbor hub (pairs > 1).
+pack = per-hub best EW lattice packing.)
+
+What they say so far:
+- Dead area goes with the boundary length counted as max(|dx|,|dy|)
+  per segment (2R dead centers per site along it); for a fixed area
+  the shortest such boundary is a diamond (Wulff shape of the L1
+  window).  Ideal diamond 9.1% vs rect 11.7%; clumps of three or four
+  small diamonds (multi48) land between, at 10.1%.
+- Fencing every small diamond (events may not cross ANY diamond edge)
+  is worse than today: 16.0%.
+- No diamond (any radius, any centre offset) and no square can be
+  covered exactly by EWs; only blocks on the EW lattice (tilted about
+  51 degrees, stair-step edges) can (ew-blocks 0.988, edges only).
+  Diamonds pack better than rectangles (0.90 vs 0.88).
+- Brick rows and EW blocks do not match the physical hub array: up to
+  3-4 hub hops to a neighbor on ~220-240 pairs.  The rotated array
+  matches it exactly but wastes 75 of 140 hubs.  Several small
+  diamonds per hub (multi48/50) keep every hub busy and neighbors
+  within 2 hops, at a 0.11 cv in sites per hub (lumpy units).
+- Diamond rings cost less (0.50-0.56 of SELF vs 0.69) for the same
+  Manhattan reach, and fewer neighbors are borrowed from per cycle.
+Not modelled yet: cache elision, exchange packets (vs sites), the real
+hub's u8 coordinate box, non-uniform shifts.
+
+## 11. Open questions
 
 - What OW = 20 buys over a smaller ring (sec 5).
 - Whether any non-2x2 cell has ever run with the current hub image

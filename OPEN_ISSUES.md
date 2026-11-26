@@ -237,6 +237,17 @@ tolerated; nothing shows it for T6 L1 sources.  RESOLVED on card 0 (t6l1rd, ERIS
 blockingL1ReadNoC0 (buffer = base + (src & 63), 64-aligned base, larger buffer) if it shows the same shift, and check the writers' rule (initiateWriteTo*
 use src%16 == dst%16; they work).
 
+## Design idea: diamond-shaped hub regions (2026-11-25, EXPLORING, host lab only)
+
+liv: diamond windows bouncing against orthogonal hub lines is inelegant
+where it is not necessary (only the HD edges need it); also EW close
+packing.  Lab built: scripts/geomlab/geomlab.py, results and reading in
+GEOMETRY.md sec 10 (diamonds cut the dead area 11.7% -> 9-10%, rings
+0.69 -> 0.5-0.56; no diamond packs EWs exactly, only EW-lattice blocks;
+brick rows / EW blocks do not fit the physical hub array, clumps of
+small diamonds do).  Next: liv picks candidates; then a hub-side
+sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
+
 ## Design idea: raise the AI clock (2026-11-22, steps 1 and 2 DONE: arcpeek and arcmsg RUN)
 
 The chip runs at 800 MHz AICLK (NoCs share it), honest AER 0.97 on FB1; if stable near 1.3 GHz the event path could scale toward AER 1.6 at best.
