@@ -52,6 +52,9 @@ namespace MFM {
       EDGE_REACH = SHIFT + RADIUS,      //< permanent side reach off-grid
     };
     static_assert((KX * INV_KX) % SITES == 1, "INV_KX is wrong");
+    static_assert(DG::T6GRID_OVERLAP_WIDTH >= (u32) STORE_MARGIN &&
+                  DG::T6GRID_OVERLAP_HEIGHT >= (u32) STORE_MARGIN,
+                  "the T6Grid ring must hold SHIFT + RADIUS sites");
 
     static constexpr s32 mod(s32 a) {
       return ((a % SITES) + SITES) % SITES;
