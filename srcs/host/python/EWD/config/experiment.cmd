@@ -1,20 +1,15 @@
-# EXPERIMENT: ewsnap first run (EW-lattice four corners, branch diagonal-tiles), FB1 honest, dwell 4 8, 15 min
-# Step 4, run 1 of 2: `policy ewsnap` on the diagonal-tiles build.  Run 2
-# (next experiment.cmd) is the SAME script with `policy fourcorners` on
-# the SAME build (rings are 22 for both there), for the A/B.
-# Settings are the last FB1 experiment's (honest events, elide on, decay
-# 4, dwell 4 8, cycle repeat on, no seed, no nukes, 900 s).
-# Look for: start completes (center tables built at init, `.ct` in the
-# runsum "hub marks" section on all 140 hubs, no hang), bolts reach
-# CONSENSUS with no TIMEOUT (a band mismatch would assert in a hub and
-# time a bolt out), zhd clean, AERre (compare with run 2).  At the end a
-# quiet pause and `zoom specks` (turd check; its RING/SELF and owner
-# labels assume SELF rectangles, so read rows at sawtooth tips with care).
+# EXPERIMENT: fourcorners baseline for ewsnap (step 4, run 2 of 2), same build, FB1 honest, dwell 4 8, 15 min
+# Step 4, run 2 of 2: IDENTICAL to run 1 (MFMX-20261125-234532, policy
+# ewsnap) except `policy fourcorners`, on the same diagonal-tiles build
+# (rings 22 for both).  Run 1: AERre 0.910/0.914/0.919, bolts 0.116 /
+# 0.108 s, 0 timeouts, stale reports 1,704,826, 18 specks, 0 turds.
+# The older ring-20 baseline 165051 read AERre 0.936 and 782,404 stale;
+# this run says how much of the gap is ewsnap and how much the build.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
 tick slowscan off
-policy ewsnap
+policy fourcorners
 events honest
 elide on
 grid off
