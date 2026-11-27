@@ -281,15 +281,30 @@ PT_NAMES = {4: "FB1 native", 5: "FB4 native", 7: "FB1 bytecode",
             8: "FB4 bytecode"}
 
 
-def physics_timing(rundir):
+PT_WINDOW_SECS = 300            # the per-window table's time step
+
+
+def physics_timing(rundir, window=PT_WINDOW_SECS):
+    """The physics timing section, plus a table of events per type per
+    `window` seconds of run time (from the `---SECS---` host time lines
+    in each tile log), so a contest between types (e.g. 5 vs 8 in rounds
+    after whole-grid nukes) can be read window by window."""
     import glob
     files = sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk")))
     tot = {}
     tiles = {}
+    per = {}                    # window index -> {type: events}
     for path in files:
         try:
             with open(path, "r", errors="replace") as f:
+                now = None
                 for l in f:
+                    if l.startswith("---"):
+                        try:
+                            now = float(l.strip().strip("-"))
+                        except ValueError:
+                            pass
+                        continue
                     i = l.find(" .pt:")
                     if i < 0:
                         continue
@@ -303,6 +318,9 @@ def physics_timing(rundir):
                     e[1] += ticks
                     e[2] += ins
                     tiles.setdefault(t, set()).add(path)
+                    if now is not None:
+                        w = per.setdefault(int(now // window), {})
+                        w[t] = w.get(t, 0) + n
         except OSError:
             pass
     if not tot:
@@ -322,6 +340,19 @@ def physics_timing(rundir):
             b = tot[byt][1] / tot[byt][0]
             r.append(f"bytecode / native, {PT_NAMES[nat].split()[0]}: "
                      f"{b / a:.2f}x")
+    if per:
+        types = sorted({t for w in per.values() for t in w})
+        r.append(f"events per {window} s window (millions; share = "
+                 f"8 / (5+8), bytecode FB4's part of all FB4):")
+        r.append("  window s     " + "".join(f"{t:>9d}" for t in types)
+                 + "    share")
+        for k in sorted(per):
+            w = per[k]
+            five, eight = w.get(5, 0), w.get(8, 0)
+            share = f"{eight / (five + eight):9.2f}" if five + eight else ""
+            r.append(f"  {k * window:5d}-{(k + 1) * window:<5d} "
+                     + "".join(f"{w.get(t, 0) / 1e6:9.1f}" for t in types)
+                     + share)
     return r
 
 

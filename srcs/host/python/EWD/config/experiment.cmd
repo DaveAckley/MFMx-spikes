@@ -1,24 +1,16 @@
-# EXPERIMENT: log-car fix check, bytephys FB1 then FB4 (types 4/7, then 5/8), no sweeps, 20 min
-# First run of the bytecode physics spike (OPEN_ISSUES 'physics as
-# bytecode'): types 7 and 8 are FB1 and FB4 run by the BytePhys machine
-# (srcs/shared/include/BytePhys.h, scripts/bytephys/*.bp), proven
-# window-identical to native types 4 and 5 by bytephys_test.  Native and
-# bytecode run SIDE BY SIDE in one run: every EWP times every event
-# (AI clock cycles in guardedPhysics) per type and logs `.pt` marks;
-# runsum.txt's "physics timing" section gives cycles/event per type and
-# the bytecode/native ratio.  AER is a mix of both types, so read the
-# timing section, not AER.  FB1 phase: autoseed type 4 plus `seed 25 4`
-# and `seed 25 7` (bytecode drawn darker).  After 10 min, FB4 phase:
-# `seed 3 5` and `seed 3 8` (FB4s take over).  fourcorners, events
-# honest, no nukes.  Expect: no `.pf` marks (no machine faults), ratios
-# somewhere around 3-10x.
-# THIRD RUN, LOG-CAR FIX: run 141643 (with `scan 140` sweeps) gave the
-# timing (bytecode 4.4x FB1, 6.6x FB4) but showed every tile's log dying
-# after 65.5 s with no mark (OPEN_ISSUES Bugs).  With the fix the `.pt`
-# marks arrive through the normal log path: expect runsum.txt's
-# "physics timing" over ~105 EWPs per chip (not 3), tiles/ holding hub
-# AND EWP files (~560), the live AER line all the way, and timing close
-# to 141643's.  No sweeps (they stalled mfmxctl ~10 min each).
+# EXPERIMENT: FB4 5 vs 8 rounds, 9 x (whole-grid nuke, seed 3 5 + 3 8, 15 min), honest, ~2.5 h
+# Bytecode FB4 (type 8) out-held native FB4 (type 5) in 3 runs of 3
+# (OPEN_ISSUES 'physics as bytecode'), though each 8 event costs 6.6x
+# the cycles; a neutral voter model says coin flip.  This runs nine
+# rounds in one run: a nuke of radius 1150 at the grid center (959,540)
+# erases every site; a 60 s wait lets the hubs finish erasing (the
+# nuke rides the next NEW_LEADER and takes a while), then 3 seeds of
+# each type fight for ~15 min.
+# Read runsum.txt's 'physics timing' window table: per 300 s window the
+# events of each type and share = 8/(5+8); the last window of each round
+# (about every 960 s) says who was winning.  Also a long soak of the
+# log-car fix (a941d4c): live AER and tile logs should last to the end.
+# fourcorners, events honest, no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
@@ -27,7 +19,7 @@ policy fourcorners
 events honest
 elide on
 grid off
-decay 4
+decay 5
 dwell 4 8
 start
 feed on
@@ -37,25 +29,86 @@ zhd
 cycle repeat on
 cycle start
 wait 30
-seed 25 4
-seed 25 7
-echo FB1 phase, block 1 of 2 (5 min)
-wait 300
-status
-zhd
-echo FB1 phase, block 2 of 2 (5 min)
-wait 300
-status
-zhd
-echo FB4 phase: seed native (5) and bytecode (8) FB4
+echo ROUND 1 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
 seed 3 5
 seed 3 8
-echo FB4 phase, block 1 of 2 (5 min)
-wait 300
+wait 450
 status
+wait 450
 zhd
-echo FB4 phase, block 2 of 2 (5 min)
-wait 300
+echo ROUND 2 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
 status
+wait 450
 zhd
+echo ROUND 3 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 4 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 5 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 6 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 7 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 8 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+echo ROUND 9 of 9: clear the grid, seed 3 x type 5 and 3 x type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 450
+status
+wait 450
+zhd
+status
 quit close

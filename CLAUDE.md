@@ -127,7 +127,9 @@ unless the user asks for a rename.
   srcs/shared/include/NativeFB.h; bytephys_test proves them identical.
   Every EWP logs `.pt:TYPE:EVENTS:TICKS:INSNS.` (cycles in physics per
   type, every 4096 events); runsum.txt "physics timing" prints the
-  bytecode/native ratio.  RESULT (runs 141643, 163422): bytecode 4.5x
+  bytecode/native ratio, and (since 2026-11-26) a table of events per
+  type per 300 s window with share = 8/(5+8), for contests between
+  types (runsum.PT_WINDOW_SECS).  RESULT (runs 141643, 163422): bytecode 4.5x
   native for FB1 (~2200 vs ~500 cycles/event), 6.6x for FB4 (21886 vs
   3320), ~50 cycles per bytecode instruction, no faults.
   `seed N 7` / `decay 7` etc.  The host draws bytecode types as a

@@ -351,6 +351,9 @@ FOURTH RUN 20261126-165929 (5b4e795, halo overlay): same timing
 look if it keeps up: something may favor the SLOWER type (e.g. a late
 returning window winning an overwrite race), the opposite of the
 obsolescence penalty expected.  A host type census would show it.
+QUEUED (2026-11-26): experiment.cmd 'FB4 5 vs 8 rounds', 9 rounds of
+(whole-grid nuke, 60 s, seed 3 5 + 3 8, 15 min) in one ~2.5 h run; read
+runsum's per-window table (share = 8/(5+8)) at the end of each round.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
