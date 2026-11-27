@@ -425,7 +425,18 @@ void testCompiler() {
     check(e.mW[6].isEmpty(), "window: ew[6] = Empty");
     check(memcmp(&e.mW[7], &e.mW[0], sizeof a) == 0, "window: ew[7] = self");
   }
-  printf("compiler: test programs (methods, loops, locals, window) give "
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    const P4Atom a = runTest(BP_PROG_TFALLBACK, BP_TYPE_TFALLBACK, e);
+    check(getBits(a, 0u, 16u) == 6u, "fallback: body assigns the counter");
+    check(getBits(a, 16u, 16u) == 25u, "fallback: counter read too deep");
+    check(getBits(a, 32u, 16u) == 12u, "fallback: outer counter, inner loop");
+    check(getBits(a, 48u, 16u) == 107u,
+          "fallback: return from stack-counter loops");
+  }
+  printf("compiler: test programs (methods, loops, locals, window, "
+         "fallback) give "
          "their expected results\n");
 }
 

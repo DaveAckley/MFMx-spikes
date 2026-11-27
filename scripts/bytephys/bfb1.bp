@@ -64,26 +64,22 @@ L3_endif:
         halt1             ; end of behave: commit
 ; Void kabam() -- scripts/ulamlite/bfb1.ulam:26
 m_kabam:
-        enter 0 1         ; sn
-        push 0
-        storel 0
+        push 0  ; sn (on the stack)
+        jmp L7_ftest
 L5_for:
-        loadl 0
-        push 41
-        lt
-        jz L7_fend
         push 100
         onein
-        jz L8_else
-        jmp L6_next
-L8_else:
-        loadl 0
+        jnz L6_next
+        dup               ; sn
         empty
 L6_next:
-        loadl 0
         push 1
         add
-        storel 0
-        jmp L5_for
-L7_fend:
+L7_ftest:
+        dup               ; sn
+        push 41
+        lt
+        jnz L5_for
+L8_fend:
+        drop              ; sn
         ret

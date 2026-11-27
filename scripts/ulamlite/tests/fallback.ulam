@@ -1,0 +1,46 @@
+// fallback.ulam -- TEST ONLY: for counters that cannot stay on the
+// operand stack (assigned in the body, read too deep, an outer counter
+// read from an inner loop) and returns from inside stack-counter loops
+// (the counters must be dropped).  Results: r0..r3 at bits 0, 16, 32, 48.
+element TFallback {
+  Unsigned(16) r0;
+  Unsigned(16) r1;
+  Unsigned(16) r2;
+  Unsigned(16) r3;
+
+  Void behave() {
+    Unsigned n = 0;
+    for (Unsigned i = 0; i < 10; i++) {
+      if (i == 3) i += 4;               // the body changes i: slot
+      n++;
+    }
+    r0 = n;                             // i = 0 1 2 3>7 8 9: 6
+
+    Unsigned s = 0;
+    for (Unsigned i = 0; i < 5; i++)
+      s += 1 + (2 + i);                 // i three deep: slot
+    r1 = s;                             // 15 + 10 = 25
+
+    Unsigned c = 0;
+    for (Unsigned a = 0; a < 3; a++)    // read from the inner loop: slot
+      for (Unsigned b = 0; b < 4; b++)
+        c += a;
+    r2 = c;                             // 4 x (0+1+2) = 12
+
+    for (Unsigned j = 0; j < 20; j++)   // would overflow the stack if
+      scan();                           // scan() left its counter behind
+    r3 = find(7) + find(50);            // 107 + 0
+  }
+
+  Void scan() {
+    for (Unsigned i = 0; i < 9; i++)
+      if (i == 2) return;
+  }
+
+  Unsigned find(Unsigned x) {
+    for (Unsigned i = 0; i < 40; i++)
+      for (Unsigned k = 0; k < 2; k++)
+        if (i == x) return i + 100;
+    return 0;
+  }
+}

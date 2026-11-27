@@ -409,8 +409,36 @@ def member_line(name, typ):
     return f"  {typ[1]} {name}"
 
 
+class NeedSlot(Exception):
+    """A for loop counter cannot live on the operand stack (it is
+    assigned in the body, or read too deep to reach with dup/over): the
+    loop named by .name is redone with the counter in a local slot."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+
+
+# operand stack effect of each emitted instruction (call and enter are
+# worked out from the method)
+EFFECT = {"push": 1, "dup": 1, "drop": -1, "swap": 0, "over": 1,
+          "add": -1, "sub": -1, "eq": -1, "lt": -1, "jmp": 0, "jz": -1,
+          "jnz": -1, "ret": 0, "halt0": 0, "halt1": 0, "getf": 0,
+          "setf": -2, "copy": -2, "empty": -1, "between": -1, "onein": 0,
+          "getm": 0, "setm": -2, "loadl": 1, "storel": -1}
+
+
 class Gen:
-    """Code for one element."""
+    """Code for one element.
+
+    Loops are rotated (the test at the bottom: one jump per pass, not
+    two).  A for loop whose init declares an Unsigned counter and whose
+    step only changes that counter keeps the counter ON THE OPERAND
+    STACK instead of in a local slot, the way hand-written FB4 does;
+    reads become dup / over, found by tracking the operand stack depth
+    (self.depth) through every emitted instruction.  If the body assigns
+    the counter or reads it deeper than over can reach, the loop is
+    compiled again with a slot (NeedSlot)."""
 
     def __init__(self, prog, path, elem):
         self.prog, self.path = prog, path
@@ -429,12 +457,29 @@ class Gen:
                                f"Void behave()")
         self.out = []
         self.nlabel = 0
+        self.depth = 0
 
     def err(self, line, msg):
         raise CompileError(f"{self.path}:{line}: {msg}")
 
     def emit(self, s):
         self.out.append(f"        {s}")
+        op = s.split()[0]
+        if op == "call":
+            m = self.methods[s.split()[1][2:]]
+            self.depth += -len(m[4]) + (0 if m[3] == ("void",) else 1)
+        else:
+            self.depth += EFFECT[op]
+
+    def snapshot(self):
+        return (len(self.out), self.nlabel, dict(self.locals),
+                [set(x) for x in self.scopes], self.depth,
+                dict(self.stackvars), list(self.counters), list(self.loops))
+
+    def restore(self, snap):
+        (n, self.nlabel, self.locals, self.scopes, self.depth,
+         self.stackvars, self.counters, self.loops) = snap
+        del self.out[n:]
 
     def label(self, lab):
         self.out.append(f"{lab}:")
@@ -460,6 +505,9 @@ class Gen:
         self.locals = {}            # name -> (slot, type); flat per method
         self.scopes = [set()]
         self.loops = []
+        self.stackvars = {}         # for counter name -> its stack index
+        self.counters = []          # stack indexes of live for counters
+        self.depth = 0              # operand stack depth after enter
         for p, typ in params:
             self.declare(p, typ, line)
         self.out.append(f"; {'Void' if ret == ('void',) else 'value'} "
@@ -479,13 +527,16 @@ class Gen:
         if n > 255:
             self.err(line, "too many locals")
         if n:
-            names = [k.lstrip("~").split("#")[0] for k in self.locals]
+            names = [k.lstrip("~").split("#")[0] for k, _ in
+                     sorted(self.locals.items(), key=lambda kv: kv[1][0])]
             self.out[enter_at + 1] = (f"        enter {len(params)} {n}"
                                       f"         ; {', '.join(names)}")
         else:
             del self.out[enter_at + 1]
 
     def declare(self, name, typ, line):
+        if name in self.stackvars:
+            raise NeedSlot(name)    # shadowing a stack counter: use a slot
         if name in self.scopes[-1]:
             self.err(line, f"{name} declared twice")
         if name in self.consts or self.member(name) is not None:
@@ -513,7 +564,12 @@ class Gen:
 
     def stmt(self, s):
         kind, line = s[0], s[1]
+        d = self.depth
         getattr(self, "s_" + kind)(s)
+        if self.depth != d:
+            raise CompileError(f"{self.path}:{line}: INTERNAL: {kind} "
+                               f"left the operand stack at {self.depth}, "
+                               f"not {d}")
 
     def s_block(self, s):
         self.scopes.append(set())
@@ -572,6 +628,8 @@ class Gen:
             self.value(lhs[3])
             self.emit("copy")
             return
+        if lhs[0] == "name" and lhs[2] in self.stackvars:
+            raise NeedSlot(lhs[2])  # the body changes the counter
         if lhs[0] == "name" and self.find_local(lhs[2]) is not None:
             slot, typ = self.find_local(lhs[2])
             if op == "=":
@@ -597,6 +655,14 @@ class Gen:
 
     def s_if(self, s):
         _, line, cond, then, other = s
+        jump = then
+        while jump[0] == "block" and len(jump[2]) == 1:
+            jump = jump[2][0]
+        if other is None and jump[0] in ("break", "continue") and self.loops:
+            # if (c) break; / if (c) continue;  ->  one conditional jump
+            lend, lcont = self.loops[-1]
+            self.cond_true(cond, lend if jump[0] == "break" else lcont)
+            return
         lelse = self.new_label("else")
         self.cond_false(cond, lelse)
         self.stmt(then)
@@ -610,33 +676,104 @@ class Gen:
         self.label(lend)
 
     def s_while(self, s):
+        """Rotated: jmp test; top: body; test: if cond goto top."""
         _, line, cond, body = s
-        ltop, lend = self.new_label("while"), self.new_label("wend")
+        ltop, ltest, lend = (self.new_label("while"),
+                             self.new_label("wtest"), self.new_label("wend"))
+        self.emit(f"jmp {ltest}")
         self.label(ltop)
-        self.cond_false(cond, lend)
-        self.loops.append((lend, ltop))
+        self.loops.append((lend, ltest))
         self.stmt(body)
         self.loops.pop()
-        self.emit(f"jmp {ltop}")
+        self.label(ltest)
+        self.cond_true(cond, ltop)
         self.label(lend)
 
     def s_for(self, s):
         _, line, init, cond, step, body = s
+        if (init is not None and init[0] == "local" and
+                init[3] == ("u", 32) and step is not None and
+                step[0] == "assign" and step[3][0] == "name" and
+                step[3][2] == init[2]):
+            snap = self.snapshot()
+            try:
+                self.for_on_stack(s)
+                return
+            except NeedSlot as e:
+                if e.name != init[2]:
+                    raise               # an outer loop's counter
+                self.restore(snap)
+        self.for_in_slot(s)
+
+    def for_on_stack(self, s):
+        """for (Unsigned i = a; cond; i op= e) with i on the operand
+        stack:  push a; jmp test; top: body; next: step; test: if cond
+        goto top; end: drop."""
+        _, line, init, cond, step, body = s
+        name = init[2]
+        if init[4] is not None:
+            self.value(init[4])
+        else:
+            self.emit("push 0")
+        outer = self.stackvars.get(name)
+        self.stackvars[name] = self.depth - 1
+        self.counters.append(self.depth - 1)
+        ltop, lnext, ltest, lend = (self.new_label("for"),
+                                    self.new_label("next"),
+                                    self.new_label("ftest"),
+                                    self.new_label("fend"))
+        self.out[-1] += f"  ; {name} (on the stack)"
+        self.emit(f"jmp {ltest}")
+        self.label(ltop)
+        self.loops.append((lend, lnext))
+        self.stmt(body)
+        self.loops.pop()
+        self.label(lnext)
+        _, _, op, _, rhs = step         # the counter is on top here
+        self.value(rhs)
+        if op == "=":
+            self.emit("swap")
+            self.emit("drop")
+        else:
+            self.emit("add" if op == "+=" else "sub")
+        self.label(ltest)
+        if cond is None:
+            self.emit(f"jmp {ltop}")
+        else:
+            self.cond_true(cond, ltop)
+        self.label(lend)
+        self.emit(f"drop              ; {name}")
+        self.counters.pop()
+        if outer is None:
+            del self.stackvars[name]
+        else:
+            self.stackvars[name] = outer
+
+    def for_in_slot(self, s):
+        """Rotated, counter in a local: init; jmp test; top: body; next:
+        step; test: if cond goto top."""
+        _, line, init, cond, step, body = s
         self.scopes.append(set())
         if init is not None:
             self.stmt(init)
-        ltop, lcont, lend = (self.new_label("for"), self.new_label("next"),
-                             self.new_label("fend"))
-        self.label(ltop)
+        ltop, lnext, ltest, lend = (self.new_label("for"),
+                                    self.new_label("next"),
+                                    self.new_label("ftest"),
+                                    self.new_label("fend"))
         if cond is not None:
-            self.cond_false(cond, lend)
-        self.loops.append((lend, lcont))
+            self.emit(f"jmp {ltest}")
+        self.label(ltop)
+        self.loops.append((lend, lnext))
         self.stmt(body)
         self.loops.pop()
-        self.label(lcont)
+        self.label(lnext)
         if step is not None:
             self.stmt(step)
-        self.emit(f"jmp {ltop}")
+        if cond is None:
+            self.emit(f"jmp {ltop}")
+        else:
+            self.label(ltest)
+            self.cond_true(cond, ltop)
         self.label(lend)
         gone = self.scopes.pop()
         for key in list(self.locals):
@@ -656,11 +793,17 @@ class Gen:
 
     def s_return(self, s):
         _, line, val = s
+        d = self.depth
         if self.ret == ("void",):
             if val is not None:
                 self.err(line, "a Void method returns no value")
-            self.emit("halt1             ; return: commit" if self.is_behave
-                      else "ret")
+            if self.is_behave:
+                self.emit("halt1             ; return: commit")
+            else:
+                for _ in self.counters:     # leave the caller's stack clean
+                    self.emit("drop              ; a loop counter")
+                self.emit("ret")
+            self.depth = d              # what follows is another path
             return
         if val is None:
             self.err(line, "return needs a value")
@@ -669,7 +812,11 @@ class Gen:
             self.clamp(self.ret[1])
         elif self.ret[0] == "bool":
             self.to_bool()
+        for _ in self.counters:         # drop loop counters under the value
+            self.emit("swap")
+            self.emit("drop              ; a loop counter")
         self.emit("ret")
+        self.depth = d
 
     # -- helpers
 
@@ -737,6 +884,14 @@ class Gen:
         kind, line = e[0], e[1]
         if kind == "num":
             self.emit(f"push {e[2]}")
+        elif kind == "name" and e[2] in self.stackvars:
+            k = self.depth - self.stackvars[e[2]] - 1
+            if k == 0:
+                self.emit(f"dup               ; {e[2]}")
+            elif k == 1:
+                self.emit(f"over              ; {e[2]}")
+            else:
+                raise NeedSlot(e[2])    # too deep for dup/over
         elif kind == "name":
             name = e[2]
             loc = self.find_local(name)
@@ -766,8 +921,10 @@ class Gen:
         elif kind in ("bin", "not"):        # && || ! as a value
             lf, lend = self.new_label("f"), self.new_label("v")
             self.cond_false(e, lf)
+            d = self.depth
             self.emit("push 1")
             self.emit(f"jmp {lend}")
+            self.depth = d              # the other path
             self.label(lf)
             self.emit("push 0")
             self.label(lend)
@@ -837,7 +994,10 @@ class Gen:
     def cond_false(self, e, lf):
         """Jump to lf if e is false, else fall through."""
         kind = e[0]
-        if kind == "not":
+        if kind == "num":               # constant: jump or not, no test
+            if e[2] == 0:
+                self.emit(f"jmp {lf}")
+        elif kind == "not":
             self.cond_true(e[2], lf)
         elif kind == "bin" and e[2] == "&&":
             self.cond_false(e[3], lf)
@@ -856,7 +1016,10 @@ class Gen:
     def cond_true(self, e, lt):
         """Jump to lt if e is true, else fall through."""
         kind = e[0]
-        if kind == "not":
+        if kind == "num":
+            if e[2] != 0:
+                self.emit(f"jmp {lt}")
+        elif kind == "not":
             self.cond_false(e[2], lt)
         elif kind == "bin" and e[2] == "||":
             self.cond_true(e[3], lt)

@@ -162,7 +162,9 @@ unless the user asks for a rename.
   physics -> scripts/bytephys/tests/*.bp -> srcs/host/tools/
   BytePhysTests.h (BytePhys::Tests, only bytephys_test includes it);
   both tools always build both sets.  Add a test there for every new
-  compiler feature.
+  compiler feature.  LOOPS (2026-11-27): rotated, for counters kept on
+  the operand stack (depth tracked per emitted op; NeedSlot falls back
+  to a local), so compiled FB4 = 374 insns/event (hand 369, was 494).
   OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
   'bytecode is favored' was chance.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH

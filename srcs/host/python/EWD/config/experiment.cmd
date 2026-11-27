@@ -1,20 +1,15 @@
-# EXPERIMENT: BytePhys compiled code + fast path timing, FB1 (4 vs 7) 12 min then FB4 (5 vs 8) 12 min, shortcut (AERse), ~30 min
-# Types 7 and 8 now run code COMPILED from scripts/ulamlite/*.ulam
-# (ulam-lite, BYTEPHYS.md section 13; FB4 494 bytecode instructions per
-# event vs 369 hand written, FB1 calls a kabam() method with a local),
-# dispatched through the generated type -> program table, and members
-# that sit inside one 32-bit word (all of FB1's and FB4's) skip the u64
-# work in getBits/setBits.  Version 1 (hand code, no fast path, run
-# 20261127-011502) measured FB1 2955 cycles/event (5.59x native), FB4
-# 23514 (7.10x).  Read runsum.txt's 'physics timing': cycles/event and
-# insns/event per type; cycles per instruction says what the fast path
-# bought, insns per event what the compiler cost.  Expect no `.pf`.
-# Phase A runs FB1 only (FB4 would overrun it), then a nuke of the whole
-# grid, a 60 s wait for the hubs to finish erasing, and phase B runs FB4
-# only.  Seeds go in two batches 20 s apart per type (whole batches were
-# lost in run 183231, OPEN_ISSUES 'LOST SEED BATCHES').
-# fourcorners, events shortcut (AERse: seeds grow faster than in honest
-# AERre; use `events honest` only for AER studies), no autonuke.
+# EXPERIMENT: BytePhys optimized compiled code timing, FB1 (4 vs 7) 12 min then FB4 (5 vs 8) 12 min, shortcut (AERse), ~30 min
+# Types 7 and 8 run ulam-lite code after the loop optimization (rotated
+# loops, for counters on the operand stack): FB4 374 bytecode
+# instructions per event (was 494 in run 20261127-015533, hand-written
+# 369), FB1 ~31.  Also new since that run: EACH is a countdown and the
+# per-event pew* modulo is gone (all images).  Run 015533 measured FB1
+# 3167 cycles/event (6.60x native), FB4 33853 (10.22x).  Read runsum's
+# 'physics timing': insns/event should drop to ~374 for type 8, and
+# cycles/event with it if the cost per instruction holds.  Expect no
+# `.pf`.  Phase A runs FB1 only, then a whole-grid nuke, a 60 s wait,
+# and phase B runs FB4 only; seeds in two batches 20 s apart per type.
+# fourcorners, events shortcut (AERse), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.

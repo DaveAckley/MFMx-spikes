@@ -426,6 +426,11 @@ registers?); a per-opcode microbenchmark on the QB would say.
 
 ## 12. Change log
 
+- **Loop optimization (2026-11-27):** rotated loops, for counters on the
+  operand stack (with fallback to a slot), one-jump `if (c) break;` /
+  `continue;`, constant conditions folded.  FB4 494 -> 374 instructions
+  per event, FB1 141 -> 113 (test mix).  Not yet run on the QB.
+
 - **ulam-lite tests (2026-11-27):** a test-only physics
   (scripts/ulamlite/tests, BytePhysTests.h) runs every compiler feature
   FB1/FB4 do not; it found one bug, now fixed: a local declared without
@@ -540,7 +545,9 @@ templates, virtual methods.
 
 **Testing:** FB1 and FB4 are checked against native (bytephys_test).
 Everything else is checked by a separate TEST-ONLY physics,
-`scripts/ulamlite/tests/*.ulam` (TMethods, TLoops, TLocals, TWindow),
+`scripts/ulamlite/tests/*.ulam` (TMethods, TLoops, TLocals, TWindow,
+TFallback: every way a stack counter falls back to a slot, and returns
+from inside stack-counter loops),
 compiled with its own type numbers into `scripts/bytephys/tests/*.bp`
 and assembled into `srcs/host/tools/BytePhysTests.h` (namespace
 `BytePhys::Tests`), which only bytephys_test includes, so none of it
@@ -553,8 +560,20 @@ copies, and that short-circuited random draws are never drawn.
 ulamlite.py and bpasm.py always build both physics; their `--check`s
 cover both.
 
-**Code quality:** straightforward, a little worse than hand-written:
-compiled FB4 spends 12 instructions per neighbor where the hand version
-spends 9 (it keeps the loop counter in a local, not on the stack).
-Loop rotation and keeping a counter on the stack are the obvious first
-optimizations.
+**Code quality:** close to hand-written.  The compiler tracks the
+operand stack depth through every instruction it emits, and:
+- **rotates loops**: the test sits at the bottom, so a pass costs one
+  conditional jump instead of a test, a jump out and a jump back;
+- **keeps simple for counters on the operand stack**: a `for` whose
+  init declares an `Unsigned` counter and whose step only changes it
+  keeps it on the stack, read with `dup` / `over`, dropped at the end
+  (and before any `return` inside the loop).  If the body assigns the
+  counter, declares a local of the same name, or reads it deeper than
+  `over` reaches (e.g. an inner loop reading an outer counter), that
+  loop is compiled again with the counter in a local slot;
+- turns `if (c) break;` / `if (c) continue;` into one conditional jump,
+  and drops tests of constant conditions (`while (true)`).
+
+FB4 now runs 9 instructions per neighbor, 374 per event (hand-written
+369; before these optimizations 494).  FB1 averages 113 in the test mix
+(hand 112, before 141).

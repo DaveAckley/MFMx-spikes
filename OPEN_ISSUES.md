@@ -383,8 +383,9 @@ instruction (bytecode - native, / insns), FB4: v0 50, v1 55, v2 62
 cycles; FB1: 59, 83, 88.  The one-word fast path did not help: cost per
 instruction grows with the interpreter, not with member access.  No
 `.pf`; 8 of 8 seed batches grew; FB4 share 0.57-0.59 (bytecode ahead).
-Next candidates: compiler loop optimization (FB4 494 -> ~370 insns);
-a per-opcode microbenchmark on the QB to find where ~60 cycles go.
+Compiler loop optimization DONE 2026-11-27 (FB4 494 -> 374 insns,
+host-tested).  Still open: a per-opcode microbenchmark on the QB to
+find where ~60 cycles per instruction go.
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
