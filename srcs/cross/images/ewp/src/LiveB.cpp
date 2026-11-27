@@ -57,6 +57,9 @@ namespace MFM {
 
   int initB() {
     preloadT2Mailbox();
+    // fast RAM is not zeroed at boot: the first run() fills the
+    // Machine's dispatch table (BytePhys.h mOps)
+    fB.mThePhysics.mVM.resetDispatch();
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     return 0;
   }

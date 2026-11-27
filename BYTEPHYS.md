@@ -85,8 +85,12 @@ instruction doing the work of a native loop.
 - **Fuel:** every instruction executed costs 1; the EWP gives each event
   `BP_FUEL` = 10,000.  Running out is a fault, so an infinite loop ends
   the event instead of the tile.
-- **Size:** the Machine object is 228 bytes (84 in version 1) and lives
-  in hart B's fast RAM beside the event window (`Physics::mVM`).
+- **Size:** the Machine object is 344 bytes (228 before the dispatch
+  table copy, 84 in version 1) and lives in hart B's fast RAM beside
+  the event window (`Physics::mVM`).  116 of those bytes are the copy
+  of run()'s dispatch table (`mOps`, 28 handler addresses) and the
+  pointer it came from (`mOpsFrom`), filled by the first run() after
+  the EWP's initB clears it (section 12).
 
 An event runs one program from offset 0 until HALT0 or HALT1:
 
@@ -506,6 +510,17 @@ attack the second.
   instructions with 4 taken jumps and 5 stack spills to 14 with one
   jump.  Timed on the QB in run 20261127-141156: cheapest ops 25
   cycles (was 42-48), FB4 14388 cycles/event (was 24788), section 10.
+- **Dispatch table in fast RAM (2026-11-27, cross-built, not yet run):**
+  each dispatch is a dependent chain (opcode byte, then table entry,
+  then jump), so L1's latency is paid in full, unlike the independent
+  loads of the native probe (L1 6.8 vs fast 5.3).  run() now copies its
+  kOps table (static, in L1) into the Machine (`mOps`, HB fast RAM)
+  once, remembered by `mOpsFrom`, and indexes that; every dispatch in
+  the EWP build is `sh2add; lw` off the Machine.  initB clears
+  mOpsFrom (fast RAM is not zeroed at boot); host Machines are
+  value-initialized.  Machine 228 -> 344 B; HB fast-RAM data ends at
+  0x3e0, so ~7.2 KB stays for the stack.  The opcode bytes still come
+  from L1 (a fast-RAM code cache is the next idea, OPEN_ISSUES).
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus

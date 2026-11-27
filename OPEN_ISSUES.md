@@ -449,10 +449,20 @@ cycles per insn in L1 (was 42-48), 20 in fast RAM; getm ~120 net (was
 ~175), setm ~160 (~215), copy ~70 (~150); FB1 bytecode 1975
 cycles/event, 4.30x native (was 3013, 6.37x); FB4 14388, 4.40x (was
 24788, 7.59x), now faster than hand-written v0.  No `.pf`.  BYTEPHYS.md
-section 10.  Still to do (ideas, no go-ahead yet): getm/setm with
-pos/len at compile time; the kOps table (or pre-translated handler
-addresses) in fast RAM to cut the second L1 load per dispatch; the
-robustness guards for verify-once (256-entry kOps with BF_OPCODE
+section 10.  DISPATCH TABLE IN FAST RAM (2026-11-27, cross-built, NOT
+yet run): the Machine holds a copy of kOps (BYTEPHYS.md section 12);
+experiment.cmd re-times bench + FB1 + FB4 against run 141156.  Next
+idea (Liv, 2026-11-27): a few KB of HB fast RAM as an ON-DEMAND CACHE
+of bytecode, since all real physics will not fit.  Cache whole
+functions, checked only at program entry, call and ret (jumps stay
+inside a function, verify() would enforce it), copied on a miss
+(~2 cycles per byte), LRU slots; keyed by (program, function) because
+FOO.method1() may call BAR.method2() and so on, so a call can cross
+into another element's code.  bpasm would emit a function table and
+function-relative jump targets.  First measure a one-program,
+copy-on-type-change version on FB1/FB4; check HB stack headroom with
+`.sk` first.  Still to do too: getm/setm with pos/len at compile time;
+the robustness guards for verify-once (256-entry kOps with BF_OPCODE
 fillers, pc check in jumps, periodic re-verify).
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md

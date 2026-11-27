@@ -14,6 +14,8 @@
    fixed arrays in the Machine object (on the EWP it lives in hart B's
    fast RAM beside the event window), so bytecode recursion never touches
    the native stack: the interpreter is one loop and never calls itself.
+   The Machine also holds a copy of the dispatch table (mOps), so the
+   table load of every dispatch comes from fast RAM, not L1.
    A program is checked ONCE by verify() (opcodes, immediates, jump
    targets, fields, member ids, its end; bpasm's headers do it at compile
    time), then run() checks only what depends on the run: every push,
@@ -223,6 +225,17 @@ namespace MFM {
       Call mCalls[CALL_SIZE];
       u32 mLocals[LOCALS_SIZE];
       u32 mExecuted;                    //< instructions run, last event
+      /* The dispatch table, copied here from run()'s kOps (in L1 on the
+         EWP) so each dispatch's table load comes from fast RAM along
+         with the rest of the Machine.  mOpsFrom names the kOps the copy
+         came from (each run<Env> has its own); null = no copy yet.  The
+         EWP zeroes it in initB (fast RAM is not zeroed at boot); a host
+         Machine must be value-initialized (`Machine vm{};`) or call
+         resetDispatch(). */
+      const void * mOpsFrom;
+      void * mOps[OP_COUNT];
+
+      void resetDispatch() { mOpsFrom = nullptr; }
 
       /* Run a VERIFIED program (verify(p) == 0, below; the generated
          programs are checked at compile time), so opcodes, immediates,
@@ -246,6 +259,11 @@ namespace MFM {
         };
         static_assert(sizeof(kOps) / sizeof(kOps[0]) == OP_COUNT,
                       "kOps must list every Op, in order");
+        if (__builtin_expect(mOpsFrom != (const void *) kOps, 0)) {
+          for (u32 i = 0; i < OP_COUNT; ++i) mOps[i] = kOps[i];
+          mOpsFrom = (const void *) kOps;
+        }
+        void * const * const ops = mOps;
         const u8 * const code = p.mCode;
         u32 * const stk = mStack;
         u32 pc = 0;
@@ -260,7 +278,7 @@ namespace MFM {
 #define BP_ROOM(n) do { if (__builtin_expect(sp + (n) > STACK_SIZE, 0)) \
                           env.fault(BF_STACK_OVER); } while (0)
 #define BP_IMM16 ((u32) code[pc] | ((u32) code[pc + 1] << 8))
-#define BP_NEXT do { ++used; goto *kOps[code[pc++]]; } while (0)
+#define BP_NEXT do { ++used; goto *ops[code[pc++]]; } while (0)
 #define BP_FUEL_CHECK do { if (__builtin_expect(used > fuel, 0)) \
                               env.fault(BF_FUEL); } while (0)
 

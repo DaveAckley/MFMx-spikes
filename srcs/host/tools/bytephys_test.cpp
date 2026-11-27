@@ -115,7 +115,7 @@ void fillWindow(Env & e, u32 seed, u16 centerType = 4u) {
 }
 
 void testEquivalence() {
-  BytePhys::Machine vm;
+  BytePhys::Machine vm{};
   u64 insns[2] = {0, 0};
   u32 maxInsns[2] = {0, 0};
   long runs[2] = {0, 0};
@@ -169,7 +169,7 @@ const BytePhys::Layout T_LAYOUT = {T_REFS, 2u, T_ATS};
 
 u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
             const BytePhys::Layout * lay = &T_LAYOUT, u16 centerType = 4u) {
-  BytePhys::Machine vm;
+  BytePhys::Machine vm{};
   BytePhys::Program p{code.data(), (u16) code.size(), lay};
   // what verify() rejects never runs (the EWP's programs are verified at
   // compile time): report it as the fault it stands for
@@ -289,7 +289,7 @@ void testBits() {
   }
 
   // setm saturates to the declared width; add and sub saturate
-  BytePhys::Machine vm;
+  BytePhys::Machine vm{};
   auto run = [&vm](const std::vector<u8> & code, Env & e) {
     BytePhys::Program p{code.data(), (u16) code.size(), &T_LAYOUT};
     vm.run(p, e, 1000u);
@@ -383,7 +383,7 @@ void testBits() {
 /* Run a test-only ulam-lite program with its element at the center;
    return the center atom afterwards. */
 P4Atom runTest(const BytePhys::Program & p, u16 type, Env & e) {
-  BytePhys::Machine vm;
+  BytePhys::Machine vm{};
   e.mW[0] = P4Atom::makeAtom(type);
   try {
     check(vm.run(p, e, 10'000u), "test program commits");
@@ -475,7 +475,7 @@ void testBench() {
     e.mW[0] = P4Atom::makeAtom(BB::BP_TYPE_BENCH);
     e.mW[0].mData0 = (u16) (1234u + i);
     const Env before = e;
-    Machine vm;
+    Machine vm{};
     try {
       check(vm.run(*BB::BP_PROG_LIST[i], e, 10'000u), "bench commits");
     } catch (const Fault & f) {

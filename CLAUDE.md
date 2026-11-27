@@ -144,7 +144,8 @@ unless the user asks for a rename.
   age = mStg[1], so host colors are unchanged).  BYTEPHYS.md section 5.
   VERSION 2 (2026-11-27, host-tested): frames: `enter nargs nlocals`,
   loadl/storel, call/ret save and restore the caller's frame; bpasm
-  `func NAME args | locals`.  Machine 228 B.
+  `func NAME args | locals`.  Machine 228 B (344 B since the
+  dispatch table copy in fast RAM, 2026-11-27).
   ULAM-LITE (2026-11-27, host-tested, not yet on the QB): types 7/8 are
   now COMPILED from scripts/ulamlite/{aging,bfb1,bfb4}.ulam by
   scripts/ulamlite/ulamlite.py into GENERATED scripts/bytephys/{aging,

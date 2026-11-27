@@ -1,16 +1,16 @@
-# EXPERIMENT: BytePhys new dispatch: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# The interpreter now runs only verified programs (checked at compile
-# time), dispatches with computed goto built O2 inside the -Os image, and
-# compares fuel only at backward jumps and calls.  Run 20261127-110936
-# (old dispatch) measured: cheapest ops 42-48 cycles per instruction in
-# L1, jumps/pushes ~55, getm ~175, setm ~215, copy ~150; and run
-# 20261127-094705: FB1 bytecode 3013 cycles/event (6.37x native), FB4
-# 24788 (7.59x).  Read runsum's 'bytecode microbenchmark' (expect the
-# cheap ops well under 40) and 'physics timing' (types 7 and 8).
-# Bench phase as in run 110936: 20 Bench atoms (type 31), decay 31 so
-# the hub autoseeds drop Bench atoms too; they erase themselves after
-# 104 events.  Then FB1 seeds, a whole-grid nuke, then FB4 seeds.
-# Expect no `.pf`.
+# EXPERIMENT: BytePhys dispatch table in fast RAM: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# run() now indexes a copy of its dispatch table kept in the Machine
+# (HB fast RAM) instead of the kOps table in L1; the opcode byte still
+# comes from L1.  Same script as run 20261127-141156 (computed goto,
+# table in L1), which measured: cheapest ops 25-27 cycles per insn in
+# L1 / 20-22 with code in fast RAM, jumps/pushes ~32-36, getm1 57,
+# setm1 69; FB1 bytecode 1975 cycles/event (4.30x native), FB4 14388
+# (4.40x).  If the dependent L1 load chain theory holds, every L1
+# figure drops by a few cycles per instruction.  Read runsum's
+# 'bytecode microbenchmark' and 'physics timing' (types 7 and 8).
+# Bench phase: 20 Bench atoms (type 31), decay 31 so the hub autoseeds
+# drop Bench atoms too; they erase themselves after 104 events.  Then
+# FB1 seeds, a whole-grid nuke, then FB4 seeds.  Expect no `.pf`.
 # fourcorners, events shortcut (AERse), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
