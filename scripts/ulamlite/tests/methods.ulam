@@ -1,0 +1,38 @@
+// methods.ulam -- TEST ONLY (bytephys_test, not the EWP): value
+// methods, parameters, recursion, Bool and narrow parameters and
+// returns, a value call used as a statement.  Results: r0..r4 at state
+// bits 0, 16, 32, 48, 64.
+element TMethods {
+  Unsigned(16) r0;
+  Unsigned(16) r1;
+  Unsigned(16) r2;
+  Unsigned(16) r3;
+  Unsigned(16) r4;
+
+  Void behave() {
+    r0 = sum(5);                        // 15, six calls deep
+    max(1, 2);                          // result dropped
+    r1 = max(3, 9) + max(9, 4);         // 18
+    r2 = narrowArg(200);                // 15: the argument clamps
+    r3 = narrowRet();                   // 15: the return clamps
+    r4 = isBig(70) + isBig(7) + boolRet(); // 1 + 0 + 1
+  }
+
+  Unsigned sum(Unsigned n) {
+    if (n == 0) return 0;
+    return n + sum(n - 1);
+  }
+
+  Unsigned max(Unsigned a, Unsigned b) {
+    if (a > b) return a;
+    return b;
+  }
+
+  Unsigned narrowArg(Unsigned(4) x) { return x; }
+
+  Unsigned(4) narrowRet() { return 99; }
+
+  Bool isBig(Unsigned n) { return n > 50; }
+
+  Bool boolRet() { return 7; }
+}

@@ -158,6 +158,11 @@ unless the user asks for a rename.
   any compiled type (Liv 2026-11-27: compiler half only; seeding and
   .pt slots stay by number, static_asserts pin BFB1 = 7, BFB4 = 8).
   getBits/setBits: one-word fast path, u64 only for straddlers.
+  COMPILER TESTS: scripts/ulamlite/tests/*.ulam is a separate test-only
+  physics -> scripts/bytephys/tests/*.bp -> srcs/host/tools/
+  BytePhysTests.h (BytePhys::Tests, only bytephys_test includes it);
+  both tools always build both sets.  Add a test there for every new
+  compiler feature.
   OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
   'bytecode is favored' was chance.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH

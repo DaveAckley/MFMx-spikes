@@ -414,6 +414,12 @@ interpreter loop.  No faults.
 
 ## 12. Change log
 
+- **ulam-lite tests (2026-11-27):** a test-only physics
+  (scripts/ulamlite/tests, BytePhysTests.h) runs every compiler feature
+  FB1/FB4 do not; it found one bug, now fixed: a local declared without
+  an initializer inside a loop kept its last value instead of starting
+  at 0 again.
+
 - **Type numbers and fast path (2026-11-27):** ulamlite.py assigns
   element type numbers (from 7, by name; no more `= N`); bpasm emits a
   type -> program table and Physics.cpp dispatches every compiled type
@@ -518,10 +524,22 @@ matches native C++.
 **Not yet:** other atoms' members (`ew[i]` as an element, i.e. ulam's
 casts and references); quark methods; signed Int(n); multiplication,
 division, bit ops; arrays; making atoms of a declared type; inheritance,
-templates, virtual methods.  Only what FB1 and FB4 use has been run
-(bytephys_test against native); the rest (value-returning methods,
-while, `||`, `is`, narrow locals) compiles and assembles but has not
-been executed by a test yet.
+templates, virtual methods.
+
+**Testing:** FB1 and FB4 are checked against native (bytephys_test).
+Everything else is checked by a separate TEST-ONLY physics,
+`scripts/ulamlite/tests/*.ulam` (TMethods, TLoops, TLocals, TWindow),
+compiled with its own type numbers into `scripts/bytephys/tests/*.bp`
+and assembled into `srcs/host/tools/BytePhysTests.h` (namespace
+`BytePhys::Tests`), which only bytephys_test includes, so none of it
+reaches the EWP.  Each test element computes into its own members and
+the C++ test compares them with hand-computed values: value methods,
+recursion, narrow and Bool parameters, returns and locals, while /
+break / continue (inner loop only), `|| && !`, comparisons as values,
+shadowing, a local re-zeroed on every pass of a loop, `is`, site
+copies, and that short-circuited random draws are never drawn.
+ulamlite.py and bpasm.py always build both physics; their `--check`s
+cover both.
 
 **Code quality:** straightforward, a little worse than hand-written:
 compiled FB4 spends 12 instructions per neighbor where the hand version

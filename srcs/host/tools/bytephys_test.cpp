@@ -19,6 +19,11 @@
 //   * frames: recursion through call/ret with locals (each frame's
 //     locals survive its callees), storel/loadl, enter's argument move,
 //     and the frame faults
+//   * the compiler: test-only ulam-lite programs (scripts/ulamlite/tests)
+//     for what FB1/FB4 do not use -- value methods, recursion, narrow
+//     and Bool params/returns/locals, while/break/continue, || ! and
+//     comparisons as values, shadowing, is, ew copies, short-circuit
+//     draws -- each checked against its hand-computed results
 //   * declared members: getBits/setBits against a bit-by-bit model over
 //     all 80 state bits, setm saturates to the declared width, add/sub
 //     saturate
@@ -28,6 +33,7 @@
 #include <vector>
 
 #include "BytePrograms.h"
+#include "BytePhysTests.h"   // test-only physics, scripts/ulamlite/tests
 #include "NativeFB.h"
 
 using namespace MFM;
@@ -353,10 +359,81 @@ void testBits() {
 
 }  // namespace
 
+/* Run a test-only ulam-lite program with its element at the center;
+   return the center atom afterwards. */
+P4Atom runTest(const BytePhys::Program & p, u16 type, Env & e) {
+  BytePhys::Machine vm;
+  e.mW[0] = P4Atom::makeAtom(type);
+  try {
+    check(vm.run(p, e, 10'000u), "test program commits");
+  } catch (const Fault & f) {
+    printf("FAIL: test program faulted %u\n", f.code);
+    ++g_bad;
+  }
+  return e.mW[0];
+}
+
+void testCompiler() {
+  using namespace BytePhys;
+  using namespace BytePhys::Tests;
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    const P4Atom a = runTest(BP_PROG_TMETHODS, BP_TYPE_TMETHODS, e);
+    check(getBits(a, 0u, 16u) == 15u, "methods: recursive sum(5)");
+    check(getBits(a, 16u, 16u) == 18u, "methods: max with params");
+    check(getBits(a, 32u, 16u) == 15u, "methods: Unsigned(4) param clamps");
+    check(getBits(a, 48u, 16u) == 15u, "methods: Unsigned(4) return clamps");
+    check(getBits(a, 64u, 16u) == 2u, "methods: Bool returns");
+  }
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    const P4Atom a = runTest(BP_PROG_TLOOPS, BP_TYPE_TLOOPS, e);
+    check(getBits(a, 0u, 16u) == 5u, "loops: for with || && !");
+    check(getBits(a, 16u, 16u) == 7u, "loops: while(true) + break");
+    check(getBits(a, 32u, 16u) == 25u, "loops: continue");
+    check(getBits(a, 48u, 16u) == 3u, "loops: comparisons as values");
+    check(getBits(a, 64u, 16u) == 8u, "loops: break leaves the inner loop");
+  }
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    const P4Atom a = runTest(BP_PROG_TLOCALS, BP_TYPE_TLOCALS, e);
+    check(getBits(a, 0u, 16u) == 18u, "locals: Unsigned(4) saturates");
+    check(getBits(a, 16u, 16u) == 3u, "locals: shadowing");
+    check(getBits(a, 32u, 16u) == 16u,
+          "locals: re-zeroed in a loop; Bool local");
+    check(getBits(a, 48u, 32u) == 0xffffffffu, "locals: 32-bit saturation");
+  }
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    e.mW[1] = P4Atom::makeEmptyAtom();
+    e.mW[2] = P4Atom::makeAtom(BP_TYPE_TWINDOW);
+    e.mW[3] = P4Atom::makeAtom(BP_TYPE_TLOOPS);
+    e.mW[3].mStg[1] = 0x12345678u;
+    e.mW[4] = P4Atom::makeAtom(4u);
+    e.mW[6] = P4Atom::makeAtom(4u);
+    const P4Atom three = e.mW[3];
+    const P4Atom a = runTest(BP_PROG_TWINDOW, BP_TYPE_TWINDOW, e);
+    check(getBits(a, 0u, 4u) == 15u, "window: Unsigned(4) member saturates");
+    check(getBits(a, 4u, 1u) == 1u, "window: Bool member stores 1");
+    check(getBits(a, 5u, 8u) == 31u, "window: is tests, short circuits");
+    check(e.mDraws.size() == 1u, "window: exactly one random draw");
+    check(memcmp(&e.mW[5], &three, sizeof three) == 0, "window: ew[5] = ew[3]");
+    check(e.mW[6].isEmpty(), "window: ew[6] = Empty");
+    check(memcmp(&e.mW[7], &e.mW[0], sizeof a) == 0, "window: ew[7] = self");
+  }
+  printf("compiler: test programs (methods, loops, locals, window) give "
+         "their expected results\n");
+}
+
 int main() {
   testEquivalence();
   testFaults();
   testBits();
+  testCompiler();
   if (g_bad) {
     printf("bytephys_test: %d FAILED\n", g_bad);
     return 1;

@@ -534,8 +534,9 @@ class Gen:
         slot = self.declare(name, typ, line)
         if init is not None:
             self.store_local(slot, typ)
-        else:
-            pass                    # enter zeroed it
+        else:                       # zero it every time it is reached
+            self.emit("push 0")     # (a loop body reuses the slot)
+            self.emit(f"storel {slot}")
 
     def s_expr(self, s):
         e = s[2]
@@ -894,8 +895,15 @@ class Gen:
 
 # --------------------------------------------------------------- driver
 
-def sources():
-    return [os.path.join(HERE, f) for f in sorted(os.listdir(HERE))
+# (sources, output .bp directory): the physics the EWP runs, and a
+# separate test-only physics that only bytephys_test includes (its own
+# type numbers, BytePhysTests.h via bpasm.py)
+SETS = [(HERE, OUTDIR),
+        (os.path.join(HERE, "tests"), os.path.join(OUTDIR, "tests"))]
+
+
+def sources(srcdir=HERE):
+    return [os.path.join(srcdir, f) for f in sorted(os.listdir(srcdir))
             if f.endswith(".ulam")]
 
 
@@ -920,38 +928,29 @@ def compile_all(paths):
     return out
 
 
-def main(argv):
-    try:
-        if argv[:1] == ["--print"]:
-            for name, text in compile_all(argv[1:]).items():
-                print(f"==== {name}")
-                print(text, end="")
-            return 0
-        out = compile_all(sources())
-    except CompileError as e:
-        print(f"ulamlite: {e}", file=sys.stderr)
-        return 1
-    if argv[:1] == ["--check"]:
-        stale = [n for n, t in out.items()
-                 if not os.path.exists(os.path.join(OUTDIR, n)) or
-                 open(os.path.join(OUTDIR, n)).read() != t]
-        orphans = [f for f in os.listdir(OUTDIR) if f.endswith(".bp") and
-                   f not in out and
-                   open(os.path.join(OUTDIR, f)).readline().startswith(
-                       GEN_MARK)]
-        if stale or orphans:
-            print(f"ulamlite --check: OUT OF DATE: {stale + orphans} "
-                  f"(run scripts/ulamlite/ulamlite.py)")
-            return 1
-        print("ulamlite --check: generated .bp files are current")
-        return 0
-    for f in os.listdir(OUTDIR):        # drop outputs of deleted sources
-        p = os.path.join(OUTDIR, f)
-        if f.endswith(".bp") and f not in out and \
-           open(p).readline().startswith(GEN_MARK):
-            os.remove(p)
+def generated(outdir):
+    if not os.path.isdir(outdir):
+        return []
+    return [f for f in os.listdir(outdir) if f.endswith(".bp") and
+            open(os.path.join(outdir, f)).readline().startswith(GEN_MARK)]
+
+
+def check(out, outdir):
+    stale = [n for n, t in out.items()
+             if not os.path.exists(os.path.join(outdir, n)) or
+             open(os.path.join(outdir, n)).read() != t]
+    orphans = [f for f in generated(outdir) if f not in out]
+    return [os.path.relpath(os.path.join(outdir, f), ROOT)
+            for f in stale + orphans]
+
+
+def write(out, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    for f in generated(outdir):         # drop outputs of deleted sources
+        if f not in out:
+            os.remove(os.path.join(outdir, f))
     for n, t in out.items():
-        p = os.path.join(OUTDIR, n)
+        p = os.path.join(outdir, n)
         if os.path.exists(p) and \
            not open(p).readline().startswith(GEN_MARK):
             print(f"ulamlite: {p} is hand-written; not overwriting",
@@ -959,6 +958,32 @@ def main(argv):
             return 1
         open(p, "w").write(t)
         print(f"ulamlite: wrote {os.path.relpath(p, ROOT)}")
+    return 0
+
+
+def main(argv):
+    try:
+        if argv[:1] == ["--print"]:
+            for name, text in compile_all(argv[1:]).items():
+                print(f"==== {name}")
+                print(text, end="")
+            return 0
+        outs = [(compile_all(sources(src)), outdir) for src, outdir in SETS]
+    except CompileError as e:
+        print(f"ulamlite: {e}", file=sys.stderr)
+        return 1
+    if argv[:1] == ["--check"]:
+        bad = [f for out, outdir in outs
+               for f in check(out, outdir)]
+        if bad:
+            print(f"ulamlite --check: OUT OF DATE: {bad} "
+                  f"(run scripts/ulamlite/ulamlite.py)")
+            return 1
+        print("ulamlite --check: generated .bp files are current")
+        return 0
+    for out, outdir in outs:
+        if write(out, outdir):
+            return 1
     return 0
 
 

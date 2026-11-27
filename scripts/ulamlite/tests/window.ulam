@@ -1,0 +1,26 @@
+// window.ulam -- TEST ONLY: is, ew[a] = ew[b], = Empty, = self, member
+// saturation (Unsigned(4), Bool), short-circuit draws.  The C++ test
+// sets the window: ew[1] empty, ew[2] a TWindow, ew[3] a TLoops, ew[4]
+// some other non-empty atom.  Results: count bits 0..3, armed bit 4,
+// found bits 5..12.
+element TWindow {
+  Unsigned(4) count;
+  Bool armed;
+  Unsigned(8) found;
+
+  Void behave() {
+    count += 20;                        // 15
+    armed = 7;                          // 1
+    Unsigned f = 0;
+    if (ew[1] is Empty) f += 1;
+    if (ew[2] is TWindow) f += 2;
+    if (ew[3] is TLoops) f += 4;
+    if (!(ew[4] is Empty)) f += 8;
+    if (ew[1] is Empty || random.oneIn(3)) f += 16;   // no draw
+    if (ew[2] is Empty && random.oneIn(3)) f += 32;   // no draw
+    found = f + random.between(9, 9) - 9;             // one draw: 31
+    ew[5] = ew[3];
+    ew[6] = Empty;
+    ew[7] = self;
+  }
+}

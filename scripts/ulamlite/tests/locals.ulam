@@ -1,0 +1,42 @@
+// locals.ulam -- TEST ONLY: narrow locals saturate, Bool locals,
+// shadowing, an uninitialized local re-zeroed on every pass of a loop,
+// 32-bit saturation.  Results: r0..r2 at bits 0, 16, 32; big at 48..79.
+element TLocals {
+  Unsigned(16) r0;
+  Unsigned(16) r1;
+  Unsigned(16) r2;
+  Unsigned(32) big;
+
+  Void behave() {
+    Unsigned(4) n = 200;                // 15
+    n -= 20;                            // 0 (saturating)
+    n += 3;                             // 3
+    Unsigned(4) m = 7;
+    m += 100;                           // 15
+    r0 = n + m;                         // 18
+
+    Unsigned x = 1;
+    Unsigned t = 0;
+    {
+      Unsigned x = 2;                   // shadows
+      t = x;
+    }
+    t += x;                             // 2 + 1
+    r1 = t;                             // 3
+
+    Unsigned s = 0;
+    for (Unsigned i = 0; i < 3; i++) {
+      Unsigned z;                       // 0 on every pass
+      z += 5;
+      s += z;
+    }
+    Bool b = 5;                         // 1
+    r2 = s + b;                         // 15 + 1 = 16
+
+    Unsigned g = 0xfffffff0;
+    g += 0x100;                         // 0xffffffff
+    Unsigned small = 3;
+    small -= 5;                         // 0
+    big = g - small;                    // 0xffffffff
+  }
+}
