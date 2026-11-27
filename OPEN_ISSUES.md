@@ -97,7 +97,7 @@ ERISC_NOTES.md.
   exceptions are kept, now redundant), and the EACH there runs on hb
   only (old behavior).  Hub change: build_all.sh.  Proven when boots
   stop showing 139/140 HOLD_AT_BIRTH acks; leave this open until a
-  few dozen clean boots.  Clean boots on 6b7842d+: 1 (141156).  This may also explain the 2026-11-21 seam21
+  few dozen clean boots.  Clean boots on 6b7842d+: 2 (141156, 151122).  This may also explain the 2026-11-21 seam21
   laggard above.  The script kept
   waiting for 30 min: --abort-on-error does not treat a FROZEN cycle
   as an error (idea: end the run when the cycle freezes).  A hub should also tolerate
@@ -449,9 +449,10 @@ cycles per insn in L1 (was 42-48), 20 in fast RAM; getm ~120 net (was
 ~175), setm ~160 (~215), copy ~70 (~150); FB1 bytecode 1975
 cycles/event, 4.30x native (was 3013, 6.37x); FB4 14388, 4.40x (was
 24788, 7.59x), now faster than hand-written v0.  No `.pf`.  BYTEPHYS.md
-section 10.  DISPATCH TABLE IN FAST RAM (2026-11-27, cross-built, NOT
-yet run): the Machine holds a copy of kOps (BYTEPHYS.md section 12);
-experiment.cmd re-times bench + FB1 + FB4 against run 141156.  Next
+section 10.  DISPATCH TABLE IN FAST RAM (2026-11-27, run 151122): the
+Machine holds a copy of kOps (BYTEPHYS.md section 12): ~6 cycles off
+every instruction (cheapest ops 20-22 in L1, 13.5-15.6 with code in
+fast RAM), FB1 3.98x native, FB4 3.74x (12199 cycles/event).  Next
 idea (Liv, 2026-11-27): a few KB of HB fast RAM as an ON-DEMAND CACHE
 of bytecode, since all real physics will not fit.  Cache whole
 functions, checked only at program entry, call and ret (jumps stay

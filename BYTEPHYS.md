@@ -510,7 +510,7 @@ attack the second.
   instructions with 4 taken jumps and 5 stack spills to 14 with one
   jump.  Timed on the QB in run 20261127-141156: cheapest ops 25
   cycles (was 42-48), FB4 14388 cycles/event (was 24788), section 10.
-- **Dispatch table in fast RAM (2026-11-27, cross-built, not yet run):**
+- **Dispatch table in fast RAM (2026-11-27, run 20261127-151122):**
   each dispatch is a dependent chain (opcode byte, then table entry,
   then jump), so L1's latency is paid in full, unlike the independent
   loads of the native probe (L1 6.8 vs fast 5.3).  Every MFMx image
@@ -525,6 +525,16 @@ attack the second.
   value-initialized.  Machine 228 -> 344 B; HB fast-RAM data ends at
   0x3e0, so ~7.2 KB stays for the stack.  The opcode bytes still come
   from L1 (a fast-RAM code cache is the next idea, OPEN_ISSUES).
+  MEASURED (run 151122, de5a0a3, ~70 runs per bench program): about 6
+  cycles off every instruction, as predicted from the latency (8+ vs 2).
+  Cheapest ops in L1 20-22 cycles (dup 19.9, over 20.9, swap 21.8,
+  push8 22.0; were 25-27), with code in fast RAM 13.5-15.6 (were 20-22);
+  getm1 51.8 (57.1), setm1 63.7 (69.4), jmp 30.2 / 17.0.  FB1 bytecode
+  1815 cycles/event, 3.98x native (was 1975, 4.30x); FB4 12199, 3.74x
+  (was 14388, 4.40x), 32.6 cycles per FB4 instruction.  The opcode fetch
+  is now the one L1 load left in every dispatch: code in fast RAM is
+  worth another ~6-13 per instruction (the L/F columns).  FB4 share
+  0.13-0.16 (native ahead).
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
