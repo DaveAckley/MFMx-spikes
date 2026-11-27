@@ -421,12 +421,101 @@ def bench_timing(rundir):
     return r
 
 
+# What a lamer's slowscan said about why it is stuck: STUCK? per hart,
+# the BHANG! assert and its operands, the init sequencer's ded marks
+# and hart masks, a FAIL, physics failure marks, and backtrace words
+# that name a function.
+LAMER_RX = re.compile(r"STUCK\?|BHANG|ded(When|What)|CALR0|FAIL|"
+                      r"\(u32\) ?(memask|whomask|ps\.)|"
+                      r"\.p[fw]:|!sp\[\d+\] = \S+ \{")
+LAMER_MAX_LINES = 40            #< per lamer hub
+LAMER_MAX_HUBS = 8
+
+
+def parse_ints(s):
+    """'1-3,7' -> [1, 2, 3, 7]; None if not that form (e.g. '?')."""
+    xs = []
+    for part in s.split(","):
+        a, _, b = part.partition("-")
+        if not a.isdigit() or (b and not b.isdigit()):
+            return None
+        xs.extend(range(int(a), int(b or a) + 1))
+    return xs
+
+
+def lamer_tags(misc):
+    """[(chip, tlbi, tag)] of the hubs the timed-out bolts named, in
+    order, from misc/mfmxctl-BOLT.txt and misc/PKTS.txt."""
+    tags = {}
+    for l in read_lines(os.path.join(misc, "PKTS.txt")):
+        m = re.match(r"TILE chip=(\d+) tlbi=(\d+) .*tag=(\S+)", l)
+        if m:
+            tags[(int(m.group(1)), int(m.group(2)))] = m.group(3)
+    seen = []
+    for l in read_lines(os.path.join(misc, "mfmxctl-BOLT.txt")):
+        if not (l.startswith("BOLT:DONE") and "TIMEOUT" in l):
+            continue
+        for m in re.finditer(r"bh(\d+):\d+ acked, lamers (\S+)", l):
+            for t in parse_ints(m.group(2)) or []:
+                k = (int(m.group(1)), t)
+                if k not in [s[:2] for s in seen]:
+                    seen.append(k + (tags.get(k, f"bh{k[0]}:tlbi{t}"),))
+    return seen
+
+
+def lamer_failures(rundir, misc):
+    """Why the hubs a timed-out bolt named are stuck, from their slowscan
+    lines in the full all.mfmk (the bundle keeps only its tail).  A
+    slowscan's HostBlock dump sits between `TAG[...]<<<` and `>>>TAG[`
+    and its lines do not carry the tag, so lines are taken by block."""
+    lam = lamer_tags(misc)
+    if not lam:
+        return []
+    r = section("lamers (hubs that missed a bolt: slowscan evidence)")
+    path = os.path.join(rundir, "all.mfmk")
+    want = {tag: [] for (_c, _t, tag) in lam[:LAMER_MAX_HUBS]}
+    seen = {tag: set() for tag in want}
+    inside = None
+    try:
+        with open(path, "r", errors="replace") as f:
+            for l in f:
+                l = l.rstrip("\n")
+                for tag in want:
+                    if tag + "[" in l and "<<<" in l:
+                        inside = tag
+                    elif ">>>" + tag + "[" in l:
+                        inside = None
+                hit = inside
+                if hit is None:
+                    for tag in want:
+                        if tag in l:
+                            hit = tag
+                            break
+                if hit is None or not LAMER_RX.search(l):
+                    continue
+                # one copy of each distinct line (scans repeat them)
+                key = re.sub(r"^\S+:\d+: [0-9.]+ ", "", l)
+                if key in seen[hit] or len(want[hit]) >= LAMER_MAX_LINES:
+                    continue
+                seen[hit].add(key)
+                want[hit].append(cut(l))
+    except OSError:
+        return r + ["[all.mfmk not readable]"]
+    for c, t, tag in lam[:LAMER_MAX_HUBS]:
+        r.append(f"[bh{c} tlbi {t} = {tag}: {len(want[tag])} lines]")
+        r.extend(want[tag] or ["(no slowscan evidence in all.mfmk)"])
+    if len(lam) > LAMER_MAX_HUBS:
+        r.append(f"(and {len(lam) - LAMER_MAX_HUBS} more lamers)")
+    return r
+
+
 def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
               outpath=None):
     """The summary as a list of lines.  out: console lines."""
     misc = os.path.join(rundir, "misc")
     lines = [f"runsum of {os.path.basename(rundir.rstrip('/'))}"]
-    for part in (head_info(out, cmdline, elapsed), bolts(misc), feed(misc),
+    for part in (head_info(out, cmdline, elapsed), bolts(misc),
+                 lamer_failures(rundir, misc), feed(misc),
                  aer(misc), misc_counts(misc), hub_marks(rundir),
                  physics_timing(rundir), bench_timing(rundir),
                  console(out), tail(out)):
