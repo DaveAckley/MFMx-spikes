@@ -93,6 +93,7 @@ run nukeblast_test g++ $CXXFLAGS $INC nukeblast_test.cpp ../src/FATAL.cpp -o "$O
 # bytecode physics spike: bytecode FB1/FB4 == native FB1/FB4 window by window, machine faults; BytePrograms.h current
 run bytephys_test g++ $CXXFLAGS $INC bytephys_test.cpp ../src/FATAL.cpp -o "$OUT/bytephys_test"
 run bpasm_check sh -c 'printf "#!/bin/sh\npython3 \"%s\" --check\n" "$(pwd)/../../../scripts/bytephys/bpasm.py" > "$1/bpasm_check" && chmod +x "$1/bpasm_check"' x "$OUT"
+run benchgen_check sh -c 'printf "#!/bin/sh\npython3 \"%s\" --check\n" "$(pwd)/../../../scripts/bytephys/benchgen.py" > "$1/benchgen_check" && chmod +x "$1/benchgen_check"' x "$OUT"
 run ulamlite_check sh -c 'printf "#!/bin/sh\npython3 \"%s\" --check\n" "$(pwd)/../../../scripts/ulamlite/ulamlite.py" > "$1/ulamlite_check" && chmod +x "$1/ulamlite_check"' x "$OUT"
 # EW lattice + rect-snap hub geometry (branch diagonal-tiles): tiling, center walk, bands agree at both ends
 run ewlattice_test g++ $CXXFLAGS $INC ewlattice_test.cpp ../src/FATAL.cpp -o "$OUT/ewlattice_test"

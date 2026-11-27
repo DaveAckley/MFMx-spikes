@@ -356,6 +356,71 @@ def physics_timing(rundir, window=PT_WINDOW_SECS):
     return r
 
 
+# BytePhys microbenchmark (EWP `.pb:NAME:V:TICKS:INSNS.` marks, TICKS and
+# INSNS hex, from ewp/src/Physics.cpp runBench; programs from
+# scripts/bytephys/benchgen.py).  V: L = program in L1 (as real physics
+# runs), F = copied into fast RAM, N = a native load probe (INSNS = loads).
+def bench_timing(rundir):
+    import glob
+    runs = {}                   # (name, v) -> [runs, ticks, insns]
+    order = []
+    for path in sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk"))):
+        try:
+            with open(path, "r", errors="replace") as f:
+                for l in f:
+                    i = l.find(" .pb:")
+                    if i < 0:
+                        continue
+                    v = l[i + 5:].strip().rstrip("}").rstrip(".")
+                    try:
+                        name, var, ticks, ins = v.split(":")
+                        ticks, ins = int(ticks, 16), int(ins, 16)
+                    except ValueError:
+                        continue    # torn mark
+                    if name not in order:
+                        order.append(name)
+                    e = runs.setdefault((name, var), [0, 0, 0])
+                    e[0] += 1
+                    e[1] += ticks
+                    e[2] += ins
+        except OSError:
+            pass
+    if not runs:
+        return []
+    r = section("bytecode microbenchmark (EWP .pb marks, AI clock cycles)")
+    r.append("per pattern insn = (cycles - base cycles) / (insns - base "
+             "insns); L = code in L1, F = in fast RAM")
+    r.append(f"  {'bench':8s} {'runs':>5s} {'insns':>6s} {'L cyc':>8s} "
+             f"{'F cyc':>8s} {'L/insn':>7s} {'F/insn':>7s}")
+
+    def mean(name, var):
+        e = runs.get((name, var))
+        return (e[1] / e[0], e[2] / e[0], e[0]) if e else None
+
+    bl, bf = mean("base", "L"), mean("base", "F")
+    for name in order:
+        lv, fv = mean(name, "L"), mean(name, "F")
+        if lv is None:
+            continue
+
+        def per(x, b):
+            if x is None or b is None:
+                return "--"
+            if name == "base":
+                return f"{x[0] / x[1]:.1f}"
+            return f"{(x[0] - b[0]) / (x[1] - b[1]):.1f}" \
+                if x[1] > b[1] else "--"
+        r.append(f"  {name:8s} {lv[2]:5d} {lv[1]:6.0f} {lv[0]:8.0f} "
+                 f"{fv[0] if fv else 0:8.0f} {per(lv, bl):>7s} "
+                 f"{per(fv, bf):>7s}")
+    for name in order:
+        nv = mean(name, "N")
+        if nv:
+            r.append(f"  probe {name}: {nv[0] / nv[1]:.1f} cycles per "
+                     f"byte load (loop included), {nv[2]} runs")
+    return r
+
+
 def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
               outpath=None):
     """The summary as a list of lines.  out: console lines."""
@@ -363,7 +428,7 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
     lines = [f"runsum of {os.path.basename(rundir.rstrip('/'))}"]
     for part in (head_info(out, cmdline, elapsed), bolts(misc), feed(misc),
                  aer(misc), misc_counts(misc), hub_marks(rundir),
-                 physics_timing(rundir),
+                 physics_timing(rundir), bench_timing(rundir),
                  console(out), tail(out)):
         lines.extend(part)
     if pat:

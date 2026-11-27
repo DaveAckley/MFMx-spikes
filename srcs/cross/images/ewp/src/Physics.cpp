@@ -4,6 +4,7 @@
 #include "FastLocal.h" // for fAll
 #include "NativeFB.h"  // native FB1/FB4, shared with the host test
 #include "BytePrograms.h" // bytecode FB1/FB4 (scripts/bytephys)
+#include "ByteBench.h"    // per-opcode microbenchmark (benchgen.py)
 #include "Printf.h"    // for snprintf
 
 namespace MFM {
@@ -32,6 +33,19 @@ namespace MFM {
                 "ulamlite renumbered BFB1: update PHY_BFB1");
   static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4,
                 "ulamlite renumbered BFB4: update PHY_BFB4");
+
+  // BytePhys per-opcode microbenchmark (scripts/bytephys/benchgen.py,
+  // BYTEPHYS.md section 10): `seed 3 31` puts Bench atoms down; each
+  // event on one runs the next bench program (runBench, `.pb` marks),
+  // BENCH_ROUNDS times through the list, then the atom erases itself.
+  static constexpr u32 PHY_BENCH = 31u;
+  static constexpr u32 BENCH_ROUNDS = 4u;
+  static constexpr u32 BENCH_CODE_MAX = 128u; // fast-RAM copy (on stack)
+  static constexpr u32 BENCH_PROBE_LOADS = 64u;
+  static_assert(PHY_BENCH == BytePhys::Bench::BP_TYPE_BENCH,
+                "benchgen.py BENCH_TYPE and PHY_BENCH disagree");
+  static_assert(BytePhys::BP_FIRST_TYPE + BytePhys::BP_TYPE_COUNT
+                <= PHY_BENCH, "compiled types reach PHY_BENCH");
 
   // The tile's wall clock, AI clock cycles (as FastT0.cpp reads it); the
   // low word is enough for one event.
@@ -105,6 +119,72 @@ namespace MFM {
       mPtTicks[s] = 0u;
       mPtInsns[s] = 0u;
     }
+  }
+
+  /* `.pb:NAME:V:TICKS:INSNS.` (TICKS, INSNS hex): one timed run of a
+     bench program, V = L (code in L1, as the real physics runs) or F
+     (code copied into fast RAM), or a native probe (V = N, INSNS = the
+     number of loads).  runsum.py's 'bytecode microbenchmark' section. */
+  static void benchMarkOut(const char * name, char v, u32 ticks, u32 n) {
+    char buf[48];
+    snprintf(buf, sizeof(buf), "%s:%c:%x:%x.", name, v, (unsigned) ticks,
+             (unsigned) n);
+    LOGPTAG(.pb,buf);
+    HBPTAG(.pb,buf);
+  }
+
+  template <class Env>
+  __attribute__((noinline))
+  static void benchRun(BytePhys::Machine & vm, const char * name, char v,
+                       const BytePhys::Program & p, Env & env) {
+    const u32 t0 = *PT_WALL_CLOCK_LO;
+    vm.run(p, env, BP_FUEL);
+    const u32 ticks = *PT_WALL_CLOCK_LO - t0;
+    benchMarkOut(name, v, ticks, vm.mExecuted);
+  }
+
+  /* BENCH_PROBE_LOADS byte loads from p (16 bytes, round and round):
+     the raw cost of a load from wherever p points, loop included. */
+  __attribute__((noinline))
+  static u32 benchProbe(const volatile u8 * p) {
+    u32 s = 0u;
+    for (u32 k = 0u; k < BENCH_PROBE_LOADS; ++k) s += p[k & 15u];
+    return s;
+  }
+
+  static void benchProbeRun(const char * name, const volatile u8 * p) {
+    const u32 t0 = *PT_WALL_CLOCK_LO;
+    (void) benchProbe(p);
+    const u32 ticks = *PT_WALL_CLOCK_LO - t0;
+    benchMarkOut(name, 'N', ticks, BENCH_PROBE_LOADS);
+  }
+
+  __attribute__((noinline))
+  bool Physics::runBench() {
+    namespace BB = BytePhys::Bench;
+    P4Atom & ca = mFastEW.mAtoms[0];
+    const u32 idx = ca.mData0;          // Bench.idx (bits 64..79)
+    if (idx >= BENCH_ROUNDS * BB::BP_PROG_COUNT) {
+      ca = P4Atom::makeEmptyAtom();     // done: leave no trace
+      return true;
+    }
+    const u32 i = idx % BB::BP_PROG_COUNT;
+    const BytePhys::Program & p = *BB::BP_PROG_LIST[i];
+    const char * name = BB::BP_PROG_NAMES[i] + 4; // drop the "bNN_"
+    EwpPhysEnv env{mFastEW};
+    alignas(4) u8 fast[BENCH_CODE_MAX]; // the stack is in HB fast RAM
+    benchRun(mVM, name, 'L', p, env);
+    if (p.mLength <= BENCH_CODE_MAX) {
+      memcpy(fast, p.mCode, p.mLength);
+      const BytePhys::Program q{fast, p.mLength, p.mLayout};
+      benchRun(mVM, name, 'F', q, env);
+      if (i == 0u && p.mLength >= 16u) {
+        benchProbeRun("ldL1", p.mCode);
+        benchProbeRun("ldfast", fast);
+      }
+    }
+    ca.mData0 = (u16) (idx + 1u);       // the programs never touch it
+    return true;
   }
 
   bool Physics::doTransition(EwpPayload & ewt) {
@@ -208,6 +288,7 @@ namespace MFM {
       return true;
     }
     case P4Atom::EMPTY_TYPE: return true;
+    case PHY_BENCH: return runBench();
     case P4Atom::INACCESSIBLE_TYPE:
       // The hub must never dispatch an event centered on a site that does
       // not exist: the engine is broken, so ENGINE_FAIL (never recoverable).

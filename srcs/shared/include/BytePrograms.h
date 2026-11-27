@@ -57,6 +57,16 @@ namespace MFM {
     };
     static const Program BP_PROG_BFB4 = {BP_CODE_BFB4, 34u, &BP_LAYOUT};
 
+    static constexpr u16 BP_PROG_COUNT = 2u;
+    static const Program * const BP_PROG_LIST[2] = {
+      &BP_PROG_BFB1,
+      &BP_PROG_BFB4,
+    };
+    static const char * const BP_PROG_NAMES[2] = {
+      "bfb1",
+      "bfb4",
+    };
+
     // type number -> program (ewp Physics.cpp dispatches through programFor)
     static constexpr u16 BP_FIRST_TYPE = 7u;
     static constexpr u16 BP_TYPE_COUNT = 2u;

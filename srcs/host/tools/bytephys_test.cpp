@@ -24,6 +24,9 @@
 //     and Bool params/returns/locals, while/break/continue, || ! and
 //     comparisons as values, shadowing, is, ew copies, short-circuit
 //     draws -- each checked against its hand-computed results
+//   * the microbenchmark programs (ByteBench.h): each commits without a
+//     fault, leaves every site but the center and the center's idx
+//     (mData0) alone, and runs base + a whole number of pattern copies
 //   * declared members: getBits/setBits against a bit-by-bit model over
 //     all 80 state bits, setm saturates to the declared width, add/sub
 //     saturate
@@ -34,6 +37,7 @@
 
 #include "BytePrograms.h"
 #include "BytePhysTests.h"   // test-only physics, scripts/ulamlite/tests
+#include "ByteBench.h"       // microbenchmark, scripts/bytephys/benchgen.py
 #include "NativeFB.h"
 
 using namespace MFM;
@@ -440,11 +444,48 @@ void testCompiler() {
          "their expected results\n");
 }
 
+/* The microbenchmark programs, as the EWP's runBench runs them: Bench
+   atom at the center, BP_FUEL 10,000. */
+void testBench() {
+  using BytePhys::Machine;
+  namespace BB = BytePhys::Bench;
+  const u32 per = 50u * 8u;             // benchgen PASSES * COPIES
+  u32 base = 0u;
+  printf("bench insns:");
+  for (u32 i = 0; i < BB::BP_PROG_COUNT; ++i) {
+    Env e(7u + i, 0);
+    fillWindow(e, i);
+    e.mW[0] = P4Atom::makeAtom(BB::BP_TYPE_BENCH);
+    e.mW[0].mData0 = (u16) (1234u + i);
+    const Env before = e;
+    Machine vm;
+    try {
+      check(vm.run(*BB::BP_PROG_LIST[i], e, 10'000u), "bench commits");
+    } catch (const Fault & f) {
+      printf("\nFAIL: bench %s faulted %u\n", BB::BP_PROG_NAMES[i], f.code);
+      ++g_bad;
+      continue;
+    }
+    printf(" %s %u", BB::BP_PROG_NAMES[i] + 4, vm.mExecuted);
+    check(memcmp(&e.mW[1], &before.mW[1],
+                 sizeof(P4Atom) * (BytePhys::SITES - 1u)) == 0,
+          "bench leaves the neighbors alone");
+    check(e.mW[0].getType() == BB::BP_TYPE_BENCH &&
+          e.mW[0].mData0 == before.mW[0].mData0,
+          "bench keeps the center's type and idx");
+    if (i == 0u) base = vm.mExecuted;
+    else check(vm.mExecuted > base && (vm.mExecuted - base) % per == 0u,
+               "bench runs base + whole pattern copies");
+  }
+  printf("\n");
+}
+
 int main() {
   testEquivalence();
   testFaults();
   testBits();
   testCompiler();
+  testBench();
   if (g_bad) {
     printf("bytephys_test: %d FAILED\n", g_bad);
     return 1;

@@ -395,6 +395,25 @@ Not yet known where ~60 cycles per instruction go (instruction fetch
 for a bigger loop? the switch? Machine state in memory instead of
 registers?); a per-opcode microbenchmark on the QB would say.
 
+Loop optimization (run 20261127-094705, 7e10820, events shortcut): FB4
+24788 cycles/event (native 3266, 7.59x, 374 insns), FB1 3013 (native
+473, 6.37x, 30.0 insns).  Per instruction FB4 58, FB1 85 cycles.
+
+**Microbenchmark (2026-11-27, not yet run).**  `seed N 31` puts down
+Bench atoms (type 31, PHY_BENCH).  Each event on one runs the next of
+26 programs written by scripts/bytephys/benchgen.py (bench/*.bp ->
+srcs/shared/include/ByteBench.h, BytePhys::Bench): open a frame, push
+two dummies, then 50 passes of a body of 8 copies of one opcode
+pattern, counter on the operand stack.  `base` has an empty body, so
+(cycles - base) / (insns - base insns) is the cost of one pattern
+instruction.  Each program runs twice per event: from its array in L1
+(as real physics runs) and copied into a stack buffer (HB fast RAM).
+The base event also times 64 native byte loads from each place.  After
+4 rounds the atom erases itself.  Marks `.pb:NAME:V:TICKS:INSNS.` (V =
+L, F, or N for a probe); runsum.py's 'bytecode microbenchmark' section
+tabulates them.  bytephys_test checks every bench program commits,
+touches only the center's state, and runs base + whole pattern copies.
+
 
 ## 11. Open questions and wish list (to be fleshed out)
 
@@ -425,6 +444,12 @@ registers?); a per-opcode microbenchmark on the QB would say.
 
 
 ## 12. Change log
+
+- **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
+  per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
+  native load probes; `.pb` marks, runsum section (section 10).  bpasm
+  emits BP_PROG_COUNT / BP_PROG_LIST / BP_PROG_NAMES for every set.
+  Not yet run on the QB.
 
 - **Loop optimization (2026-11-27):** rotated loops, for counters on the
   operand stack (with fallback to a slot), one-jump `if (c) break;` /

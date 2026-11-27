@@ -160,10 +160,11 @@ class RTMPFeed:
                                                        self.fontCodeTimeSize,
                                                        (0xef,0xbf,0x04), (0x12,0x14,0x12), preload=False)
         # logo block stats (LIVE, AER, run name): pink, brighter and less
-        # saturated than the NO DATA red (Liv 2026-11-27; was 0xef,0x2f,0x04)
+        # saturated than the NO DATA red (0xef,0x2f,0x04); Liv 2026-11-27: was
+        # 0xff,0x8c,0xa8, then a step redder
         self.fontCodeLive = self.fontCache.getFontCode(f"{basedir}/fonts/NK57Monospace/NK57 Monospace Cd Rg.otf",
                                                        self.fontCodeLiveSize,
-                                                       (0xff,0x8c,0xa8), (0x12,0x14,0x12), preload=False)
+                                                       (0xff,0x70,0x88), (0x12,0x14,0x12), preload=False)
 
         # NO DATA banner: big, centred; font as 11 chars over 3 grid tiles.  A tile of the
         # rendered grid is a hub base size in px (the cross marks in EWControl.cpp).

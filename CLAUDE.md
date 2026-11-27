@@ -166,7 +166,11 @@ unless the user asks for a rename.
   the operand stack (depth tracked per emitted op; NeedSlot falls back
   to a local), so compiled FB4 = 374 insns/event (hand 369, was 494).
   OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
-  'bytecode is favored' was chance.
+  'bytecode is favored' was chance.  MICROBENCHMARK (2026-11-27): Bench
+  atoms (type 31, `seed N 31`) run scripts/bytephys/benchgen.py's
+  per-opcode programs (bench/*.bp -> ByteBench.h, a third bpasm set)
+  from L1 and fast RAM; `.pb` marks; runsum 'bytecode microbenchmark'.
+  benchgen_check in run_native_tests.  BYTEPHYS.md section 10.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

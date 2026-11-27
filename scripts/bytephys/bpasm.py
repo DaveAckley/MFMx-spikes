@@ -428,6 +428,19 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None):
         out.append("    };")
         out.append(f"    static const Program BP_PROG_{up} = "
                    f"{{BP_CODE_{up}, {len(code)}u, &BP_LAYOUT}};")
+    # every program in source order, with its name (the microbenchmark
+    # set, ByteBench.h, runs them all; harmless elsewhere)
+    out.append("")
+    out.append(f"    static constexpr u16 BP_PROG_COUNT = {len(progs)}u;")
+    out.append(f"    static const Program * const "
+               f"BP_PROG_LIST[{max(len(progs), 1)}] = {{")
+    out += [f"      &BP_PROG_{n.upper()}," for n, _ in progs] or \
+        ["      nullptr,"]
+    out.append("    };")
+    out.append(f"    static const char * const "
+               f"BP_PROG_NAMES[{max(len(progs), 1)}] = {{")
+    out += [f'      "{n}",' for n, _ in progs] or ['      "",']
+    out.append("    };")
     # type number -> program: an element's program is the .bp file named
     # after it in lower case (ulamlite.py writes them that way)
     names = {n for n, _ in progs}
@@ -461,13 +474,18 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None):
     return "\n".join(out)
 
 
-# (source dir, output header, nested namespace): the EWP's physics, and
-# the test-only physics compiled from scripts/ulamlite/tests (only
-# srcs/host/tools/bytephys_test.cpp includes its header)
+# (source dir, output header, nested namespace): the EWP's physics, the
+# test-only physics compiled from scripts/ulamlite/tests (only
+# srcs/host/tools/bytephys_test.cpp includes its header), and the
+# per-opcode microbenchmark (bench/*.bp, written by benchgen.py; the EWP
+# runs it on a Bench atom)
 SETS = [(HERE, OUT, None),
         (os.path.join(HERE, "tests"),
          os.path.join(ROOT, "srcs", "host", "tools", "BytePhysTests.h"),
-         "Tests")]
+         "Tests"),
+        (os.path.join(HERE, "bench"),
+         os.path.join(ROOT, "srcs", "shared", "include", "ByteBench.h"),
+         "Bench")]
 
 
 def sources(srcdir=HERE):

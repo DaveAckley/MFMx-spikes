@@ -226,6 +226,22 @@ namespace MFM {
     };
     static const Program BP_PROG_TWINDOW = {BP_CODE_TWINDOW, 177u, &BP_LAYOUT};
 
+    static constexpr u16 BP_PROG_COUNT = 5u;
+    static const Program * const BP_PROG_LIST[5] = {
+      &BP_PROG_TFALLBACK,
+      &BP_PROG_TLOCALS,
+      &BP_PROG_TLOOPS,
+      &BP_PROG_TMETHODS,
+      &BP_PROG_TWINDOW,
+    };
+    static const char * const BP_PROG_NAMES[5] = {
+      "tfallback",
+      "tlocals",
+      "tloops",
+      "tmethods",
+      "twindow",
+    };
+
     // type number -> program (ewp Physics.cpp dispatches through programFor)
     static constexpr u16 BP_FIRST_TYPE = 7u;
     static constexpr u16 BP_TYPE_COUNT = 5u;

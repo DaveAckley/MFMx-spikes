@@ -46,5 +46,6 @@ namespace MFM {
     }
 
     bool doFastPhysics() ;
+    bool runBench() ;           // PHY_BENCH: one microbenchmark program
   };
 };
