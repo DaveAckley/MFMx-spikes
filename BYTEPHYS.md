@@ -399,7 +399,7 @@ Loop optimization (run 20261127-094705, 7e10820, events shortcut): FB4
 24788 cycles/event (native 3266, 7.59x, 374 insns), FB1 3013 (native
 473, 6.37x, 30.0 insns).  Per instruction FB4 58, FB1 85 cycles.
 
-**Microbenchmark (2026-11-27, not yet run).**  `seed N 31` puts down
+**Microbenchmark (2026-11-27, run 20261127-110936).**  `seed N 31` puts down
 Bench atoms (type 31, PHY_BENCH).  Each event on one runs the next of
 26 programs written by scripts/bytephys/benchgen.py (bench/*.bp ->
 srcs/shared/include/ByteBench.h, BytePhys::Bench): open a frame, push
@@ -413,6 +413,22 @@ The base event also times 64 native byte loads from each place.  After
 L, F, or N for a probe); runsum.py's 'bytecode microbenchmark' section
 tabulates them.  bytephys_test checks every bench program commits,
 touches only the center's state, and runs base + whole pattern copies.
+
+RESULT (about 62 runs per program and place; cycles per instruction,
+code in L1 / in fast RAM): the cheapest ops cost 42-48 / 36-40 (swap,
+over, dup, push8), jumps and pushes ~55 / ~45, so DISPATCH is ~40 of
+them, and fetching code from L1 instead of fast RAM adds ~4 per code
+byte (~10 per instruction).  The expensive ops, net of their pushes
+and drops: getm ~175, setm ~215 (~275 straddling), copy ~150, between
+and onein ~100, enter ~85, getf ~70.  Native byte loads: L1 6.6,
+fast RAM 5.3 cycles (loop included).  Why dispatch is slow (Physics.cpp
+built -Os, rv32 riscv32-tt-elf-g++): run() spills the fuel counter,
+its limit and both jump-table addresses to the stack, so each dispatch
+does 4 stack loads + 1 store, the pc < len and fuel checks, a table
+load and `jr`; every handler then takes two more jumps (to a shared
+`mv s1,s11`, then to the loop head): ~28 RV instructions, 4 of them
+taken jumps, for a DUP.  For FB4 (374 insns): 40 copies ~6,000 cycles,
+the other ~334 instructions ~17,000.
 
 
 ## 11. Open questions and wish list (to be fleshed out)

@@ -394,9 +394,13 @@ FB1 3013 vs 473 (6.37x, 30.0 insns; was 3167).  Per instruction, FB4
 cheaper than loadl/storel.  Still ~13% slower than hand-written v0
 (21886).  No `.pf`; 8 of 8 seed batches grew; FB4 share 0.32-0.36
 (native ahead this time).
-MICROBENCHMARK READY (2026-11-27, host-tested): Bench atoms, type 31,
-time each opcode from L1 and from fast RAM (BYTEPHYS.md section 10);
-experiment.cmd runs it.
+MICROBENCHMARK RUN (20261127-110936): dispatch costs ~40 cycles per
+instruction (spilled fuel counter and table addresses under -Os, per-
+instruction pc/fuel checks, 4 taken jumps); code in fast RAM saves ~10;
+getm ~175, setm ~215, copy ~150.  BYTEPHYS.md section 10.  Fix
+candidates: verify programs once and drop per-instruction checks, fuel
+only on backward jumps/calls, -O2 or computed-goto dispatch for run(),
+getm/setm with pos/len resolved at compile time.
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
