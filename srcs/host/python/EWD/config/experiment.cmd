@@ -10,6 +10,9 @@
 # about 80 runs per program and variant, no `.pf`, and the grid empty
 # again at the end.  Also new since that run: the logo stats red is a
 # step redder (0xff,0x70,0x88).
+# decay 31: a hub whose grid is still empty after its autoseed countdown
+# drops a Bench atom (not FB1, as the first try of this run did), so the
+# grid holds only Bench atoms and the autoseeds add bench data.
 # fourcorners, events shortcut (AERse), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
@@ -19,7 +22,7 @@ policy fourcorners
 events shortcut
 elide on
 grid off
-decay 4
+decay 31
 dwell 4 8
 start
 feed on
