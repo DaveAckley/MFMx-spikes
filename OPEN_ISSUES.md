@@ -342,6 +342,12 @@ native 501 / bytecode 2260 cycles/event (4.51x, 29.9 insns), FB4 native
 3320 / bytecode 21886 (6.59x, 369 insns).  Events per type over the
 run: type 8 505M on 375 tiles vs type 5 191M on 189 tiles, so again
 bytecode FB4 ended up holding more of the grid (2 runs of 2).
+FOURTH RUN 20261126-165929 (5b4e795, halo overlay): same timing
+(4.51x, 6.59x); type 8 457M events on 357 tiles vs type 5 254M on 249:
+8 ahead for the 3rd run of 3 (1 in 8 if it is a fair coin).  Worth a
+look if it keeps up: something may favor the SLOWER type (e.g. a late
+returning window winning an overwrite race), the opposite of the
+obsolescence penalty expected.  A host type census would show it.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
