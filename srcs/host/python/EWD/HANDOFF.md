@@ -281,4 +281,12 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   themselves.  An autoseed hub (T6 5..6, 5..6) runs no events for its
   first 0.5-1M attempts, then drops one `decay` atom at its center
   whatever is there.
+- `--listen PORT` (netctl.py, 2026-11-27): commands over HTTP for Stream
+  Deck buttons etc.  `curl -s -d 'nuke 959 540 200'
+  http://127.0.0.1:PORT/cmd` runs a line as if typed (output in the
+  reply, `[net] LINE` on the console, works during a script's `wait`);
+  `GET /state` is JSON (cycle, leader, AER, modes).  Loopback only
+  unless --listen-host + --listen-token; only netctl.ALLOW_DEFAULT
+  commands (no boot/stop/quit/wait/source) unless --listen-allow.  With
+  stdin at EOF it keeps serving until a signal.  Selftests: listen*.
 Start with /CLAUDE.md for the formatting rules and the document map.

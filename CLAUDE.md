@@ -499,7 +499,8 @@ run 20261117-110545, 53 bolts, cars in==out, 14 seam hubs ok.
 
 PROVEN (cont.): slice 3b, the 2x2 array (layout seam4, 16 links, only chip 0
 autoseeds via layout key seedchips -> MFMX_AUTOSEED_CHIPS -> HBF_NO_AUTOSEED;
-mfmxctl `autoseed off|on|layout` overrides the layout at the next start):
+mfmxctl `autoseed off|on|layout` overrides the layout at the next start;
+`--listen PORT` takes commands over HTTP, netctl.py, HANDOFF.md):
 run 20261117-142417: all four chips full, 44 seam hubs ok, 72 bolts CONSENSUS,
 no TIMEOUT (stale centre corners do not hang), cars out == in == noc.
   python mfmxctl.py --layout seam4 --boot --rtmp -s config/seam4.cmd --script-exit

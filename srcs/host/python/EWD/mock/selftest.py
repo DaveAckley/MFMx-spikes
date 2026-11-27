@@ -406,6 +406,113 @@ def scenario_sigterm():
           "stop events: bh0 -> HAS_T6_CODE_RUNNING" in out and "quietbox shutdown: ok" in out, out[-400:])
 
 
+def _listen_start(stdin_text, *extra):
+    """mfmxctl --mock --listen 0 ...: (process, port, lines read so far)."""
+    env = dict(os.environ, MFMX_MOCK_API="async",
+               MFMX_MOCK_SIMDIR=tempfile.mkdtemp(prefix="selftest-"))
+    p = subprocess.Popen([sys.executable, CTL, "--mock", "--listen", "0", *extra],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, env=env)
+    p.stdin.write(stdin_text)
+    p.stdin.flush()
+    if not stdin_text:
+        p.stdin.close()
+    seen, port, t0 = [], None, time.time()
+    while port is None and time.time() - t0 < 30:
+        l = p.stdout.readline()
+        if not l:
+            break
+        seen.append(l)
+        mm = re.search(r"listening on http://127\.0\.0\.1:(\d+)", l)
+        if mm:
+            port = int(mm.group(1))
+    return p, port, seen
+
+
+def _http(port, path, data=None, token=None):
+    import urllib.request
+    import urllib.error
+    r = urllib.request.Request(f"http://127.0.0.1:{port}{path}",
+                               data=None if data is None else data.encode())
+    if token:
+        r.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(r, timeout=10) as f:
+            return f.status, f.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+
+def scenario_listen():
+    import json
+    p, port, seen = _listen_start("boot\nstart\nwait 10\necho after wait\nquit\n",
+                                  "--listen-token", "tok")
+    check("listen: prints its port", port is not None, "".join(seen)[-400:])
+    if port is None:
+        p.kill()
+        return
+    time.sleep(1.0)
+    check("listen: no token -> 401", _http(port, "/cmd", "echo x")[0] == 401)
+    code, body = _http(port, "/cmd", "echo hello net", token="tok")
+    check("listen: POST /cmd runs echo", code == 200 and body == "hello net\n", f"{code} {body!r}")
+    code, body = _http(port, "/cmd", "stat", token="tok")       # abbreviated
+    check("listen: status output comes back", code == 200 and "cache policy" in body, body[:200])
+    code, body = _http(port, "/cmd", "echo one\necho two", token="tok")
+    check("listen: several lines run in order", body == "one\ntwo\n", repr(body))
+    code, body = _http(port, "/cmd", "echo no\nquit", token="tok")
+    check("listen: quit refused (403), nothing run", code == 403 and "not allowed" in body,
+          f"{code} {body!r}")
+    check("listen: unknown command -> 400", _http(port, "/cmd", "zzz", token="tok")[0] == 400)
+    code, body = _http(port, "/cmd?c=echo%20via%20get", token="tok")
+    check("listen: GET /cmd?c=", code == 200 and body == "via get\n", repr(body))
+    code, body = _http(port, "/state", token="tok")
+    try:
+        st = json.loads(body)
+    except ValueError:
+        st = {}
+    check("listen: GET /state is JSON", code == 200 and st.get("booted") is True
+          and "cycle" in st and "aer" in st, body[:300])
+    check("listen: unknown path -> 404", _http(port, "/x", token="tok")[0] == 404)
+    try:
+        out, _ = p.communicate(timeout=60)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        out, _ = p.communicate()
+    out = "".join(seen) + out
+    check("listen: commands echoed as [net] during the wait",
+          "[net] echo hello net" in out and "[net] refused: quit" in out, out[-600:])
+    check("listen: the script went on after the wait",
+          "after wait" in out and p.returncode == 0, f"rc={p.returncode}")
+    check("listen: no 'no echo' ran", "\nno\n" not in out)
+
+
+def scenario_listen_after_eof():
+    p, port, seen = _listen_start("")
+    check("listen eof: port", port is not None, "".join(seen)[-300:])
+    if port is None:
+        p.kill()
+        return
+    time.sleep(1.0)
+    alive = p.poll() is None
+    code, body = _http(port, "/cmd", "echo still here")
+    check("listen eof: keeps serving after stdin EOF",
+          alive and code == 200 and body == "still here\n", f"{alive} {code} {body!r}")
+    p.send_signal(signal.SIGTERM)
+    try:
+        p.wait(timeout=20)          # stdin is closed: no communicate()
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait()
+    p.stdout.close()
+    check("listen eof: SIGTERM ends it", p.returncode == 143, f"rc={p.returncode}")
+
+
+def scenario_listen_nonloopback_needs_token():
+    rc, out = run("", extra_args=("--listen", "0", "--listen-host", "0.0.0.0"))
+    check("listen: non-loopback without a token is refused",
+          rc != 0 and "not loopback" in out, out[-300:])
+
+
 def scenario_quit_close():
     rc, out = run("boot\nstart\nquit close\n")
     check("quit close: chips fully retreated", "close chips: bh0 -> HAS_CHIP_NUM" in out, out[-400:])

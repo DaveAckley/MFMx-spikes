@@ -65,6 +65,11 @@ class Shell:
         self._script_ran = False
         self.max_source_depth = 8
         self._source_depth = 0
+        # other inputs served by the same select (netctl.Listener: fds()
+        # and service(readable)); not while one of their commands runs
+        self.listeners = []
+        self._serving = False
+        self._captures = []                # dispatch_capture's lists
         self.command("help", self._cmd_help, "help [CMD]: list commands, or show one")
         self.command("tick", self._cmd_tick,
                      "tick [NAME on|off|period SECS|now]: list or control periodic ticks")
@@ -83,6 +88,9 @@ class Shell:
         for a in aliases:
             self.cmds[a] = (fn, f"alias for {name}")
 
+    def add_listener(self, listener):
+        self.listeners.append(listener)
+
     def add_tick(self, name, period, fn, enabled=True, help=""):
         t = Tick(name, period, fn, enabled, help)
         t.due = self.clock() + t.period
@@ -98,7 +106,10 @@ class Shell:
             self._need_prompt = True
         self.out.write(msg if msg.endswith("\n") else msg + "\n")
         self.out.flush()
-        self.transcript.extend(msg.rstrip("\n").split("\n"))
+        lines = msg.rstrip("\n").split("\n")
+        self.transcript.extend(lines)
+        for c in self._captures:
+            c.extend(lines)
 
     def stop(self):
         self._stop = True
@@ -154,7 +165,7 @@ class Shell:
             if poll_input and not self.eof:
                 self._fill(nap)
             else:
-                time.sleep(nap)
+                self._idle(nap)
 
     def _run_typed(self):
         """Execute the complete lines already read from stdin."""
@@ -182,14 +193,42 @@ class Shell:
             return line.decode("utf-8", "replace")
         return None
 
+    def _listen_fds(self):
+        if self._serving:
+            return []
+        return [f for l in self.listeners for f in l.fds()]
+
+    def _serve(self, readable):
+        """Let the listeners handle their readable sockets (their commands
+        run here, between ticks, like typed lines)."""
+        if not readable or self._serving:
+            return
+        self._serving = True
+        try:
+            for l in self.listeners:
+                l.service(readable)
+        finally:
+            self._serving = False
+
     def _fill(self, timeout):
-        r, _, _ = select.select([self.fd], [], [], timeout)
-        if r:
+        lf = self._listen_fds()
+        r, _, _ = select.select([self.fd] + lf, [], [], timeout)
+        self._serve([s for s in r if s is not self.fd])
+        if self.fd in r:
             data = os.read(self.fd, 65536)
             if data:
                 self.buf += data
             else:
                 self.eof = True
+
+    def _idle(self, timeout):
+        """Sleep, serving the listeners meanwhile (not stdin)."""
+        lf = self._listen_fds()
+        if not lf:
+            time.sleep(timeout)
+            return
+        r, _, _ = select.select(lf, [], [], timeout)
+        self._serve(r)
 
     # ---- command files ------------------------------------------------------
     def load_script(self, path, front=False, depth=1):
@@ -272,6 +311,16 @@ class Shell:
             self.say(str(out))
         return ok
 
+    def dispatch_capture(self, line):
+        """dispatch(line), also returning the lines it said (a list)."""
+        cap = []
+        self._captures.append(cap)
+        try:
+            ok = self.dispatch(line)
+        finally:
+            self._captures.remove(cap)
+        return ok, cap
+
     def run(self):
         while not self._stop:
             try:
@@ -289,6 +338,12 @@ class Shell:
                         break               # command files used up: quit
                     line = self._next_line()
                 if line is None:
+                    if self.eof and self.listeners:
+                        # stdin gone but a listener is up: keep serving
+                        # it (and the ticks) until 'quit' or a signal
+                        self._idle(self._until_next_tick())
+                        self._run_due()
+                        continue
                     if self.eof:
                         break
                     self._fill(self._until_next_tick())

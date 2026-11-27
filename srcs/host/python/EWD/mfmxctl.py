@@ -9,6 +9,8 @@ under emacs (M-x shell / M-x pdb), or with piped input.
   mfmxctl.py --mock --boot        # no hardware: use the mock MFMx module
   mfmxctl.py --boot --rtmp        # real machine, with the RTMP video feed
   mfmxctl.py --boot -s run.cmd    # then run the commands in run.cmd as if typed
+  mfmxctl.py --boot --listen 8642 # also take commands over HTTP (netctl.py):
+                                  #   curl -s -d 'zhd' http://127.0.0.1:8642/cmd
 
 Type 'help' at the prompt.  Typical session:
   boot ; start ; shoot HOLD_AT_BIRTH 0 ; status ; shoot NEW_LEADER 2 1 ; ...
@@ -99,6 +101,18 @@ def parse_args(argv):
     ap.add_argument("--script-exit", action="store_true",
                     help="quit (orderly, like 'quit') when the --script files are used up, "
                          "instead of continuing with stdin")
+    ap.add_argument("--listen", type=int, default=None, metavar="PORT",
+                    help="also take commands over HTTP on PORT (POST /cmd, "
+                         "GET /state; see netctl.py); 0 picks a free port")
+    ap.add_argument("--listen-host", default="127.0.0.1", metavar="ADDR",
+                    help="address to listen on (non-loopback needs a token)")
+    ap.add_argument("--listen-token", default=os.environ.get("MFMX_LISTEN_TOKEN"),
+                    metavar="TOKEN", help="require 'Authorization: Bearer TOKEN' "
+                    "(default: $MFMX_LISTEN_TOKEN)")
+    ap.add_argument("--listen-allow", default=None, metavar="CMD,CMD|all",
+                    help="commands a network client may run (default: "
+                         "netctl.ALLOW_DEFAULT, nothing that boots, stops, "
+                         "quits or waits)")
     ap.add_argument("--log-prefix", default="mfmxctl")
     ap.add_argument("--verbose", action="store_true")
     return ap.parse_args(argv)
@@ -223,6 +237,34 @@ def main(argv=None):
     for mod in (cmd_machine, cmd_bolts, cmd_cycle, cmd_view, cmd_mock):
         mod.register(ctx)
     add_ticks(sh, m, cyc, args)
+    listener = None
+    if args.listen is not None:
+        import netctl
+
+        def net_state():
+            st = {"uptime": round(time.monotonic() - t_start, 1),
+                  "booted": bool(m.inited), "events": m.events,
+                  "policy": m.policy, "decay": m.decay,
+                  "autoseed": m.autoseed_report(),
+                  "cycle": cyc.state(), "scy": cyc.scy, "leader": cyc.leader,
+                  "run": os.path.basename(str(m.simDir).rstrip("/"))}
+            if m.liveaer is not None:
+                m.liveaer.update()
+                st["aer"] = m.liveaer.text(m.aer_label())
+            return st
+
+        allow = netctl.ALLOW_DEFAULT
+        if args.listen_allow:
+            allow = None if args.listen_allow == "all" else \
+                [w.strip() for w in args.listen_allow.split(",") if w.strip()]
+        try:
+            listener = netctl.Listener(sh, args.listen, host=args.listen_host,
+                                       token=args.listen_token, allow=allow,
+                                       state_fn=net_state)
+        except (OSError, ValueError) as e:
+            sys.exit(f"mfmxctl: --listen: {e}")
+        sh.add_listener(listener)
+        sh.say(listener.describe())
 
     # SIGTERM/SIGHUP take the same orderly exit path as 'quit'
     for s in (signal.SIGTERM, signal.SIGHUP):
@@ -244,6 +286,8 @@ def main(argv=None):
                 sh.load_script(f)
             sh.run()
     finally:
+        if listener is not None:
+            listener.close()
         sh.say("shutting down...")
         sh.say(m.shutdown(close=state["close"]) or "nothing to shut down")
         write_run_summary(sh, m, t_start)
