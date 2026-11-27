@@ -69,7 +69,31 @@ ERISC_NOTES.md.
   not even the slowscan sweep.  The hub image is unchanged since runs
   094705 and 110936 (the commits since touch only ewp Physics.cpp and
   BytePhys headers, which no hub file includes), so it is this
-  intermittent boot fault, not the dispatch rework.  The script kept
+  intermittent boot fault, not the dispatch rework.
+  CAUSE FOUND (Liv sent the full run dir; at023's slowscan HostBlock
+  dump at 250 s in all.mfmk): at023's h0 and h1 both died in
+  runHartTaskerInits on HBASSERT_EQ((whomask & ps.mHartsOut),0)
+  (HartTasks.cpp:114, `dedWhen:GROW1 dedWhat:HACT`, memask 0x2 / 0x4,
+  whomask 0x16 = h0|h1|hn, mHartsOut 0x18 = h2|hn, done flags 0x17).
+  So hb, h2 and hn were alive, but T0/T1 never ran and the hub never
+  acked.  Order of the marks: h0 and h1 had done every GROW1 task
+  but were still walking the remaining task rows with their local
+  copy of the epoch (GROW1); meanwhile hb closed GROW1 (`END::GROW1`,
+  `START::GROW2`), hn did its last task and went `HART OUT`; h0/h1
+  then reached the HACT row of GROW1, which names hn, and the
+  out-monkey check fired, although HACT:GROW1 was already done by both
+  (it is tested BEFORE the `already done` check).  A latent race: the
+  two hard-coded exceptions (PRNG:GROW1, NOC:GROW2) are earlier patches
+  for the same thing.  Likely made more frequent by e68a178 (EACH
+  countdown): EACH(100'000+10*me, ...) in that loop now fires on every
+  hart's first pass (the old modulo form fired only on hb), and h0/h1
+  logged its four HBXX marks (whomask/t/epoch/flags) just before the
+  assert, which slows them in exactly this window.  (The T6 EACH
+  counters are plain statics shared by the harts, so that EACH is
+  racy too.)  FIX PROPOSED, not done: in HartTaskerPrivate::run test
+  `already done by me` before the out-monkey check (then the two
+  exceptions can go), and drop or hb-guard the EACH there.  This may
+  also explain the 2026-11-21 seam21 laggard above.  The script kept
   waiting for 30 min: --abort-on-error does not treat a FROZEN cycle
   as an error (idea: end the run when the cycle freezes).  A hub should also tolerate
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
