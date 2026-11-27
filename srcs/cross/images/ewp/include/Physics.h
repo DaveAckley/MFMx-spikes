@@ -12,6 +12,7 @@ namespace MFM {
     u32 mEWsSucceeded;
     u32 mEWsFailed;
     u32 mEWsPhysFailed;         // FAILed in physics, recovered (subset of Failed)
+    u32 mEWsSincePew;           // attempts since the last pew* marks (no %)
 
     RecoverPoint mRecover;      // FAIL during physics jumps here (this hart's
                                 // fAll.mRecover points at it while physics

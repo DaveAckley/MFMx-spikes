@@ -158,7 +158,8 @@ namespace MFM {
       }
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_AND_DEST;
 
-      if (mEWsAttempted%100'000 == 0) {
+      if (++mEWsSincePew == 100'000u) { // every 100,000th attempt, as
+        mEWsSincePew = 0u;                // mEWsAttempted % 100'000 was
         HBPTAG(pewAt,mEWsAttempted);
         HBPTAG(pewSu,mEWsSucceeded);
         HBPTAG(pewPF,mEWsPhysFailed);
