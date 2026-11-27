@@ -510,6 +510,23 @@ that empties while its three neighbors stay full, with side, sharpness,
 scy and owner hub, and `notch hold on` freezes the cycle at the first.
 experiment.cmd is the `elide on` arm of the A/B (25 min FB1, counts in
 runsum 'corner notches'); then an `elide off` twin.
+FIRST RUN (20261127-154951, 3daa60d, FB1, elide on, 25 min, no nukes):
+1004 'notches', far too many to all be the artifact: by largest empty
+side 4: 518, 8: 263, 12: 103, 16: 50, 20: 32, 24: 28, 28: 10, steady
+at ~65 per 150 s after the fill (so not post-nuke or fill-front
+leftovers), spread over 116 of 117 corners, no excess at the chip seams
+(x 959: 8.4% of notches vs 7.7% of corners; y 540: 11.6% vs 11%), at
+most a few per scy.  The steep fall-off with size looks like FB1's own
+holes; the detector cannot yet tell them from the artifact.  One
+asymmetry: after 600 s, 4x4 notches by square NE 115, NW 108, SW 92,
+SE 25 (the SE square is the NW corner of a hub's SELF), at 8 and up
+even again; maybe fewer events there under fourcorners, not seen in
+the pictures.  Live, the first three (scy 70) were two squares at one
+corner (1644,432) NW + SW in the same cycle and one at (959,216).
+NEXT (proposed): a control in the same run, the same test on squares
+at hub CENTERS and hub EDGE MIDPOINTS, counted separately, so the
+corner rate per point can be compared with FB1's background; only an
+excess at corners (in the large sizes) is the artifact.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
