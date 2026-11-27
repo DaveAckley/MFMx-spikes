@@ -58,5 +58,19 @@ namespace MFM {
       0x01, 0x08, 0x1b, 0x00, 0x0c, 0x14, 0x00, 0x01,
     };
     static const Program BP_PROG_BFB4 = {BP_CODE_BFB4, 44u, &BP_LAYOUT};
+
+    // type number -> program (ewp Physics.cpp dispatches through programFor)
+    static constexpr u16 BP_FIRST_TYPE = 7u;
+    static constexpr u16 BP_TYPE_COUNT = 2u;
+    static const Program * const BP_PROGRAMS[2] = {
+      &BP_PROG_BFB1,  // BFB1
+      &BP_PROG_BFB4,  // BFB4
+    };
+
+    inline const Program * programFor(u32 type) {
+      if (type < BP_FIRST_TYPE) return nullptr;
+      const u32 i = type - BP_FIRST_TYPE;
+      return i < BP_TYPE_COUNT ? BP_PROGRAMS[i] : nullptr;
+    }
   }
 }

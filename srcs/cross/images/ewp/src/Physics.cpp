@@ -19,12 +19,19 @@ namespace MFM {
 
   // Bytecode spike (OPEN_ISSUES 'physics as bytecode'): FB1 and FB4 run
   // by the BytePhys machine, so 'decay 7' vs 'decay 4' compares them.
+  // Every compiled type runs from the default case (programFor); these
+  // names are for timing slots and the checks below.
   static constexpr u32 PHY_BFB1 = 7u;
   static constexpr u32 PHY_BFB4 = 8u;
   static constexpr u32 BP_FUEL = 10'000u; // instructions per event
-  // the ulam-lite sources declare these element types (BytePrograms.h)
-  static_assert(PHY_BFB1 == BytePhys::BP_TYPE_BFB1, "bfb1.ulam type");
-  static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4, "bfb4.ulam type");
+  // ulamlite.py numbers compiled elements from BP_FIRST_TYPE, sorted by
+  // name; these two are still seeded and timed by number, so check them
+  static_assert(BytePhys::BP_FIRST_TYPE > PHY_BOOM, "compiled types "
+                "must not collide with the native ones");
+  static_assert(PHY_BFB1 == BytePhys::BP_TYPE_BFB1,
+                "ulamlite renumbered BFB1: update PHY_BFB1");
+  static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4,
+                "ulamlite renumbered BFB4: update PHY_BFB4");
 
   // The tile's wall clock, AI clock cycles (as FastT0.cpp reads it); the
   // low word is enough for one event.
@@ -189,6 +196,12 @@ namespace MFM {
     ////// BEGIN "PHYSICS" //////
     switch (cat) {
     default: {
+      // a compiled (bytecode) type?  scripts/ulamlite assigns these
+      // numbers; BytePrograms.h maps them to programs
+      if (const BytePhys::Program * p = BytePhys::programFor(cat)) {
+        EwpPhysEnv env{ew};
+        return mVM.run(*p, env, BP_FUEL);
+      }
       // wth are you? 
       ca = P4Atom::makeEmptyAtom(); // buhbye now
       return true;
@@ -219,16 +232,6 @@ namespace MFM {
       const bool r = nativeFB4(env);
       EACH(1'000'000,HBPTAG(FB4,ca.mStg[1]));
       return r;
-    }
-
-    case PHY_BFB1: {            // bytecode (scripts/ulamlite/bfb1.ulam)
-      EwpPhysEnv env{ew};
-      return mVM.run(BytePhys::BP_PROG_BFB1, env, BP_FUEL);
-    }
-
-    case PHY_BFB4: {            // bytecode (scripts/ulamlite/bfb4.ulam)
-      EwpPhysEnv env{ew};
-      return mVM.run(BytePhys::BP_PROG_BFB4, env, BP_FUEL);
     }
 
     case PHY_DREG: {

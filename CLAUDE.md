@@ -152,6 +152,12 @@ unless the user asks for a rename.
   run_native_tests ulamlite_check/bpasm_check catch staleness).
   Programs BP_PROG_BFB1/BFB4.  Hand-written version 1 .bp kept in
   scripts/bytephys/hand/ (not built).  BYTEPHYS.md section 13.
+  TYPE NUMBERS: like culam, ulamlite.py assigns them (from 7, sorted by
+  element name; no `= N` in source); bpasm emits BP_FIRST_TYPE /
+  BP_PROGRAMS / programFor(type) and ewp Physics.cpp's default case runs
+  any compiled type (Liv 2026-11-27: compiler half only; seeding and
+  .pt slots stay by number, static_asserts pin BFB1 = 7, BFB4 = 8).
+  getBits/setBits: one-word fast path, u64 only for straddlers.
   OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
   'bytecode is favored' was chance.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH

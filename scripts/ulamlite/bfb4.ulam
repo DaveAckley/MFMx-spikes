@@ -2,7 +2,7 @@
 // (srcs/shared/include/NativeFB.h), no random draws.  Differs from
 // native only in that age saturates instead of wrapping.  Not copied:
 // the every-millionth FB4 log mark.
-element BFB4 = 8 {
+element BFB4 {
   Aging a;
 
   Void behave() {

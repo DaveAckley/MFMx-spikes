@@ -339,6 +339,14 @@ void testBits() {
           "enter moves args in order; storel/loadl");
   }
   printf("frames: recursion with locals, args, storel/loadl\n");
+
+  // the generated type -> program table the EWP dispatches through
+  check(programFor(BP_TYPE_BFB1) == &BP_PROG_BFB1, "programFor BFB1");
+  check(programFor(BP_TYPE_BFB4) == &BP_PROG_BFB4, "programFor BFB4");
+  check(programFor(BP_FIRST_TYPE - 1u) == nullptr, "programFor native");
+  check(programFor(BP_FIRST_TYPE + BP_TYPE_COUNT) == nullptr,
+        "programFor past the table");
+  check(programFor(0xffffu) == nullptr, "programFor huge");
   printf("members: getBits/setBits match a bit model at every pos/len; "
          "setm, add, sub, FB1/FB4 ages saturate\n");
 }

@@ -424,6 +424,33 @@ def render(progs, decls):
         out.append("    };")
         out.append(f"    static const Program BP_PROG_{up} = "
                    f"{{BP_CODE_{up}, {len(code)}u, &BP_LAYOUT}};")
+    # type number -> program: an element's program is the .bp file named
+    # after it in lower case (ulamlite.py writes them that way)
+    names = {n for n, _ in progs}
+    types = {t: n for n, (t, _) in decls.elements.items()}
+    first = min(types) if types else 0
+    count = max(types) - first + 1 if types else 0
+    out.append("")
+    out.append("    // type number -> program (ewp Physics.cpp dispatches "
+               "through programFor)")
+    out.append(f"    static constexpr u16 BP_FIRST_TYPE = {first}u;")
+    out.append(f"    static constexpr u16 BP_TYPE_COUNT = {count}u;")
+    out.append(f"    static const Program * const "
+               f"BP_PROGRAMS[{max(count, 1)}] = {{")
+    for t in range(first, first + count):
+        n = types.get(t)
+        prog = (f"&BP_PROG_{n.upper()}" if n and n.lower() in names
+                else "nullptr")
+        out.append(f"      {prog},{'' if n is None else '  // ' + n}")
+    if count == 0:
+        out.append("      nullptr,")
+    out.append("    };")
+    out += ["",
+            "    inline const Program * programFor(u32 type) {",
+            "      if (type < BP_FIRST_TYPE) return nullptr;",
+            "      const u32 i = type - BP_FIRST_TYPE;",
+            "      return i < BP_TYPE_COUNT ? BP_PROGRAMS[i] : nullptr;",
+            "    }"]
     out += ["  }", "}", ""]
     return "\n".join(out)
 

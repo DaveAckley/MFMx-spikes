@@ -141,14 +141,22 @@ namespace MFM {
     /* len state bits at pos (pos + len <= STATE_BITS, len <= 32). */
     inline u32 getBits(const P4Atom & a, u32 pos, u32 len) {
       const u32 w = pos >> 5;
+      const u32 off = pos & 31u;
+      if (off + len <= 32u)             // fast path: inside one word
+        return (stateWord(a, w) >> off) & lenMask(len);
       u64 v = stateWord(a, w);
       if (w < 2u) v |= (u64) stateWord(a, w + 1u) << 32;
-      return (u32) (v >> (pos & 31u)) & lenMask(len);
+      return (u32) (v >> off) & lenMask(len);
     }
 
     inline void setBits(P4Atom & a, u32 pos, u32 len, u32 val) {
       const u32 w = pos >> 5;
       const u32 off = pos & 31u;
+      if (off + len <= 32u) {           // fast path: inside one word
+        const u32 m = lenMask(len) << off;
+        putStateWord(a, w, (stateWord(a, w) & ~m) | ((val << off) & m));
+        return;
+      }
       u64 v = stateWord(a, w);
       if (w < 2u) v |= (u64) stateWord(a, w + 1u) << 32;
       const u64 m = (u64) lenMask(len) << off;

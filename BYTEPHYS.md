@@ -342,7 +342,8 @@ saturation on its own.
 ## 9. On the EWP
 
 - **Bytecode physics types:** type 7 runs BFB1, type 8 runs BFB4, both
-  compiled from scripts/ulamlite/ (section 13)
+  compiled from scripts/ulamlite/ (section 13) and found through the
+  generated `programFor(type)` table
   (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp; static_asserts tie them to the
   types the .bp files declare).  They behave like native types 4 and 5
   (except that counters saturate).  Seed them with e.g. `seed 25 7`.
@@ -413,6 +414,12 @@ interpreter loop.  No faults.
 
 ## 12. Change log
 
+- **Type numbers and fast path (2026-11-27):** ulamlite.py assigns
+  element type numbers (from 7, by name; no more `= N`); bpasm emits a
+  type -> program table and Physics.cpp dispatches every compiled type
+  through it.  getBits/setBits take a one-word fast path (no u64) when
+  a member sits inside one 32-bit word.  Not yet run on the QB.
+
 - **ulam-lite milestone 1 (2026-11-27):** scripts/ulamlite/ulamlite.py
   compiles ulam-like source to bpasm (section 13).  FB1 and FB4 now
   come from bfb1.ulam / bfb4.ulam / aging.ulam (programs renamed
@@ -460,7 +467,7 @@ quark Aging {                       // aging.ulam
   Unsigned(32) age;
 }
 
-element BFB4 = 8 {                  // bfb4.ulam: element NAME = TYPE
+element BFB4 {                      // bfb4.ulam (type number assigned)
   Aging a;
   Void behave() {
     a.age++;                        // self's member (= ew[0]'s)
@@ -470,11 +477,21 @@ element BFB4 = 8 {                  // bfb4.ulam: element NAME = TYPE
 }
 ```
 
-**Declarations:** `quark NAME { members }`; `element NAME = TYPE {
+**Declarations:** `quark NAME { members }`; `element NAME {
 constants, members, methods }`.  Members are `Unsigned(n)` (1..32),
 `Unsigned` (32), `Bool` (1 bit) or a quark; they pack as in section 5.
-`constant Unsigned cNAME = 21;` is inlined.  The atom type number after
-`=` is ours, not ulam's.
+`constant Unsigned cNAME = 21;` is inlined.
+
+**Type numbers:** as in culam, the compiler assigns them, which is why
+a whole physics compiles at once (every `is TYPE` and every table then
+agrees).  Elements are numbered from 7 (`FIRST_TYPE`, above the native
+types 0..6) in order of name: BFB1 is 7, BFB4 is 8.  Adding an element
+can renumber the ones after it.  bpasm turns the numbers into a table,
+`BP_FIRST_TYPE` / `BP_PROGRAMS[]` / `programFor(type)` in
+BytePrograms.h, and the EWP runs any type it finds there (Physics.cpp's
+default case).  Seeding and timing are still by number (`seed 3 8`,
+the `.pt` slots), so Physics.cpp static_asserts that BFB1 and BFB4 kept
+7 and 8; a renumbering fails the build with a message saying so.
 
 **Methods:** `Void behave()` is the event (entry, offset 0); returning
 from it commits the window (halt1).  Other methods take Unsigned(n) /

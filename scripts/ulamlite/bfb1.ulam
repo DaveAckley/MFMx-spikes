@@ -3,7 +3,7 @@
 // bytephys_test checks that site by site.  Differs from native only
 // where native would wrap a 32-bit counter: here it saturates.  Not
 // copied: the one-time SPLAT! log mark.
-element BFB1 = 7 {
+element BFB1 {
   constant Unsigned cOLD = 21;          // old enough to drink
   Aging a;
 
