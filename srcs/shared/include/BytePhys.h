@@ -14,10 +14,14 @@
    fixed arrays in the Machine object (on the EWP it lives in hart B's
    fast RAM beside the event window), so bytecode recursion never touches
    the native stack: the interpreter is one loop and never calls itself.
-   Every push, pop, call, return, jump target, site number and field is
-   checked, and every instruction burns one unit of fuel.  Any violation
-   calls Env::fault(Fault), which must not return (the EWP FAILs into the
-   physics RecoverPoint; the host test records it and throws).
+   A program is checked ONCE by verify() (opcodes, immediates, jump
+   targets, fields, member ids, its end; bpasm's headers do it at compile
+   time), then run() checks only what depends on the run: every push,
+   pop, call, return, frame, site number and member type.  Every
+   instruction burns one unit of fuel, compared at backward jumps and
+   calls.  Any violation calls Env::fault(Fault), which must not return
+   (the EWP FAILs into the physics RecoverPoint; the host test records
+   it and throws).
 
    Env (a template parameter, so the EWP and the host test share this
    exact code) provides:
@@ -128,11 +132,12 @@ namespace MFM {
     }
 
     /* State word i of an atom: 0 mStg[0], 1 mStg[1], 2 mData0. */
-    inline u32 stateWord(const P4Atom & a, u32 i) {
+    // always_inline: Machine::run is built O2 inside -Os images
+    inline __attribute__((always_inline)) u32 stateWord(const P4Atom & a, u32 i) {
       return i == 0u ? a.mStg[0] : i == 1u ? a.mStg[1] : (u32) a.mData0;
     }
 
-    inline void putStateWord(P4Atom & a, u32 i, u32 v) {
+    inline __attribute__((always_inline)) void putStateWord(P4Atom & a, u32 i, u32 v) {
       if (i == 0u) a.mStg[0] = v;
       else if (i == 1u) a.mStg[1] = v;
       else a.mData0 = (u16) v;
@@ -219,10 +224,30 @@ namespace MFM {
       u32 mLocals[LOCALS_SIZE];
       u32 mExecuted;                    //< instructions run, last event
 
+      /* Run a VERIFIED program (verify(p) == 0, below; the generated
+         programs are checked at compile time), so opcodes, immediates,
+         jump targets, fields, member ids and the program's end need no
+         checks here.  What only the run can know is still checked:
+         stack depths, frames, sites, member types, and fuel, which is
+         counted per instruction but compared only at backward jumps
+         and calls (straight-line code always reaches one, or a halt). */
       template <class Env>
+      __attribute__((optimize("O2")))  // the EWP builds -Os, which would
+      // merge every handler's dispatch into one shared indirect jump
       bool run(const Program & p, Env & env, u32 fuel) {
-        const u8 * code = p.mCode;
-        const u32 len = p.mLength;
+        // computed-goto dispatch (GCC): each handler jumps straight to
+        // the next one; kOps lists every Op in enum order
+        static void * const kOps[] = {
+          &&L_HALT0, &&L_HALT1, &&L_PUSH8, &&L_PUSH32, &&L_DUP, &&L_DROP,
+          &&L_SWAP, &&L_OVER, &&L_ADD, &&L_SUB, &&L_EQ, &&L_LT, &&L_JMP,
+          &&L_JZ, &&L_JNZ, &&L_CALL, &&L_RET, &&L_GETF, &&L_SETF,
+          &&L_COPY, &&L_EMPTY, &&L_BETWEEN, &&L_ONEIN, &&L_GETM, &&L_SETM,
+          &&L_ENTER, &&L_LOADL, &&L_STOREL,
+        };
+        static_assert(sizeof(kOps) / sizeof(kOps[0]) == OP_COUNT,
+                      "kOps must list every Op, in order");
+        const u8 * const code = p.mCode;
+        u32 * const stk = mStack;
         u32 pc = 0;
         u32 sp = 0;                     // next free operand slot
         u32 cp = 0;                     // next free call slot
@@ -230,230 +255,308 @@ namespace MFM {
         u32 ft = 0;
         u32 used = 0;
 
-#define BP_NEED(n) do { if (sp < (n)) env.fault(BF_STACK_UNDER); } while (0)
-#define BP_ROOM(n) do { if (sp + (n) > STACK_SIZE) \
+#define BP_NEED(n) do { if (__builtin_expect(sp < (n), 0)) \
+                            env.fault(BF_STACK_UNDER); } while (0)
+#define BP_ROOM(n) do { if (__builtin_expect(sp + (n) > STACK_SIZE, 0)) \
                           env.fault(BF_STACK_OVER); } while (0)
-#define BP_IMM(n) do { if (pc + (n) > len) env.fault(BF_PC); } while (0)
+#define BP_IMM16 ((u32) code[pc] | ((u32) code[pc + 1] << 8))
+#define BP_NEXT do { ++used; goto *kOps[code[pc++]]; } while (0)
+#define BP_FUEL_CHECK do { if (__builtin_expect(used > fuel, 0)) \
+                              env.fault(BF_FUEL); } while (0)
 
-        while (true) {
-          if (pc >= len) env.fault(BF_PC);
-          if (++used > fuel) env.fault(BF_FUEL);
-          const u8 op = code[pc++];
-          switch (op) {
-          case OP_HALT0:
-            mExecuted = used;
-            return false;
-          case OP_HALT1:
-            mExecuted = used;
-            return true;
-          case OP_PUSH8:
-            BP_IMM(1);
-            BP_ROOM(1);
-            mStack[sp++] = code[pc++];
-            break;
-          case OP_PUSH32: {
-            BP_IMM(4);
-            BP_ROOM(1);
-            const u32 v = (u32) code[pc] |
-              ((u32) code[pc + 1] << 8) |
-              ((u32) code[pc + 2] << 16) |
-              ((u32) code[pc + 3] << 24);
-            pc += 4;
-            mStack[sp++] = v;
-            break;
-          }
-          case OP_DUP:
-            BP_NEED(1);
-            BP_ROOM(1);
-            mStack[sp] = mStack[sp - 1];
-            ++sp;
-            break;
-          case OP_DROP:
-            BP_NEED(1);
-            --sp;
-            break;
-          case OP_SWAP: {
-            BP_NEED(2);
-            const u32 t = mStack[sp - 1];
-            mStack[sp - 1] = mStack[sp - 2];
-            mStack[sp - 2] = t;
-            break;
-          }
-          case OP_OVER:
-            BP_NEED(2);
-            BP_ROOM(1);
-            mStack[sp] = mStack[sp - 2];
-            ++sp;
-            break;
-          case OP_ADD:
-          case OP_SUB:
-          case OP_EQ:
-          case OP_LT: {
-            BP_NEED(2);
-            const u32 b = mStack[--sp];
-            const u32 a = mStack[sp - 1];
-            mStack[sp - 1] = op == OP_ADD ? (a + b < a ? 0xffffffffu : a + b)
-                           : op == OP_SUB ? (a < b ? 0u : a - b)
-                           : op == OP_EQ ? (u32) (a == b)
-                           : (u32) (a < b);
-            break;
-          }
-          case OP_JMP:
-          case OP_JZ:
-          case OP_JNZ:
-          case OP_CALL: {
-            BP_IMM(2);
-            const u32 t = (u32) code[pc] | ((u32) code[pc + 1] << 8);
-            pc += 2;
-            if (t >= len) env.fault(BF_PC);
-            bool go = true;
-            if (op == OP_JZ || op == OP_JNZ) {
-              BP_NEED(1);
-              const u32 v = mStack[--sp];
-              go = op == OP_JZ ? v == 0u : v != 0u;
-            } else if (op == OP_CALL) {
-              if (cp >= CALL_SIZE) env.fault(BF_CALL_OVER);
-              Call & c = mCalls[cp++];
-              c.mReturn = (u16) pc;
-              c.mBase = (u8) fb;
-              c.mTop = (u8) ft;
-            }
-            if (go) pc = t;
-            break;
-          }
-          case OP_RET:
-            if (cp == 0) env.fault(BF_CALL_UNDER);
-            {
-              const Call & c = mCalls[--cp];
-              pc = c.mReturn;
-              fb = c.mBase;
-              ft = c.mTop;
-            }
-            break;
-          case OP_GETF: {
-            BP_IMM(1);
-            const u8 f = code[pc++];
-            BP_NEED(1);
-            const u32 sn = mStack[sp - 1];
-            if (sn >= SITES) env.fault(BF_SITE);
-            const P4Atom & a = env.atom(sn);
-            mStack[sp - 1] = f == F_TYPE ? a.getType()
-                           : f == F_DATA0 ? (u32) a.mData0
-                           : f == F_STG0 ? a.mStg[0]
-                           : f == F_STG1 ? a.mStg[1]
-                           : (env.fault(BF_FIELD), 0u);
-            break;
-          }
-          case OP_SETF: {
-            BP_IMM(1);
-            const u8 f = code[pc++];
-            BP_NEED(2);
-            const u32 v = mStack[--sp];
-            const u32 sn = mStack[--sp];
-            if (sn >= SITES) env.fault(BF_SITE);
-            P4Atom & a = env.atom(sn);
-            if (f == F_DATA0) a.mData0 = (u16) v;
-            else if (f == F_STG0) a.mStg[0] = v;
-            else if (f == F_STG1) a.mStg[1] = v;
-            else env.fault(BF_FIELD);
-            break;
-          }
-          case OP_COPY: {
-            BP_NEED(2);
-            const u32 dst = mStack[--sp];
-            const u32 src = mStack[--sp];
-            if (src >= SITES || dst >= SITES) env.fault(BF_SITE);
-            env.atom(dst) = env.atom(src);
-            break;
-          }
-          case OP_EMPTY: {
-            BP_NEED(1);
-            const u32 sn = mStack[--sp];
-            if (sn >= SITES) env.fault(BF_SITE);
-            env.atom(sn) = P4Atom::makeEmptyAtom();
-            break;
-          }
-          case OP_BETWEEN: {
-            BP_NEED(2);
-            const u32 hi = mStack[--sp];
-            const u32 lo = mStack[sp - 1];
-            mStack[sp - 1] = env.between(lo, hi);
-            break;
-          }
-          case OP_ONEIN:
-            BP_NEED(1);
-            mStack[sp - 1] = env.oneIn(mStack[sp - 1]) ? 1u : 0u;
-            break;
-          case OP_ENTER: {
-            BP_IMM(2);
-            const u32 nargs = code[pc];
-            const u32 nlocals = code[pc + 1];
-            pc += 2;
-            if (nargs > nlocals || ft + nlocals > LOCALS_SIZE)
-              env.fault(BF_FRAME);
-            BP_NEED(nargs);
-            fb = ft;
-            ft = fb + nlocals;
-            sp -= nargs;
-            for (u32 i = 0; i < nargs; ++i) mLocals[fb + i] = mStack[sp + i];
-            for (u32 i = nargs; i < nlocals; ++i) mLocals[fb + i] = 0u;
-            break;
-          }
-          case OP_LOADL:
-          case OP_STOREL: {
-            BP_IMM(1);
-            const u32 n = code[pc++];
-            if (fb + n >= ft) env.fault(BF_LOCAL);
-            if (op == OP_LOADL) {
-              BP_ROOM(1);
-              mStack[sp++] = mLocals[fb + n];
-            } else {
-              BP_NEED(1);
-              mLocals[fb + n] = mStack[--sp];
-            }
-            break;
-          }
-          case OP_GETM:
-          case OP_SETM: {
-            BP_IMM(2);
-            const u32 id = (u32) code[pc] | ((u32) code[pc + 1] << 8);
-            pc += 2;
-            u32 v = 0u;
-            if (op == OP_SETM) {
-              BP_NEED(2);
-              v = mStack[--sp];
-            } else BP_NEED(1);
-            const u32 sn = op == OP_SETM ? mStack[--sp] : mStack[sp - 1];
-            if (sn >= SITES) env.fault(BF_SITE);
-            const Layout * lay = p.mLayout;
-            if (lay == nullptr || id >= lay->mRefCount) env.fault(BF_MEMBER);
-            P4Atom & a = env.atom(sn);
-            const u32 type = a.getType();
-            const MemberRef & r = lay->mRefs[id];
-            const MemberAt * at = nullptr;
-            for (u32 i = 0; i < r.mCount; ++i) {
-              const MemberAt & c = lay->mAts[r.mFirst + i];
-              if (c.mType == type) {
-                at = &c;
-                break;
-              }
-            }
-            if (at == nullptr) env.fault(BF_TYPE);
-            if (op == OP_GETM) mStack[sp - 1] = getBits(a, at->mPos, at->mLen);
-            else {
-              const u32 max = lenMask(at->mLen);
-              setBits(a, at->mPos, at->mLen, v > max ? max : v);
-            }
-            break;
-          }
-          default:
-            env.fault(BF_OPCODE);
-          }
-        }
+        BP_NEXT;
+
+      L_HALT0:
+        mExecuted = used;
+        return false;
+      L_HALT1:
+        mExecuted = used;
+        return true;
+      L_PUSH8:
+        BP_ROOM(1);
+        stk[sp++] = code[pc++];
+        BP_NEXT;
+      L_PUSH32:
+        BP_ROOM(1);
+        stk[sp++] = (u32) code[pc] | ((u32) code[pc + 1] << 8) |
+          ((u32) code[pc + 2] << 16) | ((u32) code[pc + 3] << 24);
+        pc += 4;
+        BP_NEXT;
+      L_DUP:
+        BP_NEED(1);
+        BP_ROOM(1);
+        stk[sp] = stk[sp - 1];
+        ++sp;
+        BP_NEXT;
+      L_DROP:
+        BP_NEED(1);
+        --sp;
+        BP_NEXT;
+      L_SWAP: {
+        BP_NEED(2);
+        const u32 t = stk[sp - 1];
+        stk[sp - 1] = stk[sp - 2];
+        stk[sp - 2] = t;
+        BP_NEXT;
+      }
+      L_OVER:
+        BP_NEED(2);
+        BP_ROOM(1);
+        stk[sp] = stk[sp - 2];
+        ++sp;
+        BP_NEXT;
+      L_ADD: {
+        BP_NEED(2);
+        const u32 b = stk[--sp];
+        const u32 a = stk[sp - 1];
+        stk[sp - 1] = a + b < a ? 0xffffffffu : a + b;
+        BP_NEXT;
+      }
+      L_SUB: {
+        BP_NEED(2);
+        const u32 b = stk[--sp];
+        const u32 a = stk[sp - 1];
+        stk[sp - 1] = a < b ? 0u : a - b;
+        BP_NEXT;
+      }
+      L_EQ: {
+        BP_NEED(2);
+        const u32 b = stk[--sp];
+        stk[sp - 1] = (u32) (stk[sp - 1] == b);
+        BP_NEXT;
+      }
+      L_LT: {
+        BP_NEED(2);
+        const u32 b = stk[--sp];
+        stk[sp - 1] = (u32) (stk[sp - 1] < b);
+        BP_NEXT;
+      }
+      L_JMP: {
+        const u32 t = BP_IMM16;
+        if (t < pc) BP_FUEL_CHECK;      // backward: a loop
+        pc = t;
+        BP_NEXT;
+      }
+      L_JZ: {
+        BP_NEED(1);
+        const u32 t = BP_IMM16;
+        if (stk[--sp] == 0u) {
+          if (t < pc) BP_FUEL_CHECK;
+          pc = t;
+        } else pc += 2;
+        BP_NEXT;
+      }
+      L_JNZ: {
+        BP_NEED(1);
+        const u32 t = BP_IMM16;
+        if (stk[--sp] != 0u) {
+          if (t < pc) BP_FUEL_CHECK;
+          pc = t;
+        } else pc += 2;
+        BP_NEXT;
+      }
+      L_CALL: {
+        BP_FUEL_CHECK;                  // recursion is a loop too
+        if (cp >= CALL_SIZE) env.fault(BF_CALL_OVER);
+        Call & c = mCalls[cp++];
+        c.mReturn = (u16) (pc + 2u);
+        c.mBase = (u8) fb;
+        c.mTop = (u8) ft;
+        pc = BP_IMM16;
+        BP_NEXT;
+      }
+      L_RET: {
+        if (cp == 0) env.fault(BF_CALL_UNDER);
+        const Call & c = mCalls[--cp];
+        pc = c.mReturn;
+        fb = c.mBase;
+        ft = c.mTop;
+        BP_NEXT;
+      }
+      L_GETF: {
+        const u8 f = code[pc++];
+        BP_NEED(1);
+        const u32 sn = stk[sp - 1];
+        if (sn >= SITES) env.fault(BF_SITE);
+        const P4Atom & a = env.atom(sn);
+        stk[sp - 1] = f == F_TYPE ? a.getType()
+                    : f == F_DATA0 ? (u32) a.mData0
+                    : f == F_STG0 ? a.mStg[0]
+                    : a.mStg[1];
+        BP_NEXT;
+      }
+      L_SETF: {
+        const u8 f = code[pc++];
+        BP_NEED(2);
+        const u32 v = stk[--sp];
+        const u32 sn = stk[--sp];
+        if (sn >= SITES) env.fault(BF_SITE);
+        P4Atom & a = env.atom(sn);
+        if (f == F_DATA0) a.mData0 = (u16) v;
+        else if (f == F_STG0) a.mStg[0] = v;
+        else a.mStg[1] = v;
+        BP_NEXT;
+      }
+      L_COPY: {
+        BP_NEED(2);
+        const u32 dst = stk[--sp];
+        const u32 src = stk[--sp];
+        if (src >= SITES || dst >= SITES) env.fault(BF_SITE);
+        env.atom(dst) = env.atom(src);
+        BP_NEXT;
+      }
+      L_EMPTY: {
+        BP_NEED(1);
+        const u32 sn = stk[--sp];
+        if (sn >= SITES) env.fault(BF_SITE);
+        env.atom(sn) = P4Atom::makeEmptyAtom();
+        BP_NEXT;
+      }
+      L_BETWEEN: {
+        BP_NEED(2);
+        const u32 hi = stk[--sp];
+        const u32 lo = stk[sp - 1];
+        stk[sp - 1] = env.between(lo, hi);
+        BP_NEXT;
+      }
+      L_ONEIN:
+        BP_NEED(1);
+        stk[sp - 1] = env.oneIn(stk[sp - 1]) ? 1u : 0u;
+        BP_NEXT;
+      L_ENTER: {
+        const u32 nargs = code[pc];
+        const u32 nlocals = code[pc + 1];
+        pc += 2;
+        if (ft + nlocals > LOCALS_SIZE) env.fault(BF_FRAME);
+        BP_NEED(nargs);
+        fb = ft;
+        ft = fb + nlocals;
+        sp -= nargs;
+        for (u32 i = 0; i < nargs; ++i) mLocals[fb + i] = stk[sp + i];
+        for (u32 i = nargs; i < nlocals; ++i) mLocals[fb + i] = 0u;
+        BP_NEXT;
+      }
+      L_LOADL: {
+        const u32 n = code[pc++];
+        if (fb + n >= ft) env.fault(BF_LOCAL);
+        BP_ROOM(1);
+        stk[sp++] = mLocals[fb + n];
+        BP_NEXT;
+      }
+      L_STOREL: {
+        const u32 n = code[pc++];
+        if (fb + n >= ft) env.fault(BF_LOCAL);
+        BP_NEED(1);
+        mLocals[fb + n] = stk[--sp];
+        BP_NEXT;
+      }
+      L_GETM: {
+        const u32 id = BP_IMM16;
+        pc += 2;
+        BP_NEED(1);
+        const u32 sn = stk[sp - 1];
+        if (sn >= SITES) env.fault(BF_SITE);
+        P4Atom & a = env.atom(sn);
+        const MemberAt & at = memberAt(*p.mLayout, id, a.getType(), env);
+        stk[sp - 1] = getBits(a, at.mPos, at.mLen);
+        BP_NEXT;
+      }
+      L_SETM: {
+        const u32 id = BP_IMM16;
+        pc += 2;
+        BP_NEED(2);
+        const u32 v = stk[--sp];
+        const u32 sn = stk[--sp];
+        if (sn >= SITES) env.fault(BF_SITE);
+        P4Atom & a = env.atom(sn);
+        const MemberAt & at = memberAt(*p.mLayout, id, a.getType(), env);
+        const u32 max = lenMask(at.mLen);
+        setBits(a, at.mPos, at.mLen, v > max ? max : v);
+        BP_NEXT;
+      }
 #undef BP_NEED
 #undef BP_ROOM
-#undef BP_IMM
+#undef BP_IMM16
+#undef BP_NEXT
+#undef BP_FUEL_CHECK
+      }
+
+      /* Where element type `type` keeps member id (BF_TYPE if it has
+         none); id < the layout's mRefCount (verified). */
+      template <class Env>
+      static const MemberAt & memberAt(const Layout & lay, u32 id,
+                                       u32 type, Env & env) {
+        const MemberRef & r = lay.mRefs[id];
+        for (u32 i = 0; i < r.mCount; ++i) {
+          const MemberAt & c = lay.mAts[r.mFirst + i];
+          if (c.mType == type) return c;
+        }
+        env.fault(BF_TYPE);
       }
     };
+
+    /* Immediate bytes after opcode op, or -1 if op is no opcode. */
+    constexpr int immBytes(u32 op) {
+      return op == OP_PUSH8 || op == OP_GETF || op == OP_SETF ||
+             op == OP_LOADL || op == OP_STOREL ? 1
+           : op == OP_PUSH32 ? 4
+           : op == OP_JMP || op == OP_JZ || op == OP_JNZ || op == OP_CALL ||
+             op == OP_GETM || op == OP_SETM || op == OP_ENTER ? 2
+           : op < OP_COUNT ? 0
+           : -1;
+    }
+
+    /* Does an instruction start at offset t? */
+    constexpr bool isInsnStart(const Program & p, u32 t) {
+      u32 pc = 0;
+      while (pc < t) {
+        const int n = immBytes(p.mCode[pc]);
+        if (n < 0) return false;
+        pc += 1u + (u32) n;
+      }
+      return pc == t;
+    }
+
+    /* 0 if Machine::run may run p, else the Fault it would hit: an
+       unknown opcode (BF_OPCODE), an immediate past the end, a jump or
+       call target off the end or inside an instruction, or an
+       instruction other than halt0/halt1/jmp/ret as the last one, so
+       control could run off the end (BF_PC; a call needs a next
+       instruction to return to), a bad or read-only field (BF_FIELD),
+       a member id with no Layout or past it (BF_MEMBER), enter with
+       nargs > nlocals or more than all the local slots (BF_FRAME).
+       constexpr: bpasm's headers static_assert it for every program. */
+    constexpr u32 verify(const Program & p) {
+      const u32 len = p.mLength;
+      if (len == 0u) return BF_PC;
+      u32 pc = 0;
+      while (pc < len) {
+        const u32 op = p.mCode[pc];
+        const int n = immBytes(op);
+        if (n < 0) return BF_OPCODE;
+        const u32 next = pc + 1u + (u32) n;
+        if (next > len) return BF_PC;
+        const u32 i0 = n > 0 ? p.mCode[pc + 1] : 0u;
+        const u32 i1 = n > 1 ? p.mCode[pc + 2] : 0u;
+        if (op == OP_JMP || op == OP_JZ || op == OP_JNZ || op == OP_CALL) {
+          const u32 t = i0 | (i1 << 8);
+          if (t >= len || !isInsnStart(p, t)) return BF_PC;
+        } else if (op == OP_GETF) {
+          if (i0 >= F_COUNT) return BF_FIELD;
+        } else if (op == OP_SETF) {
+          if (i0 == F_TYPE || i0 >= F_COUNT) return BF_FIELD;
+        } else if (op == OP_GETM || op == OP_SETM) {
+          if (p.mLayout == nullptr || (i0 | (i1 << 8)) >= p.mLayout->mRefCount)
+            return BF_MEMBER;
+        } else if (op == OP_ENTER) {
+          if (i0 > i1 || i1 > Machine::LOCALS_SIZE) return BF_FRAME;
+        }
+        const bool ends = op == OP_HALT0 || op == OP_HALT1 ||
+          op == OP_JMP || op == OP_RET;
+        if (!ends && next >= len) return BF_PC;
+        pc = next;
+      }
+      return 0u;
+    }
   }
 }

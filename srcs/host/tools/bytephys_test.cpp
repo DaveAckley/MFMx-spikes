@@ -171,6 +171,9 @@ u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
             const BytePhys::Layout * lay = &T_LAYOUT, u16 centerType = 4u) {
   BytePhys::Machine vm;
   BytePhys::Program p{code.data(), (u16) code.size(), lay};
+  // what verify() rejects never runs (the EWP's programs are verified at
+  // compile time): report it as the fault it stands for
+  if (const u32 v = BytePhys::verify(p)) return v;
   Env e(1u, 0);
   fillWindow(e, 1u, centerType);
   try {
@@ -184,7 +187,7 @@ u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
 void testFaults() {
   using namespace BytePhys;
   const u8 P8 = OP_PUSH8;
-  check(faultOf({OP_DROP}) == BF_STACK_UNDER, "stack underflow");
+  check(faultOf({OP_DROP, OP_HALT1}) == BF_STACK_UNDER, "stack underflow");
   std::vector<u8> over;
   for (u32 i = 0; i <= Machine::STACK_SIZE; ++i) {
     over.push_back(P8);
@@ -193,7 +196,15 @@ void testFaults() {
   over.push_back(OP_HALT1);
   check(faultOf(over) == BF_STACK_OVER, "stack overflow");
   check(faultOf({OP_RET}) == BF_CALL_UNDER, "return with no call");
-  check(faultOf({OP_CALL, 0, 0}) == BF_CALL_OVER, "runaway recursion");
+  check(faultOf({OP_CALL, 0, 0, OP_HALT1}) == BF_CALL_OVER,
+        "runaway recursion");
+  check(faultOf({OP_CALL, 0, 0}) == BF_PC, "call with nothing to return to");
+  check(faultOf({OP_JMP, 4, 0, OP_PUSH8, 1, OP_HALT1}) == BF_PC,
+        "jump into an immediate");
+  check(faultOf({OP_JZ, 0, 0}) == BF_PC, "jz as the last instruction");
+  check(faultOf({}) == BF_PC, "empty program");
+  check(faultOf({OP_HALT0, 0xee}) == BF_OPCODE,
+        "bad opcode where control never goes");
   check(faultOf({0xee}) == BF_OPCODE, "bad opcode");
   check(faultOf({OP_JMP, 9, 0}) == BF_PC, "jump past the end");
   check(faultOf({P8, 1}) == BF_PC, "running off the end");
@@ -224,10 +235,16 @@ void testFaults() {
         "frame bigger than all locals");
   check(faultOf({OP_ENTER, 1, 1, OP_HALT1}) == BF_STACK_UNDER,
         "enter with a missing argument");
-  check(faultOf({OP_ENTER, 0, 8, OP_CALL, 0, 0}) == BF_FRAME,
+  check(faultOf({OP_ENTER, 0, 8, OP_CALL, 0, 0, OP_HALT1}) == BF_FRAME,
         "recursion runs out of locals");
   check(faultOf({OP_ENTER, 1}) == BF_PC, "truncated enter");
-  printf("faults: every machine fault caught\n");
+  // fuel is compared only at backward jumps and calls: a long straight
+  // run may overshoot, a loop may not
+  check(faultOf({OP_PUSH8, 1, OP_DROP, OP_PUSH8, 1, OP_DROP, OP_HALT1}, 2u)
+        == 0u, "straight-line code is not stopped by fuel");
+  check(faultOf({OP_PUSH8, 0, OP_JZ, 0, 0, OP_HALT1}, 50u) == BF_FUEL,
+        "a jz loop runs out of fuel");
+  printf("faults: every machine fault caught (verify() or the run)\n");
 }
 
 /* The state bits one at a time: mStg[0] 0..31, mStg[1] 32..63, mData0

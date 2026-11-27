@@ -410,24 +410,28 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None):
         refs.append(f"{{{len(ats)}u, {len(per)}u}}")
         ats += [f"{{{t}u, {p}u, {n}u}}" for t, p, n in per]
     n = max(len(refs), 1)
-    out.append(f"    static const MemberRef BP_MEMBER_REFS[{n}] = {{")
+    out.append(f"    static constexpr MemberRef BP_MEMBER_REFS[{n}] = {{")
     out += [f"      {r}," for r in refs] or ["      {0u, 0u},"]
     out.append("    };")
-    out.append(f"    static const MemberAt BP_MEMBER_ATS[{max(len(ats), 1)}] = {{")
+    out.append(f"    static constexpr MemberAt BP_MEMBER_ATS"
+               f"[{max(len(ats), 1)}] = {{")
     out += [f"      {a}," for a in ats] or ["      {0u, 0u, 0u},"]
     out.append("    };")
-    out.append(f"    static const Layout BP_LAYOUT = "
+    out.append(f"    static constexpr Layout BP_LAYOUT = "
                f"{{BP_MEMBER_REFS, {len(refs)}u, BP_MEMBER_ATS}};")
     for name, code in progs:
         up = name.upper()
         out.append("")
-        out.append(f"    static const u8 BP_CODE_{up}[{len(code)}] = {{")
+        out.append(f"    static constexpr u8 BP_CODE_{up}[{len(code)}] = {{")
         for i in range(0, len(code), 12):
             chunk = ", ".join(f"0x{b:02x}" for b in code[i:i + 12])
             out.append(f"      {chunk},")
         out.append("    };")
-        out.append(f"    static const Program BP_PROG_{up} = "
+        out.append(f"    static constexpr Program BP_PROG_{up} = "
                    f"{{BP_CODE_{up}, {len(code)}u, &BP_LAYOUT}};")
+        # Machine::run trusts its program: check it here, once, for free
+        out.append(f"    static_assert(verify(BP_PROG_{up}) == 0u, "
+                   f"\"{name}.bp fails BytePhys::verify\");")
     # every program in source order, with its name (the microbenchmark
     # set, ByteBench.h, runs them all; harmless elsewhere)
     out.append("")

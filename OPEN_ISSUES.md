@@ -401,6 +401,10 @@ getm ~175, setm ~215, copy ~150.  BYTEPHYS.md section 10.  Fix
 candidates: verify programs once and drop per-instruction checks, fuel
 only on backward jumps/calls, -O2 or computed-goto dispatch for run(),
 getm/setm with pos/len resolved at compile time.
+DISPATCH REWORK DONE (2026-11-27, host-tested): verify once at compile
+time, computed goto built O2, fuel at back-jumps/calls (BYTEPHYS.md
+section 12).  experiment.cmd re-times bench + FB1 + FB4.  Still to do:
+getm/setm with pos/len at compile time.
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand

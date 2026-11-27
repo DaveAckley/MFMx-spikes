@@ -171,6 +171,9 @@ unless the user asks for a rename.
   per-opcode programs (bench/*.bp -> ByteBench.h, a third bpasm set)
   from L1 and fast RAM; `.pb` marks; runsum 'bytecode microbenchmark'.
   benchgen_check in run_native_tests.  BYTEPHYS.md section 10.
+  VERIFY ONCE (2026-11-27): Machine::run trusts its program; every
+  generated program is static_assert(verify(...) == 0) in its header,
+  and anything built at run time must pass BytePhys::verify first.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

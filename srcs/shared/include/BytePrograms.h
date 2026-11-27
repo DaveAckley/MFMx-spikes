@@ -21,19 +21,19 @@ namespace MFM {
     // member 0 BFB1.a.age: type 7 bits 32..63
     // member 1 BFB1.a.fuse: type 7 bits 0..31
     // member 2 BFB4.a.age: type 8 bits 32..63
-    static const MemberRef BP_MEMBER_REFS[3] = {
+    static constexpr MemberRef BP_MEMBER_REFS[3] = {
       {0u, 1u},
       {1u, 1u},
       {2u, 1u},
     };
-    static const MemberAt BP_MEMBER_ATS[3] = {
+    static constexpr MemberAt BP_MEMBER_ATS[3] = {
       {7u, 32u, 32u},
       {7u, 0u, 32u},
       {8u, 32u, 32u},
     };
-    static const Layout BP_LAYOUT = {BP_MEMBER_REFS, 3u, BP_MEMBER_ATS};
+    static constexpr Layout BP_LAYOUT = {BP_MEMBER_REFS, 3u, BP_MEMBER_ATS};
 
-    static const u8 BP_CODE_BFB1[146] = {
+    static constexpr u8 BP_CODE_BFB1[146] = {
       0x02, 0x00, 0x02, 0x00, 0x17, 0x00, 0x00, 0x02, 0x01, 0x08, 0x18, 0x00,
       0x00, 0x02, 0x00, 0x17, 0x01, 0x00, 0x0d, 0x39, 0x00, 0x02, 0x00, 0x02,
       0x00, 0x17, 0x01, 0x00, 0x02, 0x01, 0x09, 0x18, 0x01, 0x00, 0x02, 0x00,
@@ -48,14 +48,16 @@ namespace MFM {
       0x04, 0x14, 0x02, 0x01, 0x08, 0x04, 0x02, 0x29, 0x0b, 0x0e, 0x7e, 0x00,
       0x05, 0x10,
     };
-    static const Program BP_PROG_BFB1 = {BP_CODE_BFB1, 146u, &BP_LAYOUT};
+    static constexpr Program BP_PROG_BFB1 = {BP_CODE_BFB1, 146u, &BP_LAYOUT};
+    static_assert(verify(BP_PROG_BFB1) == 0u, "bfb1.bp fails BytePhys::verify");
 
-    static const u8 BP_CODE_BFB4[34] = {
+    static constexpr u8 BP_CODE_BFB4[34] = {
       0x02, 0x00, 0x02, 0x00, 0x17, 0x02, 0x00, 0x02, 0x01, 0x08, 0x18, 0x02,
       0x00, 0x02, 0x01, 0x0c, 0x19, 0x00, 0x02, 0x00, 0x07, 0x13, 0x02, 0x01,
       0x08, 0x04, 0x02, 0x29, 0x0b, 0x0e, 0x12, 0x00, 0x05, 0x01,
     };
-    static const Program BP_PROG_BFB4 = {BP_CODE_BFB4, 34u, &BP_LAYOUT};
+    static constexpr Program BP_PROG_BFB4 = {BP_CODE_BFB4, 34u, &BP_LAYOUT};
+    static_assert(verify(BP_PROG_BFB4) == 0u, "bfb4.bp fails BytePhys::verify");
 
     static constexpr u16 BP_PROG_COUNT = 2u;
     static const Program * const BP_PROG_LIST[2] = {

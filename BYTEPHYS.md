@@ -461,6 +461,19 @@ the other ~334 instructions ~17,000.
 
 ## 12. Change log
 
+- **Dispatch rework (2026-11-27):** verify() checks a program once
+  (opcodes, immediates, jump targets on instruction starts, fields,
+  member ids, enter sizes, no running off the end; a call needs a next
+  instruction); bpasm's headers static_assert it for every program, so
+  run() trusts its program and drops those per-instruction checks.
+  Fuel is still counted per instruction but compared only at backward
+  jumps and calls.  Dispatch is computed goto, each handler jumping to
+  the next; run() is built optimize("O2") because the EWP's -Os merges
+  all the dispatches into one shared jump (stateWord/putStateWord are
+  always_inline for the same reason).  A SWAP went from ~28 RISC-V
+  instructions with 4 taken jumps and 5 stack spills to 14 with one
+  jump.  Not yet run on the QB.
+
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
   native load probes; `.pb` marks, runsum section (section 10).  bpasm
