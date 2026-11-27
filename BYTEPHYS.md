@@ -383,6 +383,18 @@ counts; this run cannot say how much is the getm/setm accesses (table
 scan, 64-bit shifts) and how much a general slowdown of the bigger
 interpreter loop.  No faults.
 
+Compiled code + one-word fast path (run 20261127-015533, 35f19e5,
+events shortcut): FB1 3167 cycles/event (native 480, 6.60x, 30.7
+insns), FB4 33853 (native 3314, 10.22x, 494 insns).  Bytecode minus
+native, per bytecode instruction, FB4: v0 50, v1 55, now 62 cycles; FB1:
+v0 59, v1 83, now 88.  So the fast path bought nothing measurable: the
+cost is not the u64 work but the interpreter itself, and it grows as the
+interpreter grows (more opcodes, frames), even for instructions that
+did not change.  The compiled code's 34% more instructions is the rest.
+Not yet known where ~60 cycles per instruction go (instruction fetch
+for a bigger loop? the switch? Machine state in memory instead of
+registers?); a per-opcode microbenchmark on the QB would say.
+
 
 ## 11. Open questions and wish list (to be fleshed out)
 

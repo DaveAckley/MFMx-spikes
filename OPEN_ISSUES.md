@@ -376,6 +376,15 @@ lost seed batches (8 of 8 grew).  FB4 5 vs 8 stayed even (share
 0.46-0.52).  Cause of the slowdown not separated: per-access getm/setm
 cost vs a slower interpreter loop; a single-word fast path in
 getBits/setBits (no u64) is the cheap first fix.
+COMPILED CODE TIMED (run 20261127-015533, 35f19e5, events shortcut):
+FB1 bytecode 3167 cycles/event vs native 480 (6.60x, 30.7 insns), FB4
+33853 vs 3314 (10.22x, 494 insns).  Interpretation cost per bytecode
+instruction (bytecode - native, / insns), FB4: v0 50, v1 55, v2 62
+cycles; FB1: 59, 83, 88.  The one-word fast path did not help: cost per
+instruction grows with the interpreter, not with member access.  No
+`.pf`; 8 of 8 seed batches grew; FB4 share 0.57-0.59 (bytecode ahead).
+Next candidates: compiler loop optimization (FB4 494 -> ~370 insns);
+a per-opcode microbenchmark on the QB to find where ~60 cycles go.
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
