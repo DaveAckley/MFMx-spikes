@@ -126,6 +126,7 @@ and ETH-tile destination in shipTCTo are the next steps.
 | `machine.py` | Machine abstraction: boot, start, fire bolts, poll acks |
 | `sequencer.py` | SuperCycle state machine (NEW_LEADER -> RUN_EVENTS loop) |
 | `shell.py` | Readline shell, tick loop |
+| `mock/selftest.py` | Mock scenario tests: `python3 mock/selftest.py` runs every scenario in its own process, 8 at a time (~2 min; `-j N`, `--serial` for the old ~10 min in-order run, or name scenarios) |
 | `../src/OurTLBs.cpp` | TLB management, PHASER ack tracking |
 | `../include/Blackhole.h` | Blackhole class + all Python bindings |
 | `../include/BHTag.h` | Tag format (chip + NoC0 coords); BHTag Python bindings |

@@ -2,6 +2,14 @@
 """Scenario tests for mfmxctl against the mock MFMx.  No hardware needed.
 
     python3 mock/selftest.py          # from srcs/host/python/EWD
+    python3 mock/selftest.py NAME..   # just those scenarios, in this process
+    python3 mock/selftest.py -j 4     # at most 4 scenarios at once
+    python3 mock/selftest.py --serial # the old way: one process, in order
+
+By default every scenario runs in its OWN child process (`selftest.py NAME`),
+up to -j at once (default 8): about 10 min serial, ~2 min parallel.  Their
+output is printed in scenario order once all are done.  A child process also
+keeps each scenario's os.environ changes to itself.
 
 Each scenario pipes commands into 'mfmxctl.py --mock' (so the real select loop,
 tick scheduler, signal handling and teardown are exercised) and checks the
@@ -993,8 +1001,60 @@ def scenario_wait_quiet():
           out[-300:])
 
 
+def scenario_names():
+    return [n[9:] for n in globals() if n.startswith("scenario_")]
+
+
+def run_parallel(names, jobs):
+    """Each scenario in its own `selftest.py NAME` process, `jobs` at once.
+    Returns the number of failed checks (or crashed scenarios)."""
+    from concurrent.futures import ThreadPoolExecutor
+    me = os.path.abspath(__file__)
+
+    def one(name):
+        t0 = time.monotonic()
+        try:
+            p = subprocess.run([sys.executable, me, name], capture_output=True,
+                               text=True, timeout=900)
+            out, rc = p.stdout + p.stderr, p.returncode
+        except subprocess.TimeoutExpired as e:
+            out, rc = (e.stdout or "") if isinstance(e.stdout, str) else "", -1
+            out += "\nFAIL  scenario timed out (900 s)\n"
+        return name, rc, out, time.monotonic() - t0
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=jobs) as ex:
+        results = list(ex.map(one, names))
+    bad = []
+    for name, rc, out, secs in results:
+        print(f"--- {name}  ({secs:.1f} s)")
+        body = [l for l in out.splitlines()
+                if l.startswith(("PASS", "FAIL")) or "Traceback" in l
+                or (rc != 0 and l.strip())]
+        body = [l for l in body if not l.startswith(("--- ", "ALL PASS"))]
+        print("\n".join(body))
+        fl = [l[6:].split("   [")[0] for l in out.splitlines()
+              if l.startswith("FAIL  ")]
+        if rc != 0 and not fl:
+            fl = [f"{name}: exit {rc}"]
+        bad += fl
+    print(f"\n{len(names)} scenarios, -j {jobs}, "
+          f"{time.monotonic() - t0:.0f} s wall")
+    return bad
+
+
 if __name__ == "__main__":
-    only = sys.argv[1:]
+    args = sys.argv[1:]
+    jobs = 8
+    if args[:1] == ["-j"] and len(args) >= 2:
+        jobs = max(1, int(args[1]))
+        args = args[2:]
+    if not args:
+        bad = run_parallel(scenario_names(), jobs)
+        print()
+        print("ALL PASS" if not bad else f"{len(bad)} FAILED: {bad}")
+        sys.exit(1 if bad else 0)
+    only = [] if args == ["--serial"] else args
     for name, fn in list(globals().items()):
         if name.startswith("scenario_") and (not only or name[9:] in only):
             print(f"--- {name[9:]}")
