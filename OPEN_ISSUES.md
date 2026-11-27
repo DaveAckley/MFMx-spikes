@@ -59,7 +59,19 @@ ERISC_NOTES.md.
   and logs `HOLD_AT_BIRTH ack wait`.  The 60 s wait did NOT cure it (seam21 retry, onPhases 0/0/0/0
   after the freeze), so start() no longer re-fires at all: a partial ack count
   now just skips HOLD_AT_BIRTH and the first NEW_LEADER names the laggards.
-  STILL OPEN: why some tiles never ack at OW=20.  A hub should also tolerate
+  STILL OPEN: why some tiles never ack at OW=20.
+  AGAIN 2026-11-27, run MFMX-20261127-122216 (26cbae8, seam4, the
+  dispatch-timing experiment): HOLD_AT_BIRTH acked {0: 139, 1-3: 140};
+  the laggard was bh0 TLBI 15 = hub at023 (PKTS.txt); the first
+  NEW_LEADER timed out at 60 s naming it (lamers 15), the cycle froze at
+  scy 1 and no event ever ran, so the run measured nothing (bench, FB1
+  and FB4 all lost).  at023 logged nothing in the 2 MB all.mfmk.tail,
+  not even the slowscan sweep.  The hub image is unchanged since runs
+  094705 and 110936 (the commits since touch only ewp Physics.cpp and
+  BytePhys headers, which no hub file includes), so it is this
+  intermittent boot fault, not the dispatch rework.  The script kept
+  waiting for 30 min: --abort-on-error does not treat a FROZEN cycle
+  as an error (idea: end the run when the cycle freezes).  A hub should also tolerate
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`
   lines) for this wedge.
 
