@@ -1,6 +1,8 @@
 #pragma once  /* -*- C++ -*- */
 /* BytePhys.h -- a tiny bytecode machine for physics (SPIKE, 2026-11-26).
 
+   Manual: BYTEPHYS.md (repo root; keep it in step with this file).
+
    OPEN_ISSUES 'physics as bytecode with explicit, bounded stacks': does
    interpreting physics cost too much on a T6 baby core?  This is the
    smallest machine that can run FB1 and FB4 (scripts/bytephys/bpasm.py

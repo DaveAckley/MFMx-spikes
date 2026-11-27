@@ -116,6 +116,9 @@ unless the user asks for a rename.
   otherwise); zoom scans the unpainted image, so the lines never count
   as occupied.  geomlab --crosscheck checks its owner map against
   EWLattice.h.
+- BYTEPHYS.md  reference manual for the physics bytecode (machine,
+  instruction set, fields, faults, .bp assembler syntax, an annotated
+  example, measured cost, open questions); grows with the design.
 - BYTEPHYS SPIKE (2026-11-26, RUN, timed in 141643 and 163422): physics types 7 and 8 are
   FB1 and FB4 run by a tiny bytecode machine on the EWP
   (srcs/shared/include/BytePhys.h; programs scripts/bytephys/*.bp,

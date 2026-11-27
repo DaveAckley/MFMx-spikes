@@ -288,6 +288,9 @@ sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
 ## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE RUN and timed)
 
+Reference manual: BYTEPHYS.md (instruction set, faults, assembler,
+results, wish list).
+
 SPIKE (2026-11-26, built, cross-built, host-tested; NOT run on the QB):
 srcs/shared/include/BytePhys.h is a tiny switch-dispatch stack machine
 (23 opcodes; u32 operand stack 16 deep and u16 call stack 8 deep in the
