@@ -1,7 +1,8 @@
 // bytephys_test.cpp -- native test of the bytecode physics spike:
-// srcs/shared/include/BytePhys.h (the machine), BytePrograms.h (fb1.bp,
-// fb4.bp assembled by scripts/bytephys/bpasm.py) against NativeFB.h (the
-// EWP's native FB1/FB4, the very same code Physics.cpp runs).
+// srcs/shared/include/BytePhys.h (the machine), BytePrograms.h (BFB1 and
+// BFB4, compiled from scripts/ulamlite/*.ulam by ulamlite.py, assembled
+// by scripts/bytephys/bpasm.py) against NativeFB.h (the EWP's native
+// FB1/FB4, the very same code Physics.cpp runs).
 // Build/run: see the bytephys_test line of run_native_tests.sh.
 //
 // Checks:
@@ -120,8 +121,8 @@ void testEquivalence() {
         const bool rn = fb == 0 ? nativeFB1(n) : nativeFB4(n);
         bool rb = false;
         try {
-          rb = vm.run(fb == 0 ? BytePhys::BP_PROG_FB1
-                              : BytePhys::BP_PROG_FB4, b, 10'000u);
+          rb = vm.run(fb == 0 ? BytePhys::BP_PROG_BFB1
+                              : BytePhys::BP_PROG_BFB4, b, 10'000u);
         } catch (const Fault & f) {
           check(false, "bytecode FB faulted");
           continue;
@@ -143,8 +144,8 @@ void testEquivalence() {
          (double) insns[0] / (double) runs[0], maxInsns[0],
          (double) insns[1] / (double) runs[1], maxInsns[1]);
   printf("code size: FB1 %u bytes, FB4 %u bytes; machine %zu bytes\n",
-         (unsigned) BytePhys::BP_PROG_FB1.mLength,
-         (unsigned) BytePhys::BP_PROG_FB4.mLength,
+         (unsigned) BytePhys::BP_PROG_BFB1.mLength,
+         (unsigned) BytePhys::BP_PROG_BFB4.mLength,
          sizeof(BytePhys::Machine));
 }
 
@@ -292,7 +293,7 @@ void testBits() {
     Env e(1u, 0);
     fillWindow(e, 1u, BP_TYPE_BFB4);
     e.mW[0].mStg[1] = 0xffffffffu;
-    vm.run(BP_PROG_FB4, e, 10'000u);
+    vm.run(BP_PROG_BFB4, e, 10'000u);
     bool all = true;
     for (u32 i = 0; i < SITES; ++i) all = all && e.mW[i].mStg[1] == ~0u;
     check(all, "FB4 age saturates");
@@ -302,7 +303,7 @@ void testBits() {
     fillWindow(e, 1u, BP_TYPE_BFB1);
     e.mW[0].mStg[0] = 0u;
     e.mW[0].mStg[1] = 0xfffffffeu;
-    vm.run(BP_PROG_FB1, e, 10'000u);
+    vm.run(BP_PROG_BFB1, e, 10'000u);
     check(e.mW[0].mStg[1] == 0xffffffffu, "FB1 age saturates");
     check(e.mW[0].mStg[0] == 5u, "FB1 fuse set on the splat path");
   }

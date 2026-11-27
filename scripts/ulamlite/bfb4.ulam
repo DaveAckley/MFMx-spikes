@@ -1,0 +1,13 @@
+// bfb4.ulam -- FB4 in ulam-lite: native PHY_FB4
+// (srcs/shared/include/NativeFB.h), no random draws.  Differs from
+// native only in that age saturates instead of wrapping.  Not copied:
+// the every-millionth FB4 log mark.
+element BFB4 = 8 {
+  Aging a;
+
+  Void behave() {
+    a.age++;
+    for (Unsigned sn = 1; sn < 41; sn++)
+      ew[sn] = self;                    // MAX FB!
+  }
+}

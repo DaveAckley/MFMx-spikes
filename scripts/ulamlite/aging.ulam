@@ -1,0 +1,8 @@
+// aging.ulam -- the quark FB1 and FB4 share.  Its layout matches the
+// native FB types, so the host draws both alike: fuse is mStg[0] (state
+// bits 0..31), age is mStg[1] (bits 32..63, the counter the host colors
+// by).
+quark Aging {
+  Unsigned(32) fuse;    // FB1: events left before the kabam (0 = idle)
+  Unsigned(32) age;     // +1 per event; the host colors by it
+}

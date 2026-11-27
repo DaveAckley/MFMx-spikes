@@ -1,0 +1,32 @@
+// bfb1.ulam -- FB1 in ulam-lite: the same steps and the SAME ORDER OF
+// RANDOM DRAWS as native PHY_FB1 (srcs/shared/include/NativeFB.h);
+// bytephys_test checks that site by site.  Differs from native only
+// where native would wrap a 32-bit counter: here it saturates.  Not
+// copied: the one-time SPLAT! log mark.
+element BFB1 = 7 {
+  constant Unsigned cOLD = 21;          // old enough to drink
+  Aging a;
+
+  Void behave() {
+    a.age++;
+    if (a.fuse > 0) {
+      a.fuse--;
+      if (a.fuse == 0) {
+        kabam();
+        return;
+      }
+      ew[random.between(5, 8)] = self;  // extra repro shot (Moore!)
+    } else if (a.age >= cOLD && random.oneIn(100000)) {
+      a.fuse = random.between(5, 500);
+      a.age += random.between(1000, 10000); // jump in color space too
+    }
+    ew[random.between(1, 4)] = self;
+  }
+
+  Void kabam() {                        // 1% of the window survives
+    for (Unsigned sn = 0; sn < 41; sn++) {
+      if (random.oneIn(100)) continue;
+      ew[sn] = Empty;
+    }
+  }
+}

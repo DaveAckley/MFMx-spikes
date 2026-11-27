@@ -1,4 +1,4 @@
-# BYTEPHYS -- reference manual for the physics bytecode (version 2, SPIKE)
+# BYTEPHYS -- reference manual for the physics bytecode (version 2 + ulam-lite, SPIKE)
 
 A small, growing reference for BytePhys, the bytecode that MFMx physics
 can be written in and run on the EWPs.  Version 0 is a spike ("pretend
@@ -6,6 +6,8 @@ bytecode"): just enough machine to run FB1 and FB4 and measure what
 interpreting costs on a T6 baby core.  Version 1 adds declared element
 and quark layouts, ulam-style (section 5), and saturating arithmetic;
 version 2 adds local variables and calls with arguments (section 2).
+FB1 and FB4 are now written in ulam-lite, a small ulam-like language
+that compiles to bpasm (section 13).
 This manual is meant to be fleshed out as the design grows; section
 11 collects what is not decided yet.
 
@@ -14,7 +16,10 @@ Where things live:
 | What | Where |
 |------|-------|
 | The machine (opcodes, fields, layouts, faults, interpreter) | srcs/shared/include/BytePhys.h |
-| Programs and element/quark declarations | scripts/bytephys/*.bp |
+| ulam-lite sources (FB1, FB4, quark Aging) | scripts/ulamlite/*.ulam |
+| ulam-lite compiler (.ulam -> .bp) | scripts/ulamlite/ulamlite.py |
+| bpasm programs and declarations (the .ulam ones GENERATED) | scripts/bytephys/*.bp |
+| The hand-written version 1 programs (reference, not built) | scripts/bytephys/hand/*.bp |
 | Assembler | scripts/bytephys/bpasm.py |
 | Assembled programs and layout tables (GENERATED, do not edit) | srcs/shared/include/BytePrograms.h |
 | Native twins of the programs | srcs/shared/include/NativeFB.h |
@@ -171,7 +176,7 @@ bundle of members that elements (and other quarks) can include.
 Members pack in declaration order from state bit 0.
 
 ```
-quark Aging                 ; scripts/bytephys/aging.bp
+quark Aging                 ; scripts/bytephys/hand/aging.bp
   unsigned fuse 32          ; bits 0..31 of whoever holds it
   unsigned age 32           ; bits 32..63
 
@@ -246,7 +251,7 @@ checks are what keep the tile safe.
 ## 7. Assembler (.bp files)
 
 `scripts/bytephys/bpasm.py` assembles every `*.bp` in its directory into
-BytePrograms.h, one `BP_PROG_<NAME>` per file (fb1.bp -> BP_PROG_FB1),
+BytePrograms.h, one `BP_PROG_<NAME>` per file (bfb1.bp -> BP_PROG_BFB1),
 plus `BP_TYPE_<ELEMENT>` for each element and the shared `BP_LAYOUT`.
 A file holding only declarations (aging.bp) makes no program.
 Declarations are global: every file sees every other file's.
@@ -277,7 +282,7 @@ Commands (from the repo root):
 - `scripts/bytephys/bpasm.py`: regenerate BytePrograms.h.
 - `scripts/bytephys/bpasm.py --check`: exit 1 if BytePrograms.h is out of
   date (run_native_tests.sh runs this).
-- `scripts/bytephys/bpasm.py --list scripts/bytephys/fb4.bp`: listing with
+- `scripts/bytephys/bpasm.py --list scripts/bytephys/bfb4.bp`: listing with
   offsets and bytes, then the element bit maps and member ids.
 
 After editing a .bp: rerun bpasm.py, then
@@ -296,7 +301,9 @@ for (sn = 1; sn <= 40; ++sn) atom(sn) = ca;
 return true;
 ```
 
-Bytecode (scripts/bytephys/fb4.bp), with its listing (member 2 is
+Hand-written bytecode (scripts/bytephys/hand/fb4.bp, the version 1
+program; section 13 shows what the compiler makes of the same FB4),
+with its listing (member 2 is
 `Aging.age`):
 
 ```
@@ -323,7 +330,7 @@ element BFB4 8
   30: 01        halt1          ;               commit
 ```
 
-31 bytes; 369 instructions per event (9 per neighbor).  FB1 (fb1.bp,
+31 bytes; 369 instructions per event (9 per neighbor).  FB1 (hand/fb1.bp,
 139 bytes) shows branches, random draws, the kabam loop, and members
 named through the element (`BFB1.a.fuse`).
 
@@ -334,7 +341,8 @@ saturation on its own.
 
 ## 9. On the EWP
 
-- **Bytecode physics types:** type 7 runs fb1.bp, type 8 runs fb4.bp
+- **Bytecode physics types:** type 7 runs BFB1, type 8 runs BFB4, both
+  compiled from scripts/ulamlite/ (section 13)
   (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp; static_asserts tie them to the
   types the .bp files declare).  They behave like native types 4 and 5
   (except that counters saturate).  Seed them with e.g. `seed 25 7`.
@@ -400,6 +408,14 @@ table scan and 64-bit shifts per access: not yet timed.
 
 ## 12. Change log
 
+- **ulam-lite milestone 1 (2026-11-27):** scripts/ulamlite/ulamlite.py
+  compiles ulam-like source to bpasm (section 13).  FB1 and FB4 now
+  come from bfb1.ulam / bfb4.ulam / aging.ulam (programs renamed
+  BP_PROG_BFB1 / BP_PROG_BFB4); the hand-written .bp files moved to
+  scripts/bytephys/hand/.  Host test: compiled code identical to native
+  for 18,000 windows.  Cost: FB4 494 instructions per event (hand 369),
+  FB1 mean 141 in the test mix (hand 112).  Not yet run on the QB.
+
 - **Version 2 (2026-11-27):** frames.  Local slots (32, shared by all
   frames), `enter`/`loadl`/`storel` (opcodes 19-1b), call entries that
   save the caller's frame, faults 12-13; bpasm `func NAME args | locals`
@@ -419,3 +435,74 @@ table scan and 64-bit shifts per access: not yet timed.
 - **Version 0 (2026-11-26):** the spike.  23 opcodes, 4 fields, 9
   faults; FB1 and FB4 written by hand; proven identical to native on the
   host; timed on the QB (section 10).
+
+
+## 13. ulam-lite: compiling ulam-like source to bpasm
+
+`scripts/ulamlite/ulamlite.py` compiles every `scripts/ulamlite/*.ulam`
+into GENERATED .bp files in scripts/bytephys (one per quark, one per
+element, named after it in lower case), which bpasm then assembles.
+Never edit a generated .bp (its first line says so); edit the .ulam and
+rerun ulamlite.py, then bpasm.py.  `ulamlite.py --check` (in
+run_native_tests.sh as ulamlite_check) fails if a generated .bp is
+stale; `ulamlite.py --print FILE.ulam` shows the bpasm for one file.
+
+The language is a small subset in ulam's spirit, grown as needed:
+
+```
+quark Aging {                       // aging.ulam
+  Unsigned(32) fuse;
+  Unsigned(32) age;
+}
+
+element BFB4 = 8 {                  // bfb4.ulam: element NAME = TYPE
+  Aging a;
+  Void behave() {
+    a.age++;                        // self's member (= ew[0]'s)
+    for (Unsigned sn = 1; sn < 41; sn++)
+      ew[sn] = self;                // MAX FB!
+  }
+}
+```
+
+**Declarations:** `quark NAME { members }`; `element NAME = TYPE {
+constants, members, methods }`.  Members are `Unsigned(n)` (1..32),
+`Unsigned` (32), `Bool` (1 bit) or a quark; they pack as in section 5.
+`constant Unsigned cNAME = 21;` is inlined.  The atom type number after
+`=` is ours, not ulam's.
+
+**Methods:** `Void behave()` is the event (entry, offset 0); returning
+from it commits the window (halt1).  Other methods take Unsigned(n) /
+Bool parameters and return Void, Unsigned(n) or Bool; they compile to
+`func`-style frames (enter, loadl/storel) and `call`/`ret`.
+
+**Statements:** blocks; locals (`Unsigned x = e;`, `Unsigned(4) n;`,
+`Bool b;` -- zero if not initialized); `=`, `+=`, `-=`, `x++`, `x--` on
+locals and self's members; `ew[e] = self;`, `ew[e] = ew[f];`,
+`ew[e] = Empty;`; if/else, while, for, break, continue, return; calls.
+
+**Expressions:** unsigned literals (decimal, 0x), true/false,
+constants, locals, self's members (`a.age`), `+ -` (saturating),
+`== != < <= > >=`, `&& || !` (short-circuit, so random draws happen
+only when reached), method calls, `random.between(lo, hi)`,
+`random.oneIn(n)`, `ew[e] is TYPE` (`is Empty` for empty sites).
+
+**Semantics:** every value is a u32 on the operand stack.  Storing into
+an Unsigned(n) member or local clamps to n bits (members by setm,
+locals and arguments by compiled code), Bool stores are 0 or 1.
+`ew[dst] = src` evaluates src first (C++17 order), so draw order
+matches native C++.
+
+**Not yet:** other atoms' members (`ew[i]` as an element, i.e. ulam's
+casts and references); quark methods; signed Int(n); multiplication,
+division, bit ops; arrays; making atoms of a declared type; inheritance,
+templates, virtual methods.  Only what FB1 and FB4 use has been run
+(bytephys_test against native); the rest (value-returning methods,
+while, `||`, `is`, narrow locals) compiles and assembles but has not
+been executed by a test yet.
+
+**Code quality:** straightforward, a little worse than hand-written:
+compiled FB4 spends 12 instructions per neighbor where the hand version
+spends 9 (it keeps the loop counter in a local, not on the stack).
+Loop rotation and keeping a counter on the stack are the obvious first
+optimizations.

@@ -140,12 +140,18 @@ unless the user asks for a rename.
   declare `quark`/`element` layouts (members packed into the atom's 80
   state bits: mStg[0], mStg[1], mData0); getm/setm by member path,
   checked against the site's type (fault BF_TYPE); add/sub/setm
-  SATURATE.  fb1.bp/fb4.bp now use quark Aging (aging.bp: fuse = mStg[0],
+  SATURATE.  FB1/FB4 use quark Aging (fuse = mStg[0],
   age = mStg[1], so host colors are unchanged).  BYTEPHYS.md section 5.
   VERSION 2 (2026-11-27, host-tested): frames: `enter nargs nlocals`,
   loadl/storel, call/ret save and restore the caller's frame; bpasm
-  `func NAME args | locals`.  Machine 228 B.  Next idea: a Python
-  'ulam-lite' compiler that emits bpasm (route chosen 2026-11-27).
+  `func NAME args | locals`.  Machine 228 B.
+  ULAM-LITE (2026-11-27, host-tested, not yet on the QB): types 7/8 are
+  now COMPILED from scripts/ulamlite/{aging,bfb1,bfb4}.ulam by
+  scripts/ulamlite/ulamlite.py into GENERATED scripts/bytephys/{aging,
+  bfb1,bfb4}.bp (edit the .ulam, rerun ulamlite.py then bpasm.py;
+  run_native_tests ulamlite_check/bpasm_check catch staleness).
+  Programs BP_PROG_BFB1/BFB4.  Hand-written version 1 .bp kept in
+  scripts/bytephys/hand/ (not built).  BYTEPHYS.md section 13.
   OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
   'bytecode is favored' was chance.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH

@@ -368,6 +368,11 @@ generated Layout checked against the site's type, saturating add/sub/
 setm; FB1/FB4 rewritten on quark Aging.  BYTEPHYS.md sections 5, 12.
 Next QB run should re-time 7/8 (getm costs a table scan + 64-bit
 shifts per access) and show no `.pf`.
+VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
+machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
+section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
+written.  Next: test-only .ulam programs that exercise the untested
+compiler features in bytephys_test; then other atoms' members.
 LOST SEED BATCHES (same run, NOT explained): in 3 rounds whole `seed 3 N`
 batches never grew although the host said `seeded 3/3`: round 4 type 8,
 round 5 both types (empty grid all round: no events 4200-4800 s, AER

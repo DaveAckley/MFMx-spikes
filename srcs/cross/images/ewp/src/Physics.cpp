@@ -22,9 +22,9 @@ namespace MFM {
   static constexpr u32 PHY_BFB1 = 7u;
   static constexpr u32 PHY_BFB4 = 8u;
   static constexpr u32 BP_FUEL = 10'000u; // instructions per event
-  // the .bp files declare these element types (BytePrograms.h)
-  static_assert(PHY_BFB1 == BytePhys::BP_TYPE_BFB1, "fb1.bp type");
-  static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4, "fb4.bp type");
+  // the ulam-lite sources declare these element types (BytePrograms.h)
+  static_assert(PHY_BFB1 == BytePhys::BP_TYPE_BFB1, "bfb1.ulam type");
+  static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4, "bfb4.ulam type");
 
   // The tile's wall clock, AI clock cycles (as FastT0.cpp reads it); the
   // low word is enough for one event.
@@ -221,14 +221,14 @@ namespace MFM {
       return r;
     }
 
-    case PHY_BFB1: {            // bytecode (scripts/bytephys/fb1.bp)
+    case PHY_BFB1: {            // bytecode (scripts/ulamlite/bfb1.ulam)
       EwpPhysEnv env{ew};
-      return mVM.run(BytePhys::BP_PROG_FB1, env, BP_FUEL);
+      return mVM.run(BytePhys::BP_PROG_BFB1, env, BP_FUEL);
     }
 
-    case PHY_BFB4: {            // bytecode (scripts/bytephys/fb4.bp)
+    case PHY_BFB4: {            // bytecode (scripts/ulamlite/bfb4.ulam)
       EwpPhysEnv env{ew};
-      return mVM.run(BytePhys::BP_PROG_FB4, env, BP_FUEL);
+      return mVM.run(BytePhys::BP_PROG_BFB4, env, BP_FUEL);
     }
 
     case PHY_DREG: {
