@@ -482,6 +482,27 @@ note the cycle phase at the write.  Liv's 'corner gaps' (square notches
 at tile corners on the FB4 front, gaps.png 2026-11-26) may be the same
 stale-copy business.
 
+CORNER NOTCHES (Liv, 2026-11-26 and again 2026-11-27, OPEN, not
+explained): square notches appear at tile corners, sharp-edged all the
+way to their borders, and neighboring physics then fills them in
+quickly.  Seen on the FB4 front (gaps.png, 11-26) and on 11-27 in the
+FB1 phase of run de5a0a3 (fourcorners, elide on, events shortcut, no
+nukes during FB1) in tiles that had NOT been empty for a long time, so
+'post-nuke empties shown in a strange order' does not explain it
+(Liv's gut agrees).  Each notch is roughly bounded by a 'black cross'
+at one corner.  It looks like a whole CORNER CACHE being emptied and
+that emptiness landing in live sites.  Suspects, untested: a SAVE
+that writes back a corner cache that was never loaded or was cleared
+(elision keepAcross / mKeepMask, or the center-diagonal channels), or
+a LOAD that delivers an empty corner over the owner's live one.  The
+ring is OW = OH = 20, so a 20 x 20 notch would point at the corner
+cache.  To pin down: measure a notch's size and position against the
+hub grid (pixel x mod 137, y mod 108); `cycle hold` when one appears,
+then `who` / `zoom region` on it and `dumpl1` the owner and the
+diagonal borrower; and an A/B with `elide off` (if notches vanish, it
+is the kept-band path).  Same family as LOST SEED BATCHES above
+(something overwriting live sites with a stale copy).
+
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
 hart B's 8 KB fast RAM, not EWP L1: fAll 16 B + fB 576 B (Physics, with
