@@ -351,9 +351,29 @@ FOURTH RUN 20261126-165929 (5b4e795, halo overlay): same timing
 look if it keeps up: something may favor the SLOWER type (e.g. a late
 returning window winning an overwrite race), the opposite of the
 obsolescence penalty expected.  A host type census would show it.
-QUEUED (2026-11-26): experiment.cmd 'FB4 5 vs 8 rounds', 9 rounds of
-(whole-grid nuke, 60 s, seed 3 5 + 3 8, 15 min) in one ~2.5 h run; read
-runsum's per-window table (share = 8/(5+8)) at the end of each round.
+ROUNDS RUN 20261126-183231 (f85e9c5, 9 rounds of whole-grid nuke, 60 s,
+seed 3 5 + 3 8, ~965 s each, 2.42 h): 6 rounds were real contests and
+type 5 won 4 of them (final share 8/(5+8) about 0.46, 0.42, 0.38, 0.17),
+type 8 won 1 (0.70) and 1 was even (0.51).  So the earlier 3 of 3 for
+type 8 was chance plus seed placement; no sign that the slower type is
+favored (if anything the reverse, as expected).  Total events stay
+~424M per 300 s whether the grid is all 5 or mixed (the hubs, not the
+EWPs, set the pace), so the events share is a fair proxy for the share
+of the grid.  Timing unchanged (6.59x).  No type 4/7 (FB1) events ever,
+no `.pf` in the 2 MB mark tail.  Log-car fix soak: tile logs and the
+live AER line lasted the whole 2.4 h.
+LOST SEED BATCHES (same run, NOT explained): in 3 rounds whole `seed 3 N`
+batches never grew although the host said `seeded 3/3`: round 4 type 8,
+round 5 both types (empty grid all round: no events 4200-4800 s, AER
+0.939 at 4368 s), round 6 type 8.  12 of 54 seeds, always a whole
+batch, so it looks like a timing race rather than a bad site per seed:
+doSeed (EWControl.cpp) writes the atom straight into a T6 grid in L1
+(QuietBox::storeP4Atom) at any moment of the cycle; something (a cache
+SAVE/LOAD, an elided band kept by a borrower, ...) may overwrite it.
+To test: read the seeded sites back a cycle or two after seeding, and
+note the cycle phase at the write.  Liv's 'corner gaps' (square notches
+at tile corners on the FB4 front, gaps.png 2026-11-26) may be the same
+stale-copy business.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
