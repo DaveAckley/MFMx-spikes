@@ -90,10 +90,15 @@ ERISC_NOTES.md.
   logged its four HBXX marks (whomask/t/epoch/flags) just before the
   assert, which slows them in exactly this window.  (The T6 EACH
   counters are plain statics shared by the harts, so that EACH is
-  racy too.)  FIX PROPOSED, not done: in HartTaskerPrivate::run test
-  `already done by me` before the out-monkey check (then the two
-  exceptions can go), and drop or hb-guard the EACH there.  This may
-  also explain the 2026-11-21 seam21 laggard above.  The script kept
+  racy too.)  FIX BUILT (2026-11-27, cross-built, NOT yet run): in
+  HartTaskerPrivate::run the `already done by me` test now comes
+  before the out-monkey check, which fires only for an out hart that
+  never did the task (whomask & mHartsOut & ~doneFlags; the two old
+  exceptions are kept, now redundant), and the EACH there runs on hb
+  only (old behavior).  Hub change: build_all.sh.  Proven when boots
+  stop showing 139/140 HOLD_AT_BIRTH acks; leave this open until a
+  few dozen clean boots.  This may also explain the 2026-11-21 seam21
+  laggard above.  The script kept
   waiting for 30 min: --abort-on-error does not treat a FROZEN cycle
   as an error (idea: end the run when the cycle freezes).  A hub should also tolerate
   (ack) a repeat of the command it already occupies.  Also the stuck report printed no fail file/line (no `STUCK?`

@@ -100,8 +100,22 @@ namespace MFM {
         if (t == 0 || epoch == HE_ILLEGAL) // skip first row and column doh
           continue;
         u8 whomask = hartTaskTable[t][epoch];
-        EACH(100'000+10*me,{HBXX((u32)whomask);HBXX((u32)t);HBXX((u32)epoch);HBXX((u32)ps.mEpochTaskDoneFlags[t][epoch]);});
-        if ((whomask & ps.mHartsOut) != 0) { // ded if we need any out monkeys
+        // hb only: EACH's counters are statics shared by all harts, and
+        // marks on the other harts slow them in the window below
+        if (me == HARTNUM_B)
+          EACH(100'000,{HBXX((u32)whomask);HBXX((u32)t);HBXX((u32)epoch);HBXX((u32)ps.mEpochTaskDoneFlags[t][epoch]);});
+        // Already done by me: nothing to do or check.  This test must
+        // come BEFORE the out-monkey check: hb may close this epoch while
+        // we still walk its rows with our stale local `epoch`, and a hart
+        // named in a row we already did may then go out (run
+        // 20261127-122216: hub at023's h0/h1 died on HACT:GROW1 after hn
+        // went out in GROW2, so the hub never acked HOLD_AT_BIRTH).
+        if (0!=(memask & ps.mEpochTaskDoneFlags[t][epoch])) continue;
+        // ded only if an out monkey is needed for a task it never did
+        // (an out hart cannot do anything more)
+        u8 outNotDone =
+          whomask & ps.mHartsOut & ~ps.mEpochTaskDoneFlags[t][epoch];
+        if (outNotDone != 0) { // ded if we need any out monkeys
           // PRNG:GROW1 is safe doh since the only reason it's "needed" is to go OUT
           if (!((t == HartTaskIndex::HT_PRNG && epoch == HartEpochIndex::HE_GROW1) ||
                 (t == HartTaskIndex::HT_NOC && epoch == HartEpochIndex::HE_GROW2))) {
@@ -110,12 +124,11 @@ namespace MFM {
             HBXX((u32) memask);
             HBXX((u32) whomask);
             HBXX((u32) ps.mHartsOut);
+            HBXX((u32) ps.mEpochTaskDoneFlags[t][epoch]);
             //HBNOTE(!HBASSERT_EQ HBANG GOES HERE!);
-            HBASSERT_EQ((whomask & ps.mHartsOut),0);
+            HBASSERT_EQ(outNotDone,0);
           }
         }
-        if (0!=(memask & ps.mEpochTaskDoneFlags[t][epoch])) continue; // already done
-
         // IT'S TIME FOR ME TO (MAYBE) DO THIS EPOCH TASK
         if (false) {
           char buf[30];
