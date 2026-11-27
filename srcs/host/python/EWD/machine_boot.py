@@ -78,6 +78,7 @@ class BootMixin:
         chips = im.getActiveLayout().getActiveBHChips()
         self.seams = parse_ethseams(layouts[act].get("ethseams"), list(chips))
         self._set_seed_chips(layouts[act].get("seedchips"), list(chips))
+        self.layout_seed_env = os.environ.get("MFMX_AUTOSEED_CHIPS")
         self.e1image = self.find_e1image(layouts[act].get("e1image", DEFAULT_E1IMAGE))
         self.bhs = [M.Blackhole(i) for i in chips]
         for bh in self.bhs:                  # far enough to configure modules
@@ -101,6 +102,23 @@ class BootMixin:
             if c not in chips:
                 raise ValueError(f"seedchips: chip {c} is not in the layout's bhchips {chips}")
         os.environ["MFMX_AUTOSEED_CHIPS"] = ",".join(str(c) for c in sc)
+
+    def _apply_autoseed(self):
+        """mfmxctl 'autoseed': off = no chip autoseeds (an empty
+        MFMX_AUTOSEED_CHIPS lists no chip), on = every chip does, layout =
+        the layout's seedchips.  CodeManager reads it at deploy ('start')."""
+        env = {"off": "", "on": None}.get(self.autoseed, self.layout_seed_env)
+        if env is None:
+            os.environ.pop("MFMX_AUTOSEED_CHIPS", None)
+        else:
+            os.environ["MFMX_AUTOSEED_CHIPS"] = env
+
+    def autoseed_report(self):
+        if self.autoseed != "layout":
+            return self.autoseed
+        env = self.layout_seed_env
+        return ("layout (all chips)" if env is None
+                else f"layout (chips {env or 'none'})")
 
     def find_e1image(self, name):
         """Resolve the E1 image: a path as given, or a bare name searched in
@@ -262,6 +280,7 @@ class BootMixin:
         if self.seams:
             out.append(self._declare_seams())
         self.events_running = self.events      # what the hubs now do (AER label)
+        self._apply_autoseed()
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))

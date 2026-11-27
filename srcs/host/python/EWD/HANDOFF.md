@@ -275,5 +275,10 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   check with `cachecensus.py RUNDIR --seam 0:S:2`.
 - `seam4.cmd` (layout seam4, all four chips, ~10 min): slice 3b; layout key
   `seedchips = [0]` limits autoseeding to those chips (CodeManager reads
-  MFMX_AUTOSEED_CHIPS, which machine.py sets from the layout).
+  MFMX_AUTOSEED_CHIPS, which machine.py sets from the layout).  mfmxctl
+  `autoseed off|on|layout` (before `start`) overrides it for the run:
+  off = no chip autoseeds, for experiments that seed everything
+  themselves.  An autoseed hub (T6 5..6, 5..6) runs no events for its
+  first 0.5-1M attempts, then drops one `decay` atom at its center
+  whatever is there.
 Start with /CLAUDE.md for the formatting rules and the document map.

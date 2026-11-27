@@ -54,6 +54,8 @@ class Machine(BootMixin, SeamMixin, WatchMixin, FrameMixin, BoltMixin):
         self.policy = parse_policy(policy)   # caching policy, applied at next 'start'
         self.events = parse_events(events)   # shortcut|honest AER, applied at next 'start'
         self.elide = bool(elide)             # keep bands shared by consecutive corners (hub flag)
+        self.autoseed = "layout"             # on|off|layout, applied at next 'start'
+        self.layout_seed_env = None          # the layout's MFMX_AUTOSEED_CHIPS (None: all)
         self.tt_smi, self.do_reset = tt_smi, reset_chips
         self.extra_bindirs = list(extra_bindirs)
         self.slowscan_gap = slowscan_gap
@@ -109,6 +111,7 @@ class Machine(BootMixin, SeamMixin, WatchMixin, FrameMixin, BoltMixin):
         lines.append(f"cache policy: {self.policy}")
         lines.append(f"events mode: {self.events}")
         lines.append(f"cache elision: {'on' if self.elide else 'off'}")
+        lines.append(f"autoseed: {self.autoseed_report()}")
         lines.append(f"booted: configured={self.configured} inited={self.inited} "
                      f"api={'async' if self.async_api else 'firePHASER' if self.has_fire_phaser else 'legacy' if self.inited else '-'}")
         if self.bhs:

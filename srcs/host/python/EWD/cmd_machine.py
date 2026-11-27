@@ -35,6 +35,18 @@ def c_decay(ctx, a):
     return f"start decay type: {m.decay} (applied at next 'start')"
 
 
+def c_autoseed(ctx, a):
+    m = ctx.m
+    if a:
+        if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
+                                          for _c, p in m.steps()):
+            return ("autoseeding is set when the code is deployed "
+                    "(at 'start'): set it before 'start'")
+        m.autoseed = kw(a[0], ("on", "off", "layout"), "autoseed option")
+    return (f"autoseed: {m.autoseed_report()} (applied at next 'start'; "
+            "the autoseed type is 'decay')")
+
+
 def c_events(ctx, a):
     m = ctx.m
     from machine import EVENT_MODES, parse_events
@@ -205,6 +217,9 @@ def register(ctx):
         "step [NAME|N]: show chip init steps and all step names, or setStep to "
         "NAME (exact, e.g. HAS_T6_CODE_RUNNING; settable up to that one)")
     sh.command("decay", partial(c_decay, ctx), "decay [N]: show/set start decay type")
+    sh.command("autoseed", partial(c_autoseed, ctx),
+        "autoseed [off|on|layout]: whether hubs drop a 'decay' atom of their "
+        "own a while after start (layout: its seedchips; before 'start')")
     sh.command("events", partial(c_events, ctx),
         "events [shortcut|honest]: show/set the AER mode (before 'start')")
     sh.command("elide", partial(c_elide, ctx),
