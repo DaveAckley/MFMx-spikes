@@ -1,18 +1,16 @@
-# EXPERIMENT: BytePhys per-opcode microbenchmark, 20 Bench atoms (type 31) on an empty grid, shortcut (AERse), ~13 min
-# Each event on a Bench atom (ewp Physics.cpp runBench) runs the next of
-# 26 bench programs (scripts/bytephys/benchgen.py: 8 copies of one
-# opcode pattern per pass, 50 passes) twice: code in L1 as real physics
-# runs, then copied into fast RAM; the base program also times native
-# byte loads from L1 and from fast RAM.  4 rounds through the list (104
-# events), then the atom erases itself.  Read runsum's 'bytecode
-# microbenchmark': cycles per instruction per opcode, L1 vs fast RAM.
-# Run 20261127-094705 measured ~58 cycles per instruction (FB4).  Expect
-# about 80 runs per program and variant, no `.pf`, and the grid empty
-# again at the end.  Also new since that run: the logo stats red is a
-# step redder (0xff,0x70,0x88).
-# decay 31: a hub whose grid is still empty after its autoseed countdown
-# drops a Bench atom (not FB1, as the first try of this run did), so the
-# grid holds only Bench atoms and the autoseeds add bench data.
+# EXPERIMENT: BytePhys new dispatch: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# The interpreter now runs only verified programs (checked at compile
+# time), dispatches with computed goto built O2 inside the -Os image, and
+# compares fuel only at backward jumps and calls.  Run 20261127-110936
+# (old dispatch) measured: cheapest ops 42-48 cycles per instruction in
+# L1, jumps/pushes ~55, getm ~175, setm ~215, copy ~150; and run
+# 20261127-094705: FB1 bytecode 3013 cycles/event (6.37x native), FB4
+# 24788 (7.59x).  Read runsum's 'bytecode microbenchmark' (expect the
+# cheap ops well under 40) and 'physics timing' (types 7 and 8).
+# Bench phase as in run 110936: 20 Bench atoms (type 31), decay 31 so
+# the hub autoseeds drop Bench atoms too; they erase themselves after
+# 104 events.  Then FB1 seeds, a whole-grid nuke, then FB4 seeds.
+# Expect no `.pf`.
 # fourcorners, events shortcut (AERse), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
@@ -38,7 +36,25 @@ wait 20
 seed 10 31
 wait 360
 status
-wait 300
+wait 240
+zhd
+echo FB1: native type 4 vs bytecode type 7
+seed 3 4
+seed 3 7
+wait 20
+seed 3 4
+seed 3 7
+wait 400
+zhd
+echo FB4: clear the grid, then native type 5 vs bytecode type 8
+nuke 959 540 1150
+wait 60
+seed 3 5
+seed 3 8
+wait 20
+seed 3 5
+seed 3 8
+wait 420
 zhd
 status
 quit close
