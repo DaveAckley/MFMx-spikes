@@ -513,7 +513,11 @@ attack the second.
 - **Dispatch table in fast RAM (2026-11-27, cross-built, not yet run):**
   each dispatch is a dependent chain (opcode byte, then table entry,
   then jump), so L1's latency is paid in full, unlike the independent
-  loads of the native probe (L1 6.8 vs fast 5.3).  run() now copies its
+  loads of the native probe (L1 6.8 vs fast 5.3).  Every MFMx image
+  runs with the L0 data cache OFF (_BUD.S sets DisLowCash, CSR 0x7c0
+  bit 3), so each L1 load is >= 8 cycles (ERISC_NOTES section 8)
+  against 2 for fast RAM: both the opcode fetch and the table load
+  paid that before this change.  run() now copies its
   kOps table (static, in L1) into the Machine (`mOps`, HB fast RAM)
   once, remembered by `mOpsFrom`, and indexes that; every dispatch in
   the EWP build is `sh2add; lw` off the Machine.  initB clears
