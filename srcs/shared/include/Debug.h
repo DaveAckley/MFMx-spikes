@@ -45,12 +45,19 @@ ALL_DEBUG_TRACE_VARIABLES()
   }                                             \
 } while(0) 
 
+/* Run CODE on the 1st call and every COUNTth after.  A countdown, not
+   a modulo (the % ran on every call; 2026-11-27).  CODE may read
+   __EACHNUM__: the number of calls before this one (0, COUNT, 2*COUNT,
+   ...), as before. */
 #define EACH(COUNT,CODE)                          \
   do {                                            \
+    static u32 __eachLeft__ = 0u;                 \
     static u32 __EACHNUM__ = 0u;                  \
-    if ((__EACHNUM__++ % COUNT) == 0) {           \
+    if (__eachLeft__ == 0u) {                     \
+      __eachLeft__ = (u32) (COUNT) - 1u;          \
       CODE;                                       \
-    }                                             \
+      __EACHNUM__ += (u32) (COUNT);               \
+    } else --__eachLeft__;                        \
   } while (0)
 
 #define SNAP(COUNT,CODE)                        \
@@ -152,12 +159,17 @@ ALL_DEBUG_TRACE_VARIABLES()
 #else //ifndef BUILD_HOST
 #include "HostUtils.h"
 
+/* As the T6 EACH above: a countdown; __EACHNUM__ = calls before this
+   one. */
 #define EACH(COUNT,CODE)                          \
   do {                                            \
+    thread_local u32 __eachLeft__ = 0u;           \
     thread_local u32 __EACHNUM__ = 0u;            \
-    if ((__EACHNUM__++ % COUNT) == 0) {           \
+    if (__eachLeft__ == 0u) {                     \
+      __eachLeft__ = (u32) (COUNT) - 1u;          \
       CODE;                                       \
-    }                                             \
+      __EACHNUM__ += (u32) (COUNT);               \
+    } else --__eachLeft__;                        \
   } while (0)
 
 #define SNAP(COUNT,CODE)                        \
