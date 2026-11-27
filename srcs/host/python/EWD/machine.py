@@ -83,6 +83,9 @@ class Machine(BootMixin, SeamMixin, WatchMixin, FrameMixin, BoltMixin):
         self.zoom = ZoomView()
         from ewoverlay import EdgeOverlay
         self.edges = EdgeOverlay()      # `grid edges on`: hub boundaries
+        from notchwatch import NotchWatch
+        self.notch = NotchWatch()       # `notch on`: corner notch detector
+        self.notch_hold_fn = None       # callback: pause the cycle (mfmxctl)
         self.frames_real = self.frames_idle = 0
         self.t0_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW)
         self.timeouts = dict(DEFAULT_TIMEOUTS)

@@ -503,6 +503,13 @@ then `who` / `zoom region` on it and `dumpl1` the owner and the
 diagonal borrower; and an A/B with `elide off` (if notches vanish, it
 is the kept-band path).  Same family as LOST SEED BATCHES above
 (something overwriting live sites with a stale copy).
+Catching one live by eye is hopeless (fills too fast), so: DETECTOR
+BUILT (2026-11-27, Python only, not yet run): mfmxctl `notch on`
+(notchwatch.py; CLAUDE.md 'NOTCH DETECTOR') logs every corner square
+that empties while its three neighbors stay full, with side, sharpness,
+scy and owner hub, and `notch hold on` freezes the cycle at the first.
+experiment.cmd is the `elide on` arm of the A/B (25 min FB1, counts in
+runsum 'corner notches'); then an `elide off` twin.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is

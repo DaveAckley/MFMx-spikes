@@ -289,4 +289,13 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   unless --listen-host + --listen-token; only netctl.ALLOW_DEFAULT
   commands (no boot/stop/quit/wait/source) unless --listen-allow.  With
   stdin at EOF it keeps serving until a signal.  Selftests: listen*.
+- `notch on|off|status|list|hold on|off` (notchwatch.py, 2026-11-27):
+  watches every frame for CORNER NOTCHES (OPEN_ISSUES): a hub-corner
+  square, up to the cache ring size, that empties while the other three
+  squares at that corner stay full.  Each is logged once as `[notch]
+  NOTCH scy N corner (X,Y) QUAD SxS fill A -> B, outside band C; who PX
+  PY owner atTAG` (misc/mfmxctl-NOTCH.txt; runsum 'corner notches').
+  `hold on` pauses the cycle at the first one (holdat RUN_EVENTS, hubs
+  out of events), then `who`/`dumpl1`.  Grid must be off.  About 14 ms
+  per frame (117 corners).  Tests: tools/notch_test.py, selftest notch.
 Start with /CLAUDE.md for the formatting rules and the document map.

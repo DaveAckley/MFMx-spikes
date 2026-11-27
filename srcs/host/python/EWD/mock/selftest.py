@@ -1045,6 +1045,40 @@ def scenario_runsum():
           "NEW_LEADER" in text and "mfmxctl.py --mock" in text, text[:600])
 
 
+def scenario_notch():
+    """notch on: a corner square that empties is logged, named by its
+    owner hub, pauses the cycle with notch hold on, and lands in runsum."""
+    import json
+    import re
+    sys.path.insert(0, os.path.dirname(CTL))     # EWD/, for HubGeometry
+    import HubGeometry as HG
+    x, y = 3 * HG.T6GRID_BASE_WIDTH, 2 * HG.T6GRID_BASE_HEIGHT
+    px, py = x + 10, y + 10
+    rc, out = run(FAST + "boot\nstart\nnotch\nnotch on\nnotch hold on\n"
+                  "cycle start\nfeed on\nwait 3\nnotch list\nnotch\n"
+                  "cycle status\nnotch off\nnotch hold\nnotch bogus\nquit\n",
+                  env_extra={"MFMX_MOCK_NOTCH": json.dumps(
+                      {"after": 6, "x": x, "y": y, "side": 20}),
+                      "MFMX_MOCK_OWNER": json.dumps(
+                          {f"{px},{py}": [0, 16, 30, 40]})})
+    check("notch: off by default, on resets",
+          "notch watch off" in out and "notch watch on" in out, out[-1500:])
+    check("notch: a 20x20 SE notch logged once with its owner",
+          out.count(f"[notch] NOTCH scy") == 1
+          and f"corner ({x},{y}) SE 20x20 fill 100% -> 0%" in out
+          and f"who {px} {py} owner at0" in out, out[-1500:])
+    check("notch: hold arms holdat RUN_EVENTS once",
+          "[notch] will pause when next is RUN_EVENTS" in out, out[-1500:])
+    check("notch: list, status count, hold off after firing, junk",
+          "1 notches" in out and "notch hold off" in out
+          and "notch subcommand" in out, out[-1500:])
+    m = re.search(r"run summary: (\S+/runsum\.txt)", out)
+    text = open(m.group(1)).read() if m else ""
+    check("notch: runsum counts it",
+          "corner notches" in text and "notches: 1; by side 20: 1" in text,
+          text[-1200:] or out[-500:])
+
+
 def scenario_command_file():
     d = tempfile.mkdtemp(prefix="selftest-cmd-")
     main_f, sub_f, self_f = (os.path.join(d, n) for n in ("main.cmd", "sub.cmd", "self.cmd"))

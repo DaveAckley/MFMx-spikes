@@ -2,7 +2,7 @@
 line, the real frame and the idle frame."""
 import time
 
-from machine_util import AER_LABELS
+from machine_util import AER_LABELS, b36
 
 
 class FrameMixin:
@@ -42,6 +42,8 @@ class FrameMixin:
         img = self.ewc.renderGraphicsGridWindowToImage()
         ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) - self.t0_ns
         arr = img.asNP()
+        if self.notch.on:
+            self._notch_check(arr)
         # `grid edges on`: hub ownership edges painted on a COPY (show);
         # zoom still scans the unpainted image, so the lines never count
         # as occupied sites
@@ -72,6 +74,44 @@ class FrameMixin:
         self.frames_real += 1
         if self.zoom.mode != "off":
             self.zoom.note_cost("frame", tf)
+
+    def _notch_check(self, arr):
+        """`notch on`: look for corner notches in the unpainted frame
+        (notchwatch.py); log each, and pause the cycle at the first one
+        if `notch hold on`.  Never costs the frame."""
+        try:
+            from notchwatch import describe
+            found = self.notch.check(arr)
+        except Exception as e:
+            self.notch.on = False
+            self.say(f"notch watch disabled: {type(e).__name__}: {e}")
+            return
+        if not found:
+            return
+        scy = None
+        try:
+            scy = self.scy_fn() if getattr(self, "scy_fn", None) else None
+        except Exception:
+            pass
+        for n in found:
+            owner = None
+            try:
+                fo = getattr(self.M, "pixelOwner", None)
+                o = fo(n.px, n.py) if fo is not None else None
+                if o is not None:
+                    tx, ty = self.tlbi_to_noc(o[1])
+                    owner = f"owner at{o[0]}{b36(tx)}{b36(ty)}"
+            except Exception:
+                pass
+            line = describe(n, scy, owner)
+            self.say(f"[notch] {line}")
+            self.logkt("NOTCH", f"{self._run_secs():.0f}s {line}")
+        if self.notch.hold and self.notch_hold_fn is not None:
+            self.notch.hold = False     # once; `notch hold on` re-arms
+            try:
+                self.say("[notch] " + str(self.notch_hold_fn()))
+            except Exception as e:
+                self.say(f"[notch] hold failed: {type(e).__name__}: {e}")
 
     def idle_frame(self):
         """Placeholder while there are no simulation frames (not booted yet).  The

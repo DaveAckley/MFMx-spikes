@@ -1,16 +1,15 @@
-# EXPERIMENT: BytePhys dispatch table in fast RAM: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# run() now indexes a copy of its dispatch table kept in the Machine
-# (HB fast RAM) instead of the kOps table in L1; the opcode byte still
-# comes from L1.  Same script as run 20261127-141156 (computed goto,
-# table in L1), which measured: cheapest ops 25-27 cycles per insn in
-# L1 / 20-22 with code in fast RAM, jumps/pushes ~32-36, getm1 57,
-# setm1 69; FB1 bytecode 1975 cycles/event (4.30x native), FB4 14388
-# (4.40x).  If the dependent L1 load chain theory holds, every L1
-# figure drops by a few cycles per instruction.  Read runsum's
-# 'bytecode microbenchmark' and 'physics timing' (types 7 and 8).
-# Bench phase: 20 Bench atoms (type 31), decay 31 so the hub autoseeds
-# drop Bench atoms too; they erase themselves after 104 events.  Then
-# FB1 seeds, a whole-grid nuke, then FB4 seeds.  Expect no `.pf`.
+# EXPERIMENT: corner notch hunt: FB1 fills the grid, notch detector on, elide on, shortcut (AERse), ~25 min
+# Liv's CORNER NOTCHES (OPEN_ISSUES): square holes at hub corners, sharp
+# to their borders, soon refilled, seen in FB1 tiles that had been full
+# a long time.  `notch on` checks every frame for a hub-corner square
+# (up to the 28-site cache ring) that empties while the other three
+# squares at that corner stay full, and logs `[notch] NOTCH ...` with
+# its size, scy, owner hub and a pixel for `who`
+# (misc/mfmxctl-NOTCH.txt; runsum 'corner notches').  Read the count,
+# the sides (28 = a whole corner cache) and the quadrants.  This is the
+# `elide on` arm; an `elide off` twin will say whether the kept-band
+# path is involved.  No nukes (they would make real holes), no hold
+# (we want a count; `notch hold on` would freeze at the first one).
 # fourcorners, events shortcut (AERse), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
@@ -20,7 +19,7 @@ policy fourcorners
 events shortcut
 elide on
 grid off
-decay 31
+decay 4
 dwell 4 8
 start
 feed on
@@ -30,31 +29,25 @@ zhd
 cycle repeat on
 cycle start
 wait 30
-echo BENCH: 20 Bench atoms, type 31
-seed 10 31
+notch on
+echo FB1: 20 seeds, then let it fill
+seed 10 4
 wait 20
-seed 10 31
-wait 360
-status
+seed 10 4
+wait 300
+zhd
+notch
+wait 300
+zhd
+notch
+wait 300
+zhd
+notch
+wait 300
+zhd
+notch
 wait 240
 zhd
-echo FB1: native type 4 vs bytecode type 7
-seed 3 4
-seed 3 7
-wait 20
-seed 3 4
-seed 3 7
-wait 400
-zhd
-echo FB4: clear the grid, then native type 5 vs bytecode type 8
-nuke 959 540 1150
-wait 60
-seed 3 5
-seed 3 8
-wait 20
-seed 3 5
-seed 3 8
-wait 420
-zhd
+notch
 status
 quit close

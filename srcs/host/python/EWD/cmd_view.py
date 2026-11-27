@@ -1,4 +1,4 @@
-"""Picture and report-stream commands: who, zoom, feed, zhd.
+"""Picture and report-stream commands: who, zoom, notch, feed, zhd.
 
 Each command is a module-level function taking (ctx, args); register(ctx)
 adds them to the shell.  ctx is the cmdutil.Ctx built by mfmxctl.main."""
@@ -20,6 +20,38 @@ def c_who(ctx, a):
     if not (0 <= x < 1920 and 0 <= y < 1080):
         return f"who: ({x},{y}) is outside the 1920x1080 picture"
     return m.who(x, y)
+
+
+def c_notch(ctx, a):
+    """notch [on|off|status|list|hold on|off]: the corner notch detector
+    (notchwatch.py, OPEN_ISSUES 'CORNER NOTCHES')."""
+    m = ctx.m
+    w = m.notch
+    if not a:
+        return w.status()
+    sub = ctx.sh.resolve(a[0].lower(), ("on", "off", "status", "list",
+                                        "hold"), "notch subcommand")
+    if sub == "status":
+        return w.status()
+    if sub == "on":
+        w.reset()
+        w.on = True
+        return w.status() + "\n(grid must be off: crosses count as occupied)"
+    if sub == "off":
+        w.on = False
+        return w.status()
+    if sub == "list":
+        from notchwatch import describe
+        return "\n".join(describe(n) for n in w.log) or "no notches yet"
+    if sub == "hold":
+        if len(a) < 2:
+            return f"notch hold {'on' if w.hold else 'off'}"
+        w.hold = kw(a[1], ("on", "off"), "notch hold") == "on"
+        return (f"notch hold {'on' if w.hold else 'off'}"
+                + (": the first notch arms cycle holdat RUN_EVENTS "
+                   "(hubs out of events, the picture holds still)"
+                   if w.hold else ""))
+    return "usage: notch [on|off|status|list|hold on|off]"
 
 
 def c_zoom(ctx, a):
@@ -104,6 +136,13 @@ def register(ctx):
         "who X Y: which hub last painted picture pixel (x,y), from its self sites"
         " or its S/E cache ring, and in which epoch (ghost-pixel hunting; freeze "
         "with cycle hold first)")
+    sh.command("notch", partial(c_notch, ctx),
+        "notch [on|off|status|list|hold on|off]: watch every frame for "
+        "CORNER NOTCHES (a hub-corner square, up to the cache ring size, "
+        "that empties while the other three squares at that corner stay "
+        "full); each is logged as [notch] (misc/...-NOTCH.txt) with its "
+        "size and a pixel for who; hold on: the first one pauses the "
+        "cycle with holdat RUN_EVENTS; grid must be off")
     sh.command("zoom", partial(c_zoom, ctx),
         "zoom [off|auto|reset|map|specks [R] [refresh] (also who for each; "
         "refresh asks the hubs to re-report them)|region X0 Y0 X1 Y1|shrink "

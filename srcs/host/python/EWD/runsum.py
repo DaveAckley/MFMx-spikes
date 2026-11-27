@@ -509,6 +509,31 @@ def lamer_failures(rundir, misc):
     return r
 
 
+def notches(misc):
+    """Corner notches logged by `notch on` (notchwatch.py): count, by
+    size and quadrant, and the first ones.  Nothing if never turned on."""
+    lines = read_lines(os.path.join(misc, "mfmxctl-NOTCH.txt"))
+    rows = [l for l in lines if "NOTCH" in l]
+    if not rows:
+        return []
+    r = section("corner notches (notch on; OPEN_ISSUES 'CORNER NOTCHES')")
+    sides = {}
+    quads = {}
+    for l in rows:
+        m = re.search(r" (NW|NE|SW|SE) (\d+)x\d+ ", l)
+        if m:
+            quads[m.group(1)] = quads.get(m.group(1), 0) + 1
+            sides[int(m.group(2))] = sides.get(int(m.group(2)), 0) + 1
+    r.append(f"notches: {len(rows)}; by side "
+             + ", ".join(f"{k}: {v}" for k, v in sorted(sides.items()))
+             + "; by square " + ", ".join(f"{k}: {v}"
+                                          for k, v in sorted(quads.items())))
+    r.extend(cut(l) for l in rows[:15])
+    if len(rows) > 15:
+        r.append(f"(and {len(rows) - 15} more in misc/mfmxctl-NOTCH.txt)")
+    return r
+
+
 def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
               outpath=None):
     """The summary as a list of lines.  out: console lines."""
@@ -516,7 +541,8 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
     lines = [f"runsum of {os.path.basename(rundir.rstrip('/'))}"]
     for part in (head_info(out, cmdline, elapsed), bolts(misc),
                  lamer_failures(rundir, misc), feed(misc),
-                 aer(misc), misc_counts(misc), hub_marks(rundir),
+                 aer(misc), misc_counts(misc), notches(misc),
+                 hub_marks(rundir),
                  physics_timing(rundir), bench_timing(rundir),
                  console(out), tail(out)):
         lines.extend(part)

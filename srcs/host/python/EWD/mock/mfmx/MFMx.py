@@ -23,6 +23,7 @@ time.monotonic() on demand -- the mock starts no threads.
 Test knobs live on MFMx._mock (see class _Mock).
 """
 import enum
+import json
 import os
 import random
 import tempfile
@@ -725,6 +726,18 @@ class _Img:
             import numpy as np
         except ImportError:             # mock only: real asNP() returns a numpy array
             return _FakeArr((108, 192, 3))
+        notch = os.environ.get("MFMX_MOCK_NOTCH")
+        if notch:
+            # {"after": N, "x": X, "y": Y, "side": S}: a full 1920x1080
+            # picture of atoms; from frame N on, the S x S square SE of
+            # (X, Y) is empty (a corner notch for notchwatch.py)
+            d = json.loads(notch)
+            a = np.empty((1080, 1920, 3), np.uint8)
+            a[:, :] = (200, 120, 40)
+            if self.n >= d["after"]:
+                x, y, s = d["x"], d["y"], d["side"]
+                a[y:y + s, x:x + s] = (5, 10, 15)
+            return a
         a = np.zeros((108, 192, 3), np.uint8)
         a[:, :, 0] = (self.n * 7) & 0xFF
         return a
