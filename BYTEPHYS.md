@@ -374,8 +374,13 @@ MHz, means over all EWPs:
 That is about 50 cycles per bytecode instruction: slow for a switch
 dispatch.  The likely cost is that the program bytes and the switch's
 jump table sit in L1, not fast RAM (unmeasured).  No faults in any run.
-These are version 0 numbers (getf/setf).  Version 1's getm/setm add a
-table scan and 64-bit shifts per access: not yet timed.
+These are version 0 numbers (getf/setf).  Version 1 (getm/setm, hand
+written, run 20261127-011502, same mix): FB1 2955 cycles/event (native
+529, 5.59x, 29.9 insns), FB4 23514 (native 3311, 7.10x, 369 insns).
+So version 1 cost FB1 +31% and FB4 +7% for the same instruction
+counts; this run cannot say how much is the getm/setm accesses (table
+scan, 64-bit shifts) and how much a general slowdown of the bigger
+interpreter loop.  No faults.
 
 
 ## 11. Open questions and wish list (to be fleshed out)

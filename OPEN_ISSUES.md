@@ -368,6 +368,14 @@ generated Layout checked against the site's type, saturating add/sub/
 setm; FB1/FB4 rewritten on quark Aging.  BYTEPHYS.md sections 5, 12.
 Next QB run should re-time 7/8 (getm costs a table scan + 64-bit
 shifts per access) and show no `.pf`.
+VERSION 1 TIMED (run 20261127-011502, 866a617, hand-written getm/setm
+programs, events honest): FB1 bytecode 2955 cycles/event vs native 529
+(5.59x; version 0 was 2260, 4.51x), FB4 23514 vs 3311 (7.10x; was
+21886, 6.59x); instruction counts unchanged (29.9, 369).  No `.pf`, no
+lost seed batches (8 of 8 grew).  FB4 5 vs 8 stayed even (share
+0.46-0.52).  Cause of the slowdown not separated: per-access getm/setm
+cost vs a slower interpreter loop; a single-word fast path in
+getBits/setBits (no u64) is the cheap first fix.
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
