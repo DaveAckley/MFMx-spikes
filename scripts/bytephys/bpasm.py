@@ -24,6 +24,18 @@ Members pack in order from state bit 0 (BytePhys.h: bits 0..31 are
 mStg[0], 32..63 mStg[1], 64..79 mData0); an element must fit in 80 bits.
 A declaration ends at the first line that is not a member line.
 
+Frames and calls:
+
+  func NAME ARG... [| LOCAL...]   label NAME, then `enter nargs nlocals`;
+                                  the names stand for slots 0, 1, ...
+                                  until the next func
+  enter NARGS NLOCALS             the raw form
+  loadl SLOT / storel SLOT        SLOT is a number or a func name
+  call NAME / ret                 results come back on the operand stack
+
+The program starts at offset 0, so its first func (or enter) is the
+entry; a program needing no locals needs no enter.
+
 getm/setm take a member path: ELEMENT.member[.member...] (that element
 only) or QUARK.member[...] (any element holding that quark, wherever it
 sits in it).  Each distinct path gets a member id; the ids and where each
@@ -277,14 +289,37 @@ def assemble(path, lines, ops, fields, decls):
             return 2 if int(words[1], 0) < 256 else 5
         if op in JUMPS or op in MEMBER_OPS:
             return 3
-        if op in ("getf", "setf"):
+        if op in ("getf", "setf", "loadl", "storel"):
             return 2
+        if op == "enter":
+            return 3
         return 1
 
     labels = {}
     pc = 0
     items = []
+    slots = {}                  # the current func's local names
     for n, s in lines:
+        words = s.split()
+        if words[0] == "func":
+            if len(words) < 2 or words[1].endswith(":"):
+                raise SystemExit(f"{path}:{n}: func NAME ARG... [| LOCAL...]")
+            name = words[1]
+            rest = words[2:]
+            args = rest[:rest.index("|")] if "|" in rest else rest
+            locs = rest[rest.index("|") + 1:] if "|" in rest else []
+            names = args + locs
+            if len(set(names)) != len(names) or len(names) > 255:
+                raise SystemExit(f"{path}:{n}: func local names must be "
+                                 f"distinct and at most 255")
+            if name in labels:
+                raise SystemExit(f"{path}:{n}: label {name} twice")
+            labels[name] = pc
+            slots = {x: i for i, x in enumerate(names)}
+            w = ["enter", str(len(args)), str(len(names))]
+            items.append((n, s, w, pc))
+            pc += size(w)
+            continue
         while ":" in s:
             lab, s = s.split(":", 1)
             lab = lab.strip()
@@ -297,6 +332,9 @@ def assemble(path, lines, ops, fields, decls):
         words = s.split()
         if words[0] not in ops and words[0] != "push":
             raise SystemExit(f"{path}:{n}: unknown op {words[0]}")
+        if words[0] in ("loadl", "storel") and len(words) == 2 and \
+           words[1] in slots:
+            words = [words[0], str(slots[words[1]])]
         items.append((n, s, words, pc))
         pc += size(words)
     code = []
@@ -321,6 +359,16 @@ def assemble(path, lines, ops, fields, decls):
                 raise SystemExit(f"{path}:{n}: {op} needs a field "
                                  f"({', '.join(fields)})")
             b = [ops[op], fields[w[1]]]
+        elif op in ("loadl", "storel", "enter"):
+            want = 3 if op == "enter" else 2
+            try:
+                vals = [int(x, 0) for x in w[1:]]
+            except ValueError:
+                raise SystemExit(f"{path}:{n}: {op}: unknown local {w[1:]}")
+            if len(w) != want or not all(0 <= v < 256 for v in vals):
+                raise SystemExit(f"{path}:{n}: {op} takes "
+                                 f"{want - 1} number(s) 0..255")
+            b = [ops[op]] + vals
         elif op in MEMBER_OPS:
             if len(w) != 2:
                 raise SystemExit(f"{path}:{n}: {op} needs a member path")

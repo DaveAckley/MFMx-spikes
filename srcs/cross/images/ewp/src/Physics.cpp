@@ -60,6 +60,8 @@ namespace MFM {
       case BytePhys::BF_FUEL: FAIL(OUT_OF_RESOURCES);
       case BytePhys::BF_MEMBER: FAIL(NOT_FOUND);
       case BytePhys::BF_TYPE: FAIL(BAD_CAST);
+      case BytePhys::BF_FRAME: FAIL(OUT_OF_ROOM);
+      case BytePhys::BF_LOCAL: FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
       default: FAIL(ILLEGAL_ARGUMENT);
       }
     }

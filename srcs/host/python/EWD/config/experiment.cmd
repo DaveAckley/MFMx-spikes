@@ -1,4 +1,4 @@
-# EXPERIMENT: BytePhys v1 timing, FB1 (4 vs 7) 12 min then FB4 (5 vs 8) 12 min, honest, ~30 min
+# EXPERIMENT: BytePhys v1 timing, FB1 (4 vs 7) 12 min then FB4 (5 vs 8) 12 min, shortcut (AERse), ~30 min
 # BytePhys version 1 (8542b18): types 7 and 8 now read and write their
 # counters through declared members (getm/setm: a layout table lookup
 # plus bit extraction per access) instead of raw getf/setf, and
@@ -10,13 +10,14 @@
 # batches were lost in run 183231, OPEN_ISSUES 'LOST SEED BATCHES').
 # Read runsum.txt's 'physics timing': cycles/event, bytecode insns/event
 # and the bytecode/native ratios; there should be no `.pf` faults.
-# fourcorners, events honest, no autonuke.
+# fourcorners, events shortcut (AERse: seeds grow faster than in honest
+# AERre; use `events honest` only for AER studies), no autonuke.
 # Always run as:
 #   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
 # The first comment line above is the experiment's name in runsum.txt.
 tick slowscan off
 policy fourcorners
-events honest
+events shortcut
 elide on
 grid off
 decay 4

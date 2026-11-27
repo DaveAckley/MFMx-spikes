@@ -40,6 +40,16 @@
    pos, len) per element type that has it (a quark member can live at
    different places in different elements).  A site whose type has no
    such member is a fault (BF_TYPE).
+
+   FRAMES.  Local variables live in mLocals, u32 slots, numbered from the
+   current frame's base.  ENTER nargs nlocals (normally a function's
+   first instruction, or the program's) opens a frame of nlocals slots
+   at the top of mLocals, moves the top nargs operands into slots
+   0..nargs-1 (the deepest operand into slot 0) and zeroes the rest.
+   LOADL/STOREL n reach slot n of the current frame only.  CALL saves
+   the return address and the caller's frame; RET restores both, so a
+   callee's frame vanishes with it.  Results come back on the operand
+   stack.
 */
 #include "itype.h"
 #include "P4Atom.h"
@@ -63,8 +73,8 @@ namespace MFM {
       OP_JMP,                           //< imm16 target
       OP_JZ,                            //< imm16 target: pop, jump if 0
       OP_JNZ,                           //< imm16 target: pop, jump if != 0
-      OP_CALL,                          //< imm16 target: push return
-      OP_RET,                           //< pop return address
+      OP_CALL,                          //< imm16 target: save return+frame
+      OP_RET,                           //< restore return+frame
       OP_GETF,                          //< imm8 field: sn -> value
       OP_SETF,                          //< imm8 field: sn value ->
       OP_COPY,                          //< src dst -> (atom dst = atom src)
@@ -73,6 +83,9 @@ namespace MFM {
       OP_ONEIN,                         //< n -> oneIn(n)
       OP_GETM,                          //< imm16 member: sn -> value
       OP_SETM,                          //< imm16 member: sn value ->
+      OP_ENTER,                         //< imm8 nargs, imm8 nlocals
+      OP_LOADL,                         //< imm8 slot: -> local
+      OP_STOREL,                        //< imm8 slot: value ->
       OP_COUNT
     };
 
@@ -98,6 +111,8 @@ namespace MFM {
       BF_FUEL,                          //< instruction budget used up
       BF_MEMBER,                        //< no such member id (or no Layout)
       BF_TYPE,                          //< the site's type lacks that member
+      BF_FRAME,                         //< ENTER: no room, or nargs > nlocals
+      BF_LOCAL,                         //< LOADL/STOREL outside the frame
       BF_COUNT
     };
 
@@ -184,9 +199,16 @@ namespace MFM {
       enum : u32 {
         STACK_SIZE = 16,                //< operand stack, u32 each
         CALL_SIZE = 8,                  //< return addresses
+        LOCALS_SIZE = 32,               //< local slots, all frames
+      };
+      struct Call {
+        u16 mReturn;                    //< pc after the CALL
+        u8 mBase;                       //< caller's frame base
+        u8 mTop;                        //< caller's frame end
       };
       u32 mStack[STACK_SIZE];
-      u16 mCalls[CALL_SIZE];
+      Call mCalls[CALL_SIZE];
+      u32 mLocals[LOCALS_SIZE];
       u32 mExecuted;                    //< instructions run, last event
 
       template <class Env>
@@ -196,6 +218,8 @@ namespace MFM {
         u32 pc = 0;
         u32 sp = 0;                     // next free operand slot
         u32 cp = 0;                     // next free call slot
+        u32 fb = 0;                     // current frame: mLocals[fb..ft)
+        u32 ft = 0;
         u32 used = 0;
 
 #define BP_NEED(n) do { if (sp < (n)) env.fault(BF_STACK_UNDER); } while (0)
@@ -281,14 +305,22 @@ namespace MFM {
               go = op == OP_JZ ? v == 0u : v != 0u;
             } else if (op == OP_CALL) {
               if (cp >= CALL_SIZE) env.fault(BF_CALL_OVER);
-              mCalls[cp++] = (u16) pc;
+              Call & c = mCalls[cp++];
+              c.mReturn = (u16) pc;
+              c.mBase = (u8) fb;
+              c.mTop = (u8) ft;
             }
             if (go) pc = t;
             break;
           }
           case OP_RET:
             if (cp == 0) env.fault(BF_CALL_UNDER);
-            pc = mCalls[--cp];
+            {
+              const Call & c = mCalls[--cp];
+              pc = c.mReturn;
+              fb = c.mBase;
+              ft = c.mTop;
+            }
             break;
           case OP_GETF: {
             BP_IMM(1);
@@ -344,6 +376,35 @@ namespace MFM {
             BP_NEED(1);
             mStack[sp - 1] = env.oneIn(mStack[sp - 1]) ? 1u : 0u;
             break;
+          case OP_ENTER: {
+            BP_IMM(2);
+            const u32 nargs = code[pc];
+            const u32 nlocals = code[pc + 1];
+            pc += 2;
+            if (nargs > nlocals || ft + nlocals > LOCALS_SIZE)
+              env.fault(BF_FRAME);
+            BP_NEED(nargs);
+            fb = ft;
+            ft = fb + nlocals;
+            sp -= nargs;
+            for (u32 i = 0; i < nargs; ++i) mLocals[fb + i] = mStack[sp + i];
+            for (u32 i = nargs; i < nlocals; ++i) mLocals[fb + i] = 0u;
+            break;
+          }
+          case OP_LOADL:
+          case OP_STOREL: {
+            BP_IMM(1);
+            const u32 n = code[pc++];
+            if (fb + n >= ft) env.fault(BF_LOCAL);
+            if (op == OP_LOADL) {
+              BP_ROOM(1);
+              mStack[sp++] = mLocals[fb + n];
+            } else {
+              BP_NEED(1);
+              mLocals[fb + n] = mStack[--sp];
+            }
+            break;
+          }
           case OP_GETM:
           case OP_SETM: {
             BP_IMM(2);

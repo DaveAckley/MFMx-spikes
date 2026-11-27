@@ -1,10 +1,11 @@
-# BYTEPHYS -- reference manual for the physics bytecode (version 1, SPIKE)
+# BYTEPHYS -- reference manual for the physics bytecode (version 2, SPIKE)
 
 A small, growing reference for BytePhys, the bytecode that MFMx physics
 can be written in and run on the EWPs.  Version 0 is a spike ("pretend
 bytecode"): just enough machine to run FB1 and FB4 and measure what
 interpreting costs on a T6 baby core.  Version 1 adds declared element
-and quark layouts, ulam-style (section 5), and saturating arithmetic.
+and quark layouts, ulam-style (section 5), and saturating arithmetic;
+version 2 adds local variables and calls with arguments (section 2).
 This manual is meant to be fleshed out as the design grows; section
 11 collects what is not decided yet.
 
@@ -44,9 +45,33 @@ instruction doing the work of a native loop.
 ## 2. The machine
 
 - **Operand stack:** 16 entries of u32 (`Machine::STACK_SIZE`).
-- **Call stack:** 8 return addresses of u16 (`Machine::CALL_SIZE`).
-  Bytecode may call and recurse freely within that depth; the
-  interpreter itself is one loop and never recurses natively.
+- **Call stack:** 8 entries (`Machine::CALL_SIZE`), each the return
+  address and the caller's frame.  Bytecode may call and recurse freely
+  within that depth; the interpreter itself is one loop and never
+  recurses natively.
+- **Locals:** 32 u32 slots shared by all frames (`Machine::LOCALS_SIZE`).
+  `enter nargs nlocals` opens a frame of nlocals slots on top of the
+  caller's, moves the top nargs operands into slots 0..nargs-1 (deepest
+  operand first) and zeroes the rest.  `loadl`/`storel n` reach slot n
+  of the current frame only.  `ret` restores the caller's frame, so a
+  callee's locals vanish with it.  Results come back on the operand
+  stack; a function may return any number of them.
+
+  ```
+  func sum n              ; sum(n) = n + sum(n-1), sum(0) = 0
+          loadl n
+          jnz rec
+          push 0
+          ret
+  rec:    loadl n
+          push 1
+          sub
+          call sum        ; ( sum(n-1) )
+          loadl n         ; this frame's n, intact after the call
+          add
+          ret
+  ```
+
 - **Program counter:** a byte offset into the program, starting at 0.
 - **The window:** 41 sites, numbered as everywhere in MFM (MDist.h):
   sorted by squared distance from the center, site 0 the center, 1-4 the
@@ -55,8 +80,8 @@ instruction doing the work of a native loop.
 - **Fuel:** every instruction executed costs 1; the EWP gives each event
   `BP_FUEL` = 10,000.  Running out is a fault, so an infinite loop ends
   the event instead of the tile.
-- **Size:** the Machine object is 84 bytes and lives in hart B's fast RAM
-  beside the event window (`Physics::mVM`).
+- **Size:** the Machine object is 228 bytes (84 in version 1) and lives
+  in hart B's fast RAM beside the event window (`Physics::mVM`).
 
 An event runs one program from offset 0 until HALT0 or HALT1:
 
@@ -96,8 +121,8 @@ the right.
 | 0c | jmp | u16 target | ( -- ) | |
 | 0d | jz | u16 target | ( x -- ) | jump if x == 0 |
 | 0e | jnz | u16 target | ( x -- ) | jump if x != 0 |
-| 0f | call | u16 target | ( -- ) | pushes the return offset on the call stack |
-| 10 | ret | | ( -- ) | pops the call stack |
+| 0f | call | u16 target | ( -- ) | saves the return offset and the caller's frame |
+| 10 | ret | | ( -- ) | restores them |
 | 11 | getf | u8 field | ( sn -- value ) | read a RAW field of atom sn (section 5.3) |
 | 12 | setf | u8 field | ( sn value -- ) | write a RAW field of atom sn |
 | 13 | copy | | ( src dst -- ) | atom dst = atom src (whole atom) |
@@ -106,6 +131,9 @@ the right.
 | 16 | onein | | ( n -- flag ) | 1 with probability 1/n, else 0 |
 | 17 | getm | u16 member | ( sn -- value ) | read a declared member of atom sn (section 5) |
 | 18 | setm | u16 member | ( sn value -- ) | write it, saturated to the member's width |
+| 19 | enter | u8 nargs, u8 nlocals | ( a1 .. an -- ) | open a frame; args to slots 0..n-1 |
+| 1a | loadl | u8 slot | ( -- v ) | push local slot |
+| 1b | storel | u8 slot | ( v -- ) | pop into local slot |
 
 Notes:
 - Every jump, call and return target is checked against the program
@@ -207,6 +235,8 @@ own FAIL line, so `.pw` names the fault.
 | 9 | BF_FUEL | more than the event's fuel (10,000 instructions) |
 | 10 | BF_MEMBER | getm/setm member id not in the Layout (or no Layout) |
 | 11 | BF_TYPE | getm/setm on a site whose type does not have that member |
+| 12 | BF_FRAME | enter: nargs > nlocals, or not enough free local slots |
+| 13 | BF_LOCAL | loadl/storel slot outside the current frame (or no frame) |
 
 No checking happens before a program runs.  A verifier that rejects bad
 programs at load time would only report problems earlier; the run-time
@@ -230,6 +260,11 @@ Syntax:
 - `getf setf` take a raw field name: type, data0, stg0, stg1.
 - `getm setm` take a member path: `ELEMENT.member[.member...]` or
   `QUARK.member[...]`.
+- `func NAME ARG... [| LOCAL...]` defines label NAME and assembles to
+  `enter nargs nlocals`; until the next func, the names stand for slots
+  0, 1, ... in loadl/storel (numbers work too).  `enter N M` is the raw
+  form.  The program starts at offset 0, so its first func is the
+  entry; a program with no locals needs no enter.
 - `quark NAME` and `element NAME TYPE` start a declaration; the member
   lines after it (`unsigned NAME BITS`, `bool NAME`, `QUARKNAME NAME`)
   belong to it, and the first other line ends it.
@@ -357,12 +392,20 @@ table scan and 64-bit shifts per access: not yet timed.
 - **A verifier** at load time, for early error reports only (the run-time
   checks stay).
 - **Host-side bytecode** to pick display colors per type.
-- **Stack sizes:** 16 and 8 are guesses; real programs will tell.
+- **Stack sizes:** 16 operands, 8 calls and 32 locals are guesses; real
+  programs (and a compiler) will tell.
 - **Versioning:** a program header with a version and the type it is
   for.
 
 
 ## 12. Change log
+
+- **Version 2 (2026-11-27):** frames.  Local slots (32, shared by all
+  frames), `enter`/`loadl`/`storel` (opcodes 19-1b), call entries that
+  save the caller's frame, faults 12-13; bpasm `func NAME args | locals`
+  with named slots.  Host test: recursion that reads its own local after
+  the recursive call, argument order, frame faults.  FB1/FB4 unchanged
+  (no locals needed).  Not yet run on the QB.
 
 - **Version 1 (2026-11-27):** declared layouts.  `quark` and `element`
   declarations in .bp source; getm/setm (opcodes 17, 18) by member id

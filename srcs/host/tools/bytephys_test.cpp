@@ -15,6 +15,9 @@
 //     under/overflow (runaway recursion), bad opcode, jump past the end,
 //     running off the end, bad site, bad/read-only field, fuel, bad
 //     member id, member of the wrong element type
+//   * frames: recursion through call/ret with locals (each frame's
+//     locals survive its callees), storel/loadl, enter's argument move,
+//     and the frame faults
 //   * declared members: getBits/setBits against a bit-by-bit model over
 //     all 80 state bits, setm saturates to the declared width, add/sub
 //     saturate
@@ -202,6 +205,17 @@ void testFaults() {
         "getm site 41");
   check(faultOf({OP_GETM, 0}) == BF_PC, "truncated member id");
   check(faultOf({P8, 0, OP_GETM, 0, 0, OP_HALT1}) == 0u, "a good getm");
+  check(faultOf({OP_LOADL, 0, OP_HALT1}) == BF_LOCAL, "loadl, no frame");
+  check(faultOf({OP_ENTER, 0, 2, P8, 1, OP_STOREL, 2, OP_HALT1})
+        == BF_LOCAL, "storel past the frame");
+  check(faultOf({OP_ENTER, 2, 1, OP_HALT1}) == BF_FRAME, "nargs > nlocals");
+  check(faultOf({OP_ENTER, 0, 33, OP_HALT1}) == BF_FRAME,
+        "frame bigger than all locals");
+  check(faultOf({OP_ENTER, 1, 1, OP_HALT1}) == BF_STACK_UNDER,
+        "enter with a missing argument");
+  check(faultOf({OP_ENTER, 0, 8, OP_CALL, 0, 0}) == BF_FRAME,
+        "recursion runs out of locals");
+  check(faultOf({OP_ENTER, 1}) == BF_PC, "truncated enter");
   printf("faults: every machine fault caught\n");
 }
 
@@ -292,6 +306,38 @@ void testBits() {
     check(e.mW[0].mStg[1] == 0xffffffffu, "FB1 age saturates");
     check(e.mW[0].mStg[0] == 5u, "FB1 fuse set on the splat path");
   }
+  // frames: sum(n) = n + sum(n - 1), recursively, reading its own n
+  // again AFTER the recursive call returns
+  {
+    const u8 SUM = 6u, REC = 17u;
+    const std::vector<u8> code = {
+      OP_PUSH8, 5, OP_CALL, SUM, 0, OP_HALT1,           //  0: main
+      OP_ENTER, 1, 1, OP_LOADL, 0, OP_JNZ, REC, 0,      //  6: sum(n)
+      OP_PUSH8, 0, OP_RET,                              // 14: n == 0
+      OP_LOADL, 0, OP_PUSH8, 1, OP_SUB, OP_CALL, SUM, 0,  // 17: rec
+      OP_LOADL, 0, OP_ADD, OP_RET,                      // 25
+    };
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    BytePhys::Program p{code.data(), (u16) code.size(), nullptr};
+    check(vm.run(p, e, 1000u), "sum halts with halt1");
+    check(vm.mStack[0] == 15u, "recursive sum(5) == 15");
+  }
+  {
+    const std::vector<u8> code = {
+      OP_PUSH8, 3, OP_PUSH8, 4,
+      OP_ENTER, 2, 3,           // slot 0 = 3, slot 1 = 4, slot 2 = 0
+      OP_PUSH8, 7, OP_STOREL, 2,
+      OP_LOADL, 2, OP_LOADL, 1, OP_LOADL, 0, OP_HALT1,
+    };
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    BytePhys::Program p{code.data(), (u16) code.size(), nullptr};
+    vm.run(p, e, 1000u);
+    check(vm.mStack[0] == 7u && vm.mStack[1] == 4u && vm.mStack[2] == 3u,
+          "enter moves args in order; storel/loadl");
+  }
+  printf("frames: recursion with locals, args, storel/loadl\n");
   printf("members: getBits/setBits match a bit model at every pos/len; "
          "setm, add, sub, FB1/FB4 ages saturate\n");
 }
