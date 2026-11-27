@@ -174,6 +174,9 @@ unless the user asks for a rename.
   VERIFY ONCE (2026-11-27): Machine::run trusts its program; every
   generated program is static_assert(verify(...) == 0) in its header,
   and anything built at run time must pass BytePhys::verify first.
+  With computed goto (O2) and fuel at back-jumps, run 141156 timed the
+  cheapest ops at 25 cycles (was 42-48) and FB4 at 4.40x native (was
+  7.59x), FB1 4.30x (was 6.37x).
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

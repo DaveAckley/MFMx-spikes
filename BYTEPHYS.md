@@ -430,6 +430,38 @@ load and `jr`; every handler then takes two more jumps (to a shared
 taken jumps, for a DUP.  For FB4 (374 insns): 40 copies ~6,000 cycles,
 the other ~334 instructions ~17,000.
 
+**New dispatch timed (run 20261127-141156, 6b7842d, events
+shortcut; section 12 'Dispatch rework').**  About 50 runs per bench
+program.  Cycles per instruction, code in L1 / in fast RAM (old run
+110936 in parentheses, L1):
+
+    swap 27.2 / 21.9 (41.9)    over 26.3 / 21.0 (45.5)
+    dup 25.3 / 20.0 (47.0)     push8 27.3 / 19.9 (48.7)
+    jmp 35.6 / 23.5 (55.2)     jz 31.6 / 23.9 (61.1)
+    jnz 36.2 / 25.4 (60.4)     push32 32.8 / 24.4 (56.6)
+    add 33.5 / 25.9 (54.1)     loadl 30.3 / 21.9 (53.3)
+    storel 34.0 / 25.5 (57.7)  call 35.5 / 27.4 (58.6)
+    enter 49.2 / 40.0 (67.8)   getf 33.2 / 25.4 (55.1)
+    setf 41.0 / 30.9 (58.8)    getm1 57.1 / 47.0 (90.9)
+    getm2 58.1 / 48.1 (106.0)  setm1 69.4 / 57.5 (105.5)
+    setm2 73.7 / 61.8 (125.8)  copy 41.3 / 32.0 (84.5)
+    between 46.7 / 39.2 (63.1) onein 41.7 / 35.1 (64.0)
+
+So the cheapest instruction is ~25 cycles in L1 (was 42-48), ~20 in
+fast RAM: the rework took ~20 cycles off every dispatch.  Net of their
+pushes and drops: getm ~120 (was ~175), setm ~155-165 (~215-275),
+copy ~70 (~150), between ~105, onein ~75.  Taken jumps cost ~10 more
+in L1 than in fast RAM (the fetch restarts at the target).  Native
+byte loads unchanged (L1 6.8, fast 5.3).  Real physics: FB1 bytecode
+1975 cycles/event vs native 459 (4.30x; was 3013, 6.37x), FB4 14388 vs
+3270 (4.40x; was 24788, 7.59x), i.e. 38.5 cycles per FB4 instruction
+(was 66), and FB4 is now faster than the hand-written v0 (21886).
+No `.pf`, all 8 seed batches grew, FB4 share 0.35 (native ahead, as
+expected at 4.4x).  What is left of a dispatch: the opcode byte load
+from L1 (~7), the kOps table load from L1 (~7) and the indirect jump;
+putting the table (or a pre-translated program) in fast RAM would
+attack the second.
+
 
 ## 11. Open questions and wish list (to be fleshed out)
 
@@ -472,7 +504,8 @@ the other ~334 instructions ~17,000.
   all the dispatches into one shared jump (stateWord/putStateWord are
   always_inline for the same reason).  A SWAP went from ~28 RISC-V
   instructions with 4 taken jumps and 5 stack spills to 14 with one
-  jump.  Not yet run on the QB.
+  jump.  Timed on the QB in run 20261127-141156: cheapest ops 25
+  cycles (was 42-48), FB4 14388 cycles/event (was 24788), section 10.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
