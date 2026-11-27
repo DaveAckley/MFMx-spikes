@@ -509,28 +509,59 @@ def lamer_failures(rundir, misc):
     return r
 
 
+NOTCH_SIDES = (4, 8, 12, 16, 20, 24, 28)
+
+
 def notches(misc):
-    """Corner notches logged by `notch on` (notchwatch.py): count, by
-    size and quadrant, and the first ones.  Nothing if never turned on."""
+    """Corner notches logged by `notch on` (notchwatch.py), with the
+    control points (hub edge midpoints and centers) side by side: per
+    kind, notches per point by size, so an excess at corners stands out.
+    Nothing if never turned on."""
     lines = read_lines(os.path.join(misc, "mfmxctl-NOTCH.txt"))
-    rows = [l for l in lines if "NOTCH" in l]
-    if not rows:
+    npts = {"corner": 117}              # runs before the controls
+    for l in lines:
+        m = re.search(r"NOTCHPOINTS (.*)", l)
+        if m:
+            w = m.group(1).split()
+            npts = {w[i]: int(w[i + 1]) for i in range(0, len(w) - 1, 2)}
+    rx = re.compile(r"NOTCH (?:scy \d+ )?(corner|edge|center) \(\d+,\d+\) "
+                    r"(NW|NE|SW|SE) (\d+)x\d+ ")
+    rows = []
+    for l in lines:
+        m = rx.search(l)
+        if m:
+            rows.append((m.group(1), m.group(2), int(m.group(3)), l))
+    if not rows and not any("NOTCHPOINTS" in l for l in lines):
         return []
     r = section("corner notches (notch on; OPEN_ISSUES 'CORNER NOTCHES')")
-    sides = {}
+    r.append("notches per point by largest empty side (count in "
+             "parentheses); corner = the suspect, edge and center = "
+             "FB background")
+    r.append(f"  {'kind':7s} {'points':>6s} "
+             + " ".join(f"{s_:>11d}" for s_ in NOTCH_SIDES)
+             + f" {'all':>11s}")
+    for kd in ("corner", "edge", "center"):
+        if kd not in npts:
+            continue
+        p = max(npts[kd], 1)
+        cnt = {s_: 0 for s_ in NOTCH_SIDES}
+        for (k, _q, side, _l) in rows:
+            if k == kd and side in cnt:
+                cnt[side] += 1
+        tot = sum(cnt.values())
+        r.append(f"  {kd:7s} {npts[kd]:6d} "
+                 + " ".join(f"{cnt[s_] / p:5.2f}({cnt[s_]:4d})"
+                            for s_ in NOTCH_SIDES)
+                 + f" {tot / p:5.2f}({tot:4d})")
+    corner = [x for x in rows if x[0] == "corner"]
     quads = {}
-    for l in rows:
-        m = re.search(r" (NW|NE|SW|SE) (\d+)x\d+ ", l)
-        if m:
-            quads[m.group(1)] = quads.get(m.group(1), 0) + 1
-            sides[int(m.group(2))] = sides.get(int(m.group(2)), 0) + 1
-    r.append(f"notches: {len(rows)}; by side "
-             + ", ".join(f"{k}: {v}" for k, v in sorted(sides.items()))
-             + "; by square " + ", ".join(f"{k}: {v}"
-                                          for k, v in sorted(quads.items())))
-    r.extend(cut(l) for l in rows[:15])
-    if len(rows) > 15:
-        r.append(f"(and {len(rows) - 15} more in misc/mfmxctl-NOTCH.txt)")
+    for (_k, q, _s, _l) in corner:
+        quads[q] = quads.get(q, 0) + 1
+    r.append("corner notches by square: "
+             + ", ".join(f"{k}: {v}" for k, v in sorted(quads.items())))
+    big = [x[3] for x in corner if x[2] >= 20]
+    r.append(f"corner notches of side 20 or more: {len(big)} (first 12)")
+    r.extend(cut(l) for l in big[:12])
     return r
 
 

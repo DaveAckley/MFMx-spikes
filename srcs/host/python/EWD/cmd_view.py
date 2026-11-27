@@ -34,8 +34,10 @@ def c_notch(ctx, a):
     if sub == "status":
         return w.status()
     if sub == "on":
+        from notchwatch import points_line
         w.reset()
         w.on = True
+        m.logkt("NOTCH", points_line(w))    # runsum's per-point rates
         return w.status() + "\n(grid must be off: crosses count as occupied)"
     if sub == "off":
         w.on = False
@@ -48,7 +50,7 @@ def c_notch(ctx, a):
             return f"notch hold {'on' if w.hold else 'off'}"
         w.hold = kw(a[1], ("on", "off"), "notch hold") == "on"
         return (f"notch hold {'on' if w.hold else 'off'}"
-                + (": the first notch arms cycle holdat RUN_EVENTS "
+                + (": the first corner notch arms cycle holdat RUN_EVENTS "
                    "(hubs out of events, the picture holds still)"
                    if w.hold else ""))
     return "usage: notch [on|off|status|list|hold on|off]"

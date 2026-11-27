@@ -296,6 +296,9 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   NOTCH scy N corner (X,Y) QUAD SxS fill A -> B, outside band C; who PX
   PY owner atTAG` (misc/mfmxctl-NOTCH.txt; runsum 'corner notches').
   `hold on` pauses the cycle at the first one (holdat RUN_EVENTS, hubs
-  out of events), then `who`/`dumpl1`.  Grid must be off.  About 14 ms
-  per frame (117 corners).  Tests: tools/notch_test.py, selftest notch.
+  out of events), then `who`/`dumpl1`.  Grid must be off.  Controls:
+  the same test at hub edge midpoints and centers (kinds edge/center,
+  logged only), and runsum compares notches per point by kind.  About
+  6 ms per frame (513 points).  Tests: tools/notch_test.py, selftest
+  notch.
 Start with /CLAUDE.md for the formatting rules and the document map.

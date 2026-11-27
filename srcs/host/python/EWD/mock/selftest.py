@@ -1074,9 +1074,13 @@ def scenario_notch():
           and "notch subcommand" in out, out[-1500:])
     m = re.search(r"run summary: (\S+/runsum\.txt)", out)
     text = open(m.group(1)).read() if m else ""
-    check("notch: runsum counts it",
-          "corner notches" in text and "notches: 1; by side 20: 1" in text,
-          text[-1200:] or out[-500:])
+    check("notch: runsum counts it, controls alongside",
+          "corner notches of side 20 or more: 1" in text
+          and re.search(r"corner +117 .* 0\.01\(   1\)", text)
+          and re.search(r"center +\d+ ", text),
+          text[-1500:] or out[-500:])
+    check("notch: status counts by kind",
+          "1 notches (corner 1 at 117 points, edge 0 at" in out, out[-1500:])
 
 
 def scenario_command_file():

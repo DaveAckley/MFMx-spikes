@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """notch_test.py -- native test of the corner notch detector
 (srcs/host/python/EWD/notchwatch.py): a cache-sized square emptied at a
-hub corner is reported once, with its size and a sharp border; a hole
+hub corner is reported once, with its size and a sharp border; the
+same at the control points (hub centers, edge midpoints) is counted by
+kind; a hole
 over all four squares (a nuke, a front) is not; the
 square re-arms after it refills; a frame costs well under 50 ms.
 Run: python3 notch_test.py
@@ -75,6 +77,25 @@ img3[y:y + 20, x:x + 20] = EMPTY
 got = w.check(img3)
 check(len(got) == 1 and got[0].quad == "SE", f"SE re-armed after refill: {got}")
 
+# 1b. the controls: the same test at a hub center and an edge midpoint
+w = watch()
+w.check(full())
+img = full()
+cx, cy = 4 * BW + BW // 2, 3 * BH + BH // 2       # a hub center
+img[cy:cy + 12, cx - 12:cx] = EMPTY               # SW square, 12 x 12
+ex, ey = 6 * BW + BW // 2, 5 * BH                 # a top edge midpoint
+img[ey - 16:ey, ex:ex + 16] = EMPTY               # NE square, 16 x 16
+got = sorted(w.check(img))
+check([(n.kind, n.x, n.y, n.quad, n.side) for n in got] ==
+      sorted([("center", cx, cy, "SW", 12), ("edge", ex, ey, "NE", 16)]),
+      f"center and edge controls: {got}")
+check(w.by_kind == {"corner": 0, "edge": 1, "center": 1},
+      f"counted by kind: {w.by_kind}")
+check(len(w.log) == 0, "the corner log keeps corners only")
+check(w.npoints["corner"] == len(w.points) and w.npoints["center"] > 0
+      and w.npoints["edge"] > 0, f"points: {w.npoints}")
+print(notchwatch.points_line(w))
+
 # 2. a hole over all four squares at a corner is not a notch
 w = watch()
 w.check(full())
@@ -103,7 +124,8 @@ t = time.perf_counter()
 for _ in range(20):
     w.check(img)
 ms = (time.perf_counter() - t) / 20 * 1000
-print(f"notch check: {ms:.1f} ms per frame, {len(w.points)} corners")
+print(f"notch check: {ms:.1f} ms per frame, "
+      f"{sum(w.npoints.values())} points")
 check(ms < 50, f"frame cost {ms:.1f} ms")
 
 if bad:

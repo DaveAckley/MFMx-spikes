@@ -523,10 +523,11 @@ SE 25 (the SE square is the NW corner of a hub's SELF), at 8 and up
 even again; maybe fewer events there under fourcorners, not seen in
 the pictures.  Live, the first three (scy 70) were two squares at one
 corner (1644,432) NW + SW in the same cycle and one at (959,216).
-NEXT (proposed): a control in the same run, the same test on squares
-at hub CENTERS and hub EDGE MIDPOINTS, counted separately, so the
-corner rate per point can be compared with FB1's background; only an
-excess at corners (in the large sizes) is the artifact.
+CONTROLS BUILT (2026-11-27, Python only, not yet run): the same test
+at 256 hub edge midpoints and 140 hub centers, counted apart; runsum
+prints notches per point by side for corner / edge / center.  Only an
+excess at corners (in the large sizes) is the artifact.  experiment.cmd
+reruns the 154951 script with them (still the elide on arm).
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is

@@ -77,10 +77,11 @@ class FrameMixin:
 
     def _notch_check(self, arr):
         """`notch on`: look for corner notches in the unpainted frame
-        (notchwatch.py); log each, and pause the cycle at the first one
-        if `notch hold on`.  Never costs the frame."""
+        (notchwatch.py); log each (controls too), say corner ones of side
+        >= SAY_SIDE, and pause the cycle at the first corner one if
+        `notch hold on`.  Never costs the frame."""
         try:
-            from notchwatch import describe
+            from notchwatch import describe, SAY_SIDE
             found = self.notch.check(arr)
         except Exception as e:
             self.notch.on = False
@@ -94,6 +95,11 @@ class FrameMixin:
         except Exception:
             pass
         for n in found:
+            if n.kind != "corner" and n.side < SAY_SIDE:
+                # controls: counted and logged, never named or announced
+                self.logkt("NOTCH", f"{self._run_secs():.0f}s "
+                           f"{describe(n, scy)}")
+                continue
             owner = None
             try:
                 fo = getattr(self.M, "pixelOwner", None)
@@ -104,9 +110,11 @@ class FrameMixin:
             except Exception:
                 pass
             line = describe(n, scy, owner)
-            self.say(f"[notch] {line}")
+            if n.side >= SAY_SIDE:
+                self.say(f"[notch] {line}")
             self.logkt("NOTCH", f"{self._run_secs():.0f}s {line}")
-        if self.notch.hold and self.notch_hold_fn is not None:
+        if (self.notch.hold and self.notch_hold_fn is not None
+                and any(n.kind == "corner" for n in found)):
             self.notch.hold = False     # once; `notch hold on` re-arms
             try:
                 self.say("[notch] " + str(self.notch_hold_fn()))

@@ -270,7 +270,14 @@ unless the user asks for a rename.
   border), scy, owner hub (pixelOwner) and a pixel for `who`;
   `notch hold on` arms `cycle holdat RUN_EVENTS` at the first one.
   misc/mfmxctl-NOTCH.txt, runsum 'corner notches'.  For Liv's CORNER
-  NOTCHES (OPEN_ISSUES).  Mock: $MFMX_MOCK_NOTCH.
+  NOTCHES (OPEN_ISSUES).  Mock: $MFMX_MOCK_NOTCH.  CONTROLS (since
+  run 154951 fired ~1000 times, mostly FB1's own holes): the same test
+  at 256 hub edge midpoints and 140 hub centers, logged as kind `edge`
+  / `center` (never on the console, never held on); runsum prints
+  notches PER POINT by side for each kind (`NOTCHPOINTS` header line),
+  so only a corner excess counts.  Console: corner notches of side >=
+  16 only.  6 ms per frame for all 513 points (strided window gather,
+  4 x 4 block counts).
 - EACH IS A COUNTDOWN (2026-11-27, Debug.h, both T6 and host forms): EACH(N, CODE) runs CODE on the 1st call and every Nth after, with a per-site countdown instead of `__EACHNUM__++ % N` on every call; `__EACHNUM__` in CODE still reads 0, N, 2N, ... (calls before this one).  COUNT is now parenthesized, so HartTasks.cpp's EACH(100'000+10*me, ...) finally fires on every hart (the old `% 100'000+10*me == 0` was true only for hart 0).  Physics.cpp's per-event `mEWsAttempted % 100'000` is now a counter too (mEWsSincePew, +4 B HB fast RAM, zero at reset like the other counters).  Needs build_all.sh.
 - OVERLAY TEXT COMPOSITED (2026-11-26, Python only, not yet seen on the stream):
   the stream's overlay text (LIVE, AER, info, date/time, NO DATA) no longer
