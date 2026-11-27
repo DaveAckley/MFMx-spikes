@@ -386,6 +386,14 @@ instruction grows with the interpreter, not with member access.  No
 Compiler loop optimization DONE 2026-11-27 (FB4 494 -> 374 insns,
 host-tested).  Still open: a per-opcode microbenchmark on the QB to
 find where ~60 cycles per instruction go.
+LOOP OPTIMIZATION TIMED (run 20261127-094705, 7e10820, events
+shortcut): FB4 bytecode 24788 cycles/event vs native 3266 (7.59x, 374
+insns; was 33853, 10.22x, so 27% fewer cycles for 24% fewer insns),
+FB1 3013 vs 473 (6.37x, 30.0 insns; was 3167).  Per instruction, FB4
+58 cycles (was 62), FB1 85 (was 88): stack ops (dup/over) are a bit
+cheaper than loadl/storel.  Still ~13% slower than hand-written v0
+(21886).  No `.pf`; 8 of 8 seed batches grew; FB4 share 0.32-0.36
+(native ahead this time).
 VERSION 2 + ULAM-LITE (2026-11-27, host-tested): frames and calls in the
 machine; FB1/FB4 now compiled from scripts/ulamlite/*.ulam (BYTEPHYS.md
 section 13).  Compiled FB4 runs 494 instructions per event vs 369 hand
