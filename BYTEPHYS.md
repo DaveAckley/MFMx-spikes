@@ -1,20 +1,21 @@
-# BYTEPHYS -- reference manual for the physics bytecode (version 0, SPIKE)
+# BYTEPHYS -- reference manual for the physics bytecode (version 1, SPIKE)
 
 A small, growing reference for BytePhys, the bytecode that MFMx physics
 can be written in and run on the EWPs.  Version 0 is a spike ("pretend
 bytecode"): just enough machine to run FB1 and FB4 and measure what
-interpreting costs on a T6 baby core.  This manual is meant to be
-fleshed out as the design grows; section 11 collects what is not
-decided yet.
+interpreting costs on a T6 baby core.  Version 1 adds declared element
+and quark layouts, ulam-style (section 5), and saturating arithmetic.
+This manual is meant to be fleshed out as the design grows; section
+11 collects what is not decided yet.
 
 Where things live:
 
 | What | Where |
 |------|-------|
-| The machine (opcodes, fields, faults, interpreter) | srcs/shared/include/BytePhys.h |
-| Programs (assembly source) | scripts/bytephys/*.bp |
+| The machine (opcodes, fields, layouts, faults, interpreter) | srcs/shared/include/BytePhys.h |
+| Programs and element/quark declarations | scripts/bytephys/*.bp |
 | Assembler | scripts/bytephys/bpasm.py |
-| Assembled programs (GENERATED, do not edit) | srcs/shared/include/BytePrograms.h |
+| Assembled programs and layout tables (GENERATED, do not edit) | srcs/shared/include/BytePrograms.h |
 | Native twins of the programs | srcs/shared/include/NativeFB.h |
 | EWP glue (types 7, 8; timing marks) | srcs/cross/images/ewp/src/Physics.cpp |
 | Host test (bytecode == native, faults) | srcs/host/tools/bytephys_test.cpp |
@@ -88,8 +89,8 @@ the right.
 | 05 | drop | | ( a -- ) | |
 | 06 | swap | | ( a b -- b a ) | |
 | 07 | over | | ( a b -- a b a ) | |
-| 08 | add | | ( a b -- a+b ) | u32, wraps |
-| 09 | sub | | ( a b -- a-b ) | u32, wraps |
+| 08 | add | | ( a b -- a+b ) | saturates at 2^32-1 |
+| 09 | sub | | ( a b -- a-b ) | saturates at 0 |
 | 0a | eq | | ( a b -- a==b ) | 1 or 0 |
 | 0b | lt | | ( a b -- a<b ) | unsigned; 1 or 0 |
 | 0c | jmp | u16 target | ( -- ) | |
@@ -97,25 +98,82 @@ the right.
 | 0e | jnz | u16 target | ( x -- ) | jump if x != 0 |
 | 0f | call | u16 target | ( -- ) | pushes the return offset on the call stack |
 | 10 | ret | | ( -- ) | pops the call stack |
-| 11 | getf | u8 field | ( sn -- value ) | read a field of atom sn (section 5) |
-| 12 | setf | u8 field | ( sn value -- ) | write a field of atom sn |
+| 11 | getf | u8 field | ( sn -- value ) | read a RAW field of atom sn (section 5.3) |
+| 12 | setf | u8 field | ( sn value -- ) | write a RAW field of atom sn |
 | 13 | copy | | ( src dst -- ) | atom dst = atom src (whole atom) |
 | 14 | empty | | ( sn -- ) | atom sn = the empty atom |
 | 15 | between | | ( lo hi -- r ) | uniform random in [lo, hi] |
 | 16 | onein | | ( n -- flag ) | 1 with probability 1/n, else 0 |
+| 17 | getm | u16 member | ( sn -- value ) | read a declared member of atom sn (section 5) |
+| 18 | setm | u16 member | ( sn value -- ) | write it, saturated to the member's width |
 
 Notes:
 - Every jump, call and return target is checked against the program
-  length; every site number against 41.
+  length; every site number against 41; every member against the
+  atom's type.
+- **Arithmetic saturates** (version 1): add and sub clamp instead of
+  wrapping, and setm clamps to the member's declared width (a 4-bit
+  member given 200 stores 15).  eq and lt are unchanged.
 - The random draws (between, onein) use the EWP's PRNG; the host test
   replays the same stream through native and bytecode code and checks
   the draws come in the same order.
 
 
-## 5. Atom fields (getf / setf)
+## 5. Atom data: declared members (getm / setm)
 
-The fields of the 12-byte P4Atom (locked for this round) that version 0
-can name:
+### 5.1 State bits
+
+A P4Atom (12 bytes, locked for this round) has a 16-bit type-and-parity
+word and 80 **state bits**, numbered for members as:
+
+| State bits | Storage |
+|------------|---------|
+| 0..31 | `P4Atom::mStg[0]` |
+| 32..63 | `P4Atom::mStg[1]` |
+| 64..79 | `P4Atom::mData0` |
+
+A member may straddle a storage boundary (e.g. bits 28..35).  The type
+is never a member: atoms change type only by `copy` and `empty`.
+
+### 5.2 Elements, quarks and members
+
+Declared in .bp source (section 7), in the spirit of ulam: an
+**element** is an atom type with named members; a **quark** is a named
+bundle of members that elements (and other quarks) can include.
+Members pack in declaration order from state bit 0.
+
+```
+quark Aging                 ; scripts/bytephys/aging.bp
+  unsigned fuse 32          ; bits 0..31 of whoever holds it
+  unsigned age 32           ; bits 32..63
+
+element BFB4 8              ; atom type 8
+  Aging a                   ; a.fuse = bits 0..31, a.age = bits 32..63
+```
+
+Member types today: `unsigned N` (1..32 bits), `bool` (1 bit), and a
+quark by name.  An element must fit in 80 bits.
+
+getm/setm name a member by **path**:
+
+- `BFB4.a.age`: that element only.  The site must hold a BFB4.
+- `Aging.age`: through the quark.  The site may hold ANY element that
+  includes an Aging (once), wherever that element keeps it.
+
+The assembler gives each distinct path a u16 **member id** and writes
+one Layout table for all programs: per id, the list of (element type,
+first bit, width) where it lives.  At run time getm/setm look up the
+site's type in that list; no entry is a fault (BF_TYPE), so reading a
+member of the wrong kind of atom can never silently read other bits.
+An element path's list has one entry; a quark path's has one per
+element holding the quark (scanned in order, so a little slower).
+
+`bpasm.py --list` prints every element's bit map and every member id.
+
+### 5.3 Raw fields (getf / setf)
+
+The version 0 access, still there for odd jobs: getf/setf name a whole
+storage word, untyped and unchecked against the atom's type.
 
 | Number | Name | Meaning | Writable |
 |--------|------|---------|----------|
@@ -124,8 +182,8 @@ can name:
 | 2 | stg0 | `P4Atom::mStg[0]`, u32 | yes |
 | 3 | stg1 | `P4Atom::mStg[1]`, u32 | yes |
 
-These are raw storage words, not typed fields.  How a type declares
-named fields of its own is open (section 11).
+`getf type` is how a program asks what is at a site before touching its
+members.
 
 
 ## 6. Faults
@@ -147,6 +205,8 @@ own FAIL line, so `.pw` names the fault.
 | 7 | BF_SITE | site number 41 or more |
 | 8 | BF_FIELD | unknown field, or a write to `type` |
 | 9 | BF_FUEL | more than the event's fuel (10,000 instructions) |
+| 10 | BF_MEMBER | getm/setm member id not in the Layout (or no Layout) |
+| 11 | BF_TYPE | getm/setm on a site whose type does not have that member |
 
 No checking happens before a program runs.  A verifier that rejects bad
 programs at load time would only report problems earlier; the run-time
@@ -156,7 +216,10 @@ checks are what keep the tile safe.
 ## 7. Assembler (.bp files)
 
 `scripts/bytephys/bpasm.py` assembles every `*.bp` in its directory into
-BytePrograms.h, one `BP_PROG_<NAME>` per file (fb1.bp -> BP_PROG_FB1).
+BytePrograms.h, one `BP_PROG_<NAME>` per file (fb1.bp -> BP_PROG_FB1),
+plus `BP_TYPE_<ELEMENT>` for each element and the shared `BP_LAYOUT`.
+A file holding only declarations (aging.bp) makes no program.
+Declarations are global: every file sees every other file's.
 
 Syntax:
 - One instruction per line; `;` starts a comment.
@@ -164,14 +227,23 @@ Syntax:
 - Mnemonics are the opcode names in lower case, without `OP_`.
 - `push N` takes decimal or 0x hex and picks push8 or push32.
 - `jmp jz jnz call` take a label.
-- `getf setf` take a field name: type, data0, stg0, stg1.
+- `getf setf` take a raw field name: type, data0, stg0, stg1.
+- `getm setm` take a member path: `ELEMENT.member[.member...]` or
+  `QUARK.member[...]`.
+- `quark NAME` and `element NAME TYPE` start a declaration; the member
+  lines after it (`unsigned NAME BITS`, `bool NAME`, `QUARKNAME NAME`)
+  belong to it, and the first other line ends it.
+- Errors: unknown names, a member declared twice, an element over 80
+  bits, a quark that contains itself, two elements with one type number,
+  a quark path no element holds, or an element holding the quark twice
+  (name the member through the element instead).
 
 Commands (from the repo root):
 - `scripts/bytephys/bpasm.py`: regenerate BytePrograms.h.
 - `scripts/bytephys/bpasm.py --check`: exit 1 if BytePrograms.h is out of
   date (run_native_tests.sh runs this).
 - `scripts/bytephys/bpasm.py --list scripts/bytephys/fb4.bp`: listing with
-  offsets and bytes.
+  offsets and bytes, then the element bit maps and member ids.
 
 After editing a .bp: rerun bpasm.py, then
 `srcs/host/tools/run_native_tests.sh bytephys` (bytecode must still match
@@ -189,38 +261,48 @@ for (sn = 1; sn <= 40; ++sn) atom(sn) = ca;
 return true;
 ```
 
-Bytecode (scripts/bytephys/fb4.bp), with its listing:
+Bytecode (scripts/bytephys/fb4.bp), with its listing (member 2 is
+`Aging.age`):
 
 ```
-   0: 02 00     push 0         ; ( 0 )         site 0, for setf
-   2: 02 00     push 0         ; ( 0 0 )       site 0, for getf
-   4: 11 03     getf stg1      ; ( 0 stg1 )
-   6: 02 01     push 1         ; ( 0 stg1 1 )
-   8: 08        add            ; ( 0 stg1+1 )
-   9: 12 03     setf stg1      ; ( )           ca.mStg[1]++
-  11: 02 01     push 1         ; ( sn )        sn = 1
-  13: 02 00 loop: push 0       ; ( sn 0 )
-  15: 07        over           ; ( sn 0 sn )
-  16: 13        copy           ; ( sn )        atom sn = atom 0
-  17: 02 01     push 1
-  19: 08        add            ; ( sn+1 )
-  20: 04        dup
-  21: 02 29     push 41
-  23: 0b        lt             ; ( sn+1 flag )
-  24: 0e 0d 00  jnz loop       ; ( sn+1 )      while sn+1 < 41
-  27: 05        drop           ; ( )
-  28: 01        halt1          ;               commit
+element BFB4 8
+  Aging a
+
+   0: 02 00     push 0         ; ( 0 )         site 0, for setm
+   2: 02 00     push 0         ; ( 0 0 )       site 0, for getm
+   4: 17 02 00  getm Aging.age ; ( 0 age )
+   7: 02 01     push 1         ; ( 0 age 1 )
+   9: 08        add            ; ( 0 age+1 )   saturating
+  10: 18 02 00  setm Aging.age ; ( )           ca.age++
+  13: 02 01     push 1         ; ( sn )        sn = 1
+  15: 02 00 loop: push 0       ; ( sn 0 )
+  17: 07        over           ; ( sn 0 sn )
+  18: 13        copy           ; ( sn )        atom sn = atom 0
+  19: 02 01     push 1
+  21: 08        add            ; ( sn+1 )
+  22: 04        dup
+  23: 02 29     push 41
+  25: 0b        lt             ; ( sn+1 flag )
+  26: 0e 0f 00  jnz loop       ; ( sn+1 )      while sn+1 < 41
+  29: 05        drop           ; ( )
+  30: 01        halt1          ;               commit
 ```
 
-29 bytes; 369 instructions per event (9 per neighbor).  FB1 (fb1.bp,
-129 bytes) shows branches, random draws and the kabam loop.
+31 bytes; 369 instructions per event (9 per neighbor).  FB1 (fb1.bp,
+139 bytes) shows branches, random draws, the kabam loop, and members
+named through the element (`BFB1.a.fuse`).
+
+Native wraps `ca.mStg[1]++` at 2^32; bytecode saturates there.  The host
+test checks the two are identical away from that limit and checks the
+saturation on its own.
 
 
 ## 9. On the EWP
 
 - **Bytecode physics types:** type 7 runs fb1.bp, type 8 runs fb4.bp
-  (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp).  They behave exactly like
-  native types 4 and 5.  Seed them with e.g. `seed 25 7`.
+  (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp; static_asserts tie them to the
+  types the .bp files declare).  They behave like native types 4 and 5
+  (except that counters saturate).  Seed them with e.g. `seed 25 7`.
 - **On screen:** the host draws a bytecode type as a darker copy (5/8
   brightness) of its native twin's color.  `BytePhys::isBytecodeType`
   lists the bytecode types.
@@ -249,6 +331,8 @@ MHz, means over all EWPs:
 That is about 50 cycles per bytecode instruction: slow for a switch
 dispatch.  The likely cost is that the program bytes and the switch's
 jump table sit in L1, not fast RAM (unmeasured).  No faults in any run.
+These are version 0 numbers (getf/setf).  Version 1's getm/setm add a
+table scan and 64-bit shifts per access: not yet timed.
 
 
 ## 11. Open questions and wish list (to be fleshed out)
@@ -258,9 +342,13 @@ jump table sit in L1, not fast RAM (unmeasured).  No faults in any run.
   type X, breaking ties uniformly at random", pushing its site number.
   Others: count atoms of a type in a radius, pick a random empty site,
   swap two sites, apply a symmetry (rotate or flip site numbers).
-- **Types and fields:** how a type names its own data fields (bit
-  ranges in the P4Atom storage) and how getf/setf address them; the
-  type field itself (creating atoms of a new type, with parity).
+- **Types and fields** (version 1 started this, section 5): signed
+  `int N` members (saturating needs signed arithmetic ops); ulam's
+  voting multi-bit Bool; making atoms of a declared type (`new BFB1`,
+  with parity); an `is` test that pushes a flag instead of faulting;
+  element -> program dispatch from the declarations (Physics.cpp
+  still switches on 7 and 8 by hand); the host reading members through
+  the same Layout (census, colors).
 - **Speed:** copy the running program into fast RAM; threaded dispatch;
   superinstructions (e.g. `getf` on site 0); measure where the 50
   cycles go.
@@ -275,6 +363,15 @@ jump table sit in L1, not fast RAM (unmeasured).  No faults in any run.
 
 
 ## 12. Change log
+
+- **Version 1 (2026-11-27):** declared layouts.  `quark` and `element`
+  declarations in .bp source; getm/setm (opcodes 17, 18) by member id
+  through a generated Layout, checked against the site's type (faults
+  10, 11); add, sub and setm saturate.  FB1 and FB4 rewritten with an
+  Aging quark (fuse, age) laid out like the native types' storage.
+  Host test: identical to native away from 2^32, saturation, getBits /
+  setBits against a bit model at every position and width.  Not yet
+  run on the QB.
 
 - **Version 0 (2026-11-26):** the spike.  23 opcodes, 4 fields, 9
   faults; FB1 and FB4 written by hand; proven identical to native on the

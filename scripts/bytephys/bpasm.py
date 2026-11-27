@@ -10,7 +10,25 @@ Source syntax: one instruction per line, `;` starts a comment, `NAME:`
 defines a label.  Instructions are the Op names without OP_, lower case
 (push, dup, add, jz, getf, ...).  `push N` assembles as PUSH8 when N <
 256, else PUSH32.  Jumps and calls take a label (absolute u16 target).
-getf/setf take a field: type, data0, stg0, stg1.
+getf/setf take a raw field: type, data0, stg0, stg1.
+
+Declarations (global: every .bp file sees every other file's):
+
+  quark NAME                start a quark
+  element NAME TYPE         start an element of atom type TYPE
+    unsigned NAME BITS      a member, 1..32 bits
+    bool NAME               a 1-bit member
+    QUARKNAME NAME          a member that is a whole quark
+
+Members pack in order from state bit 0 (BytePhys.h: bits 0..31 are
+mStg[0], 32..63 mStg[1], 64..79 mData0); an element must fit in 80 bits.
+A declaration ends at the first line that is not a member line.
+
+getm/setm take a member path: ELEMENT.member[.member...] (that element
+only) or QUARK.member[...] (any element holding that quark, wherever it
+sits in it).  Each distinct path gets a member id; the ids and where each
+element type keeps them go into one Layout shared by all programs.  A .bp
+file with only declarations makes no program.
 
 Usage:
   bpasm.py                 regenerate BytePrograms.h from every *.bp here
@@ -60,21 +78,204 @@ def load_tables():
 
 
 JUMPS = ("jmp", "jz", "jnz", "call")
+MEMBER_OPS = ("getm", "setm")
+STATE_BITS = 80
+MAX_MEMBER_BITS = 32
 
 
-def assemble(path, ops, fields):
-    """-> (bytes, listing lines)."""
-    lines = []
-    for n, raw in enumerate(open(path), 1):
-        s = raw.split(";")[0].strip()
-        if s:
-            lines.append((n, s))
+def strip(raw):
+    return raw.split(";")[0].strip()
+
+
+class Decls:
+    """Every quark and element declared in a set of .bp files, plus the
+    member ids handed out to getm/setm paths (in first-use order)."""
+
+    def __init__(self):
+        self.quarks = {}        # name -> [(member, kind, bits|quark)]
+        self.elements = {}      # name -> (type, [(member, kind, arg)])
+        self.where = {}         # name -> "file:line"
+        self.ids = {}           # path -> member id
+        self.ats = []           # per id: [(type, pos, len)]
+
+    def parse(self, path):
+        """Pull the declarations out of path; return its other lines as
+        [(line number, text)]."""
+        rest = []
+        cur = None              # member list being filled
+        for n, raw in enumerate(open(path), 1):
+            s = strip(raw)
+            if not s:
+                continue
+            w = s.split()
+            if w[0] in ("quark", "element"):
+                want = 2 if w[0] == "quark" else 3
+                if len(w) != want:
+                    raise SystemExit(f"{path}:{n}: '{w[0]} NAME"
+                                     f"{'' if want == 2 else ' TYPE'}'")
+                name = w[1]
+                if name in self.quarks or name in self.elements:
+                    raise SystemExit(f"{path}:{n}: {name} declared twice "
+                                     f"(also {self.where[name]})")
+                self.where[name] = f"{path}:{n}"
+                cur = []
+                if w[0] == "quark":
+                    self.quarks[name] = cur
+                else:
+                    t = int(w[2], 0)
+                    if not 0 < t < (1 << 15):
+                        raise SystemExit(f"{path}:{n}: bad type {t}")
+                    self.elements[name] = (t, cur)
+                continue
+            if cur is not None and self._member(path, n, w, cur):
+                continue
+            cur = None
+            rest.append((n, s))
+        return rest
+
+    def _member(self, path, n, w, cur):
+        """Add a member line to cur; False if w is not a member line."""
+        if w[0] == "unsigned" and len(w) == 3:
+            bits = int(w[2], 0)
+            if not 1 <= bits <= MAX_MEMBER_BITS:
+                raise SystemExit(f"{path}:{n}: unsigned width 1.."
+                                 f"{MAX_MEMBER_BITS}")
+            item = (w[1], "u", bits)
+        elif w[0] == "bool" and len(w) == 2:
+            item = (w[1], "u", 1)
+        elif (len(w) == 2 and w[0][:1].isupper() and
+              not w[0].endswith(":") and not w[1].endswith(":")):
+            item = (w[1], "q", w[0])
+        else:
+            return False
+        if any(m[0] == item[0] for m in cur):
+            raise SystemExit(f"{path}:{n}: member {item[0]} twice")
+        cur.append(item)
+        return True
+
+    def size(self, quark, seen=()):
+        if quark not in self.quarks:
+            raise SystemExit(f"bpasm: no quark {quark}")
+        if quark in seen:
+            raise SystemExit(f"bpasm: quark {quark} contains itself")
+        return sum(a if k == "u" else self.size(a, seen + (quark,))
+                   for _, k, a in self.quarks[quark])
+
+    def check(self):
+        for name, (t, members) in self.elements.items():
+            bits = sum(a if k == "u" else self.size(a)
+                       for _, k, a in members)
+            if bits > STATE_BITS:
+                raise SystemExit(f"{self.where[name]}: element {name} is "
+                                 f"{bits} bits (max {STATE_BITS})")
+        types = [t for t, _ in self.elements.values()]
+        if len(set(types)) != len(types):
+            raise SystemExit("bpasm: two elements share a type number")
+        for q in self.quarks:
+            self.size(q)
+
+    def _walk(self, members, names, pos):
+        """(pos, len) of the scalar member path names in members."""
+        at = pos
+        for m, k, a in members:
+            if m == names[0]:
+                if k == "u":
+                    if len(names) != 1:
+                        return None
+                    return (at, a)
+                if len(names) == 1:
+                    return None         # a whole quark is not a scalar
+                return self._walk(self.quarks[a], names[1:], at)
+            at += a if k == "u" else self.size(a)
+        return None
+
+    def _quark_at(self, members, quark, pos, out):
+        """Collect every start bit where quark sits inside members."""
+        at = pos
+        for _, k, a in members:
+            if k == "q":
+                if a == quark:
+                    out.append(at)
+                self._quark_at(self.quarks[a], quark, at, out)
+            at += a if k == "u" else self.size(a)
+
+    def member_id(self, path, where):
+        if path in self.ids:
+            return self.ids[path]
+        names = path.split(".")
+        if len(names) < 2:
+            raise SystemExit(f"{where}: member path TYPE.member, not {path}")
+        root, rest = names[0], names[1:]
+        ats = []
+        if root in self.elements:
+            t, members = self.elements[root]
+            r = self._walk(members, rest, 0)
+            if r is None:
+                raise SystemExit(f"{where}: {root} has no member "
+                                 f"{'.'.join(rest)}")
+            ats.append((t, r[0], r[1]))
+        elif root in self.quarks:
+            r = self._walk(self.quarks[root], rest, 0)
+            if r is None:
+                raise SystemExit(f"{where}: quark {root} has no member "
+                                 f"{'.'.join(rest)}")
+            for ename, (t, members) in self.elements.items():
+                starts = []
+                self._quark_at(members, root, 0, starts)
+                if len(starts) > 1:
+                    raise SystemExit(f"{where}: {ename} holds {root} "
+                                     f"{len(starts)} times: name it "
+                                     f"through {ename}")
+                if starts:
+                    ats.append((t, starts[0] + r[0], r[1]))
+            if not ats:
+                raise SystemExit(f"{where}: no element holds quark {root}")
+        else:
+            raise SystemExit(f"{where}: no element or quark {root}")
+        self.ids[path] = len(self.ats)
+        self.ats.append(sorted(ats))
+        if len(self.ats) >= 1 << 16:
+            raise SystemExit("bpasm: too many members")
+        return self.ids[path]
+
+    def describe(self):
+        out = []
+        for name, (t, members) in self.elements.items():
+            out.append(f"element {name} (type {t}):")
+            self._describe(members, 0, "  ", out)
+        for path, i in self.ids.items():
+            out.append(f"member {i} {path}: " + ", ".join(
+                f"type {t} bits {p}..{p + n - 1}" for t, p, n in self.ats[i]))
+        return out
+
+    def _describe(self, members, pos, ind, out):
+        at = pos
+        for m, k, a in members:
+            if k == "u":
+                out.append(f"{ind}{m}: bits {at}..{at + a - 1}")
+                at += a
+            else:
+                out.append(f"{ind}{m} ({a}): bits {at}..{at + self.size(a) - 1}")
+                self._describe(self.quarks[a], at, ind + "  ", out)
+                at += self.size(a)
+
+
+def load_decls(paths):
+    """Parse every path's declarations; -> (Decls, {path: other lines})."""
+    d = Decls()
+    rest = {p: d.parse(p) for p in paths}
+    d.check()
+    return d, rest
+
+
+def assemble(path, lines, ops, fields, decls):
+    """lines: path's non-declaration lines.  -> (bytes, listing lines)."""
 
     def size(words):
         op = words[0]
         if op == "push":
             return 2 if int(words[1], 0) < 256 else 5
-        if op in JUMPS:
+        if op in JUMPS or op in MEMBER_OPS:
             return 3
         if op in ("getf", "setf"):
             return 2
@@ -120,6 +321,11 @@ def assemble(path, ops, fields):
                 raise SystemExit(f"{path}:{n}: {op} needs a field "
                                  f"({', '.join(fields)})")
             b = [ops[op], fields[w[1]]]
+        elif op in MEMBER_OPS:
+            if len(w) != 2:
+                raise SystemExit(f"{path}:{n}: {op} needs a member path")
+            i = decls.member_id(w[1], f"{path}:{n}")
+            b = [ops[op], i & 0xff, i >> 8]
         else:
             if len(w) != 1:
                 raise SystemExit(f"{path}:{n}: {op} takes no operand")
@@ -131,7 +337,7 @@ def assemble(path, ops, fields):
     return bytes(code), listing
 
 
-def render(progs):
+def render(progs, decls):
     out = ["#pragma once  /* -*- C++ -*- */",
            "/* BytePrograms.h -- GENERATED by scripts/bytephys/bpasm.py from",
            "   the .bp files in scripts/bytephys; do not edit (bpasm.py "
@@ -140,7 +346,26 @@ def render(progs):
            '#include "BytePhys.h"',
            "",
            "namespace MFM {",
-           "  namespace BytePhys {"]
+           "  namespace BytePhys {",
+           ""]
+    for name, (t, _) in decls.elements.items():
+        out.append(f"    static constexpr u16 BP_TYPE_{name.upper()} = {t}u;")
+    out.append("")
+    for line in decls.describe():
+        out.append(f"    // {line}")
+    refs, ats = [], []
+    for per in decls.ats:
+        refs.append(f"{{{len(ats)}u, {len(per)}u}}")
+        ats += [f"{{{t}u, {p}u, {n}u}}" for t, p, n in per]
+    n = max(len(refs), 1)
+    out.append(f"    static const MemberRef BP_MEMBER_REFS[{n}] = {{")
+    out += [f"      {r}," for r in refs] or ["      {0u, 0u},"]
+    out.append("    };")
+    out.append(f"    static const MemberAt BP_MEMBER_ATS[{max(len(ats), 1)}] = {{")
+    out += [f"      {a}," for a in ats] or ["      {0u, 0u, 0u},"]
+    out.append("    };")
+    out.append(f"    static const Layout BP_LAYOUT = "
+               f"{{BP_MEMBER_REFS, {len(refs)}u, BP_MEMBER_ATS}};")
     for name, code in progs:
         up = name.upper()
         out.append("")
@@ -150,28 +375,43 @@ def render(progs):
             out.append(f"      {chunk},")
         out.append("    };")
         out.append(f"    static const Program BP_PROG_{up} = "
-                   f"{{BP_CODE_{up}, {len(code)}u}};")
+                   f"{{BP_CODE_{up}, {len(code)}u, &BP_LAYOUT}};")
     out += ["  }", "}", ""]
     return "\n".join(out)
 
 
+def sources():
+    return [os.path.join(HERE, f) for f in sorted(os.listdir(HERE))
+            if f.endswith(".bp")]
+
+
 def build():
     ops, fields = load_tables()
+    decls, rest = load_decls(sources())
     progs = []
-    for f in sorted(os.listdir(HERE)):
-        if f.endswith(".bp"):
-            code, _ = assemble(os.path.join(HERE, f), ops, fields)
-            progs.append((f[:-3], code))
-    return render(progs)
+    for path, lines in rest.items():
+        if lines:
+            code, _ = assemble(path, lines, ops, fields, decls)
+            progs.append((os.path.basename(path)[:-3], code))
+    return render(progs, decls)
 
 
 def main(argv):
     if argv[:1] == ["--list"]:
         ops, fields = load_tables()
+        paths = sources()
+        extra = [os.path.abspath(f) for f in argv[1:]
+                 if os.path.abspath(f) not in paths]
+        decls, rest = load_decls(paths + extra)
+        for path in paths:      # hand out member ids as a build would
+            if rest[path]:
+                assemble(path, rest[path], ops, fields, decls)
         for f in argv[1:]:
-            code, listing = assemble(f, ops, fields)
+            lines = rest[os.path.abspath(f)]
+            code, listing = assemble(f, lines, ops, fields, decls)
             print(f"{f}: {len(code)} bytes")
             print("\n".join(listing))
+        print("\n".join(decls.describe()))
         return 0
     text = build()
     if argv[:1] == ["--check"]:

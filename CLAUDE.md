@@ -136,6 +136,14 @@ unless the user asks for a rename.
   DARKER (5/8) copy of their native twin's color
   (BytePhys::isBytecodeType / tintBytecode, in ZHostDecompressor.cpp and
   CodeManager.cpp).  OPEN_ISSUES 'physics as bytecode'.
+  VERSION 1 (2026-11-27, host-tested, NOT yet run on the QB): .bp files
+  declare `quark`/`element` layouts (members packed into the atom's 80
+  state bits: mStg[0], mStg[1], mData0); getm/setm by member path,
+  checked against the site's type (fault BF_TYPE); add/sub/setm
+  SATURATE.  fb1.bp/fb4.bp now use quark Aging (aging.bp: fuse = mStg[0],
+  age = mStg[1], so host colors are unchanged).  BYTEPHYS.md section 5.
+  OPEN_ISSUES rounds run 183231: native FB4 won 4 of 6 contests, so
+  'bytecode is favored' was chance.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

@@ -1,25 +1,29 @@
 ; fb1.bp -- FB1 in BytePhys bytecode: the same steps and the SAME ORDER
 ; OF RANDOM DRAWS as PHY_FB1 in srcs/cross/images/ewp/src/Physics.cpp
-; (the native test checks that site by site).  Not copied: the one-time
-; SPLAT! log mark.  Site 0 is the center (ca).
+; (the native test checks that site by site).  Differs from native only
+; where native would wrap a 32-bit counter: here it saturates.  Not
+; copied: the one-time SPLAT! log mark.  Site 0 is the center (ca).
 
-        push 0          ; ca.mStg[1]++
+element BFB1 7
+  Aging a               ; a.fuse, a.age (aging.bp)
+
+        push 0          ; ca.age++
         push 0
-        getf stg1
+        getm BFB1.a.age
         push 1
         add
-        setf stg1
-        push 0          ; if (ca.mStg[0] > 0)
-        getf stg0
+        setm BFB1.a.age
+        push 0          ; if (ca.fuse > 0)
+        getm BFB1.a.fuse
         jz notcounting
-        push 0          ;   --ca.mStg[0]
+        push 0          ;   --ca.fuse
         push 0
-        getf stg0
+        getm BFB1.a.fuse
         push 1
         sub
-        setf stg0
-        push 0          ;   if (ca.mStg[0] == 0): kabam
-        getf stg0
+        setm BFB1.a.fuse
+        push 0          ;   if (ca.fuse == 0): kabam
+        getm BFB1.a.fuse
         jnz repro
         push 0          ;   for sn = 0..40
 boomloop:
@@ -45,27 +49,27 @@ repro:
         copy
         jmp move
 notcounting:
-        push 0          ; else if (ca.mStg[1] >= 21 && oneIn(100000))
-        getf stg1
+        push 0          ; else if (ca.age >= 21 && oneIn(100000))
+        getm BFB1.a.age
         push 21
         lt
         jnz move
         push 100000
         onein
         jz move
-        push 0          ;   ca.mStg[0] = between(5,500)
+        push 0          ;   ca.fuse = between(5,500)
         push 5
         push 500
         between
-        setf stg0
-        push 0          ;   ca.mStg[1] += between(1000,10000)
+        setm BFB1.a.fuse
+        push 0          ;   ca.age += between(1000,10000)
         push 0
-        getf stg1
+        getm BFB1.a.age
         push 1000
         push 10000
         between
         add
-        setf stg1
+        setm BFB1.a.age
 move:
         push 0          ; atom between(1,4) = ca
         push 1

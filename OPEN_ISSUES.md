@@ -362,6 +362,12 @@ EWPs, set the pace), so the events share is a fair proxy for the share
 of the grid.  Timing unchanged (6.59x).  No type 4/7 (FB1) events ever,
 no `.pf` in the 2 MB mark tail.  Log-car fix soak: tile logs and the
 live AER line lasted the whole 2.4 h.
+VERSION 1, DECLARED LAYOUTS (2026-11-27, host-tested, not yet on the QB):
+ulam-style `quark`/`element` declarations in .bp, getm/setm through a
+generated Layout checked against the site's type, saturating add/sub/
+setm; FB1/FB4 rewritten on quark Aging.  BYTEPHYS.md sections 5, 12.
+Next QB run should re-time 7/8 (getm costs a table scan + 64-bit
+shifts per access) and show no `.pf`.
 LOST SEED BATCHES (same run, NOT explained): in 3 rounds whole `seed 3 N`
 batches never grew although the host said `seeded 3/3`: round 4 type 8,
 round 5 both types (empty grid all round: no events 4200-4800 s, AER

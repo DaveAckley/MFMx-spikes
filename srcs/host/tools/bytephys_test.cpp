@@ -9,9 +9,15 @@
 //     many random windows and counter states, under several random
 //     streams (uniform, always-low, always-high), drawing the same
 //     numbers in the same order
+//     (counters kept clear of 2^32, where native wraps and bytecode
+//     saturates; saturation is checked on its own)
 //   * every machine fault is caught: stack under/overflow, call
 //     under/overflow (runaway recursion), bad opcode, jump past the end,
-//     running off the end, bad site, bad/read-only field, fuel
+//     running off the end, bad site, bad/read-only field, fuel, bad
+//     member id, member of the wrong element type
+//   * declared members: getBits/setBits against a bit-by-bit model over
+//     all 80 state bits, setm saturates to the declared width, add/sub
+//     saturate
 // and prints the bytecode instructions per event (mean, max).
 #include <cstdio>
 #include <cstring>
@@ -73,7 +79,9 @@ bool sameWindow(const Env & a, const Env & b) {
   return memcmp(a.mW, b.mW, sizeof(a.mW)) == 0;
 }
 
-void fillWindow(Env & e, u32 seed) {
+/* centerType: the bytecode programs only accept their own element type
+   at the center (getm faults otherwise); native does not look. */
+void fillWindow(Env & e, u32 seed, u16 centerType = 4u) {
   u32 s = seed * 2654435761u + 1u;
   for (u32 i = 0; i < BytePhys::SITES; ++i) {
     s ^= s << 13;
@@ -86,8 +94,8 @@ void fillWindow(Env & e, u32 seed) {
   }
   // center counters that reach every FB1 branch
   const u32 stg0s[] = {0u, 1u, 2u, 3u, 500u};
-  const u32 stg1s[] = {0u, 19u, 20u, 21u, 0xfffffffeu, 0xffffffffu};
-  e.mW[0] = P4Atom::makeAtom(4u);
+  const u32 stg1s[] = {0u, 19u, 20u, 21u, 0x7ffffffeu, 0x7fffffffu};
+  e.mW[0] = P4Atom::makeAtom(centerType);
   e.mW[0].mStg[0] = stg0s[seed % 5u];
   e.mW[0].mStg[1] = stg1s[(seed / 5u) % 6u];
 }
@@ -102,8 +110,10 @@ void testEquivalence() {
       for (int fb = 0; fb < 2; ++fb) {
         Env n(seed * 7919u + (u32) mode, mode);
         Env b(seed * 7919u + (u32) mode, mode);
-        fillWindow(n, seed);
-        fillWindow(b, seed);
+        const u16 ct = fb == 0 ? BytePhys::BP_TYPE_BFB1
+                               : BytePhys::BP_TYPE_BFB4;
+        fillWindow(n, seed, ct);
+        fillWindow(b, seed, ct);
         const bool rn = fb == 0 ? nativeFB1(n) : nativeFB4(n);
         bool rb = false;
         try {
@@ -135,11 +145,20 @@ void testEquivalence() {
          sizeof(BytePhys::Machine));
 }
 
-u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u) {
+/* A hand-made layout for the member tests: member 0 is 4 bits at state
+   bit 3 of type 4, member 1 is 8 bits at 28 (straddles mStg[0]/mStg[1])
+   of type 4 and 3 bits at 77 (top of mData0) of type 9. */
+const BytePhys::MemberRef T_REFS[2] = {{0u, 1u}, {1u, 2u}};
+const BytePhys::MemberAt T_ATS[3] = {{4u, 3u, 4u}, {4u, 28u, 8u},
+                                     {9u, 77u, 3u}};
+const BytePhys::Layout T_LAYOUT = {T_REFS, 2u, T_ATS};
+
+u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
+            const BytePhys::Layout * lay = &T_LAYOUT, u16 centerType = 4u) {
   BytePhys::Machine vm;
-  BytePhys::Program p{code.data(), (u16) code.size()};
+  BytePhys::Program p{code.data(), (u16) code.size(), lay};
   Env e(1u, 0);
-  fillWindow(e, 1u);
+  fillWindow(e, 1u, centerType);
   try {
     vm.run(p, e, fuel);
   } catch (const Fault & f) {
@@ -171,7 +190,110 @@ void testFaults() {
   check(faultOf({P8, 0, OP_GETF, 9, OP_HALT1}) == BF_FIELD, "bad field");
   check(faultOf({OP_JMP, 0, 0}, 1000u) == BF_FUEL, "infinite loop");
   check(faultOf({P8, 3, P8, 4, OP_ADD, OP_HALT1}) == 0u, "a good program");
+  check(faultOf({P8, 0, OP_GETM, 2, 0, OP_HALT1}) == BF_MEMBER,
+        "member id past the layout");
+  check(faultOf({P8, 0, OP_GETM, 0, 0, OP_HALT1}, 100u, nullptr)
+        == BF_MEMBER, "getm with no layout");
+  check(faultOf({P8, 0, OP_GETM, 0, 0, OP_HALT1}, 100u, &T_LAYOUT, 5u)
+        == BF_TYPE, "member of another element type");
+  check(faultOf({P8, 0, P8, 1, OP_SETM, 0, 0, OP_HALT1}, 100u, &T_LAYOUT,
+                9u) == BF_TYPE, "setm on another element type");
+  check(faultOf({P8, 41, OP_GETM, 0, 0, OP_HALT1}) == BF_SITE,
+        "getm site 41");
+  check(faultOf({OP_GETM, 0}) == BF_PC, "truncated member id");
+  check(faultOf({P8, 0, OP_GETM, 0, 0, OP_HALT1}) == 0u, "a good getm");
   printf("faults: every machine fault caught\n");
+}
+
+/* The state bits one at a time: mStg[0] 0..31, mStg[1] 32..63, mData0
+   64..79. */
+bool stateBit(const P4Atom & a, u32 i) {
+  if (i < 32u) return (a.mStg[0] >> i) & 1u;
+  if (i < 64u) return (a.mStg[1] >> (i - 32u)) & 1u;
+  return (a.mData0 >> (i - 64u)) & 1u;
+}
+
+void testBits() {
+  using namespace BytePhys;
+  u32 s = 12345u;
+  auto rnd = [&s]() {
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    return s;
+  };
+  for (u32 pos = 0; pos < STATE_BITS; ++pos) {
+    for (u32 len = 1; len <= MAX_MEMBER_BITS && pos + len <= STATE_BITS;
+         ++len) {
+      P4Atom a = P4Atom::makeAtom(4u);
+      a.mStg[0] = rnd();
+      a.mStg[1] = rnd();
+      a.mData0 = (u16) rnd();
+      const P4Atom before = a;
+      u32 want = 0u;
+      for (u32 i = 0; i < len; ++i)
+        want |= (u32) stateBit(a, pos + i) << i;
+      check(getBits(a, pos, len) == want, "getBits");
+      const u32 v = rnd() & lenMask(len);
+      setBits(a, pos, len, v);
+      bool ok = a.mParityAndType == before.mParityAndType;
+      for (u32 i = 0; i < STATE_BITS; ++i) {
+        const bool b = i >= pos && i < pos + len ? (v >> (i - pos)) & 1u
+                                                 : stateBit(before, i);
+        ok = ok && stateBit(a, i) == b;
+      }
+      check(ok, "setBits changed the wrong bits");
+    }
+  }
+
+  // setm saturates to the declared width; add and sub saturate
+  BytePhys::Machine vm;
+  auto run = [&vm](const std::vector<u8> & code, Env & e) {
+    BytePhys::Program p{code.data(), (u16) code.size(), &T_LAYOUT};
+    vm.run(p, e, 1000u);
+  };
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    const P4Atom before = e.mW[0];
+    run({OP_PUSH8, 0, OP_PUSH8, 200, OP_SETM, 0, 0, OP_HALT1}, e);
+    check(getBits(e.mW[0], 3u, 4u) == 15u, "setm saturates (200 -> 15)");
+    P4Atom x = e.mW[0];
+    setBits(x, 3u, 4u, getBits(before, 3u, 4u));
+    check(memcmp(&x, &before, sizeof x) == 0, "setm touched other bits");
+    run({OP_PUSH8, 0, OP_PUSH8, 0xab, OP_SETM, 1, 0, OP_PUSH8, 0,
+         OP_GETM, 1, 0, OP_HALT1}, e);
+    check(vm.mStack[0] == 0xabu, "straddling member round trip");
+  }
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u);
+    run({OP_PUSH32, 0xff, 0xff, 0xff, 0xff, OP_PUSH8, 5, OP_ADD,
+         OP_PUSH8, 3, OP_PUSH8, 5, OP_SUB, OP_HALT1}, e);
+    check(vm.mStack[0] == 0xffffffffu, "add saturates");
+    check(vm.mStack[1] == 0u, "sub saturates");
+  }
+  // the programs: age at its limit stays there (native would wrap to 0)
+  {
+    Env e(1u, 0);
+    fillWindow(e, 1u, BP_TYPE_BFB4);
+    e.mW[0].mStg[1] = 0xffffffffu;
+    vm.run(BP_PROG_FB4, e, 10'000u);
+    bool all = true;
+    for (u32 i = 0; i < SITES; ++i) all = all && e.mW[i].mStg[1] == ~0u;
+    check(all, "FB4 age saturates");
+  }
+  {
+    Env e(1u, 1);                       // oneIn always true: the splat path
+    fillWindow(e, 1u, BP_TYPE_BFB1);
+    e.mW[0].mStg[0] = 0u;
+    e.mW[0].mStg[1] = 0xfffffffeu;
+    vm.run(BP_PROG_FB1, e, 10'000u);
+    check(e.mW[0].mStg[1] == 0xffffffffu, "FB1 age saturates");
+    check(e.mW[0].mStg[0] == 5u, "FB1 fuse set on the splat path");
+  }
+  printf("members: getBits/setBits match a bit model at every pos/len; "
+         "setm, add, sub, FB1/FB4 ages saturate\n");
 }
 
 }  // namespace
@@ -179,6 +301,7 @@ void testFaults() {
 int main() {
   testEquivalence();
   testFaults();
+  testBits();
   if (g_bad) {
     printf("bytephys_test: %d FAILED\n", g_bad);
     return 1;

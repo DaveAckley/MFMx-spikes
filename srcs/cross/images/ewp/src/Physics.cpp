@@ -22,6 +22,9 @@ namespace MFM {
   static constexpr u32 PHY_BFB1 = 7u;
   static constexpr u32 PHY_BFB4 = 8u;
   static constexpr u32 BP_FUEL = 10'000u; // instructions per event
+  // the .bp files declare these element types (BytePrograms.h)
+  static_assert(PHY_BFB1 == BytePhys::BP_TYPE_BFB1, "fb1.bp type");
+  static_assert(PHY_BFB4 == BytePhys::BP_TYPE_BFB4, "fb4.bp type");
 
   // The tile's wall clock, AI clock cycles (as FastT0.cpp reads it); the
   // low word is enough for one event.
@@ -55,6 +58,8 @@ namespace MFM {
       case BytePhys::BF_SITE: FAIL(ARRAY_INDEX_OUT_OF_BOUNDS);
       case BytePhys::BF_FIELD: FAIL(BAD_VALUE);
       case BytePhys::BF_FUEL: FAIL(OUT_OF_RESOURCES);
+      case BytePhys::BF_MEMBER: FAIL(NOT_FOUND);
+      case BytePhys::BF_TYPE: FAIL(BAD_CAST);
       default: FAIL(ILLEGAL_ARGUMENT);
       }
     }

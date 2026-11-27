@@ -29,6 +29,17 @@
    ENCODING.  One byte opcode, then its immediates, little-endian.  Jump
    and call targets are absolute u16 offsets into the program.  Binary
    ops pop b then a and push (a op b).  See bpasm.py for the assembler.
+
+   ARITHMETIC SATURATES.  ADD and SUB clamp to [0, 2^32-1] instead of
+   wrapping, and SETM clamps a value to its member's declared width.
+
+   DECLARED MEMBERS.  bpasm source declares elements and quarks (named
+   members of given bit widths, packed into the atom's 80 STATE BITS: bits
+   0..31 are mStg[0], 32..63 mStg[1], 64..79 mData0).  GETM/SETM name a
+   member by a u16 id; the program's Layout maps the id to one (type,
+   pos, len) per element type that has it (a quark member can live at
+   different places in different elements).  A site whose type has no
+   such member is a fault (BF_TYPE).
 */
 #include "itype.h"
 #include "P4Atom.h"
@@ -45,8 +56,8 @@ namespace MFM {
       OP_DROP,                          //< a ->
       OP_SWAP,                          //< a b -> b a
       OP_OVER,                          //< a b -> a b a
-      OP_ADD,                           //< a b -> a+b (u32 wrap)
-      OP_SUB,                           //< a b -> a-b (u32 wrap)
+      OP_ADD,                           //< a b -> a+b (saturates at 2^32-1)
+      OP_SUB,                           //< a b -> a-b (saturates at 0)
       OP_EQ,                            //< a b -> a==b
       OP_LT,                            //< a b -> a<b (unsigned)
       OP_JMP,                           //< imm16 target
@@ -60,6 +71,8 @@ namespace MFM {
       OP_EMPTY,                         //< sn -> (atom sn = empty)
       OP_BETWEEN,                       //< lo hi -> between(lo, hi)
       OP_ONEIN,                         //< n -> oneIn(n)
+      OP_GETM,                          //< imm16 member: sn -> value
+      OP_SETM,                          //< imm16 member: sn value ->
       OP_COUNT
     };
 
@@ -83,11 +96,69 @@ namespace MFM {
       BF_SITE,                          //< site number >= 41
       BF_FIELD,                         //< bad or read-only field
       BF_FUEL,                          //< instruction budget used up
+      BF_MEMBER,                        //< no such member id (or no Layout)
+      BF_TYPE,                          //< the site's type lacks that member
       BF_COUNT
     };
 
     enum : u32 {
       SITES = 41,                       //< EventWindow::ATOM_COUNT
+      STATE_BITS = 80,                  //< mStg[0], mStg[1], mData0
+      MAX_MEMBER_BITS = 32,             //< widest member (fits the stack)
+    };
+
+    /* All ones in the low len bits, 1 <= len <= 32. */
+    inline u32 lenMask(u32 len) {
+      return len >= 32u ? 0xffffffffu : (1u << len) - 1u;
+    }
+
+    /* State word i of an atom: 0 mStg[0], 1 mStg[1], 2 mData0. */
+    inline u32 stateWord(const P4Atom & a, u32 i) {
+      return i == 0u ? a.mStg[0] : i == 1u ? a.mStg[1] : (u32) a.mData0;
+    }
+
+    inline void putStateWord(P4Atom & a, u32 i, u32 v) {
+      if (i == 0u) a.mStg[0] = v;
+      else if (i == 1u) a.mStg[1] = v;
+      else a.mData0 = (u16) v;
+    }
+
+    /* len state bits at pos (pos + len <= STATE_BITS, len <= 32). */
+    inline u32 getBits(const P4Atom & a, u32 pos, u32 len) {
+      const u32 w = pos >> 5;
+      u64 v = stateWord(a, w);
+      if (w < 2u) v |= (u64) stateWord(a, w + 1u) << 32;
+      return (u32) (v >> (pos & 31u)) & lenMask(len);
+    }
+
+    inline void setBits(P4Atom & a, u32 pos, u32 len, u32 val) {
+      const u32 w = pos >> 5;
+      const u32 off = pos & 31u;
+      u64 v = stateWord(a, w);
+      if (w < 2u) v |= (u64) stateWord(a, w + 1u) << 32;
+      const u64 m = (u64) lenMask(len) << off;
+      v = (v & ~m) | (((u64) val << off) & m);
+      putStateWord(a, w, (u32) v);
+      if (w < 2u) putStateWord(a, w + 1u, (u32) (v >> 32));
+    }
+
+    /* Where one element type keeps a member. */
+    struct MemberAt {
+      u16 mType;
+      u8 mPos;                          //< first state bit
+      u8 mLen;                          //< width, 1..32
+    };
+
+    /* Member id -> its MemberAts (one per element type that has it). */
+    struct MemberRef {
+      u16 mFirst;                       //< index into Layout::mAts
+      u16 mCount;
+    };
+
+    struct Layout {
+      const MemberRef * mRefs;
+      u16 mRefCount;
+      const MemberAt * mAts;
     };
 
     /* The physics types run as bytecode (ewp/src/Physics.cpp PHY_BFB1,
@@ -106,6 +177,7 @@ namespace MFM {
     struct Program {
       const u8 * mCode;
       u16 mLength;
+      const Layout * mLayout;           //< for GETM/SETM (may be null)
     };
 
     struct Machine {
@@ -188,8 +260,8 @@ namespace MFM {
             BP_NEED(2);
             const u32 b = mStack[--sp];
             const u32 a = mStack[sp - 1];
-            mStack[sp - 1] = op == OP_ADD ? a + b
-                           : op == OP_SUB ? a - b
+            mStack[sp - 1] = op == OP_ADD ? (a + b < a ? 0xffffffffu : a + b)
+                           : op == OP_SUB ? (a < b ? 0u : a - b)
                            : op == OP_EQ ? (u32) (a == b)
                            : (u32) (a < b);
             break;
@@ -272,6 +344,39 @@ namespace MFM {
             BP_NEED(1);
             mStack[sp - 1] = env.oneIn(mStack[sp - 1]) ? 1u : 0u;
             break;
+          case OP_GETM:
+          case OP_SETM: {
+            BP_IMM(2);
+            const u32 id = (u32) code[pc] | ((u32) code[pc + 1] << 8);
+            pc += 2;
+            u32 v = 0u;
+            if (op == OP_SETM) {
+              BP_NEED(2);
+              v = mStack[--sp];
+            } else BP_NEED(1);
+            const u32 sn = op == OP_SETM ? mStack[--sp] : mStack[sp - 1];
+            if (sn >= SITES) env.fault(BF_SITE);
+            const Layout * lay = p.mLayout;
+            if (lay == nullptr || id >= lay->mRefCount) env.fault(BF_MEMBER);
+            P4Atom & a = env.atom(sn);
+            const u32 type = a.getType();
+            const MemberRef & r = lay->mRefs[id];
+            const MemberAt * at = nullptr;
+            for (u32 i = 0; i < r.mCount; ++i) {
+              const MemberAt & c = lay->mAts[r.mFirst + i];
+              if (c.mType == type) {
+                at = &c;
+                break;
+              }
+            }
+            if (at == nullptr) env.fault(BF_TYPE);
+            if (op == OP_GETM) mStack[sp - 1] = getBits(a, at->mPos, at->mLen);
+            else {
+              const u32 max = lenMask(at->mLen);
+              setBits(a, at->mPos, at->mLen, v > max ? max : v);
+            }
+            break;
+          }
           default:
             env.fault(BF_OPCODE);
           }
