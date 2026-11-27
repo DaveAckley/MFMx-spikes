@@ -12,7 +12,7 @@ class CachedFont:
     # shadow around the letters and the text stays readable over atoms.
     COMPOSITE = True
     BOX = False                 # True: dim each glyph's whole cell instead
-    HALO_PX = 3
+    HALO_PX = 2
     HALO_DIM = 0.85
     def __init__(self,fontcache,key,aspectRatio=0.6,preload=True):
         self.fc = fontcache

@@ -216,7 +216,7 @@ unless the user asks for a rename.
   the stream's overlay text (LIVE, AER, info, date/time, NO DATA) no longer
   blacks out its character cells: srcs/host/python/EWD/FontCache.py draws
   each glyph through its antialiased coverage after darkening the picture
-  under a halo (the glyph grown by HALO_PX = 3, dimmed by HALO_DIM = 0.85),
+  under a halo (the glyph grown by HALO_PX = 2 (3 until 2026-11-26), dimmed by HALO_DIM = 0.85),
   so the grid shows around the letters.  CachedFont.BOX = True dims whole
   cells instead (needed ~0.8 to stay readable in an offline test);
   COMPOSITE = False restores the opaque cells.  Cost ~3.7 ms per frame
