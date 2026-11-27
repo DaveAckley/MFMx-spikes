@@ -148,34 +148,6 @@ ERISC_NOTES.md.
   mfmxctl with `python3 -X faulthandler` (or PYTHONFAULTHANDLER=1) and quit with
   plain `q`; compare with `q c`.  Low priority.
 
-## Log car dies after 65.5 s of silence: hub and EWP logging stops for good (2026-11-26, FIXED, cross-built, not yet run)
-
-LogBlockL1Control::writeMark (srcs/cross/src/EP_LogBlock.cpp) stamps each
-mark with a u16 ms offset from the car's mBaseTicks and REFUSES the mark
-when the offset would be >= 65,535.  readyToClose ships a car for time
-only when mLastTickOffset (the offset of the last mark WRITTEN) is over
-30,000.  So a car that sees no mark for 65.5 s after it opened can never
-take a mark nor close: that tile's log is dead for the rest of the run
-(its HB marks still work).  Run 20261126-141643: all 140 hubs' log marks
-stopped at ~666 s, when `scan 140` blocked mfmxctl for 10 min (no bolts,
-so the hubs logged nothing), and never came back though the cycle ran on
-to scy ~190; only 3 EWPs (which logged `.pt` often enough) ever
-delivered: every other EWP logs nothing for its first minute, so its
-first car died at once.  Explains the 0 `.pt` of run 122857 and the
-lost LIVE AER line ('no hub has reported') after the sweep.  Earlier runs
-never paused the hubs that long.  Fix idea: readyToClose also ships a
-non-empty car once millisElapsed() - mBaseTicks passes the 30 s mark,
-and writeMark rebases an EMPTY car (mBaseTicks = now, payload reset)
-instead of refusing; count refused marks.
-FIX (2026-11-26, as above): readyToClose ships a car holding marks once
-it is older than LBP_HIGH_TICKS_MARK (30 s) by the clock, and writeMark
-restarts an empty car's clock after 30 s quiet; a mark is still refused
-(mMarksMissed++) only when a non-empty car could not be shipped for
-65.5 s (no empty car back from the host).  Cross-built clean (hub ends
-0xfc125).  Check (experiment.cmd, no sweeps): ~560 files in tiles/ (hub
-and EWP), physics timing over ~105 EWPs per chip, hub `.ev` marks to the
-end of the run, live AER line throughout.
-
 ## Unproven on hardware
 
 - Zoom slows host-observed consensus from about 0.06 s to 0.4-0.7 s (2026-11-23, built a mitigation, NOT yet run): proven by toggling `zoom off`/`zoom auto` mid-run.  Mitigation: poll the bolt between zoom stages, skip the box scan while a bolt is pending, per-stage timers in `zoom status` (CLAUDE.md).  To check: with zoom auto, consensus back near 0.1 s?  If not, the `cost:` line shows which stage (scan, step, render, whole frame) is long; render is one call and cannot be split without work (bands, or a worker thread).  The numpy fallback is used when cv2 is missing: the cost line says so.
@@ -307,16 +279,14 @@ sibling of T6Grid (packed rows, orthogonal coords) behind a compile flag.
 
 ## Ideas: EWP log delivery; host-side atom type census (2026-11-26, not started)
 
-- EWP logging: the EWP log path is the same as the hub's and works;
-  EWPs just die of 'Log car dies after 65.5 s of silence' (Bugs) because
-  they log nothing in their first minute.
+- EWP logging: works since the log-car fix (CLOSED_ISSUES 2026-11-26).
 - Host census (Liv): the host counts atom types in what it displays
   (the 1920x1080 site image it already has) and logs the census
   somewhere, e.g. per minute in misc/ and in runsum.txt; would answer
   'did 5 eradicate 8' directly.  Maybe expand the 'logo block' (the
   stream overlay text) to show some of it.
 
-## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE BUILT, first run got no timing)
+## Design idea: physics as bytecode with explicit, bounded stacks (2026-11-26, SPIKE RUN and timed)
 
 SPIKE (2026-11-26, built, cross-built, host-tested; NOT run on the QB):
 srcs/shared/include/BytePhys.h is a tiny switch-dispatch stack machine
@@ -366,6 +336,12 @@ type 8 had 151M events to type 5's 89M, so bytecode FB4 held more of
 the grid at the end despite being 6.6x slower per event (consistent with
 a neutral voter model plus chance).  The sweeps cost ~10 min each (PC
 snapshots + 15 perl runs per tile) and blocked mfmxctl.
+THIRD RUN 20261126-163422 (a941d4c, log-car fix, no sweeps): same
+numbers through the normal log path, now from 560 tile files: FB1
+native 501 / bytecode 2260 cycles/event (4.51x, 29.9 insns), FB4 native
+3320 / bytecode 21886 (6.59x, 369 insns).  Events per type over the
+run: type 8 505M on 375 tiles vs type 5 191M on 189 tiles, so again
+bytecode FB4 ended up holding more of the grid (2 runs of 2).
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is

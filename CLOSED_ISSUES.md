@@ -5,6 +5,20 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-26  Log car died after 65.5 s of silence
+
+LogBlockL1Control::writeMark refused a mark whose u16 ms offset from its
+car's base would overflow, and readyToClose shipped for time only by the
+last WRITTEN offset, so a car with no mark for 65.5 s was stuck and that
+tile's log was dead for the rest of the run (HB marks still worked).  Seen
+in run 20261126-141643: all 140 hubs' logs stopped when a 10 min host
+stall (`scan 140`) silenced them; only 3 EWPs ever delivered (most EWPs
+log nothing in their first minute).  Fix a941d4c (EP_LogBlock.cpp): ship
+a car holding marks once 30 s old by the clock; an empty car quiet over
+30 s restarts its clock.  PROVEN run 20261126-163422: 560 tile files
+(140 before), EWP `.pt` marks from up to 375 tiles per type, live AER
+line to the end.
+
 ## 2026-11-21  Compressed report stream breaks (PROVISIONAL)
 Cause: the host's return write of an empty ACB car (header, payload prefix,
 footer, through a write-combining PCIe window into the hub's L1) could become

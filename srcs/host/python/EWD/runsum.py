@@ -250,7 +250,7 @@ def hub_marks(rundir):
             except OSError:
                 pass
         if not vals:
-            r.append(f"{tag} none of {len(files)} hubs")
+            r.append(f"{tag} none of {len(files)} tiles")
             continue
         common = {}
         for v in vals:
@@ -259,7 +259,7 @@ def hub_marks(rundir):
         shown = ", ".join(f"{v} x{n}" for v, n in top[:HUB_MARK_VALUES])
         more = "" if len(top) <= HUB_MARK_VALUES else \
             f", +{len(top) - HUB_MARK_VALUES} more"
-        r.append(f"{tag} {len(vals)} of {len(files)} hubs: {shown}{more}")
+        r.append(f"{tag} {len(vals)} of {len(files)} tiles: {shown}{more}")
         fields = [v.split(":") for v in vals]
         if len(top) > 1 and all(len(f) == len(fields[0]) for f in fields):
             try:
