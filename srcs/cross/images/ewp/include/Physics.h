@@ -38,15 +38,14 @@ namespace MFM {
     // The opened BCP blobs (BytePhys.h 'BCP'): the physics (types 7 and
     // up) and the microbenchmark.  Compiled in for now (BP_BCP); later a
     // physics chosen at start, appended after the image (OPEN_ISSUES).
+    // Opened at the first event that needs one (openImages): fast RAM
+    // is zero at reset, so mBCPTried starts at 0; nothing calls initB.
     BytePhys::BCPView mBCP;
     BytePhys::BCPView mBenchBCP;
-    void openImages() ;         // initB
-    void reopenImages() ;       // a view found empty at an event
-    u32 mBCPOpen;               //< initB's openBCP answer, physics
+    void openImages() ;         // at the first event that needs one
+    u32 mBCPTried;              //< 1 once openImages ran (0 at reset)
+    u32 mBCPOpen;               //< its openBCP answer, physics
     u32 mBenchOpen;             //< and bench (0 = opened)
-    u32 mBCPLate;               //< 0x10 initB opened; +1 empty later
-    u32 mBCPRetry;              //< then: openBCP's answer, physics
-    u32 mBenchRetry;            //< and bench
 
     // Physics timing (`.pt` mark): per timed type, events, wall-clock
     // ticks (AI clock cycles) spent in guardedPhysics, and bytecode

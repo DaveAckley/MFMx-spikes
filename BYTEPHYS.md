@@ -91,8 +91,8 @@ instruction doing the work of a native loop.
   beside the event window (`Physics::mVM`).  132 of those bytes are the
   copy of run()'s dispatch table (`mOps`, 32 entries: the 28 handlers
   and 4 BF_OPCODE fillers, so a masked opcode never jumps wild) and the
-  pointer it came from (`mOpsFrom`), filled by the first run() after
-  the EWP's initB clears it (section 12).  Beside it, the code cache
+  pointer it came from (`mOpsFrom`), filled by the first run() (EWP
+  fast RAM is zero at reset; nothing calls initB, section 12).  Beside it, the code cache
   (`Physics::mCodeCache`, ByteCache.h, ~1.1 KB).
 
 An event runs one program from offset 0 until HALT0 or HALT1:
@@ -149,8 +149,10 @@ as before (reporting the Fault a bad instruction would cause); it reads
 bytes only, so it is constexpr and every generated header
 static_asserts it.  `openBCP(bytes, room, view)` runs it again and fills
 a `BCPView` (plain pointers into the blob) for run() and the code cache;
-the EWP opens its blobs once in initB (Physics::openImages; a failure
-marks `BCPBAD` and runs no bytecode).  `entryFor(view, type)` replaces
+the EWP opens its blobs at the first event that needs one
+(Physics::openImages; nothing calls initB; a failure marks `BCPBAD` and
+runs no bytecode; `.bv:TRIED:OPEN:BENCH:TYPES.` with the 100k-event
+marks).  `entryFor(view, type)` replaces
 the old generated programFor table.
 
 Stack effects below are written `( before -- after )`, top of stack on
@@ -664,9 +666,14 @@ attack the second.
   openBCP fills a BCPView (Image is gone; Program is (view, function));
   entryFor(view, type) replaces programFor.  bpasm.py packs the blob
   (pack_bcp) and emits BP_FUNC_<NAME>, BP_PROG_FUNCS, BP_PROG_NAMES.
-  The EWP opens the physics and bench blobs in initB (mBCP, mBenchBCP in
+  The EWP opens the physics and bench blobs once (mBCP, mBenchBCP in
   hart B fast RAM, +80 bytes: data ends at 0x10c0); `BCPBAD` mark if one
-  fails.  bytephys_test: hand-made images are packed by a C++ packBCP,
+  fails.  RUN 20261128-014339 RAN NO BYTECODE: the open sat in initB,
+  which nothing calls (since bb5c983); the cache and dispatch resets
+  there never ran either, harmless because fast RAM is zero at reset
+  and bind() empties the cache.  Now opened at the first event that
+  needs it (f1e7905's late reopen proved the open itself works on the
+  hardware: `.bv:0:0:1:0:0:2`).  bytephys_test: hand-made images are packed by a C++ packBCP,
   which must give bpasm's exact bytes for the physics; damage of every
   kind is refused (magic, version, opcode count, size, checksum, a
   misaligned or out-of-bounds table, reserved words, a member over 32

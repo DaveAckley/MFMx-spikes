@@ -1,13 +1,10 @@
-# EXPERIMENT: BytePhys BCP blobs, diagnosis: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# Same script as runs 003440 and 014339.  Run 014339 (91907bb) ran NO
-# bytecode: the EWPs' BCP views were empty at events (OPEN_ISSUES).  This
-# build logs `.bv:OPEN:BENCH:LATE:RETRY:BRETRY:TYPES.` with every
-# 100k-event mark (initB's openBCP answers, 0 = ok; LATE 0x10 = initB
-# opened, +1 = a view was empty at an event and was reopened; the
-# reopen answers; the physics view's type count) and reopens an empty
-# view, so the bytecode may run anyway.  Wanted: the `.bv` values
-# (grep -h '\.bv:' tiles/*.mfmk | sort | uniq -c, or the all.mfmk tail),
-# then the usual bench / FB1 / FB4 numbers if the bytecode ran.
+# EXPERIMENT: BytePhys BCP blobs opened lazily: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# Same script as runs 003440 and 014339.  Run 014339 ran no bytecode:
+# the BCP open sat in initB, which nothing calls (since bb5c983).  Now
+# the EWP opens its blobs at the first event that needs one.  Expect
+# `.bv:1:0:0:2.` on every EWP (runsum 'BCP opens'), bench call ~43 F /
+# ~51 L, enter ~50 / ~59, FB4 ~9436 cycles/event, FB1 ~1700-1760,
+# `.bc` 0 scans, no BCPBAD, no `.pf`.
 # Bench phase: 20 Bench atoms (type 31), decay 31; they erase
 # themselves after 104 events.  Then FB1 seeds, a whole-grid nuke, then
 # FB4 seeds.  Expect no `.pf`.

@@ -55,14 +55,16 @@ namespace MFM {
     return true;
   }
 
+  // NOTE (2026-11-28): NOTHING CALLS initB (no caller since DefaultLives
+  // became StandardLife, bb5c983), so none of this runs, including
+  // preloadT2Mailbox.  The bytecode state below relies on fast RAM being
+  // zero at reset instead (the Machine fills its dispatch table on the
+  // first run(), the code cache empties itself at its first bind(), the
+  // BCPs are opened at the first event, Physics::openImages).
   int initB() {
     preloadT2Mailbox();
-    // fast RAM is zeroed as a hart leaves reset (BH ISA docs), but set
-    // these one-time states explicitly anyway: the first run() fills the
-    // Machine's dispatch table (BytePhys.h mOps)
     fB.mThePhysics.mVM.resetDispatch();
-    fB.mThePhysics.mCodeCache.reset();   // and nothing cached yet
-    fB.mThePhysics.openImages();         // verify and open the BCPs
+    fB.mThePhysics.mCodeCache.reset();
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     return 0;
   }

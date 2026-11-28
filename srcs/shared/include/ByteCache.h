@@ -38,7 +38,8 @@
    a corrupt byte reaches a handler or BF_OPCODE, never a wild jump.
 
    On the EWP the cache is Physics::mCodeCache (hart B fast RAM; budget
-   ~3 KB, BYTEPHYS.md: 12 slots); initB resets it.  If small functions
+   ~3 KB, BYTEPHYS.md: 12 slots); it starts zeroed (fast RAM at reset)
+   and its first bind() empties it.  If small functions
    waste their slots, the allocator can move to packed 64-byte units
    without touching the format or run(). */
 
@@ -74,8 +75,8 @@ namespace MFM {
       u32 mRefreshes;                   //< slots re-copied (refreshOne)
       u32 mBytesCopied;
 
-      /* Empty every slot, unbind, zero the counters.  The EWP calls this
-         in initB; a host cache must be value-initialized or reset. */
+      /* Empty every slot, unbind, zero the counters.  A host cache must be
+         value-initialized or reset; the EWP's starts zeroed. */
       void reset() {
         mImage = nullptr;
         empty();

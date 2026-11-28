@@ -423,8 +423,8 @@ def cache_and_stack(rundir):
                  f"({bc4[1] * 1e6 / max(ev, 1):.2f} per million), "
                  f"refreshes {bc4[2]}, bytes copied {bc4[3]}")
     if bv:
-        r.append("BCP opens (.bv OPEN:BENCH:LATE:RETRY:BRETRY:TYPES, hex; "
-                 "LATE 10 = initB opened, +1 = reopened at an event): " +
+        r.append("BCP opens (.bv TRIED:OPEN:BENCH:TYPES, hex; 0 = opened; "
+                 "f1e7905 had OPEN:BENCH:LATE:RETRY:BRETRY:TYPES): " +
                  ", ".join(f"{v} x{n}" for v, n in
                            sorted(bv.items(), key=lambda kv: -kv[1])[:6]))
     if used:

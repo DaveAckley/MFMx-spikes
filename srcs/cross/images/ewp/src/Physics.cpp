@@ -144,17 +144,13 @@ namespace MFM {
              (unsigned) estimateStackHeadroom());
     LOGPTAG(.sw,buf);
     HBPTAG(.sw,buf);
-    // `.bv:OPEN:BENCH:LATE:RETRY:BRETRY:TYPES.` the BCP opens: initB's
-    // openBCP answers (0 = ok); LATE 0x10 = initB opened them (0 = it
-    // never ran openImages), +1 = a view was found empty at an event and
-    // reopened; those answers; the physics view's type count now
-    // (BytePhys.h 'BCP')
-    snprintf(buf, sizeof(buf), "%x:%x:%x:%x:%x:%x.",
+    // `.bv:TRIED:OPEN:BENCH:TYPES.` the BCP opens: 1 once
+    // openImages ran, its openBCP answers (0 = ok), and the physics
+    // view's type count (BytePhys.h 'BCP')
+    snprintf(buf, sizeof(buf), "%x:%x:%x:%x.",
+             (unsigned) mBCPTried,
              (unsigned) mBCPOpen,
              (unsigned) mBenchOpen,
-             (unsigned) mBCPLate,
-             (unsigned) mBCPRetry,
-             (unsigned) mBenchRetry,
              (unsigned) mBCP.mTypeCount);
     LOGPTAG(.bv,buf);
     HBPTAG(.bv,buf);
@@ -172,11 +168,16 @@ namespace MFM {
     HBPTAG(.pb,buf);
   }
 
-  /* Open the compiled-in BCP blobs (initB).  They pass verifyBCP at
-     compile time, so a failure here means corrupted L1: mark it and run
-     no bytecode (an unopened view has no types, so entryFor finds none
-     and those atoms are erased like any unknown type). */
+  /* Open the compiled-in BCP blobs, once, at the first event that
+     needs one (nothing calls initB, so no init hook: run
+     20261128-014339 ran no bytecode because the open sat there).
+     They pass verifyBCP at compile time, so a failure here means
+     corrupted L1: mark it and run no bytecode (an unopened view has
+     no types, so entryFor finds none and those atoms are erased like
+     any unknown type).  Cold: runs once per EWP. */
+  __attribute__((noinline, cold))
   void Physics::openImages() {
+    mBCPTried = 1u;
     mBCP = BytePhys::BCPView{};
     mBenchBCP = BytePhys::BCPView{};
     mBCPOpen = BytePhys::openBCP(BytePhys::BP_BCP, sizeof(BytePhys::BP_BCP),
@@ -191,23 +192,6 @@ namespace MFM {
       LOGPTAG(BCPBAD,mBenchOpen);
       HBPTAG(BCPBAD,mBenchOpen);
     }
-    mBCPLate = 0x10u;           // initB opened (fast RAM is 0 at reset)
-    mBCPRetry = 0u;
-    mBenchRetry = 0u;
-  }
-
-  /* A view found empty at an event (run 20261128-014339: no bytecode
-     ran at all, cause unknown): open it again there and remember what
-     happened, for the `.bv` mark.  Cold: never taken when initB's open
-     worked and the view survived. */
-  __attribute__((noinline, cold))
-  void Physics::reopenImages() {
-    mBCPLate |= 1u;
-    namespace BB = BytePhys::Bench;
-    mBCPRetry = BytePhys::openBCP(BytePhys::BP_BCP,
-                                  sizeof(BytePhys::BP_BCP), mBCP);
-    mBenchRetry = BytePhys::openBCP(BB::BP_BCP, sizeof(BB::BP_BCP),
-                                    mBenchBCP);
   }
 
   template <class Env, class Res>
@@ -246,7 +230,7 @@ namespace MFM {
       return true;
     }
     const u32 i = idx % BB::BP_PROG_COUNT;
-    if (__builtin_expect(mBenchBCP.mBase == nullptr, 0)) reopenImages();
+    if (__builtin_expect(mBCPTried == 0u, 0)) openImages();
     if (mBenchBCP.mFuncCount == 0u) {   // not opened: nothing to time
       ca = P4Atom::makeEmptyAtom();
       return true;
@@ -371,7 +355,7 @@ namespace MFM {
     default: {
       // a compiled (bytecode) type?  scripts/ulamlite assigns these
       // numbers; the BCP's type table maps them to entry functions
-      if (__builtin_expect(mBCP.mBase == nullptr, 0)) reopenImages();
+      if (__builtin_expect(mBCPTried == 0u, 0)) openImages();
       const u32 f = BytePhys::entryFor(mBCP, cat);
       if (f != BytePhys::NO_FUNC) {
         EwpPhysEnv env{ew};

@@ -28,18 +28,15 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 
 ## Bugs
 
-- NO BYTECODE RAN in run 20261128-014339 (91907bb, BCP blobs): no type
-  7/8 timing, no bench `.pb` marks, the code cache never used, so on the
-  EWPs the opened BCP views had no types/functions (bytecode atoms were
-  erased like unknown types).  Clean boot otherwise.  Checked: the blob
-  bytes in ewp.bin are exactly the header's; openBCP succeeds compiled
-  for rv32ima in riscv32-tt-elf-run (the simulator lacks the EWP's
-  zba/zbb); initB calls openImages; no static ctor or boot code touches
-  the views (canaries start above them).  Unknown: openBCP's answer on
-  the hardware.  BUILT (not run): `.bv:OPEN:BENCH:LATE:RETRY:BRETRY:
-  TYPES.` with the 100k-event marks, and an empty view is reopened at
-  its first event.  Asked Liv for `grep BCPBAD` in that run's tiles.
-
+- NO BYTECODE RAN in run 20261128-014339 (91907bb, BCP blobs): CAUSE
+  FOUND, fix built (not run).  The BCP open sat in initB, and NOTHING
+  CALLS initB (no caller since DefaultLives became StandardLife,
+  bb5c983).  f1e7905's `.bv:0:0:1:0:0:2` (initB never ran; the late
+  reopen at an event worked) showed it.  Now the EWP opens its blobs at
+  the first event that needs one (Physics::openImages, `.bv:TRIED:OPEN:
+  BENCH:TYPES.`).  Move to CLOSED_ISSUES when a run shows bytecode and
+  `.bv:1:0:0:2`.  ALSO: initB's preloadT2Mailbox() has never run since
+  bb5c983 either; harmless so far?  (Liv to judge; initB now says so.)
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The
   `.sc` mark (scy at NEW_LEADER entry) is now in every run for next time.

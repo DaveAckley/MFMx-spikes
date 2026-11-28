@@ -374,8 +374,8 @@ namespace MFM {
       /* The dispatch table, copied here from run()'s kOps (in L1 on the
          EWP) so each dispatch's table load comes from fast RAM along
          with the rest of the Machine.  mOpsFrom names the kOps the copy
-         came from (each run<Env> has its own); null = no copy yet.  The
-         EWP zeroes it in initB (fast RAM is not zeroed at boot); a host
+         came from (each run<Env> has its own); null = no copy yet.  On
+         the EWP fast RAM is zero at reset (nothing calls initB); a host
          Machine must be value-initialized (`Machine vm{};`) or call
          resetDispatch().  The table has OPS_SLOTS entries, the power of
          two at or above OP_COUNT; dispatch masks the opcode byte to it
