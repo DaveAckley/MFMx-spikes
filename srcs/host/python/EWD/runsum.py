@@ -361,7 +361,8 @@ def physics_timing(rundir, window=PT_WINDOW_SECS):
 # scripts/bytephys/benchgen.py).  V: L = program in L1 (as real physics
 # runs), F = copied into fast RAM, N = a native load probe (INSNS = loads).
 def cache_and_stack(rundir):
-    """EWP `.bc:HITS:MISSES:TOOBIG:REFRESHES:BYTES.` (code cache,
+    """EWP `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.` (chunk cache; before
+    2026-11-27 the third field was TOOBIG,
     ByteCache.h) and `.sw:USED:HEADROOM.` (hart B stack) marks, hex, every
     100,000 events per EWP: cache totals and the worst stack seen."""
     import glob
@@ -395,10 +396,11 @@ def cache_and_stack(rundir):
         return []
     r = section("code cache and hart B stack (EWP .bc and .sw marks)")
     if bctiles:
-        uses = bc[0] + bc[1] + bc[2]
+        uses = bc[0] + bc[1]
         r.append(f"code cache: {uses} uses on {len(bctiles)} tiles; hits "
-                 f"{bc[0] / max(uses, 1):.4%}, misses {bc[1]}, too big "
-                 f"{bc[2]}, refreshes {bc[3]}, bytes copied {bc[4]}")
+                 f"{bc[0] / max(uses, 1):.4%}, misses {bc[1]}, hits "
+                 f"outside the MRU slot {bc[2]}, refreshes {bc[3]}, bytes "
+                 f"copied {bc[4]}")
     if used:
         r.append(f"stack: high-water max {max(used)} bytes (median "
                  f"{sorted(used)[len(used) // 2]}), headroom min "

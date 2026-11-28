@@ -76,6 +76,13 @@ SECTIONS
       . = ALIGN(16);
       PROVIDE(__fastram_n_end = .);   /* stack canaries start here */
     } > FAST_RAM_NC
+
+    /* Hart B's fast-RAM budget (Liv, 2026-11-27; BYTEPHYS.md 'Code
+       cache'): keep at least 2 KB of its 8 KB for the stack, whatever the
+       data (Physics, the event window, the Machine, the ~3 KB bytecode
+       cache) grows to.  The `.sw` mark reports the real high-water. */
+    ASSERT(__stack_top8K - __fastram_b_end >= 2048,
+           "hart B fast RAM: under 2 KB left for the stack (BYTEPHYS.md budget)")
     
   /* BEGIN STUFF CARGO-CULTED FROM MAIN.LD */
   .empty.init.fini :

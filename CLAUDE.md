@@ -183,7 +183,13 @@ unless the user asks for a rename.
   programs run from fast-RAM copies (srcs/shared/include/ByteCache.h,
   Physics::mCodeCache), opcodes masked to a 32-entry table; marks `.bc`
   (cache) and `.sw` (hart B stack high-water), runsum 'code cache and
-  hart B stack'.
+  hart B stack'.  IMAGES + CHUNKS (2026-11-27, host-tested, not yet
+  run): a set's .bp files assemble into ONE image of functions cut into
+  <= 256-byte chunks (in-chunk u8 jumps, xjmp/xjz/xjnz across chunks,
+  call by function index); the cache holds chunks, 12 x 256 B; a
+  Program is (image, entry function).  _BUD.ld.in asserts hart B keeps
+  >= 2 KB of fast RAM for the stack (Liv's budget: ~2 KB stack + ~3 KB
+  cache).  BYTEPHYS.md sections 3, 4, 7, 12.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

@@ -104,10 +104,24 @@ Everything else ends the event with a **fault** (section 6).
 
 ## 3. Encoding
 
-One opcode byte, then its immediates, little-endian.  Jump and call
-targets are absolute u16 byte offsets into the program.  Binary
+One opcode byte, then its immediates, little-endian.  Binary
 operations pop b, then a, and push (a op b), so `push 7 push 2 sub`
 leaves 5.
+
+**Images, functions, chunks** (since 2026-11-27).  All the code of one
+set of .bp files (one physics) is one Image (BytePhys.h `Image`): its
+FUNCTIONS (each program's entry, every call target, every `func`) cut
+into CHUNKS of at most 256 bytes (CHUNK_MAX), stored back to back, with
+a chunk table and a function table (function -> first chunk).  The
+chunk is the unit the fast-RAM code cache holds, so nothing inside one
+depends on where it sits: jmp/jz/jnz take a u8 offset WITHIN their
+chunk; xjmp/xjz/xjnz (u16 chunk, u8 offset) reach another chunk (bpasm
+uses them for a jump to a label in another chunk, and appends an xjmp
+where a chunk would fall through into the next); call takes a u16
+FUNCTION index and saves (chunk, return offset, frame), and ret goes
+back through the cache, since the callee may have evicted the caller.
+A Program is a handle: (image, entry function).  Until 2026-11-27 each
+element was its own program with absolute u16 targets.
 
 Stack effects below are written `( before -- after )`, top of stack on
 the right.
@@ -129,10 +143,10 @@ the right.
 | 09 | sub | | ( a b -- a-b ) | saturates at 0 |
 | 0a | eq | | ( a b -- a==b ) | 1 or 0 |
 | 0b | lt | | ( a b -- a<b ) | unsigned; 1 or 0 |
-| 0c | jmp | u16 target | ( -- ) | |
-| 0d | jz | u16 target | ( x -- ) | jump if x == 0 |
-| 0e | jnz | u16 target | ( x -- ) | jump if x != 0 |
-| 0f | call | u16 target | ( -- ) | saves the return offset and the caller's frame |
+| 0c | jmp | u8 offset | ( -- ) | in this chunk |
+| 0d | jz | u8 offset | ( x -- ) | jump if x == 0, in this chunk |
+| 0e | jnz | u8 offset | ( x -- ) | jump if x != 0, in this chunk |
+| 0f | call | u16 function | ( -- ) | saves (chunk, return offset) and the caller's frame |
 | 10 | ret | | ( -- ) | restores them |
 | 11 | getf | u8 field | ( sn -- value ) | read a RAW field of atom sn (section 5.3) |
 | 12 | setf | u8 field | ( sn value -- ) | write a RAW field of atom sn |
@@ -145,6 +159,9 @@ the right.
 | 19 | enter | u8 nargs, u8 nlocals | ( a1 .. an -- ) | open a frame; args to slots 0..n-1 |
 | 1a | loadl | u8 slot | ( -- v ) | push local slot |
 | 1b | storel | u8 slot | ( v -- ) | pop into local slot |
+| 1c | xjmp | u16 chunk, u8 offset | ( -- ) | to another chunk |
+| 1d | xjz | u16 chunk, u8 offset | ( x -- ) | to another chunk if x == 0 |
+| 1e | xjnz | u16 chunk, u8 offset | ( x -- ) | to another chunk if x != 0 |
 
 Notes:
 - Every jump, call and return target is checked against the program
@@ -249,16 +266,23 @@ own FAIL line, so `.pw` names the fault.
 | 12 | BF_FRAME | enter: nargs > nlocals, or not enough free local slots |
 | 13 | BF_LOCAL | loadl/storel slot outside the current frame (or no frame) |
 
-No checking happens before a program runs.  A verifier that rejects bad
-programs at load time would only report problems earlier; the run-time
-checks are what keep the tile safe.
+Since 2026-11-27 (VERIFY ONCE, section 12) verify() checks an image
+before it runs (at compile time for the generated ones) and run()
+trusts it; the run-time checks that remain are the ones only the run
+can decide.
 
 
 ## 7. Assembler (.bp files)
 
 `scripts/bytephys/bpasm.py` assembles every `*.bp` in its directory into
-BytePrograms.h, one `BP_PROG_<NAME>` per file (bfb1.bp -> BP_PROG_BFB1),
-plus `BP_TYPE_<ELEMENT>` for each element and the shared `BP_LAYOUT`.
+ONE image in BytePrograms.h (`BP_IMAGE`: `BP_CODE`, `BP_CHUNK_START`,
+`BP_FUNC_CHUNK`; static_assert(verify(BP_IMAGE) == 0)), one
+`BP_PROG_<NAME>` (image, entry function) per file (bfb1.bp ->
+BP_PROG_BFB1), plus `BP_TYPE_<ELEMENT>` for each element and the shared
+`BP_LAYOUT`.  A file's functions are its first instruction, each call
+target and each `func`; each runs to the next.  bpasm cuts a function
+into chunks of at most 256 bytes, preferring a cut at a label, and picks
+the short jump form when the target is in the same chunk.
 A file holding only declarations (aging.bp) makes no program.
 Declarations are global: every file sees every other file's.
 
@@ -288,8 +312,9 @@ Commands (from the repo root):
 - `scripts/bytephys/bpasm.py`: regenerate BytePrograms.h.
 - `scripts/bytephys/bpasm.py --check`: exit 1 if BytePrograms.h is out of
   date (run_native_tests.sh runs this).
-- `scripts/bytephys/bpasm.py --list scripts/bytephys/bfb4.bp`: listing with
-  offsets and bytes, then the element bit maps and member ids.
+- `scripts/bytephys/bpasm.py --list [tests|bench]`: the whole image's
+  listing, chunk by chunk, with offsets and bytes (the physics set by
+  default).
 
 After editing a .bp: rerun bpasm.py, then
 `srcs/host/tools/run_native_tests.sh bytephys` (bytecode must still match
@@ -568,6 +593,26 @@ attack the second.
   will grow as more powerful bytecodes arrive, so plan hart B's 8 KB as
   ~2 KB stack reserve + ~3 KB code cache + ~1 KB other data, not
   around today's 1 KB high-water.
+- **Images, function chunks, chunk cache (2026-11-27, host-tested,
+  cross-built, not yet run; Liv's 'hybrid'):** see section 3.  A whole
+  physics is one image of functions cut into <= 256-byte chunks;
+  jmp/jz/jnz take a u8 in-chunk offset, xjmp/xjz/xjnz (new, 1c-1e) a
+  chunk and offset, call a function index; fuel is compared at backward
+  jumps, every cross-chunk jump and calls.  verify(Image) checks the
+  tables and every chunk (static_assert in each generated header).  The
+  cache (ByteCache.h) now holds CHUNKS: 12 slots of 256 bytes (~3 KB),
+  fully associative, most recently used slot tried first, LRU, refresh
+  every 4096 hits; run() asks it only at entry, taken cross-chunk jumps,
+  calls and returns.  `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.` (SCANS =
+  hits outside the MRU slot; the third field was TOOBIG before).  The
+  bench F column now runs through the cache (an untimed warm run first),
+  so a `call` pattern includes a cache lookup each way.  The FB1+FB4
+  image is 170 bytes in 3 chunks (FB1's kabam is its own function); the
+  test physics has a function cut in two.  _BUD.ld.in now fails the link
+  if hart B's fast-RAM data leaves under 2 KB for the stack (data ends at
+  0x10b0 with the cache, ~3.8 KB of stack).  Next: if small functions
+  waste slots, packed 64-byte units (allocator only); cross-element
+  calls in ulam-lite.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus

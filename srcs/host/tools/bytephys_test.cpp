@@ -154,11 +154,41 @@ void testEquivalence() {
          "%.1f max %u\n", runs[0], runs[1],
          (double) insns[0] / (double) runs[0], maxInsns[0],
          (double) insns[1] / (double) runs[1], maxInsns[1]);
-  printf("code size: FB1 %u bytes, FB4 %u bytes; machine %zu bytes\n",
-         (unsigned) BytePhys::BP_PROG_BFB1.mLength,
-         (unsigned) BytePhys::BP_PROG_BFB4.mLength,
+  const BytePhys::Image & img = BytePhys::BP_IMAGE;
+  printf("image: %u bytes, %u chunks, %u functions; machine %zu bytes\n",
+         (unsigned) img.mChunkStart[img.mChunkCount],
+         (unsigned) img.mChunkCount, (unsigned) img.mFuncCount,
          sizeof(BytePhys::Machine));
 }
+
+/* A hand-made image: chunks back to back, fchunks[f] = function f's
+   first chunk.  Not copyable (img points into it). */
+struct RawImage {
+  std::vector<u8> code;
+  std::vector<u16> starts;
+  std::vector<u16> funcs;
+  BytePhys::Image img;
+  BytePhys::Program prog;
+
+  RawImage(const std::vector<std::vector<u8>> & chunks,
+           const std::vector<u16> & fchunks, const BytePhys::Layout * lay)
+    : funcs(fchunks) {
+    for (const auto & c : chunks) {
+      starts.push_back((u16) code.size());
+      code.insert(code.end(), c.begin(), c.end());
+    }
+    starts.push_back((u16) code.size());
+    img = {code.data(), starts.data(), (u16) chunks.size(), funcs.data(),
+           (u16) funcs.size(), lay};
+    prog = {&img, 0u};
+  }
+
+  RawImage(const std::vector<u8> & one, const BytePhys::Layout * lay)
+    : RawImage(std::vector<std::vector<u8>>{one}, std::vector<u16>{0u},
+               lay) { }
+
+  RawImage(const RawImage &) = delete;
+};
 
 /* A hand-made layout for the member tests: member 0 is 4 bits at state
    bit 3 of type 4, member 1 is 8 bits at 28 (straddles mStg[0]/mStg[1])
@@ -168,13 +198,13 @@ const BytePhys::MemberAt T_ATS[3] = {{4u, 3u, 4u}, {4u, 28u, 8u},
                                      {9u, 77u, 3u}};
 const BytePhys::Layout T_LAYOUT = {T_REFS, 2u, T_ATS};
 
-u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
-            const BytePhys::Layout * lay = &T_LAYOUT, u16 centerType = 4u) {
+u32 faultOfImage(const RawImage & ri, u32 fuel = 10'000u,
+                 u16 centerType = 4u) {
   BytePhys::Machine vm{};
-  BytePhys::Program p{code.data(), (u16) code.size(), lay};
-  // what verify() rejects never runs (the EWP's programs are verified at
+  const BytePhys::Program & p = ri.prog;
+  // what verify() rejects never runs (the EWP's images are verified at
   // compile time): report it as the fault it stands for
-  if (const u32 v = BytePhys::verify(p)) return v;
+  if (const u32 v = BytePhys::verify(ri.img)) return v;
   Env e(1u, 0);
   fillWindow(e, 1u, centerType);
   try {
@@ -183,6 +213,12 @@ u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
     return f.code;
   }
   return 0u;
+}
+
+u32 faultOf(const std::vector<u8> & code, u32 fuel = 10'000u,
+            const BytePhys::Layout * lay = &T_LAYOUT, u16 centerType = 4u) {
+  RawImage ri(code, lay);
+  return faultOfImage(ri, fuel, centerType);
 }
 
 void testFaults() {
@@ -200,21 +236,21 @@ void testFaults() {
   check(faultOf({OP_CALL, 0, 0, OP_HALT1}) == BF_CALL_OVER,
         "runaway recursion");
   check(faultOf({OP_CALL, 0, 0}) == BF_PC, "call with nothing to return to");
-  check(faultOf({OP_JMP, 4, 0, OP_PUSH8, 1, OP_HALT1}) == BF_PC,
+  check(faultOf({OP_JMP, 3, OP_PUSH8, 1, OP_HALT1}) == BF_PC,
         "jump into an immediate");
-  check(faultOf({OP_JZ, 0, 0}) == BF_PC, "jz as the last instruction");
+  check(faultOf({OP_JZ, 0}) == BF_PC, "jz as the last instruction");
   check(faultOf({}) == BF_PC, "empty program");
   check(faultOf({OP_HALT0, 0xee}) == BF_OPCODE,
         "bad opcode where control never goes");
   check(faultOf({0xee}) == BF_OPCODE, "bad opcode");
-  check(faultOf({OP_JMP, 9, 0}) == BF_PC, "jump past the end");
+  check(faultOf({OP_JMP, 9}) == BF_PC, "jump past the end");
   check(faultOf({P8, 1}) == BF_PC, "running off the end");
   check(faultOf({OP_PUSH32, 1}) == BF_PC, "truncated immediate");
   check(faultOf({P8, 41, OP_EMPTY, OP_HALT1}) == BF_SITE, "site 41");
   check(faultOf({P8, 0, P8, 5, OP_SETF, F_TYPE, OP_HALT1}) == BF_FIELD,
         "type is read-only");
   check(faultOf({P8, 0, OP_GETF, 9, OP_HALT1}) == BF_FIELD, "bad field");
-  check(faultOf({OP_JMP, 0, 0}, 1000u) == BF_FUEL, "infinite loop");
+  check(faultOf({OP_JMP, 0}, 1000u) == BF_FUEL, "infinite loop");
   check(faultOf({P8, 3, P8, 4, OP_ADD, OP_HALT1}) == 0u, "a good program");
   check(faultOf({P8, 0, OP_GETM, 2, 0, OP_HALT1}) == BF_MEMBER,
         "member id past the layout");
@@ -243,8 +279,36 @@ void testFaults() {
   // run may overshoot, a loop may not
   check(faultOf({OP_PUSH8, 1, OP_DROP, OP_PUSH8, 1, OP_DROP, OP_HALT1}, 2u)
         == 0u, "straight-line code is not stopped by fuel");
-  check(faultOf({OP_PUSH8, 0, OP_JZ, 0, 0, OP_HALT1}, 50u) == BF_FUEL,
+  check(faultOf({OP_PUSH8, 0, OP_JZ, 0, OP_HALT1}, 50u) == BF_FUEL,
         "a jz loop runs out of fuel");
+  // chunks: cross-chunk jumps, calls by function, chunk bounds
+  {
+    RawImage a({{OP_XJMP, 1, 0, 0}, {OP_HALT1}}, {0u}, nullptr);
+    check(faultOfImage(a) == 0u, "xjmp to another chunk");
+    RawImage b({{OP_XJMP, 2, 0, 0}, {OP_HALT1}}, {0u}, nullptr);
+    check(faultOfImage(b) == BF_PC, "xjmp to no chunk");
+    RawImage c({{OP_XJMP, 1, 0, 1}, {OP_PUSH8, 1, OP_HALT1}}, {0u}, nullptr);
+    check(faultOfImage(c) == BF_PC, "xjmp into an immediate");
+    RawImage d({{OP_XJMP, 1, 0, 0}, {OP_XJMP, 0, 0, 0}}, {0u}, nullptr);
+    check(faultOfImage(d, 100u) == BF_FUEL, "a loop across chunks");
+    RawImage e({{OP_PUSH8, 0, OP_XJZ, 1, 0, 0, OP_HALT0}, {OP_HALT1}}, {0u},
+               nullptr);
+    check(faultOfImage(e) == 0u, "xjz taken");
+    RawImage f({{OP_CALL, 1, 0, OP_HALT1}, {OP_RET}}, {0u}, nullptr);
+    check(faultOfImage(f) == BF_PC, "call to no function");
+    RawImage g({{OP_CALL, 1, 0, OP_HALT1}, {OP_RET}}, {0u, 1u}, nullptr);
+    check(faultOfImage(g) == 0u, "call another chunk's function and return");
+    RawImage h({{OP_HALT1}}, {1u}, nullptr);
+    check(faultOfImage(h) == BF_PC, "a function in no chunk");
+    // jmp over 253 never-run dups to the halt in the chunk's last byte
+    std::vector<u8> big(BytePhys::CHUNK_MAX, OP_DUP);
+    big[0] = OP_JMP;
+    big[1] = (u8) (BytePhys::CHUNK_MAX - 1u);
+    big.back() = OP_HALT1;
+    check(faultOf(big) == 0u, "a full chunk");
+    big.push_back(OP_HALT1);
+    check(faultOf(big) == BF_PC, "a chunk over CHUNK_MAX");
+  }
   printf("faults: every machine fault caught (verify() or the run)\n");
 }
 
@@ -292,8 +356,8 @@ void testBits() {
   // setm saturates to the declared width; add and sub saturate
   BytePhys::Machine vm{};
   auto run = [&vm](const std::vector<u8> & code, Env & e) {
-    BytePhys::Program p{code.data(), (u16) code.size(), &T_LAYOUT};
-    vm.run(p, e, 1000u);
+    RawImage ri(code, &T_LAYOUT);
+    vm.run(ri.prog, e, 1000u);
   };
   {
     Env e(1u, 0);
@@ -338,18 +402,17 @@ void testBits() {
   // frames: sum(n) = n + sum(n - 1), recursively, reading its own n
   // again AFTER the recursive call returns
   {
-    const u8 SUM = 6u, REC = 17u;
-    const std::vector<u8> code = {
-      OP_PUSH8, 5, OP_CALL, SUM, 0, OP_HALT1,           //  0: main
-      OP_ENTER, 1, 1, OP_LOADL, 0, OP_JNZ, REC, 0,      //  6: sum(n)
-      OP_PUSH8, 0, OP_RET,                              // 14: n == 0
-      OP_LOADL, 0, OP_PUSH8, 1, OP_SUB, OP_CALL, SUM, 0,  // 17: rec
-      OP_LOADL, 0, OP_ADD, OP_RET,                      // 25
-    };
+    const u8 SUM = 1u, REC = 10u;       // function 1; offset in its chunk
+    RawImage ri({{OP_PUSH8, 5, OP_CALL, SUM, 0, OP_HALT1},          // main
+                 {OP_ENTER, 1, 1, OP_LOADL, 0, OP_JNZ, REC,         // sum(n)
+                  OP_PUSH8, 0, OP_RET,                              // n == 0
+                  OP_LOADL, 0, OP_PUSH8, 1, OP_SUB, OP_CALL, SUM, 0,  // rec
+                  OP_LOADL, 0, OP_ADD, OP_RET}},
+                {0u, 1u}, nullptr);
+    check(BytePhys::verify(ri.img) == 0u, "the sum image verifies");
     Env e(1u, 0);
     fillWindow(e, 1u);
-    BytePhys::Program p{code.data(), (u16) code.size(), nullptr};
-    check(vm.run(p, e, 1000u), "sum halts with halt1");
+    check(vm.run(ri.prog, e, 1000u), "sum halts with halt1");
     check(vm.mStack[0] == 15u, "recursive sum(5) == 15");
   }
   {
@@ -361,8 +424,8 @@ void testBits() {
     };
     Env e(1u, 0);
     fillWindow(e, 1u);
-    BytePhys::Program p{code.data(), (u16) code.size(), nullptr};
-    vm.run(p, e, 1000u);
+    RawImage ri(code, nullptr);
+    vm.run(ri.prog, e, 1000u);
     check(vm.mStack[0] == 7u && vm.mStack[1] == 4u && vm.mStack[2] == 3u,
           "enter moves args in order; storel/loadl");
   }
@@ -498,13 +561,16 @@ void testBench() {
   printf("\n");
 }
 
-/* ByteCache.h: programs run from the cache behave exactly as from their
-   own arrays; hits, misses, LRU eviction, too-big programs and the
-   periodic refresh (which also repairs a corrupted copy) count right.
-   And the dispatch mask: an opcode byte past OP_COUNT faults BF_OPCODE
-   (unverified code, as only corruption could make it). */
+/* ByteCache.h: code run through the chunk cache behaves exactly as in
+   place, for the physics (FB1 calls kabam: a second chunk) and for a
+   function split across chunks (the test physics); hits, misses, LRU
+   eviction, MRU scans and the periodic refresh (which also repairs a
+   corrupted copy) count right.  And the dispatch mask: an opcode byte
+   past OP_COUNT faults BF_OPCODE (unverified code, as only corruption
+   could make it). */
 void testCodeCache() {
   using BytePhys::Program;
+  using BytePhys::Image;
   using BytePhys::CodeCache;
   using BytePhys::BP_PROG_BFB1;
   using BytePhys::BP_PROG_BFB4;
@@ -513,69 +579,98 @@ void testCodeCache() {
   using BytePhys::OP_COUNT;
   using BytePhys::OP_HALT1;
   using BytePhys::BF_OPCODE;
-  namespace Bench = BytePhys::Bench;
   BytePhys::Machine vm{};
-  CodeCache<2, 160> cache{};
+  CodeCache<12> cache{};
   cache.reset();
   const Program * progs[2] = {&BP_PROG_BFB1, &BP_PROG_BFB4};
   for (u32 seed = 1; seed <= 600; ++seed) {
-    const int fb = (int) (seed % 2u);
-    const u16 ct = fb == 0 ? BP_TYPE_BFB1 : BP_TYPE_BFB4;
-    Env a(seed, 0);
-    Env b(seed, 0);
-    fillWindow(a, seed, ct);
-    fillWindow(b, seed, ct);
-    bool ra = false;
-    bool rb = false;
-    try {
-      ra = vm.run(*progs[fb], a, 10'000u);
-      const Program q = cache.use(*progs[fb]);
-      check(q.mCode != progs[fb]->mCode &&
-            memcmp(q.mCode, progs[fb]->mCode, q.mLength) == 0,
-            "cache: runs a copy of the program");
-      rb = vm.run(q, b, 10'000u);
-    } catch (const Fault &) {
-      check(false, "cache: a program faulted");
-      continue;
+    for (int mode = 0; mode < 3; ++mode) {
+      const int fb = (int) (seed % 2u);
+      const u16 ct = fb == 0 ? BP_TYPE_BFB1 : BP_TYPE_BFB4;
+      Env a(seed, mode);
+      Env b(seed, mode);
+      fillWindow(a, seed, ct);
+      fillWindow(b, seed, ct);
+      bool ra = false;
+      bool rb = false;
+      try {
+        ra = vm.run(*progs[fb], a, 10'000u);
+        rb = vm.run(*progs[fb], b, 10'000u, cache);
+      } catch (const Fault &) {
+        check(false, "cache: a program faulted");
+        continue;
+      }
+      check(ra == rb && sameWindow(a, b) && a.mDraws == b.mDraws,
+            "cache: cached run differs from in place");
     }
-    check(ra == rb && sameWindow(a, b) && a.mDraws == b.mDraws,
-          "cache: cached run differs from the original");
   }
-  check(cache.mMisses == 2u && cache.mHits == 598u && cache.mTooBig == 0u,
-        "cache: two programs, two misses, then hits");
-  // a third program evicts the least recently used: seed 600 (even) ran
-  // FB1 last, so FB4 goes
-  const Program & third = *Bench::BP_PROG_LIST[0];
-  cache.use(third);
-  check(cache.mMisses == 3u, "cache: a third program misses");
-  cache.use(BP_PROG_BFB1);
-  check(cache.mMisses == 3u, "cache: the most recent one stayed");
-  cache.use(BP_PROG_BFB4);
-  check(cache.mMisses == 4u, "cache: the least recent one was evicted");
-  // too big for a slot: runs from its own array
-  CodeCache<2, 32> small{};
-  small.reset();
-  const Program r = small.use(BP_PROG_BFB1);
-  check(r.mCode == BP_PROG_BFB1.mCode && small.mTooBig == 1u &&
-        small.mMisses == 0u, "cache: a program bigger than a slot runs "
-        "from L1");
-  // refresh: a corrupted copy is repaired within REFRESH_USES uses
-  CodeCache<1, 160> one{};
+  const Image & img = BytePhys::BP_IMAGE;
+  check(cache.mMisses <= img.mChunkCount && cache.mMisses >= 2u,
+        "cache: each chunk misses once, then hits");
+  // the test physics has a function longer than a chunk: run every
+  // test program through a 2-slot cache (evictions mid-call) and in place
+  {
+    namespace T = BytePhys::Tests;
+    CodeCache<2> two{};
+    two.reset();
+    u32 split = 0u;
+    for (u32 f = 0; f < T::BP_IMAGE.mFuncCount; ++f) {
+      const u32 c = T::BP_IMAGE.mFuncChunk[f];
+      if (c + 1u < T::BP_IMAGE.mChunkCount &&
+          (f + 1u == T::BP_IMAGE.mFuncCount ||
+           T::BP_IMAGE.mFuncChunk[f + 1u] > c + 1u)) ++split;
+    }
+    check(split > 0u, "cache: the test image has a split function");
+    for (u32 i = 0; i < T::BP_PROG_COUNT; ++i) {
+      for (u32 seed = 1; seed <= 20; ++seed) {
+        Env a(seed, 0);
+        Env b(seed, 0);
+        fillWindow(a, seed, 4u);
+        fillWindow(b, seed, 4u);
+        u32 fa = 0u;
+        u32 fbb = 0u;
+        bool ra = false;
+        bool rb = false;
+        try { ra = vm.run(*T::BP_PROG_LIST[i], a, 10'000u); }
+        catch (const Fault & f) { fa = f.code; }
+        try { rb = vm.run(*T::BP_PROG_LIST[i], b, 10'000u, two); }
+        catch (const Fault & f) { fbb = f.code; }
+        check(fa == fbb && ra == rb && sameWindow(a, b),
+              "cache: a 2-slot cache changes a test program's run");
+      }
+    }
+    check(two.mMisses > 2u, "cache: the 2-slot cache evicted");
+  }
+  // LRU and MRU: three chunks through two slots
+  CodeCache<2> lru{};
+  lru.reset();
+  const u8 * p0 = lru.chunk(img, 0);
+  lru.chunk(img, 1);
+  check(lru.mMisses == 2u && lru.mScans == 0u, "lru: two misses");
+  check(lru.chunk(img, 0) == p0 && lru.mScans == 1u, "lru: a scan hit");
+  lru.chunk(img, 2);                    // evicts chunk 1 (least recent)
+  check(lru.mMisses == 3u, "lru: a third chunk misses");
+  lru.chunk(img, 0);
+  check(lru.mMisses == 3u, "lru: the most recent one stayed");
+  lru.chunk(img, 1);
+  check(lru.mMisses == 4u, "lru: the least recent one was evicted");
+  // refresh: a corrupted copy is repaired within REFRESH_USES hits
+  CodeCache<1> one{};
   one.reset();
-  Program q = one.use(BP_PROG_BFB4);
-  const_cast<u8 *>(q.mCode)[0] ^= 0x40u;          // a flipped bit
-  for (u32 i = 0; i < CodeCache<1, 160>::REFRESH_USES; ++i)
-    q = one.use(BP_PROG_BFB4);
+  u8 * q = const_cast<u8 *>(one.chunk(img, 2));
+  q[0] ^= 0x40u;                        // a flipped bit
+  for (u32 i = 0; i < CodeCache<1>::REFRESH_USES; ++i) one.chunk(img, 2);
   check(one.mRefreshes == 1u &&
-        memcmp(q.mCode, BP_PROG_BFB4.mCode, BP_PROG_BFB4.mLength) == 0,
+        memcmp(q, img.mCode + img.mChunkStart[2],
+               BytePhys::chunkLength(img, 2)) == 0,
         "cache: the refresh restores a corrupted copy");
   // the dispatch mask: bytes at or past OP_COUNT cannot jump wild
   auto runRaw = [&](std::vector<u8> code) -> u32 {
     Env e(1u, 0);
     fillWindow(e, 1u, 4u);
-    const Program p{code.data(), (u16) code.size(), nullptr};
+    RawImage ri(code, nullptr);
     try {
-      vm.run(p, e, 100u);
+      vm.run(ri.prog, e, 100u);
     } catch (const Fault & f) {
       return f.code;
     }
@@ -586,10 +681,10 @@ void testCodeCache() {
   check(runRaw({0xffu}) == BF_OPCODE, "mask: 255 faults");
   check(runRaw({(u8) (0x20u | OP_HALT1)}) == 0u,
         "mask: a flip above the mask runs the masked opcode");
-  printf("code cache: %u hits, %u misses, %u bytes copied; machine %zu "
-         "bytes, cache<2,160> %zu bytes\n", (unsigned) cache.mHits,
-         (unsigned) cache.mMisses, (unsigned) cache.mBytesCopied,
-         sizeof(BytePhys::Machine), sizeof(cache));
+  printf("code cache: %u hits (%u scans), %u misses, %u bytes copied; "
+         "cache<12> %zu bytes\n", (unsigned) cache.mHits,
+         (unsigned) cache.mScans, (unsigned) cache.mMisses,
+         (unsigned) cache.mBytesCopied, sizeof(cache));
 }
 
 int main() {

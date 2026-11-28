@@ -40,7 +40,6 @@ namespace MFM {
   // BENCH_ROUNDS times through the list, then the atom erases itself.
   static constexpr u32 PHY_BENCH = 31u;
   static constexpr u32 BENCH_ROUNDS = 4u;
-  static constexpr u32 BENCH_CODE_MAX = 128u; // fast-RAM copy (on stack)
   static constexpr u32 BENCH_PROBE_LOADS = 64u;
   static_assert(PHY_BENCH == BytePhys::Bench::BP_TYPE_BENCH,
                 "benchgen.py BENCH_TYPE and PHY_BENCH disagree");
@@ -122,8 +121,9 @@ namespace MFM {
   }
 
   /* Every 100,000 events (hex, LOG and HB):
-       `.bc:HITS:MISSES:TOOBIG:REFRESHES:BYTES.`  the code cache since the
-         last mark (ByteCache.h); only events at compiled types use it
+       `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.`  the chunk cache since the
+         last mark (ByteCache.h; SCANS = hits outside the most recently
+         used slot); compiled types and the bench's F runs use it
        `.sw:USED:HEADROOM.`  hart B's stack high-water mark and the
          untouched canary left above the fast-RAM data, in bytes (the
          whole free stack is canary-filled at boot, _BUD.S; a scan of
@@ -132,7 +132,7 @@ namespace MFM {
     char buf[64];
     snprintf(buf, sizeof(buf), "%x:%x:%x:%x:%x.",
              (unsigned) mCodeCache.mHits, (unsigned) mCodeCache.mMisses,
-             (unsigned) mCodeCache.mTooBig, (unsigned) mCodeCache.mRefreshes,
+             (unsigned) mCodeCache.mScans, (unsigned) mCodeCache.mRefreshes,
              (unsigned) mCodeCache.mBytesCopied);
     LOGPTAG(.bc,buf);
     HBPTAG(.bc,buf);
@@ -155,12 +155,12 @@ namespace MFM {
     HBPTAG(.pb,buf);
   }
 
-  template <class Env>
+  template <class Env, class Res>
   __attribute__((noinline))
   static void benchRun(BytePhys::Machine & vm, const char * name, char v,
-                       const BytePhys::Program & p, Env & env) {
+                       const BytePhys::Program & p, Env & env, Res & res) {
     const u32 t0 = *PT_WALL_CLOCK_LO;
-    vm.run(p, env, BP_FUEL);
+    vm.run(p, env, BP_FUEL, res);
     const u32 ticks = *PT_WALL_CLOCK_LO - t0;
     benchMarkOut(name, v, ticks, vm.mExecuted);
   }
@@ -194,15 +194,18 @@ namespace MFM {
     const BytePhys::Program & p = *BB::BP_PROG_LIST[i];
     const char * name = BB::BP_PROG_NAMES[i] + 4; // drop the "bNN_"
     EwpPhysEnv env{mFastEW};
-    alignas(4) u8 fast[BENCH_CODE_MAX]; // the stack is in HB fast RAM
-    benchRun(mVM, name, 'L', p, env);
-    if (p.mLength <= BENCH_CODE_MAX) {
-      memcpy(fast, p.mCode, p.mLength);
-      const BytePhys::Program q{fast, p.mLength, p.mLayout};
-      benchRun(mVM, name, 'F', q, env);
-      if (i == 0u && p.mLength >= 16u) {
-        benchProbeRun("ldL1", p.mCode);
-        benchProbeRun("ldfast", fast);
+    BytePhys::InPlace inPlace;
+    benchRun(mVM, name, 'L', p, env, inPlace);  // code in L1
+    // F: through the code cache (fast RAM), as compiled physics runs; one
+    // untimed run first so the timed one starts with its chunks resident
+    mVM.run(p, env, BP_FUEL, mCodeCache);
+    benchRun(mVM, name, 'F', p, env, mCodeCache);
+    if (i == 0u) {
+      const BytePhys::Image & img = *p.mImage;
+      const u32 c = img.mFuncChunk[p.mFunc];
+      if (BytePhys::chunkLength(img, c) >= 16u) {
+        benchProbeRun("ldL1", img.mCode + img.mChunkStart[c]);
+        benchProbeRun("ldfast", mCodeCache.chunk(img, c));
       }
     }
     ca.mData0 = (u16) (idx + 1u);       // the programs never touch it
@@ -304,8 +307,7 @@ namespace MFM {
       // numbers; BytePrograms.h maps them to programs
       if (const BytePhys::Program * p = BytePhys::programFor(cat)) {
         EwpPhysEnv env{ew};
-        const BytePhys::Program q = mCodeCache.use(*p);   // fast RAM copy
-        return mVM.run(q, env, BP_FUEL);
+        return mVM.run(*p, env, BP_FUEL, mCodeCache); // chunks in fast RAM
       }
       // wth are you? 
       ca = P4Atom::makeEmptyAtom(); // buhbye now

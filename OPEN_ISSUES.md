@@ -461,8 +461,13 @@ hart B stack high-water 1008 bytes max, headroom min 5072 bytes (so a
 cache of ~4 KB fits).  Built (BYTEPHYS.md section 12): whole programs cached in 4 x 256 B of hart B
 fast RAM (ByteCache.h), refreshed every 4096 uses, opcode mask with
 BF_OPCODE fillers, `.bc` and `.sw` (stack high-water) marks.
-experiment.cmd times it (expect FB4 toward 9-10k cycles/event).  Then
-step 3, function granularity: bpasm function table and function-relative
+Repeat run 20261127-204054 (8f025ad): FB4 9454, FB1 1635, same cache
+and stack figures.  STEP 3 BUILT (2026-11-27, host-tested, cross-built,
+NOT yet run; Liv's hybrid; BYTEPHYS.md sections 3 and 12): one image per
+set, functions cut into <= 256-byte chunks, in-chunk u8 jumps, xjmp/
+xjz/xjnz across chunks, call by function index, chunk cache 12 x 256 B,
+link-time 2 KB stack reserve.  Was planned as: step 3, function
+granularity: bpasm function table and function-relative
 jumps, verify() keeps jumps inside a function, CALL names (program,
 function), 8 B call records, cache keyed by (program, function) checked
 at entry, CALL and RET; step 4, calls across elements in ulam-lite.

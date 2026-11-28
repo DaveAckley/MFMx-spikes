@@ -1,15 +1,18 @@
-# EXPERIMENT: BytePhys code cache in fast RAM: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# Compiled types (7, 8) now run from a copy of their program in hart B's
-# fast RAM (ByteCache.h, Physics::mCodeCache: 4 slots of 256 bytes, LRU,
-# re-copied every 4096 uses), and the dispatch masks each opcode to a
-# 32-entry table (corrupt opcodes fault BF_OPCODE; one AND per insn).
-# Run 20261127-151122 (code in L1, table in fast RAM): FB1 bytecode 1815
-# cycles/event (3.98x native), FB4 12199 (3.74x); microbenchmark
-# cheapest ops 20-22 (L) / 13.5-15.6 (F).  Expect FB4 toward 9-10k and
-# FB1 lower ('physics timing'); the bench L column rises ~1 cycle (the
-# mask; bench programs run uncached).  New runsum section 'code cache
-# and hart B stack': cache hit rate (expect ~100%) and the stack
-# high-water (old figure 784 bytes; HB data now ends at 0x840).
+# EXPERIMENT: BytePhys images + chunk cache: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# The bytecode format changed: all the physics' .bp files are ONE image
+# of functions cut into <= 256-byte chunks (jumps in a chunk take a u8
+# offset, xjmp/xjz/xjnz cross chunks, call names a function), and the
+# fast-RAM code cache holds chunks: 12 slots of 256 bytes (~3 KB, Liv's
+# budget), asked only at entry, cross-chunk jumps, calls and returns.
+# Runs 20261127-200923 / 204054 (whole-program cache): FB4 bytecode
+# 9468 / 9454 cycles/event (2.89x native), FB1 1633 / 1635 (3.5x).
+# Expect FB4 about the same or a little better (shorter jumps), FB1 a
+# little worse or the same (its call into kabam is now a cache lookup
+# each way).  The bench F column now runs through the cache: the call
+# and enter patterns include a lookup per call and per return.  New
+# runsum field: cache hits outside the MRU slot.  Stack: HB data now
+# ends at 0x10b0 (link fails under 2 KB of stack).  Also check after the
+# FB1-phase nuke: no turds at the outer edges.
 # Bench phase: 20 Bench atoms (type 31), decay 31; they erase
 # themselves after 104 events.  Then FB1 seeds, a whole-grid nuke, then
 # FB4 seeds.  Expect no `.pf`.

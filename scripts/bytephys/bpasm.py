@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """bpasm.py -- assembler for the BytePhys spike (srcs/shared/include/BytePhys.h).
 
-Reads *.bp sources and writes srcs/shared/include/BytePrograms.h, the
-byte arrays the EWP runs for the bytecode physics types (fb1.bp ->
-BP_PROG_FB1, ...).  The opcode and field numbers are parsed from
+Reads *.bp sources and writes srcs/shared/include/BytePrograms.h: ONE
+image (BytePhys.h 'IMAGES, FUNCTIONS, CHUNKS') holding every file's
+functions cut into chunks of at most 256 bytes, and per file a Program
+(image, entry function: fb1.bp -> BP_PROG_FB1, ...).  The opcode and field numbers are parsed from
 BytePhys.h itself, so the header stays the one source of truth.
 
 Source syntax: one instruction per line, `;` starts a comment, `NAME:`
 defines a label.  Instructions are the Op names without OP_, lower case
 (push, dup, add, jz, getf, ...).  `push N` assembles as PUSH8 when N <
-256, else PUSH32.  Jumps and calls take a label (absolute u16 target).
+256, else PUSH32.  Jumps and calls take a label: a jump to a label in
+the same chunk is jmp/jz/jnz OFFSET8, else xjmp/xjz/xjnz CHUNK16 OFFSET8;
+a call is CALL FUNCTION16 (its target label starts a function).
 getf/setf take a raw field: type, data0, stg0, stg1.
 
 Declarations (global: every .bp file sees every other file's):
@@ -45,7 +48,7 @@ file with only declarations makes no program.
 Usage:
   bpasm.py                 regenerate BytePrograms.h from every *.bp here
   bpasm.py --check         exit 1 if BytePrograms.h is out of date
-  bpasm.py --list fb1.bp   print the assembled listing
+  bpasm.py --list [tests|bench]   print a set's image listing
 """
 
 import os
@@ -280,25 +283,20 @@ def load_decls(paths):
     return d, rest
 
 
-def assemble(path, lines, ops, fields, decls):
-    """lines: path's non-declaration lines.  -> (bytes, listing lines)."""
+CHUNK_MAX = 256                 # BytePhys.h CHUNK_MAX
+LINK_BYTES = 4                  # an appended xjmp: op, u16 chunk, u8 off
+TERMINAL = ("halt0", "halt1", "jmp", "ret")
 
-    def size(words):
-        op = words[0]
-        if op == "push":
-            return 2 if int(words[1], 0) < 256 else 5
-        if op in JUMPS or op in MEMBER_OPS:
-            return 3
-        if op in ("getf", "setf", "loadl", "storel"):
-            return 2
-        if op == "enter":
-            return 3
-        return 1
 
-    labels = {}
-    pc = 0
+def parse_items(path, lines, ops):
+    """path's instruction lines -> ([(n, src, words, labels)], {label:
+    index}, [function start labels]).  `func` becomes its label plus
+    enter; loadl/storel local names become slot numbers."""
     items = []
+    labels = {}
+    funcs = []
     slots = {}                  # the current func's local names
+    pending = []                # labels waiting for their instruction
     for n, s in lines:
         words = s.split()
         if words[0] == "func":
@@ -312,20 +310,23 @@ def assemble(path, lines, ops, fields, decls):
             if len(set(names)) != len(names) or len(names) > 255:
                 raise SystemExit(f"{path}:{n}: func local names must be "
                                  f"distinct and at most 255")
-            if name in labels:
+            if name in labels or name in pending:
                 raise SystemExit(f"{path}:{n}: label {name} twice")
-            labels[name] = pc
+            pending.append(name)
+            funcs.append(name)
             slots = {x: i for i, x in enumerate(names)}
-            w = ["enter", str(len(args)), str(len(names))]
-            items.append((n, s, w, pc))
-            pc += size(w)
+            words = ["enter", str(len(args)), str(len(names))]
+            for lab in pending:
+                labels[lab] = len(items)
+            items.append((n, s, words, pending))
+            pending = []
             continue
         while ":" in s:
             lab, s = s.split(":", 1)
             lab = lab.strip()
-            if lab in labels:
+            if lab in labels or lab in pending:
                 raise SystemExit(f"{path}:{n}: label {lab} twice")
-            labels[lab] = pc
+            pending.append(lab)
             s = s.strip()
         if not s:
             continue
@@ -335,58 +336,203 @@ def assemble(path, lines, ops, fields, decls):
         if words[0] in ("loadl", "storel") and len(words) == 2 and \
            words[1] in slots:
             words = [words[0], str(slots[words[1]])]
-        items.append((n, s, words, pc))
-        pc += size(words)
+        for lab in pending:
+            labels[lab] = len(items)
+        items.append((n, s, words, pending))
+        pending = []
+    if pending:
+        raise SystemExit(f"{path}: label(s) {', '.join(pending)} at the end "
+                         "label nothing")
+    return items, labels, funcs
+
+
+def insn_size(words, short=False):
+    """Bytes of one instruction; jumps as the short (in-chunk) form if
+    short, else the cross-chunk form."""
+    op = words[0]
+    if op == "push":
+        return 2 if int(words[1], 0) < 256 else 5
+    if op in ("jmp", "jz", "jnz"):
+        return 2 if short else 4
+    if op == "call" or op in MEMBER_OPS or op == "enter":
+        return 3
+    if op in ("getf", "setf", "loadl", "storel"):
+        return 2
+    return 1
+
+
+def assemble_image(files, ops, fields, decls):
+    """files: [(path, lines)] of one set.  -> (code bytes, chunk starts,
+    function first chunks, function names, {program name: function},
+    listing lines).
+
+    Every file's code goes into ONE image.  Its functions are its first
+    instruction (the program's entry), every call target and every
+    `func`; each runs to the next.  A function is cut into chunks of at
+    most CHUNK_MAX bytes, preferring a cut at a label (a basic block
+    start), with room left for an xjmp to the next chunk where control
+    would fall through.  A jump to a label in the same chunk assembles
+    short (jmp/jz/jnz OFF8), else as xjmp/xjz/xjnz CHUNK16 OFF8."""
+    chunks = []                 # [(path, [item index, ...])]
+    funcs = []                  # [(name, first chunk)]
+    progs = {}
+    perfile = []
+    for path, lines in files:
+        items, labels, fnames = parse_items(path, lines, ops)
+        if not items:
+            continue
+        starts = {0}
+        for _, _, w, _ in items:
+            if w[0] == "call":
+                if len(w) != 2 or w[1] not in labels:
+                    raise SystemExit(f"{path}: call needs a known label "
+                                     f"({' '.join(w)})")
+                starts.add(labels[w[1]])
+        for f in fnames:
+            starts.add(labels[f])
+        starts = sorted(starts)
+        fidx = {}               # item index -> function number
+        chunk_of = {}           # item index -> chunk number
+        file_chunks = []
+        for k, st in enumerate(starts):
+            end = starts[k + 1] if k + 1 < len(starts) else len(items)
+            fidx[st] = len(funcs)
+            name = next((l for l in items[st][3]), None) or \
+                os.path.basename(path)[:-3]
+            funcs.append((f"{os.path.basename(path)[:-3]}:{name}",
+                          len(chunks)))
+            cur = []
+            size = 0
+            for i in range(st, end):
+                sz = insn_size(items[i][2])
+                if cur and size + sz + LINK_BYTES > CHUNK_MAX:
+                    # cut at the last label in cur, if not at its start
+                    cut = max((j for j, x in enumerate(cur)
+                               if j > 0 and items[x][3]), default=None)
+                    keep = cur if cut is None else cur[:cut]
+                    carry = [] if cut is None else cur[cut:]
+                    for x in keep:
+                        chunk_of[x] = len(chunks)
+                    chunks.append((path, keep))
+                    file_chunks.append(len(chunks) - 1)
+                    cur = carry
+                    size = sum(insn_size(items[x][2]) for x in cur)
+                cur.append(i)
+                size += sz
+            for x in cur:
+                chunk_of[x] = len(chunks)
+            chunks.append((path, cur))
+            file_chunks.append(len(chunks) - 1)
+        progs[os.path.basename(path)[:-3]] = fidx[0]
+        perfile.append((path, items, labels, fidx, chunk_of, starts))
+    # encode every chunk
     code = []
+    cstarts = []
     listing = []
-    for n, s, w, at in items:
-        op = w[0]
-        if op == "push":
-            v = int(w[1], 0)
-            if not 0 <= v < (1 << 32):
-                raise SystemExit(f"{path}:{n}: push out of range")
-            if v < 256:
-                b = [ops["push8"], v]
-            else:
-                b = [ops["push32"]] + [(v >> k) & 0xff for k in (0, 8, 16, 24)]
-        elif op in JUMPS:
-            if len(w) != 2 or w[1] not in labels:
-                raise SystemExit(f"{path}:{n}: {op} needs a known label")
-            t = labels[w[1]]
-            b = [ops[op], t & 0xff, t >> 8]
-        elif op in ("getf", "setf"):
-            if len(w) != 2 or w[1] not in fields:
-                raise SystemExit(f"{path}:{n}: {op} needs a field "
-                                 f"({', '.join(fields)})")
-            b = [ops[op], fields[w[1]]]
-        elif op in ("loadl", "storel", "enter"):
-            want = 3 if op == "enter" else 2
-            try:
-                vals = [int(x, 0) for x in w[1:]]
-            except ValueError:
-                raise SystemExit(f"{path}:{n}: {op}: unknown local {w[1:]}")
-            if len(w) != want or not all(0 <= v < 256 for v in vals):
-                raise SystemExit(f"{path}:{n}: {op} takes "
-                                 f"{want - 1} number(s) 0..255")
-            b = [ops[op]] + vals
-        elif op in MEMBER_OPS:
-            if len(w) != 2:
-                raise SystemExit(f"{path}:{n}: {op} needs a member path")
-            i = decls.member_id(w[1], f"{path}:{n}")
-            b = [ops[op], i & 0xff, i >> 8]
-        else:
-            if len(w) != 1:
-                raise SystemExit(f"{path}:{n}: {op} takes no operand")
-            b = [ops[op]]
-        code += b
-        listing.append(f"{at:4d}: {' '.join(f'{x:02x}' for x in b):<16} {s}")
+    for path, items, labels, fidx, chunk_of, starts in perfile:
+        mine = [c for c in range(len(chunks)) if chunks[c][0] == path]
+        # pass 1: every instruction's offset in its chunk (final forms),
+        # and each chunk's fall-through link
+        off = {}
+        links = {}
+        ends = {}
+        for c in mine:
+            idxs = chunks[c][1]
+            last = items[idxs[-1]][2][0]
+            link = None
+            if last not in TERMINAL:
+                nxt = idxs[-1] + 1
+                if nxt >= len(items):
+                    raise SystemExit(f"{path}:{items[idxs[-1]][0]}: control "
+                                     "runs off the end of the program")
+                link = chunk_of[nxt]
+            pc = 0
+            for x in idxs:
+                off[x] = pc
+                w = items[x][2]
+                short = w[0] in ("jmp", "jz", "jnz") and \
+                    w[1] in labels and chunk_of[labels[w[1]]] == c
+                pc += insn_size(w, short)
+            if pc + (LINK_BYTES if link is not None else 0) > CHUNK_MAX:
+                raise SystemExit(f"{path}: chunk {c} is over {CHUNK_MAX} "
+                                 "bytes")
+            links[c] = link
+            ends[c] = pc
+        # pass 2: the bytes
+        for c in mine:
+            cstarts.append(len(code))
+            listing.append(f"-- chunk {c} ({os.path.basename(path)}) --")
+            for x in chunks[c][1]:
+                n, src, w, labs = items[x]
+                b = encode(path, n, w, ops, fields, decls, labels,
+                           chunk_of, off, c, fidx)
+                listing.append(f"{off[x]:4d}: "
+                               f"{' '.join(f'{v:02x}' for v in b):<16} {src}")
+                code += b
+            link = links[c]
+            if link is not None:
+                b = [ops["xjmp"], link & 0xff, link >> 8, 0]
+                listing.append(f"{ends[c]:4d}: "
+                               f"{' '.join(f'{v:02x}' for v in b):<16} "
+                               f"(xjmp chunk {link}: falls through)")
+                code += b
+    cstarts.append(len(code))
     if len(code) >= 1 << 16:
-        raise SystemExit(f"{path}: program too long")
-    return bytes(code), listing
+        raise SystemExit("bpasm: image over 64 KB")
+    return code, cstarts, funcs, progs, listing
 
 
-def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None):
-    """inner: a namespace nested in BytePhys (the test physics)."""
+def encode(path, n, w, ops, fields, decls, labels, chunk_of, off, c, fidx):
+    op = w[0]
+    if op == "push":
+        v = int(w[1], 0)
+        if not 0 <= v < (1 << 32):
+            raise SystemExit(f"{path}:{n}: push out of range")
+        if v < 256:
+            return [ops["push8"], v]
+        return [ops["push32"]] + [(v >> k) & 0xff for k in (0, 8, 16, 24)]
+    if op in ("jmp", "jz", "jnz"):
+        if len(w) != 2 or w[1] not in labels:
+            raise SystemExit(f"{path}:{n}: {op} needs a known label")
+        t = labels[w[1]]
+        tc = chunk_of[t]
+        if tc == c:
+            return [ops[op], off[t]]
+        # the target starts its chunk or sits inside it: its offset there
+        return [ops["x" + op], tc & 0xff, tc >> 8, off[t]]
+    if op == "call":
+        f = fidx[labels[w[1]]]
+        return [ops["call"], f & 0xff, f >> 8]
+    if op in ("getf", "setf"):
+        if len(w) != 2 or w[1] not in fields:
+            raise SystemExit(f"{path}:{n}: {op} needs a field "
+                             f"({', '.join(fields)})")
+        return [ops[op], fields[w[1]]]
+    if op in ("loadl", "storel", "enter"):
+        want = 3 if op == "enter" else 2
+        try:
+            vals = [int(x, 0) for x in w[1:]]
+        except ValueError:
+            raise SystemExit(f"{path}:{n}: {op}: unknown local {w[1:]}")
+        if len(w) != want or not all(0 <= v < 256 for v in vals):
+            raise SystemExit(f"{path}:{n}: {op} takes "
+                             f"{want - 1} number(s) 0..255")
+        return [ops[op]] + vals
+    if op in MEMBER_OPS:
+        if len(w) != 2:
+            raise SystemExit(f"{path}:{n}: {op} needs a member path")
+        i = decls.member_id(w[1], f"{path}:{n}")
+        return [ops[op], i & 0xff, i >> 8]
+    if len(w) != 1:
+        raise SystemExit(f"{path}:{n}: {op} takes no operand")
+    return [ops[op]]
+
+
+def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
+           image=None):
+    """progs: [(name, entry function)]; image: assemble_image's (code,
+    chunk starts, functions, listing) or None; inner: a namespace nested
+    in BytePhys (the test physics)."""
     out = ["#pragma once  /* -*- C++ -*- */",
            f"/* {os.path.basename(outpath)} -- GENERATED by "
            f"scripts/bytephys/bpasm.py from",
@@ -419,19 +565,39 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None):
     out.append("    };")
     out.append(f"    static constexpr Layout BP_LAYOUT = "
                f"{{BP_MEMBER_REFS, {len(refs)}u, BP_MEMBER_ATS}};")
-    for name, code in progs:
-        up = name.upper()
+    if image is not None:
+        code, cstarts, funcs, _ = image
         out.append("")
-        out.append(f"    static constexpr u8 BP_CODE_{up}[{len(code)}] = {{")
+        out.append(f"    // one image: {len(code)} bytes, {len(cstarts) - 1} "
+                   f"chunks, {len(funcs)} functions")
+        for i, (fname, ch) in enumerate(funcs):
+            out.append(f"    //   function {i} {fname}: chunk {ch}")
+        out.append(f"    static constexpr u8 BP_CODE[{len(code)}] = {{")
         for i in range(0, len(code), 12):
-            chunk = ", ".join(f"0x{b:02x}" for b in code[i:i + 12])
-            out.append(f"      {chunk},")
+            part = ", ".join(f"0x{b:02x}" for b in code[i:i + 12])
+            out.append(f"      {part},")
         out.append("    };")
-        out.append(f"    static constexpr Program BP_PROG_{up} = "
-                   f"{{BP_CODE_{up}, {len(code)}u, &BP_LAYOUT}};")
-        # Machine::run trusts its program: check it here, once, for free
-        out.append(f"    static_assert(verify(BP_PROG_{up}) == 0u, "
-                   f"\"{name}.bp fails BytePhys::verify\");")
+        out.append(f"    static constexpr u16 BP_CHUNK_START[{len(cstarts)}]"
+                   " = {")
+        for i in range(0, len(cstarts), 10):
+            out.append("      " + ", ".join(f"{v}u" for v in
+                                             cstarts[i:i + 10]) + ",")
+        out.append("    };")
+        out.append(f"    static constexpr u16 BP_FUNC_CHUNK[{len(funcs)}] "
+                   "= {")
+        for i in range(0, len(funcs), 10):
+            out.append("      " + ", ".join(f"{ch}u" for _, ch in
+                                             funcs[i:i + 10]) + ",")
+        out.append("    };")
+        out.append(f"    static constexpr Image BP_IMAGE = {{BP_CODE, "
+                   f"BP_CHUNK_START, {len(cstarts) - 1}u, BP_FUNC_CHUNK, "
+                   f"{len(funcs)}u, &BP_LAYOUT}};")
+        # Machine::run trusts its image: check it here, once, for free
+        out.append("    static_assert(verify(BP_IMAGE) == 0u, "
+                   "\"the image fails BytePhys::verify\");")
+    for name, f in progs:
+        out.append(f"    static constexpr Program BP_PROG_{name.upper()} = "
+                   f"{{&BP_IMAGE, {f}u}};")
     # every program in source order, with its name (the microbenchmark
     # set, ByteBench.h, runs them all; harmless elsewhere)
     out.append("")
@@ -499,33 +665,35 @@ def sources(srcdir=HERE):
             if f.endswith(".bp")]
 
 
-def build(srcdir=HERE, outpath=OUT, inner=None):
+def build(srcdir=HERE, outpath=OUT, inner=None, listing=False):
     ops, fields = load_tables()
     decls, rest = load_decls(sources(srcdir))
+    files = [(p, l) for p, l in rest.items() if l]
+    image = None
     progs = []
-    for path, lines in rest.items():
-        if lines:
-            code, _ = assemble(path, lines, ops, fields, decls)
-            progs.append((os.path.basename(path)[:-3], code))
-    return render(progs, decls, srcdir, outpath, inner)
+    if files:
+        code, cstarts, funcs, entries, lst = assemble_image(files, ops,
+                                                            fields, decls)
+        image = (code, cstarts, funcs, lst)
+        progs = list(entries.items())
+    if listing:
+        return image
+    return render(progs, decls, srcdir, outpath, inner, image)
 
 
 def main(argv):
     if argv[:1] == ["--list"]:
-        ops, fields = load_tables()
-        paths = sources()
-        extra = [os.path.abspath(f) for f in argv[1:]
-                 if os.path.abspath(f) not in paths]
-        decls, rest = load_decls(paths + extra)
-        for path in paths:      # hand out member ids as a build would
-            if rest[path]:
-                assemble(path, rest[path], ops, fields, decls)
-        for f in argv[1:]:
-            lines = rest[os.path.abspath(f)]
-            code, listing = assemble(f, lines, ops, fields, decls)
-            print(f"{f}: {len(code)} bytes")
-            print("\n".join(listing))
-        print("\n".join(decls.describe()))
+        # the listing of a whole set: --list [tests|bench]
+        which = argv[1] if len(argv) > 1 else ""
+        st = {"tests": SETS[1], "bench": SETS[2]}.get(which, SETS[0])
+        image = build(st[0], st[1], st[2], listing=True)
+        if image is None:
+            print("no code")
+            return 0
+        code, cstarts, funcs, lst = image
+        print(f"{len(code)} bytes, {len(cstarts) - 1} chunks, "
+              f"{len(funcs)} functions")
+        print("\n".join(lst))
         return 0
     texts = [(build(*st), st[1]) for st in SETS]
     if argv[:1] == ["--check"]:

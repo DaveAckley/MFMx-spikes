@@ -23,15 +23,15 @@ namespace MFM {
     // operand and call stacks live here in fast RAM, beside mFastEW.
     BytePhys::Machine mVM;
 
-    // The programs in use, copied into fast RAM (ByteCache.h): opcode
-    // fetches cost 2 cycles there against 8+ in L1.  4 slots of 256
-    // bytes (FB1 146, FB4 34; bench programs run uncached).  Counts go
-    // out as `.bc` every 100,000 events, with the stack high-water `.sw`.
+    // The code chunks in use, copied into fast RAM (ByteCache.h): opcode
+    // fetches cost 2 cycles there against 8+ in L1.  12 slots of 256
+    // bytes, ~3 KB: Liv's hart B budget is ~2 KB stack reserve + ~3 KB
+    // cache (BYTEPHYS.md).  Counts go out as `.bc` every 100,000 events,
+    // with the stack high-water `.sw`.
     enum : u32 {
-      CODE_CACHE_SLOTS = 4,
-      CODE_CACHE_SLOT_BYTES = 256,
+      CODE_CACHE_SLOTS = 12,
     };
-    BytePhys::CodeCache<CODE_CACHE_SLOTS, CODE_CACHE_SLOT_BYTES> mCodeCache;
+    BytePhys::CodeCache<CODE_CACHE_SLOTS> mCodeCache;
 
     // Physics timing (`.pt` mark): per timed type, events, wall-clock
     // ticks (AI clock cycles) spent in guardedPhysics, and bytecode

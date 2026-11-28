@@ -32,9 +32,25 @@
      bool oneIn(u32 n)
      [[noreturn]] void fault(u32 f)   f is a Fault
 
-   ENCODING.  One byte opcode, then its immediates, little-endian.  Jump
-   and call targets are absolute u16 offsets into the program.  Binary
-   ops pop b then a and push (a op b).  See bpasm.py for the assembler.
+   ENCODING.  One byte opcode, then its immediates, little-endian.
+   Binary ops pop b then a and push (a op b).  See bpasm.py for the
+   assembler.
+
+   IMAGES, FUNCTIONS, CHUNKS (2026-11-27).  All the code of a set of .bp
+   files (one physics) is one Image: its FUNCTIONS (each program's entry,
+   every call target) cut into CHUNKS of at most CHUNK_MAX bytes, stored
+   back to back.  A chunk is the unit the fast-RAM code cache holds
+   (ByteCache.h), so nothing inside one depends on where it sits: JMP,
+   JZ and JNZ take a u8 offset WITHIN their chunk; XJMP, XJZ and XJNZ (u16
+   chunk, u8 offset) go to another chunk, which is how a function bigger
+   than a chunk continues (bpasm puts an XJMP at the end of a chunk that
+   would fall through); CALL takes a u16 FUNCTION index (its code starts
+   at offset 0 of the function's first chunk) and saves (chunk, return
+   offset, frame).  So the interpreter asks where code is only at those
+   transfers, through its Res(olver) template parameter: InPlace reads
+   the image where it lies (L1 on the EWP), the code cache copies chunks
+   into fast RAM.  A Program is a handle: an image and an entry
+   function.
 
    ARITHMETIC SATURATES.  ADD and SUB clamp to [0, 2^32-1] instead of
    wrapping, and SETM clamps a value to its member's declared width.
@@ -76,10 +92,10 @@ namespace MFM {
       OP_SUB,                           //< a b -> a-b (saturates at 0)
       OP_EQ,                            //< a b -> a==b
       OP_LT,                            //< a b -> a<b (unsigned)
-      OP_JMP,                           //< imm16 target
-      OP_JZ,                            //< imm16 target: pop, jump if 0
-      OP_JNZ,                           //< imm16 target: pop, jump if != 0
-      OP_CALL,                          //< imm16 target: save return+frame
+      OP_JMP,                           //< imm8 offset in this chunk
+      OP_JZ,                            //< imm8 offset: pop, jump if 0
+      OP_JNZ,                           //< imm8 offset: pop, jump if != 0
+      OP_CALL,                          //< imm16 function: save return+frame
       OP_RET,                           //< restore return+frame
       OP_GETF,                          //< imm8 field: sn -> value
       OP_SETF,                          //< imm8 field: sn value ->
@@ -92,6 +108,9 @@ namespace MFM {
       OP_ENTER,                         //< imm8 nargs, imm8 nlocals
       OP_LOADL,                         //< imm8 slot: -> local
       OP_STOREL,                        //< imm8 slot: value ->
+      OP_XJMP,                          //< imm16 chunk, imm8 offset
+      OP_XJZ,                           //< imm16 chunk, imm8 offset: pop, if 0
+      OP_XJNZ,                          //< imm16 chunk, imm8 offset: pop, if != 0
       OP_COUNT
     };
 
@@ -204,10 +223,35 @@ namespace MFM {
       return (u8) (((u32) channel * 5u) / 8u);
     }
 
-    struct Program {
+    enum : u32 {
+      CHUNK_MAX = 256,                  //< bytes; offsets are u8
+    };
+
+    /* One physics' code (see IMAGES above): chunk c is mCode[
+       mChunkStart[c] .. mChunkStart[c + 1]); function f starts at offset
+       0 of chunk mFuncChunk[f]. */
+    struct Image {
       const u8 * mCode;
-      u16 mLength;
+      const u16 * mChunkStart;          //< mChunkCount + 1 entries
+      u16 mChunkCount;
+      const u16 * mFuncChunk;           //< mFuncCount entries
+      u16 mFuncCount;
       const Layout * mLayout;           //< for GETM/SETM (may be null)
+    };
+
+    /* What to run: an image and its entry function (an element's
+       behave, or a microbenchmark). */
+    struct Program {
+      const Image * mImage;
+      u16 mFunc;
+    };
+
+    /* Code where the image lies (L1 on the EWP): the resolver run() uses
+       when no cache is given. */
+    struct InPlace {
+      const u8 * chunk(const Image & img, u32 c) {
+        return img.mCode + img.mChunkStart[c];
+      }
     };
 
     struct Machine {
@@ -217,7 +261,8 @@ namespace MFM {
         LOCALS_SIZE = 32,               //< local slots, all frames
       };
       struct Call {
-        u16 mReturn;                    //< pc after the CALL
+        u16 mChunk;                     //< the caller's chunk
+        u8 mReturn;                     //< offset after the CALL in it
         u8 mBase;                       //< caller's frame base
         u8 mTop;                        //< caller's frame end
       };
@@ -249,17 +294,28 @@ namespace MFM {
 
       void resetDispatch() { mOpsFrom = nullptr; }
 
-      /* Run a VERIFIED program (verify(p) == 0, below; the generated
-         programs are checked at compile time), so opcodes, immediates,
-         jump targets, fields, member ids and the program's end need no
-         checks here.  What only the run can know is still checked:
-         stack depths, frames, sites, member types, and fuel, which is
-         counted per instruction but compared only at backward jumps
-         and calls (straight-line code always reaches one, or a halt). */
+      /* Run p from its image where it lies (InPlace). */
       template <class Env>
+      bool run(const Program & p, Env & env, u32 fuel) {
+        InPlace res;
+        return run(p, env, fuel, res);
+      }
+
+      /* Run program p of a VERIFIED image (verify(img) == 0, below; the
+         generated images are checked at compile time), so opcodes,
+         immediates, jump targets, chunk and function numbers, fields,
+         member ids and chunk ends need no checks here.  What only the
+         run can know is still checked: stack depths, frames, sites,
+         member types, and fuel, which is counted per instruction but
+         compared only at backward jumps, cross-chunk jumps and calls
+         (straight-line code in a chunk always reaches one, or a halt or
+         a return).  res.chunk(image, c) says where chunk c's bytes are;
+         it is asked at entry and at every XJMP/XJZ/XJNZ taken, CALL and
+         RET, never in between. */
+      template <class Env, class Res>
       __attribute__((optimize("O2")))  // the EWP builds -Os, which would
       // merge every handler's dispatch into one shared indirect jump
-      bool run(const Program & p, Env & env, u32 fuel) {
+      bool run(const Program & p, Env & env, u32 fuel, Res & res) {
         // computed-goto dispatch (GCC): each handler jumps straight to
         // the next one; kOps lists every Op in enum order
         static void * const kOps[] = {
@@ -267,7 +323,7 @@ namespace MFM {
           &&L_SWAP, &&L_OVER, &&L_ADD, &&L_SUB, &&L_EQ, &&L_LT, &&L_JMP,
           &&L_JZ, &&L_JNZ, &&L_CALL, &&L_RET, &&L_GETF, &&L_SETF,
           &&L_COPY, &&L_EMPTY, &&L_BETWEEN, &&L_ONEIN, &&L_GETM, &&L_SETM,
-          &&L_ENTER, &&L_LOADL, &&L_STOREL,
+          &&L_ENTER, &&L_LOADL, &&L_STOREL, &&L_XJMP, &&L_XJZ, &&L_XJNZ,
         };
         static_assert(sizeof(kOps) / sizeof(kOps[0]) == OP_COUNT,
                       "kOps must list every Op, in order");
@@ -277,7 +333,9 @@ namespace MFM {
           mOpsFrom = (const void *) kOps;
         }
         void * const * const ops = mOps;
-        const u8 * const code = p.mCode;
+        const Image & img = *p.mImage;
+        u32 chunk = img.mFuncChunk[p.mFunc];
+        const u8 * code = res.chunk(img, chunk);
         u32 * const stk = mStack;
         u32 pc = 0;
         u32 sp = 0;                     // next free operand slot
@@ -291,6 +349,10 @@ namespace MFM {
 #define BP_ROOM(n) do { if (__builtin_expect(sp + (n) > STACK_SIZE, 0)) \
                           env.fault(BF_STACK_OVER); } while (0)
 #define BP_IMM16 ((u32) code[pc] | ((u32) code[pc + 1] << 8))
+// (c and t are evaluated before code changes)
+#define BP_GOCHUNK(c, t) do { const u32 c_ = (c); const u32 t_ = (t); \
+                              chunk = c_; code = res.chunk(img, c_); \
+                              pc = t_; } while (0)
 #define BP_NEXT do { ++used; goto *ops[code[pc++] & (OPS_SLOTS - 1u)]; } \
   while (0)
 #define BP_FUEL_CHECK do { if (__builtin_expect(used > fuel, 0)) \
@@ -367,45 +429,64 @@ namespace MFM {
         BP_NEXT;
       }
       L_JMP: {
-        const u32 t = BP_IMM16;
+        const u32 t = code[pc];
         if (t < pc) BP_FUEL_CHECK;      // backward: a loop
         pc = t;
         BP_NEXT;
       }
       L_JZ: {
         BP_NEED(1);
-        const u32 t = BP_IMM16;
+        const u32 t = code[pc];
         if (stk[--sp] == 0u) {
           if (t < pc) BP_FUEL_CHECK;
           pc = t;
-        } else pc += 2;
+        } else pc += 1;
         BP_NEXT;
       }
       L_JNZ: {
         BP_NEED(1);
-        const u32 t = BP_IMM16;
+        const u32 t = code[pc];
         if (stk[--sp] != 0u) {
           if (t < pc) BP_FUEL_CHECK;
           pc = t;
-        } else pc += 2;
+        } else pc += 1;
         BP_NEXT;
       }
+      L_XJMP:                           // to another chunk: fuel always
+        BP_FUEL_CHECK;
+        BP_GOCHUNK(BP_IMM16, code[pc + 2]);
+        BP_NEXT;
+      L_XJZ:
+        BP_NEED(1);
+        if (stk[--sp] == 0u) {
+          BP_FUEL_CHECK;
+          BP_GOCHUNK(BP_IMM16, code[pc + 2]);
+        } else pc += 3;
+        BP_NEXT;
+      L_XJNZ:
+        BP_NEED(1);
+        if (stk[--sp] != 0u) {
+          BP_FUEL_CHECK;
+          BP_GOCHUNK(BP_IMM16, code[pc + 2]);
+        } else pc += 3;
+        BP_NEXT;
       L_CALL: {
         BP_FUEL_CHECK;                  // recursion is a loop too
         if (cp >= CALL_SIZE) env.fault(BF_CALL_OVER);
         Call & c = mCalls[cp++];
-        c.mReturn = (u16) (pc + 2u);
+        c.mChunk = (u16) chunk;
+        c.mReturn = (u8) (pc + 2u);
         c.mBase = (u8) fb;
         c.mTop = (u8) ft;
-        pc = BP_IMM16;
+        BP_GOCHUNK(img.mFuncChunk[BP_IMM16], 0u);
         BP_NEXT;
       }
       L_RET: {
         if (cp == 0) env.fault(BF_CALL_UNDER);
         const Call & c = mCalls[--cp];
-        pc = c.mReturn;
         fb = c.mBase;
         ft = c.mTop;
+        BP_GOCHUNK(c.mChunk, c.mReturn);  // the callee may have evicted it
         BP_NEXT;
       }
       L_GETF: {
@@ -492,7 +573,7 @@ namespace MFM {
         const u32 sn = stk[sp - 1];
         if (sn >= SITES) env.fault(BF_SITE);
         P4Atom & a = env.atom(sn);
-        const MemberAt & at = memberAt(*p.mLayout, id, a.getType(), env);
+        const MemberAt & at = memberAt(*img.mLayout, id, a.getType(), env);
         stk[sp - 1] = getBits(a, at.mPos, at.mLen);
         BP_NEXT;
       }
@@ -504,7 +585,7 @@ namespace MFM {
         const u32 sn = stk[--sp];
         if (sn >= SITES) env.fault(BF_SITE);
         P4Atom & a = env.atom(sn);
-        const MemberAt & at = memberAt(*p.mLayout, id, a.getType(), env);
+        const MemberAt & at = memberAt(*img.mLayout, id, a.getType(), env);
         const u32 max = lenMask(at.mLen);
         setBits(a, at.mPos, at.mLen, v > max ? max : v);
         BP_NEXT;
@@ -512,6 +593,7 @@ namespace MFM {
 #undef BP_NEED
 #undef BP_ROOM
 #undef BP_IMM16
+#undef BP_GOCHUNK
 #undef BP_NEXT
 #undef BP_FUEL_CHECK
       }
@@ -533,63 +615,91 @@ namespace MFM {
     /* Immediate bytes after opcode op, or -1 if op is no opcode. */
     constexpr int immBytes(u32 op) {
       return op == OP_PUSH8 || op == OP_GETF || op == OP_SETF ||
-             op == OP_LOADL || op == OP_STOREL ? 1
+             op == OP_LOADL || op == OP_STOREL || op == OP_JMP ||
+             op == OP_JZ || op == OP_JNZ ? 1
            : op == OP_PUSH32 ? 4
-           : op == OP_JMP || op == OP_JZ || op == OP_JNZ || op == OP_CALL ||
-             op == OP_GETM || op == OP_SETM || op == OP_ENTER ? 2
+           : op == OP_XJMP || op == OP_XJZ || op == OP_XJNZ ? 3
+           : op == OP_CALL || op == OP_GETM || op == OP_SETM ||
+             op == OP_ENTER ? 2
            : op < OP_COUNT ? 0
            : -1;
     }
 
-    /* Does an instruction start at offset t? */
-    constexpr bool isInsnStart(const Program & p, u32 t) {
+    /* Bytes in chunk c. */
+    constexpr u32 chunkLength(const Image & img, u32 c) {
+      return (u32) img.mChunkStart[c + 1u] - (u32) img.mChunkStart[c];
+    }
+
+    /* Does an instruction start at offset t of chunk c? */
+    constexpr bool isInsnStart(const Image & img, u32 c, u32 t) {
+      const u8 * code = img.mCode + img.mChunkStart[c];
       u32 pc = 0;
       while (pc < t) {
-        const int n = immBytes(p.mCode[pc]);
+        const int n = immBytes(code[pc]);
         if (n < 0) return false;
         pc += 1u + (u32) n;
       }
       return pc == t;
     }
 
-    /* 0 if Machine::run may run p, else the Fault it would hit: an
-       unknown opcode (BF_OPCODE), an immediate past the end, a jump or
-       call target off the end or inside an instruction, or an
-       instruction other than halt0/halt1/jmp/ret as the last one, so
-       control could run off the end (BF_PC; a call needs a next
-       instruction to return to), a bad or read-only field (BF_FIELD),
-       a member id with no Layout or past it (BF_MEMBER), enter with
-       nargs > nlocals or more than all the local slots (BF_FRAME).
-       constexpr: bpasm's headers static_assert it for every program. */
-    constexpr u32 verify(const Program & p) {
-      const u32 len = p.mLength;
-      if (len == 0u) return BF_PC;
-      u32 pc = 0;
-      while (pc < len) {
-        const u32 op = p.mCode[pc];
-        const int n = immBytes(op);
-        if (n < 0) return BF_OPCODE;
-        const u32 next = pc + 1u + (u32) n;
-        if (next > len) return BF_PC;
-        const u32 i0 = n > 0 ? p.mCode[pc + 1] : 0u;
-        const u32 i1 = n > 1 ? p.mCode[pc + 2] : 0u;
-        if (op == OP_JMP || op == OP_JZ || op == OP_JNZ || op == OP_CALL) {
-          const u32 t = i0 | (i1 << 8);
-          if (t >= len || !isInsnStart(p, t)) return BF_PC;
-        } else if (op == OP_GETF) {
-          if (i0 >= F_COUNT) return BF_FIELD;
-        } else if (op == OP_SETF) {
-          if (i0 == F_TYPE || i0 >= F_COUNT) return BF_FIELD;
-        } else if (op == OP_GETM || op == OP_SETM) {
-          if (p.mLayout == nullptr || (i0 | (i1 << 8)) >= p.mLayout->mRefCount)
-            return BF_MEMBER;
-        } else if (op == OP_ENTER) {
-          if (i0 > i1 || i1 > Machine::LOCALS_SIZE) return BF_FRAME;
+    /* 0 if Machine::run may run any function of img, else the Fault it
+       would hit: no chunk or function, chunk starts out of order or a
+       chunk empty or over CHUNK_MAX, a function or call naming no
+       function, an unknown opcode (BF_OPCODE), an immediate past its
+       chunk's end, a jump target off its chunk's end or inside an
+       instruction, a cross-chunk jump to no chunk, or a chunk whose last
+       instruction is not halt0/halt1/jmp/xjmp/ret, so control could run
+       off it (BF_PC; a call needs a next instruction to return to), a
+       bad or read-only field (BF_FIELD), a member id with no Layout or
+       past it (BF_MEMBER), enter with nargs > nlocals or more than all
+       the local slots (BF_FRAME).  constexpr: bpasm's headers
+       static_assert it for every image. */
+    constexpr u32 verify(const Image & img) {
+      if (img.mChunkCount == 0u || img.mFuncCount == 0u) return BF_PC;
+      if (img.mChunkStart[0] != 0u) return BF_PC;
+      for (u32 c = 0; c < img.mChunkCount; ++c) {
+        if (img.mChunkStart[c + 1u] <= img.mChunkStart[c]) return BF_PC;
+        if (chunkLength(img, c) > CHUNK_MAX) return BF_PC;
+      }
+      for (u32 f = 0; f < img.mFuncCount; ++f)
+        if (img.mFuncChunk[f] >= img.mChunkCount) return BF_PC;
+      for (u32 c = 0; c < img.mChunkCount; ++c) {
+        const u8 * code = img.mCode + img.mChunkStart[c];
+        const u32 len = chunkLength(img, c);
+        u32 pc = 0;
+        while (pc < len) {
+          const u32 op = code[pc];
+          const int n = immBytes(op);
+          if (n < 0) return BF_OPCODE;
+          const u32 next = pc + 1u + (u32) n;
+          if (next > len) return BF_PC;
+          const u32 i0 = n > 0 ? code[pc + 1] : 0u;
+          const u32 i1 = n > 1 ? code[pc + 2] : 0u;
+          const u32 i2 = n > 2 ? code[pc + 3] : 0u;
+          if (op == OP_JMP || op == OP_JZ || op == OP_JNZ) {
+            if (i0 >= len || !isInsnStart(img, c, i0)) return BF_PC;
+          } else if (op == OP_XJMP || op == OP_XJZ || op == OP_XJNZ) {
+            const u32 c2 = i0 | (i1 << 8);
+            if (c2 >= img.mChunkCount || i2 >= chunkLength(img, c2) ||
+                !isInsnStart(img, c2, i2)) return BF_PC;
+          } else if (op == OP_CALL) {
+            if ((i0 | (i1 << 8)) >= img.mFuncCount) return BF_PC;
+          } else if (op == OP_GETF) {
+            if (i0 >= F_COUNT) return BF_FIELD;
+          } else if (op == OP_SETF) {
+            if (i0 == F_TYPE || i0 >= F_COUNT) return BF_FIELD;
+          } else if (op == OP_GETM || op == OP_SETM) {
+            if (img.mLayout == nullptr ||
+                (i0 | (i1 << 8)) >= img.mLayout->mRefCount)
+              return BF_MEMBER;
+          } else if (op == OP_ENTER) {
+            if (i0 > i1 || i1 > Machine::LOCALS_SIZE) return BF_FRAME;
+          }
+          const bool ends = op == OP_HALT0 || op == OP_HALT1 ||
+            op == OP_JMP || op == OP_XJMP || op == OP_RET;
+          if (!ends && next >= len) return BF_PC;
+          pc = next;
         }
-        const bool ends = op == OP_HALT0 || op == OP_HALT1 ||
-          op == OP_JMP || op == OP_RET;
-        if (!ends && next >= len) return BF_PC;
-        pc = next;
       }
       return 0u;
     }
