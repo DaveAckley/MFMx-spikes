@@ -172,7 +172,11 @@ The borrower's events never reach that square, and it belongs to another
 borrower this cycle: before the trim, one owner's corner square had
 three borrowers (the diagonal plus two edge bands) and at SAVE the last
 packet won (OPEN_ISSUES 'CORNER NOTCHES').  Now every site has at most
-one borrower per cycle (cachepolicy_test checks it).
+one borrower per cycle (cachepolicy_test checks it).  Except at a
+PERMANENT edge: if the side toward the square has no hub, nobody else
+can borrow it and the events run to the last real site, so the square
+stays in the band (the first version trimmed there too and left turds
+along the array's outer edges after a nuke, run bebd68e).
 
 CACHE ELISION (`elide on`): a band is neither saved nor reloaded only
 when the next corner REPEATS the previous one (CachingPolicies::

@@ -36,6 +36,14 @@ timeouts.  The host's 'stale reports ignored' count rose to 13.1M per
 25 min (4.5M before): more SAVEs now that adjacent corners keep nothing,
 so more borrower event reports arrive after the owner's newer SAVE
 report and are dropped, as the epoch-of-change stamp intends.
+REGRESSION, FIXED (2026-11-27, NOT yet run): the trim also dropped the
+square at a PERMANENT edge, where no other borrower exists and
+withPermanentEdges runs events to the last real site, so borrowers on
+the array's outer edges evolved and painted cache squares that were
+never loaded or saved (Liv saw turds after the nuke along the bottom of
+bh2/bh3 in run bebd68e).  trimBand now keeps the square when the side
+toward it is a permanent edge; cachepolicy_test checks coverage with
+the hubs' permanent edges (the first trim fails it 24 times).
 
 ## 2026-11-26  Log car died after 65.5 s of silence
 

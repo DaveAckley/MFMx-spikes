@@ -180,14 +180,32 @@ namespace MFM {
        (WT, ET) the north square when we expand south, else the south
        one.  Sites and caches of a band share those coordinates, so both
        ends of a link trim alike.  Diagonals are whole squares already.
-       Every site is now borrowed by at most one hub per cycle. */
-    static U8CRange trimBand(u8 corner, Dir8 d8, U8CRange r) {
+       Every site is now borrowed by at most one hub per cycle.
+       EXCEPT at a PERMANENT edge (permEdges, HubEdges::PE_*): if the side
+       toward the square has no hub, nobody else can borrow it, and our
+       events DO reach it (withPermanentEdges runs them to the last real
+       site), so it stays in the band.  A row band's ends lie toward W
+       and E, a column band's toward N and S; both ends of a link sit in
+       the same column (row) of hubs, so they see the same edges.  (The
+       first version trimmed there too: borrowers at the array's outer
+       edges evolved and painted copies nobody loaded or saved, turds
+       after a nuke along the bottom of run 20261127 bebd68e.) */
+    static U8CRange trimBand(u8 corner, Dir8 d8, U8CRange r,
+                             u8 permEdges) {
       if (d8 == D8_NT || d8 == D8_ST) {
-        if (toEast(corner)) r.start.x = (u8) (OW + OW);
-        else r.stop.x = (u8) (TW - OW - OW);
+        if (toEast(corner)) {
+          if ((permEdges & HubEdges::PE_W) == 0u) r.start.x = (u8) (OW + OW);
+        } else {
+          if ((permEdges & HubEdges::PE_E) == 0u)
+            r.stop.x = (u8) (TW - OW - OW);
+        }
       } else if (d8 == D8_WT || d8 == D8_ET) {
-        if (toSouth(corner)) r.start.y = (u8) (OH + OH);
-        else r.stop.y = (u8) (TH - OH - OH);
+        if (toSouth(corner)) {
+          if ((permEdges & HubEdges::PE_N) == 0u) r.start.y = (u8) (OH + OH);
+        } else {
+          if ((permEdges & HubEdges::PE_S) == 0u)
+            r.stop.y = (u8) (TH - OH - OH);
+        }
       }
       return r;
     }
@@ -225,12 +243,14 @@ namespace MFM {
 
     /* The range a loader walks for direction d8 (the sites we lend or
        the cache we borrow into, `full`), under policy id and argument
-       arg.  CP_FOURCORNERS trims edge bands (FourCornersPolicy::trimBand);
-       the ewsnap policies walk their own bands (CacheLoader initEWBand). */
+       arg, for a hub with permanent edges permEdges.  CP_FOURCORNERS
+       trims edge bands (FourCornersPolicy::trimBand); the ewsnap policies
+       walk their own bands (CacheLoader initEWBand). */
     static U8CRange bandRange(CachePolicyId id, u8 arg, Dir8 d8,
-                              U8CRange full) {
-      return id == CP_FOURCORNERS ? FourCornersPolicy::trimBand(arg, d8, full)
-                                  : full;
+                              U8CRange full, u8 permEdges) {
+      return id == CP_FOURCORNERS
+        ? FourCornersPolicy::trimBand(arg, d8, full, permEdges)
+        : full;
     }
 
     /* CACHE ELISION: may direction d8 stay put across a change of argument

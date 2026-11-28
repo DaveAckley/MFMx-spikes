@@ -49,6 +49,14 @@ static PolicyCtx ctxFor(u8 arg, int hx, int hy, int nx, int ny) {
   return c;
 }
 
+/* Permanent edges of hub (hx, hy) in an n x n array (HubEdges::PE_*). */
+static u8 permEdgesOf(int hx, int hy, int n) {
+  return (u8) ((hy == 0 ? (u32) HubEdges::PE_N : 0u) |
+               (hx == 0 ? (u32) HubEdges::PE_W : 0u) |
+               (hy == n - 1 ? (u32) HubEdges::PE_S : 0u) |
+               (hx == n - 1 ? (u32) HubEdges::PE_E : 0u));
+}
+
 static Rect reach(const EventBounds & b) {   // sites an event window can touch
   const int R = CachingPolicyBase<SuperCellPolicy>::WINDOW_RADIUS;
   return { b.x0 - R, b.y0 - R, b.x1 - 1 + R + 1, b.y1 - 1 + R + 1 };
@@ -109,40 +117,55 @@ int main() {
                 arg, hx, hy, recv, send);
           // ONE BORROWER PER SITE: the bands we lend (as trimmed by
           // bandRange) never overlap each other, and each band we borrow
-          // holds every cache site our events can reach that way
+          // holds every cache site our events can reach that way, with
+          // the hub's permanent edges (events run to the last real site
+          // there, and the band keeps its square: run bebd68e's turds)
           PolicyCtx c0 = { false, false, false };
+          const u8 pe = permEdgesOf(hx, hy, N);
+          const Rect reachPE = reach(CachingPolicies::withPermanentEdges(
+              eb, pe));
+          // (only real neighbors: a loader toward a missing hub is unused)
+          auto there = [&](int dd) {
+            const int x = hx + DX[dd];
+            const int y = hy + DY[dd];
+            return x >= 0 && x < N && y >= 0 && y < N;
+          };
           for (int d = 0; d < 8; ++d) {
+            if (!there(d)) continue;
             const DirPlan p = CachingPolicies::plan(id, arg, (Dir8) d, c0);
             if (p == DirPlan::RECV_CACHES) {
               Rect full = ofRange(NgbCacheMgr::CACHE_RANGES[d]);
               Rect got = ofRange(CachingPolicies::bandRange(
-                  id, arg, (Dir8) d, NgbCacheMgr::CACHE_RANGES[d]));
-              Rect need = { full.x0 > mine.x0 ? full.x0 : mine.x0,
-                            full.y0 > mine.y0 ? full.y0 : mine.y0,
-                            full.x1 < mine.x1 ? full.x1 : mine.x1,
-                            full.y1 < mine.y1 ? full.y1 : mine.y1 };
+                  id, arg, (Dir8) d, NgbCacheMgr::CACHE_RANGES[d], pe));
+              const Rect & m = reachPE;
+              Rect need = { full.x0 > m.x0 ? full.x0 : m.x0,
+                            full.y0 > m.y0 ? full.y0 : m.y0,
+                            full.x1 < m.x1 ? full.x1 : m.x1,
+                            full.y1 < m.y1 ? full.y1 : m.y1 };
               CHECK(need.x0 >= need.x1 || need.y0 >= need.y1 ||
                     (got.x0 <= need.x0 && got.y0 <= need.y0 &&
                      got.x1 >= need.x1 && got.y1 >= need.y1),
-                    "fourcorners arg %u dir %d: the borrowed band misses "
-                    "cache sites our events reach", arg, d);
+                    "fourcorners arg %u hub %d,%d dir %d: the borrowed band "
+                    "misses cache sites our events reach", arg, hx, hy, d);
             }
             if (p != DirPlan::SEND_SITES) continue;
             Rect a = ofRange(CachingPolicies::bandRange(
-                id, arg, (Dir8) d, NgbCacheMgr::SITE_RANGES[d]));
+                id, arg, (Dir8) d, NgbCacheMgr::SITE_RANGES[d], pe));
             for (int e = d + 1; e < 8; ++e) {
+              if (!there(e)) continue;
               if (CachingPolicies::plan(id, arg, (Dir8) e, c0) !=
                   DirPlan::SEND_SITES) continue;
               Rect b = ofRange(CachingPolicies::bandRange(
-                  id, arg, (Dir8) e, NgbCacheMgr::SITE_RANGES[e]));
+                  id, arg, (Dir8) e, NgbCacheMgr::SITE_RANGES[e], pe));
               CHECK(!overlap(a, b),
                     "fourcorners arg %u: lent bands %d and %d share sites "
                     "(two borrowers)", arg, d, e);
             }
             // both ends of the link walk the same shape
+            const u8 peerPE = permEdgesOf(hx + DX[d], hy + DY[d], N);
             Rect cb = ofRange(CachingPolicies::bandRange(
                 id, arg, oppositeDir8((Dir8) d),
-                NgbCacheMgr::CACHE_RANGES[oppositeDir8((Dir8) d)]));
+                NgbCacheMgr::CACHE_RANGES[oppositeDir8((Dir8) d)], peerPE));
             CHECK(a.x1 - a.x0 == cb.x1 - cb.x0 && a.y1 - a.y0 == cb.y1 - cb.y0,
                   "fourcorners arg %u dir %d: lent and borrowed bands differ "
                   "in shape", arg, d);

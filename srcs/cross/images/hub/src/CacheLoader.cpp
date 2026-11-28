@@ -153,10 +153,12 @@ namespace MFM {
         // four corners trims edge bands so no site has two borrowers
         U8CRange mySitesForYou =
           CachingPolicies::bandRange(policy, mConfiguredSCL, d8,
-                                     NgbCacheMgr::SITE_RANGES[d8]);
+                                     NgbCacheMgr::SITE_RANGES[d8],
+                                     gm.mPermEdges);
         U8CRange myCacheForYou =
           CachingPolicies::bandRange(policy, mConfiguredSCL, d8,
-                                     NgbCacheMgr::CACHE_RANGES[d8]);
+                                     NgbCacheMgr::CACHE_RANGES[d8],
+                                     gm.mPermEdges);
 
 #pragma GCC diagnostic pop
 

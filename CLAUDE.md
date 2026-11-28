@@ -399,7 +399,10 @@ unless the user asks for a rename.
 - FOUR-CORNERS TRIMMED BANDS (2026-11-27, PROVEN run 20261127-182009): edge bands are
   exchanged without the corner square at the end away from the corner
   (CachingPolicies::bandRange, used by CacheLoaders::configureCacheLoaders for LOAD
-  and SAVE), so no site has two borrowers in a cycle; the cause of Liv's CORNER
+  and SAVE), so no site has two borrowers in a cycle; NOT on a side that is a
+  PERMANENT edge (no other borrower exists, events reach it; the first version
+  trimmed there too: turds along the array's outer edges after a nuke, run bebd68e,
+  fixed in the next commit, NOT yet run); the cause of Liv's CORNER
   NOTCHES (CLOSED_ISSUES: corner notches per point 7.85 -> 2.49, edge 2.75, center
   1.49; previous-corner match 54% -> 24%).  cachepolicy_test checks it (now in
   run_native_tests).
