@@ -47,10 +47,12 @@ file with only declarations makes no program.
 
 Usage:
   bpasm.py                 regenerate BytePrograms.h from every *.bp here,
-                           and its blob as srcs/host/python/EWD/physics/
-                           bfb.bcp (for mfmxctl --physics)
+                           and the other sets' headers (tests, bench,
+                           dreg); the physics and dreg blobs also go to
+                           srcs/host/python/EWD/physics/{bfb,dreg}.bcp
+                           (for mfmxctl --physics)
   bpasm.py --check         exit 1 if any of those is out of date
-  bpasm.py --list [tests|bench]   print a set's image listing
+  bpasm.py --list [tests|bench|dreg]   print a set's image listing
 """
 
 import os
@@ -98,6 +100,7 @@ JUMPS = ("jmp", "jz", "jnz", "call")
 MEMBER_OPS = ("getm", "setm")
 STATE_BITS = 80
 MAX_MEMBER_BITS = 32
+INACCESSIBLE_TYPE = 511    # P4Atom::INACCESSIBLE_TYPE (MAX_TYPE): `new` refuses it
 
 
 def strip(raw):
@@ -356,7 +359,7 @@ def insn_size(words, short=False):
         return 2 if int(words[1], 0) < 256 else 5
     if op in ("jmp", "jz", "jnz"):
         return 2 if short else 4
-    if op == "call" or op in MEMBER_OPS or op == "enter":
+    if op == "call" or op in MEMBER_OPS or op in ("enter", "new"):
         return 3
     if op in ("getf", "setf", "loadl", "storel"):
         return 2
@@ -520,6 +523,20 @@ def encode(path, n, w, ops, fields, decls, labels, chunk_of, off, c, fidx):
             raise SystemExit(f"{path}:{n}: {op} takes "
                              f"{want - 1} number(s) 0..255")
         return [ops[op]] + vals
+    if op == "new":
+        # new TYPE: a type number or an element declared in this set
+        if len(w) != 2:
+            raise SystemExit(f"{path}:{n}: new needs a type")
+        if w[1] in decls.elements:
+            t = decls.elements[w[1]][0]
+        else:
+            try:
+                t = int(w[1], 0)
+            except ValueError:
+                raise SystemExit(f"{path}:{n}: new: no element {w[1]}")
+        if not 0 <= t < INACCESSIBLE_TYPE:
+            raise SystemExit(f"{path}:{n}: new: type {t} out of range")
+        return [ops["new"], t & 0xff, t >> 8]
     if op in MEMBER_OPS:
         if len(w) != 2:
             raise SystemExit(f"{path}:{n}: {op} needs a member path")
@@ -667,10 +684,13 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
 # srcs/host/tools/bytephys_test.cpp includes its header), and the
 # per-opcode microbenchmark (bench/*.bp, written by benchgen.py; the EWP
 # runs it on a Bench atom)
-# The physics set's blob is also written as a file, for loading at start
-# (mfmxctl --physics; srcs/host/python/EWD/physics/README.md)
-BCP_OUT = os.path.join(ROOT, "srcs", "host", "python", "EWD", "physics",
-                       "bfb.bcp")
+# Sets whose blob is also written as a file, for loading at start
+# (mfmxctl --physics; srcs/host/python/EWD/physics/README.md):
+# output header -> .bcp file
+PHYS_DIR = os.path.join(ROOT, "srcs", "host", "python", "EWD", "physics")
+DREG_OUT = os.path.join(ROOT, "srcs", "host", "tools", "ByteDReg.h")
+BCP_FILES = {OUT: os.path.join(PHYS_DIR, "bfb.bcp"),
+             DREG_OUT: os.path.join(PHYS_DIR, "dreg.bcp")}
 BLOBS = {}                      # output header -> the BCP blob render made
 
 SETS = [(HERE, OUT, None),
@@ -679,7 +699,10 @@ SETS = [(HERE, OUT, None),
          "Tests"),
         (os.path.join(HERE, "bench"),
          os.path.join(ROOT, "srcs", "shared", "include", "ByteBench.h"),
-         "Bench")]
+         "Bench"),
+        # DReg and Res (scripts/ulamlite/dreg): a physics to load at start
+        # (physics/dreg.bcp); only bytephys_test includes its header
+        (os.path.join(HERE, "dreg"), DREG_OUT, "DReg")]
 
 
 def sources(srcdir=HERE):
@@ -709,7 +732,8 @@ def main(argv):
     if argv[:1] == ["--list"]:
         # the listing of a whole set: --list [tests|bench]
         which = argv[1] if len(argv) > 1 else ""
-        st = {"tests": SETS[1], "bench": SETS[2]}.get(which, SETS[0])
+        st = {"tests": SETS[1], "bench": SETS[2],
+              "dreg": SETS[3]}.get(which, SETS[0])
         image = build(st[0], st[1], st[2], listing=True)
         if image is None:
             print("no code")
@@ -720,30 +744,31 @@ def main(argv):
         print("\n".join(lst))
         return 0
     texts = [(build(*st), st[1]) for st in SETS]
-    blob = BLOBS.get(OUT, b"")
+    bcps = [(BLOBS.get(h, b""), f) for h, f in BCP_FILES.items()]
     if argv[:1] == ["--check"]:
         bad = [os.path.basename(o) for t, o in texts
                if (open(o).read() if os.path.exists(o) else "") != t]
-        old = open(BCP_OUT, "rb").read() if os.path.exists(BCP_OUT) else b""
-        if old != blob:
-            bad.append(os.path.basename(BCP_OUT))
+        for blob, f in bcps:
+            old = open(f, "rb").read() if os.path.exists(f) else b""
+            if old != blob:
+                bad.append(os.path.basename(f))
         if bad:
             print(f"bpasm --check: {', '.join(bad)} OUT OF DATE "
                   "(run scripts/bytephys/bpasm.py)")
             return 1
         print("bpasm --check: "
-              + ", ".join(os.path.basename(o) for _, o in texts)
-              + ", " + os.path.basename(BCP_OUT) + " current")
+              + ", ".join([os.path.basename(o) for _, o in texts]
+                          + [os.path.basename(f) for _, f in bcps])
+              + " current")
         return 0
     for text, o in texts:
         open(o, "w").write(text)
         print(f"bpasm: wrote {os.path.relpath(o, ROOT)}")
-    os.makedirs(os.path.dirname(BCP_OUT), exist_ok=True)
-    open(BCP_OUT, "wb").write(blob)
-    print(f"bpasm: wrote {os.path.relpath(BCP_OUT, ROOT)} "
-          f"({len(blob)} bytes)")
+    for blob, f in bcps:
+        os.makedirs(os.path.dirname(f), exist_ok=True)
+        open(f, "wb").write(blob)
+        print(f"bpasm: wrote {os.path.relpath(f, ROOT)} ({len(blob)} bytes)")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

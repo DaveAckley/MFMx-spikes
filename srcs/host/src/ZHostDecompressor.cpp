@@ -83,10 +83,12 @@ namespace MFM {
       break; 
 
     case 2u: // (DReg)
+    case 9u: // DReg as bytecode (physics/dreg.bcp)
       c.set(250u,20u,30u);
       break;
 
     case 3u: // (Res)
+    case 10u: // Res as bytecode (physics/dreg.bcp)
       c.set(20u,250u,30u);
       break;
 

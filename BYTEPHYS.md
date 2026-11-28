@@ -194,6 +194,7 @@ the right.
 | 1c | xjmp | u16 chunk, u8 offset | ( -- ) | to another chunk |
 | 1d | xjz | u16 chunk, u8 offset | ( x -- ) | to another chunk if x == 0 |
 | 1e | xjnz | u16 chunk, u8 offset | ( x -- ) | to another chunk if x != 0 |
+| 1f | new | u16 type | ( sn -- ) | atom sn = a new atom of that type (verify refuses INACCESSIBLE); `new NAME` or `new N` |
 
 Notes:
 - Every jump, call and return target is checked against the program
@@ -675,6 +676,21 @@ attack the second.
   L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
   table pointers in locals, a second MRU try or a caller slot saved for
   RET.
+- **DReg and Res, a second physics (2026-11-28, host-tested,
+  cross-built, not yet run):** scripts/ulamlite/dreg/{dreg,res}.ulam,
+  the same steps and draws as native types 2 and 3 (a native swap with
+  an empty site is a copy and an erase); bytephys_test compares 24000
+  events site by site against a copy of the native code.  New opcode
+  OP_NEW (0x1f, `new TYPE16`, ( sn -- )): a new atom of a type fixed at
+  verify time (INACCESSIBLE refused); ulam-lite `ew[n] = Res;`, and `is
+  Inaccessible`.  OP_COUNT is now 32 = OPS_SLOTS, so no masked byte
+  faults BF_OPCODE any more (each runs some opcode; still never a wild
+  jump).  Blobs record OP_COUNT, so the old ones are refused and every
+  blob was regenerated (bfb.bcp checksum now 0xea8b444b).  ulamlite.py
+  SETS carry a first type each (dreg from 9); bpasm builds the set into
+  srcs/host/tools/ByteDReg.h and physics/dreg.bcp (208 bytes).  The host
+  draws 9 and 10 as darker native DReg / Res (isBytecodeType 7..10).
+  EWP image 144852 bytes (blob at 0x235e0).
 - **Loadable physics, step 3 (2026-11-28, measured, run
   20261128-083650: every EWP ran the loaded blob, `.bv:1:0:0:2:1:
   7ed764ec`; timing as before, FB4 9403 cycles/event, FB1 1681, bench
@@ -799,6 +815,9 @@ attack the second.
 `scripts/ulamlite/ulamlite.py` compiles every `scripts/ulamlite/*.ulam`
 into GENERATED .bp files in scripts/bytephys (one per quark, one per
 element, named after it in lower case), which bpasm then assembles.
+Each SET is one physics: scripts/ulamlite/*.ulam (BFB1, BFB4: the
+compiled-in one and physics/bfb.bcp), tests/ (bytephys_test only), and
+dreg/ (DReg, Res: physics/dreg.bcp, loaded with `physics dreg`).
 Never edit a generated .bp (its first line says so); edit the .ulam and
 rerun ulamlite.py, then bpasm.py.  `ulamlite.py --check` (in
 run_native_tests.sh as ulamlite_check) fails if a generated .bp is
@@ -829,9 +848,11 @@ constants, members, methods }`.  Members are `Unsigned(n)` (1..32),
 
 **Type numbers:** as in culam, the compiler assigns them, which is why
 a whole physics compiles at once (every `is TYPE` and every table then
-agrees).  Elements are numbered from 7 (`FIRST_TYPE`, above the native
-types 0..6) in order of name: BFB1 is 7, BFB4 is 8.  Adding an element
-can renumber the ones after it.  bpasm turns the numbers into a table,
+agrees).  Elements are numbered from a set's first type (ulamlite.py
+SETS; 7 = `FIRST_TYPE`, above the native types 0..6) in order of name:
+BFB1 is 7, BFB4 is 8; the dreg set starts at 9, so DReg is 9 and Res
+10 and no two physics share a number.  Adding an element can renumber
+the ones after it.  bpasm turns the numbers into a table,
 inside the BCP blob (type -> entry function; `BP_FIRST_TYPE` /
 `BP_TYPE_COUNT` in BytePrograms.h), and the EWP runs any type it finds
 there (entryFor) (Physics.cpp's
@@ -847,13 +868,15 @@ Bool parameters and return Void, Unsigned(n) or Bool; they compile to
 **Statements:** blocks; locals (`Unsigned x = e;`, `Unsigned(4) n;`,
 `Bool b;` -- zero if not initialized); `=`, `+=`, `-=`, `x++`, `x--` on
 locals and self's members; `ew[e] = self;`, `ew[e] = ew[f];`,
-`ew[e] = Empty;`; if/else, while, for, break, continue, return; calls.
+`ew[e] = Empty;`, `ew[e] = ELEMENT;` (a new atom of that type, OP_NEW);
+if/else, while, for, break, continue, return; calls.
 
 **Expressions:** unsigned literals (decimal, 0x), true/false,
 constants, locals, self's members (`a.age`), `+ -` (saturating),
 `== != < <= > >=`, `&& || !` (short-circuit, so random draws happen
 only when reached), method calls, `random.between(lo, hi)`,
-`random.oneIn(n)`, `ew[e] is TYPE` (`is Empty` for empty sites).
+`random.oneIn(n)`, `ew[e] is TYPE` (`is Empty` for empty sites, `is
+Inaccessible` for sites off the edge).
 
 **Semantics:** every value is a u32 on the operand stack.  Storing into
 an Unsigned(n) member or local clamps to n bits (members by setm,

@@ -26,6 +26,12 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   CLOSED_ISSUES after a few dozen.  May also have been the 2026-11-21
   seam21 laggards.
 
+- DReg + Res as a loaded physics (built 2026-11-28; BYTEPHYS.md
+  section 12): experiment.cmd seeds ONE bytecode DReg (type 9) under
+  `physics dreg`, policy ewsnap10, ~20 min.  Check `.bv:1:0:0:2:1:
+  a52d19fe`, DRegs and Res spreading, no BCPBAD / `.pf`.  If nothing
+  grows, suspect LOST SEED BATCHES (below) before the physics.
+
 ## Bugs
 
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,

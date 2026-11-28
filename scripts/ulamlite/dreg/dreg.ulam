@@ -1,0 +1,24 @@
+// dreg.ulam -- DReg (the dynamic regulator) in ulam-lite: the same steps
+// and the SAME ORDER OF RANDOM DRAWS as native PHY_DREG (ewp Physics.cpp;
+// bytephys_test checks that site by site).  A whole physics with Res
+// (res.ulam): physics/dreg.bcp, types 9 and up (ulamlite.py SETS).
+// Native swaps with an empty site; here that is a copy and an erase.
+element DReg {
+  Void behave() {
+    Unsigned n = random.between(1, 4);
+    if (ew[n] is Inaccessible) return;  // don't go there
+    if (ew[n] is Empty) {
+      if (random.oneIn(250)) ew[n] = self;      // a new me
+      else if (random.oneIn(25)) ew[n] = Res;   // a new Res
+      else {                                    // move
+        ew[n] = self;
+        ew[0] = Empty;
+      }
+    } else if (ew[n] is DReg) {                 // DReg on DReg
+      if (random.oneIn(20)) ew[n] = Empty;
+    } else if (random.oneIn(40)) {              // anything else: eat it
+      ew[n] = self;
+      ew[0] = Empty;
+    }
+  }
+}

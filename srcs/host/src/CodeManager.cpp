@@ -533,10 +533,12 @@ XXX    u32 hostblockaddr = mRVCodeSize - sizeof(HostBlock);
           break; // render all sites including empties, since we're not resetting the img..
 
         case 2u: // (DReg)
+        case 9u: // DReg as bytecode (physics/dreg.bcp)
           c.set(250u,20u,30u);
           break;
 
         case 3u: // (Res)
+        case 10u: // Res as bytecode (physics/dreg.bcp)
           c.set(220u,220u,20u);
           break;
 

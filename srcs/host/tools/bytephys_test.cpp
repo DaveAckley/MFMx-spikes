@@ -40,6 +40,7 @@
 #include "BytePrograms.h"
 #include "BytePhysTests.h"   // test-only physics, scripts/ulamlite/tests
 #include "ByteBench.h"       // microbenchmark, scripts/bytephys/benchgen.py
+#include "ByteDReg.h"        // DReg + Res, scripts/ulamlite/dreg
 #include "NativeFB.h"
 #include "ByteCache.h"         // fast-RAM program cache (EWP)
 
@@ -66,6 +67,9 @@ const BytePhys::BCPView g_tests =
 const BytePhys::BCPView g_bench =
   openOrDie(BytePhys::Bench::BP_BCP, sizeof(BytePhys::Bench::BP_BCP),
             "Bench::BP_BCP");
+const BytePhys::BCPView g_dreg =
+  openOrDie(BytePhys::DReg::BP_BCP, sizeof(BytePhys::DReg::BP_BCP),
+            "DReg::BP_BCP");
 const BytePhys::Program PROG_BFB1 = {&g_phys, BytePhys::BP_FUNC_BFB1};
 const BytePhys::Program PROG_BFB4 = {&g_phys, BytePhys::BP_FUNC_BFB4};
 BytePhys::Program testProg(u16 f) { return {&g_tests, f}; }
@@ -810,11 +814,14 @@ void testCodeCache() {
     }
     return 0u;
   };
-  check(runRaw({(u8) OP_COUNT}) == BF_OPCODE, "mask: OP_COUNT faults");
-  check(runRaw({0x1fu}) == BF_OPCODE, "mask: 31 faults");
-  check(runRaw({0xffu}) == BF_OPCODE, "mask: 255 faults");
+  // since OP_NEW OP_COUNT is 32: every masked byte is an opcode, and a
+  // byte above the mask runs the opcode it masks to
+  static_assert((u32) OP_COUNT == (u32) BytePhys::Machine::OPS_SLOTS,
+                "update the mask checks: BF_OPCODE slots are back");
   check(runRaw({(u8) (0x20u | OP_HALT1)}) == 0u,
         "mask: a flip above the mask runs the masked opcode");
+  check(runRaw({(u8) (0xe0u | BytePhys::OP_HALT0)}) == 0u,
+        "mask: 0xe0 runs halt0");
   printf("code cache: %u scans, %u misses, %u bytes copied; "
          "cache<12> %zu bytes\n",
          (unsigned) cache.mScans, (unsigned) cache.mMisses,
@@ -903,9 +910,113 @@ void testBCP() {
          (unsigned) n);
 }
 
+/* Native DReg and Res, copied from ewp Physics.cpp (PHY_DREG,
+   PHY_RES) with the bytecode type numbers, for testDReg. */
+bool nativeDReg(Env & ew, u16 dreg, u16 res) {
+  const u32 ngbsn = ew.between(1u, 4u);
+  P4Atom & na = ew.atom(ngbsn);
+  const u32 natype = na.getType();
+  P4Atom & ca = ew.atom(0);
+  if (natype == P4Atom::INACCESSIBLE_TYPE) {
+    // DO NOTHING! DON'T GO THERE!
+  } else if (natype == P4Atom::EMPTY_TYPE) {
+    if (ew.oneIn(250u)) na = ca;
+    else if (ew.oneIn(25u)) na = P4Atom::makeAtom(res);
+    else std::swap(ca, na);
+  } else if (natype == dreg) {
+    if (ew.oneIn(20u)) na = P4Atom::makeEmptyAtom();
+  } else if (ew.oneIn(40u)) {
+    na = P4Atom::makeEmptyAtom();
+    std::swap(ca, na);
+  }
+  return true;
+}
+
+bool nativeRes(Env & ew) {
+  const u32 ngbsn = ew.between(1u, 4u);
+  P4Atom & na = ew.atom(ngbsn);
+  if (na.getType() == P4Atom::EMPTY_TYPE) std::swap(ew.atom(0), na);
+  return true;
+}
+
+/* DReg and Res in ulam-lite (scripts/ulamlite/dreg, physics/dreg.bcp)
+   do exactly what the native ones do: same windows, same draws in the
+   same order, over windows mixing empty, DReg, Res, another type and
+   inaccessible sites.  And OP_NEW: verify refuses INACCESSIBLE, run
+   checks the site. */
+void testDReg() {
+  namespace D = BytePhys::DReg;
+  BytePhys::Machine vm{};
+  const BytePhys::Program progs[2] = {{&g_dreg, D::BP_FUNC_DREG},
+                                      {&g_dreg, D::BP_FUNC_RES}};
+  const u16 kinds[6] = {0u, 0u, D::BP_TYPE_DREG, D::BP_TYPE_RES, 4u,
+                        P4Atom::INACCESSIBLE_TYPE};
+  long runs = 0;
+  u32 news = 0;
+  for (int mode = 0; mode < 3; ++mode) {
+    for (u32 seed = 1; seed <= 4000; ++seed) {
+      for (int k = 0; k < 2; ++k) {
+        Env n(seed * 104729u + (u32) mode, mode);
+        Env b(seed * 104729u + (u32) mode, mode);
+        u32 s = seed * 2654435761u + 7u;
+        for (u32 i = 0; i < BytePhys::SITES; ++i) {
+          s ^= s << 13;
+          s ^= s >> 17;
+          s ^= s << 5;
+          n.mW[i] = P4Atom::makeAtom(kinds[s % 6u]);
+          // state on the others; an empty atom is the clean one (a
+          // native swap moves the empty atom, bytecode makes a new one)
+          if (kinds[s % 6u] != 0u) n.mW[i].mStg[0] = s;
+        }
+        n.mW[0] = P4Atom::makeAtom(k == 0 ? D::BP_TYPE_DREG
+                                          : D::BP_TYPE_RES);
+        n.mW[0].mStg[1] = seed;
+        memcpy(b.mW, n.mW, sizeof(n.mW));
+        u32 resBefore = 0;
+        for (u32 i = 1; i <= 4u; ++i)
+          resBefore += n.mW[i].getType() == D::BP_TYPE_RES;
+        const bool rn = k == 0 ? nativeDReg(n, D::BP_TYPE_DREG,
+                                            D::BP_TYPE_RES)
+                               : nativeRes(n);
+        bool rb = false;
+        try {
+          rb = vm.run(progs[k], b, 10'000u);
+        } catch (const Fault &) {
+          check(false, "bytecode DReg/Res faulted");
+          continue;
+        }
+        check(rn == rb, "DReg/Res: results differ");
+        check(sameWindow(n, b), k == 0 ? "DReg windows differ"
+                                       : "Res windows differ");
+        check(n.mDraws == b.mDraws, "DReg/Res: draws differ");
+        u32 resAfter = 0;
+        for (u32 i = 1; i <= 4u; ++i)
+          resAfter += b.mW[i].getType() == D::BP_TYPE_RES;
+        news += k == 0 && resAfter > resBefore;
+        ++runs;
+      }
+    }
+  }
+  check(news > 0u, "DReg: never made a Res (OP_NEW untested)");
+  // OP_NEW: the type is checked once, by verify; the site at run time
+  using namespace BytePhys;
+  const u8 P8 = OP_PUSH8;
+  check(faultOf({P8, 41, OP_NEW, 3, 0, OP_HALT1}) == BF_SITE,
+        "new: site 41");
+  {
+    RawImage ok({P8, 1, OP_NEW, 0xfe, 0x01, OP_HALT1}, nullptr);
+    RawImage bad({P8, 1, OP_NEW, 0xff, 0x01, OP_HALT1}, nullptr);
+    check(ok.bad == 0u, "new: type 510 verifies");
+    check(bad.bad == BF_TYPE, "new: INACCESSIBLE (511) refused");
+  }
+  printf("dreg: %ld DReg/Res events match native, %u made a Res\n",
+         runs, (unsigned) news);
+}
+
 int main() {
   testBCP();
   testEquivalence();
+  testDReg();
   testFaults();
   testBits();
   testCompiler();

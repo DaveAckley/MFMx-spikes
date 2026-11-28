@@ -12,8 +12,13 @@ A bare name means physics/NAME.bcp here; anything else is a path.
 
 - bfb.bcp: written by scripts/bytephys/bpasm.py from scripts/bytephys/
   *.bp (aging, bfb1, bfb4); the same bytes as the EWP's compiled-in
-  BP_BCP.  `bpasm.py --check` (run_native_tests.sh) fails if it is
-  stale.
+  BP_BCP.  Types 7 (BFB1) and 8 (BFB4).
+- dreg.bcp: DReg and Res (scripts/ulamlite/dreg), types 9 (DReg) and
+  10 (Res), drawn as darker native DReg / Res.
+
+`bpasm.py --check` (run_native_tests.sh) fails if either is stale.  A
+loaded physics replaces the compiled-in one: types it lacks are unknown
+that run (erased at their first event).
 
 ## How it gets there
 

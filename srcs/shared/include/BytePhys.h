@@ -134,6 +134,7 @@ namespace MFM {
       OP_XJMP,                          //< imm16 chunk, imm8 offset
       OP_XJZ,                           //< imm16 chunk, imm8 offset: pop, if 0
       OP_XJNZ,                          //< imm16 chunk, imm8 offset: pop, if != 0
+      OP_NEW,                           //< imm16 type: sn -> (atom sn = new atom)
       OP_COUNT
     };
 
@@ -239,12 +240,13 @@ namespace MFM {
       const MemberAt * mAts;
     };
 
-    /* The physics types run as bytecode (ewp/src/Physics.cpp PHY_BFB1,
-       PHY_BFB4).  The host draws them like their native twins but
-       darkened (tintBytecode), so the two can be told apart on screen.
-       Add any new bytecode type here. */
+    /* The physics types run as bytecode: BFB1, BFB4 (7, 8; the
+       compiled-in physics, ewp/src/Physics.cpp PHY_BFB1, PHY_BFB4) and
+       DReg, Res (9, 10; physics/dreg.bcp).  The host draws them like
+       their native twins but darkened (tintBytecode), so the two can be
+       told apart on screen.  Add any new bytecode type here. */
     inline bool isBytecodeType(u32 type) {
-      return type == 7u || type == 8u;
+      return type >= 7u && type <= 10u;
     }
 
     /* Darken one color channel of a bytecode type to 5/8. */
@@ -379,11 +381,13 @@ namespace MFM {
          Machine must be value-initialized (`Machine vm{};`) or call
          resetDispatch().  The table has OPS_SLOTS entries, the power of
          two at or above OP_COUNT; dispatch masks the opcode byte to it
-         and the entries past OP_COUNT fault BF_OPCODE, so even a
+         and any entries past OP_COUNT fault BF_OPCODE, so even a
          corrupted opcode (a bit flipped in a cached copy, ByteCache.h)
          reaches a handler or a fault, never a wild jump.  It costs one
          AND per instruction.  (A flip that stays below OP_COUNT runs
-         another opcode: the mask is safety, not detection.) */
+         another opcode: the mask is safety, not detection.  Since
+         OP_NEW, 2026-11-28, OP_COUNT is 32 and every masked byte is an
+         opcode; L_BADOP stays for a smaller table.) */
       enum : u32 {
         OPS_SLOTS = 32,                 //< power of two >= OP_COUNT
       };
@@ -427,6 +431,7 @@ namespace MFM {
           &&L_JZ, &&L_JNZ, &&L_CALL, &&L_RET, &&L_GETF, &&L_SETF,
           &&L_COPY, &&L_EMPTY, &&L_BETWEEN, &&L_ONEIN, &&L_GETM, &&L_SETM,
           &&L_ENTER, &&L_LOADL, &&L_STOREL, &&L_XJMP, &&L_XJZ, &&L_XJNZ,
+          &&L_NEW,
         };
         static_assert(sizeof(kOps) / sizeof(kOps[0]) == OP_COUNT,
                       "kOps must list every Op, in order");
@@ -634,6 +639,15 @@ namespace MFM {
         env.atom(sn) = P4Atom::makeEmptyAtom();
         BP_NEXT;
       }
+      L_NEW: {                          // the type was checked by verify
+        const u32 type = BP_IMM16;
+        pc += 2;
+        BP_NEED(1);
+        const u32 sn = stk[--sp];
+        if (sn >= SITES) env.fault(BF_SITE);
+        env.atom(sn) = P4Atom::makeAtom((u16) type);
+        BP_NEXT;
+      }
       L_BETWEEN: {
         BP_NEED(2);
         const u32 hi = stk[--sp];
@@ -726,7 +740,7 @@ namespace MFM {
            : op == OP_PUSH32 ? 4
            : op == OP_XJMP || op == OP_XJZ || op == OP_XJNZ ? 3
            : op == OP_CALL || op == OP_GETM || op == OP_SETM ||
-             op == OP_ENTER ? 2
+             op == OP_ENTER || op == OP_NEW ? 2
            : op < OP_COUNT ? 0
            : -1;
     }
@@ -871,6 +885,9 @@ namespace MFM {
             if ((i0 | (i1 << 8)) >= nrefs) return BF_MEMBER;
           } else if (op == OP_ENTER) {
             if (i0 > i1 || i1 > Machine::LOCALS_SIZE) return BF_FRAME;
+          } else if (op == OP_NEW) {    // a real type, never INACCESSIBLE
+            if ((i0 | (i1 << 8)) >= P4Atom::INACCESSIBLE_TYPE)
+              return BF_TYPE;
           }
           const bool ends = op == OP_HALT0 || op == OP_HALT1 ||
             op == OP_JMP || op == OP_XJMP || op == OP_RET;

@@ -1,0 +1,11 @@
+// res.ulam -- Res in ulam-lite: wanders into empty sites, as native
+// PHY_RES (ewp Physics.cpp).  DReg (dreg.ulam) makes them.
+element Res {
+  Void behave() {
+    Unsigned n = random.between(1, 4);
+    if (ew[n] is Empty) {
+      ew[n] = self;
+      ew[0] = Empty;
+    }
+  }
+}
