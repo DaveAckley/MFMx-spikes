@@ -535,6 +535,16 @@ class Blackhole:
     def __repr__(self):
         return f"<Blackhole:{self.chip} {self.step.name}>"
 
+    def getTLBIImageName(self, tlbi):
+        # the C2X2_EWP_HUB cell: the hub is at (1,1) of every 2x2 block
+        col, row = tlbi % 14, tlbi // 14
+        return "HUB" if col % 2 == 1 and row % 2 == 1 else "EWP"
+
+    def getTLBITag(self, tlbi):
+        row, col = divmod(tlbi, 14)
+        x = col + 1 + (2 if col + 1 > 7 else 0)
+        return f"at{self.chip}{'0123456789abcdefghijklmnopqrstuvwxyz'[x]}{'0123456789abcdefghijklmnopqrstuvwxyz'[row + 2]}"
+
     def getChipNumber(self):
         return self.chip
 
@@ -809,6 +819,10 @@ class _EWC:
 
     def doSeed(self, t):
         return f"Seed@{_mock.rng.randrange(256)},{_mock.rng.randrange(128)}"
+
+    def doSeedAt(self, t, x, y):
+        ok = 0 <= x < 1918 and 0 <= y < 1080   # DG active grid
+        return f"{'Seed' if ok else 'BadSeed'}@{x},{y}"
 
     def doNuke(self, big):
         return ("NUKE!" if big else "nuke!") + f"@{_mock.rng.randrange(256)},{_mock.rng.randrange(128)}"

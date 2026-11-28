@@ -195,19 +195,77 @@ def c_tlbi(ctx, a):
     return "\n".join(lines)
 
 
+SEED_USAGE = ("usage: seed [COUNT [TYPE]] | seed at X Y [TYPE] | "
+              "seed hub TAG [COUNT [TYPE]]")
+
+
+def _seed_cell(m, chip):
+    """The active layout's cell size (tiles) on chip, from the config."""
+    h = m.config.hash
+    lay = h["layout"][h["Config"]["activeLayout"]]
+    cells = lay.get("cell") or {}
+    name = cells.get(str(chip), cells.get(chip, cells.get("all", lay.get("fill"))))
+    return tuple(h["cell"][name]["size"])
+
+
+def _seed_hub_sites(m, tag, n):
+    """n random sites no policy caches, on the hub tile named by tag (log
+    style, at023); refuses a tile that does not run the HUB image."""
+    import random
+    import HubGeometry as HG
+    from machine_util import parse_tile_tag
+    chip, x, y = parse_tile_tag(tag)
+    tlbi = m.noc_to_tlbi(x, y)
+    if tlbi is None:
+        raise ValueError(f"{tag} is not a Tensix tile")
+    bh = {b.getChipNumber(): b for b in m.bhs}.get(chip)
+    if bh is None:
+        raise ValueError(f"{tag}: chip {chip} is not in this layout")
+    img = bh.getTLBIImageName(tlbi) or "(no image)"
+    if img != "HUB":
+        raise ValueError(f"{tag} runs {img}, not HUB")
+    x0, y0, w, h = HG.hub_uncached_rect(chip, tlbi, _seed_cell(m, chip))
+    return [(random.randrange(x0, x0 + w), random.randrange(y0, y0 + h))
+            for _ in range(n)]
+
+
 def c_seed(ctx, a):
     m = ctx.m
     m.need_booted()
+    # TYPE defaults to the 'decay' start type (FB1 = 4 if never set)
+    dflt = 4 if m.decay is None else int(m.decay)
+    where = None                        # None: anywhere; else [(x, y)]
+    if a and a[0][:1].isalpha():
+        sub = kw(a[0], ("at", "hub"), "seed option")
+        rest = a[1:]
+        try:
+            if sub == "at":
+                if not 2 <= len(rest) <= 3 or not all(w.isdigit() for w in rest):
+                    return SEED_USAGE
+                where = [(int(rest[0]), int(rest[1]))]
+                a = ["1"] + rest[2:]
+            else:
+                if not 1 <= len(rest) <= 3 or \
+                   not all(w.isdigit() for w in rest[1:]):
+                    return SEED_USAGE
+                a = rest[1:]
+                n = int(a[0]) if a else 1
+                if not 1 <= n <= 1000:
+                    return "seed count must be 1..1000"
+                where = _seed_hub_sites(m, rest[0], n)
+        except ValueError as e:
+            return f"seed {sub}: {e}"
     if len(a) > 2 or not all(w.isdigit() for w in a):
-        return "usage: seed [COUNT [TYPE]]"
+        return SEED_USAGE
     n = int(a[0]) if a else 1
     if not 1 <= n <= 1000:
         return "seed count must be 1..1000"
-    # TYPE defaults to the 'decay' start type (FB1 = 4 if never set)
-    t = int(a[1]) if len(a) > 1 else (4 if m.decay is None else int(m.decay))
+    t = int(a[1]) if len(a) > 1 else dflt
+    if not 0 < t < 511:
+        return "seed type must be 1..510"
     res = []
-    for _ in range(n):
-        r = m.ewc.doSeed(t)
+    for i in range(n):
+        r = m.ewc.doSeed(t) if where is None else m.ewc.doSeedAt(t, *where[i])
         m.logkt("SEED", r)
         res.append(r)
     if n == 1:
@@ -265,4 +323,7 @@ def register(ctx):
         "lamers, tlbi 15, tlbi 0:15,19)")
     sh.command("seed", partial(c_seed, ctx),
         "seed [COUNT [TYPE]]: COUNT random seeds (1..1000) of TYPE (default: "
-        "decay type)")
+        "decay type) anywhere; seed at X Y [TYPE]: one at global grid site "
+        "X,Y (as Seed@X,Y reports); seed hub TAG [COUNT [TYPE]]: at random "
+        "sites of hub tile TAG (at023 style; must run HUB) that no caching "
+        "policy touches")

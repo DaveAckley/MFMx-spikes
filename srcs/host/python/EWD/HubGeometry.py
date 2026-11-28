@@ -32,6 +32,33 @@ T6GRID_HEIGHT = T6GRID_BASE_HEIGHT + 2 * T6GRID_OVERLAP_HEIGHT
 
 SITES_PER_HUB = T6GRID_BASE_WIDTH * T6GRID_BASE_HEIGHT
 
+
+
+def hub_self_rect(chip, tlbi, cell=(2, 2)):
+    """The SELF sites (x0, y0, w, h) in global grid coordinates (the ones
+    'Seed@x,y' reports) of the hub whose cell holds tile tlbi, as
+    DG::mapCoordToAddress lays them out: chips in a CHIP_ARRAY_WIDTH-wide
+    array, each ACTIVE_HUB_WIDTH x ACTIVE_HUB_HEIGHT hub rectangles of
+    T6GRID_BASE_WIDTH x T6GRID_BASE_HEIGHT; cell = the layout cell size
+    in tiles (one hub per cell)."""
+    col, row = tlbi % QUIETBOX_T6_WIDTH, tlbi // QUIETBOX_T6_WIDTH
+    cx, cy = col // cell[0], row // cell[1]
+    ox = (chip % CHIP_ARRAY_WIDTH) * ACTIVE_HUB_WIDTH * T6GRID_BASE_WIDTH
+    oy = (chip // CHIP_ARRAY_WIDTH) * ACTIVE_HUB_HEIGHT * T6GRID_BASE_HEIGHT
+    return (ox + cx * T6GRID_BASE_WIDTH, oy + cy * T6GRID_BASE_HEIGHT,
+            T6GRID_BASE_WIDTH, T6GRID_BASE_HEIGHT)
+
+
+def hub_uncached_rect(chip, tlbi, cell=(2, 2)):
+    """hub_self_rect shrunk by the T6Grid overlap on every side: sites no
+    caching policy ever lends or borrows (no band is wider than the
+    overlap ring), so an atom put there is touched only by its own
+    hub's events until it moves."""
+    x0, y0, w, h = hub_self_rect(chip, tlbi, cell)
+    return (x0 + T6GRID_OVERLAP_WIDTH, y0 + T6GRID_OVERLAP_HEIGHT,
+            w - 2 * T6GRID_OVERLAP_WIDTH, h - 2 * T6GRID_OVERLAP_HEIGHT)
+
+
 if __name__ == "__main__":      # python3 HubGeometry.py: print NAME=value lines
     for k in ("T6GRID_BASE_WIDTH", "T6GRID_BASE_HEIGHT",
               "T6GRID_OVERLAP_WIDTH", "T6GRID_OVERLAP_HEIGHT",

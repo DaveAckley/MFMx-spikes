@@ -91,8 +91,16 @@ namespace MFM {
   std::string EWControl::doSeed(u32 atomType) {
     // only sites that some chip covers (not the blank display columns)
     U16C activeGridSize = DG::getActiveGridSize();
-    U32C loc(hostPRNG.Between(0,activeGridSize.x-1),
-             hostPRNG.Between(0,activeGridSize.y-1));
+    return doSeedAt(atomType,
+                    hostPRNG.Between(0,activeGridSize.x-1),
+                    hostPRNG.Between(0,activeGridSize.y-1));
+  }
+
+  /* One atom of atomType at global grid site (x, y) (the coordinates
+     'Seed@x,y' reports), written into the T6Grid of the hub that owns
+     it.  mfmxctl 'seed at' / 'seed hub' pick the site. */
+  std::string EWControl::doSeedAt(u32 atomType, u32 x, u32 y) {
+    U32C loc(x, y);
 
     /* SEED IN HOST
     setAtom(loc,P4Atom::makeStartAtom());

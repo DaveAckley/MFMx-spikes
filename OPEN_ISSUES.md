@@ -45,9 +45,14 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   chip matters.  Note initiateWriteToHost always returns 1 (no drop
   path in software), and the post-freeze EWP log lines came via
   slowscan (host reads), so they do not show the EWPs' writes to the
-  host still worked.  To split: native DReg (`seed 1 2`, no
-  `physics`) under the same script; then `policy fourcorners`.  On a
-  repeat, try `cycle retry` before quitting.
+  host still worked.  Run 20261128-120208 (0a4d272, the same script
+  under `policy fourcorners`): CLEAN, 173 cycles, 0 timeouts, `.bv` on
+  all 5535 marks, no BCPBAD / `.pf`; the seed landed on chip 1
+  (Seed@1424,84) and the DReg family reached 306 EWP tiles (so it
+  crossed onto most chips).  So bytecode DReg alone does not do it,
+  and ewsnap10 is the lead.  Next: ewsnap10 with the seed placed
+  (`seed hub at023 1 9` puts it on chip 0; any other chip's hub tag
+  for the other case), and on a freeze `cycle retry` before quitting.
 
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The

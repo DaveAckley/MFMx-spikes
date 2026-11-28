@@ -185,7 +185,9 @@ Grid, caching and display:
 - `notch on` corner-notch detector, notchwatch.py [NOTCH DETECTOR].
 
 mfmxctl commands worth knowing (HANDOFF.md, `help NAME`):
-`nuke [big] [X Y R]`, `autonuke` [NUKE]; `seed N TYPE`, `decay TYPE`;
+`nuke [big] [X Y R]`, `autonuke` [NUKE]; `seed N TYPE` (random),
+`seed at X Y TYPE`, `seed hub at023 N TYPE` (uncached sites of a HUB
+tile), `decay TYPE`;
 `events shortcut|honest`; `policy`; `elide`; `cycle start|stop|hold|
 step|repeat|holdat|waitpause` [CYCLE HOLDAT / WAITPAUSE]; `zoom
 auto|off|SCALE|region|specks|map`, `zoom shrink on` [ZOOM]; `grid

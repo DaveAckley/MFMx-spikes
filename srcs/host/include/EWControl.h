@@ -101,6 +101,7 @@ namespace MFM {
     std::string doNuke(bool large) ;
 
     std::string doSeed(u32 atomType) ;
+    std::string doSeedAt(u32 atomType, u32 x, u32 y) ; //< exact grid site
 
     S32C randomCoordInBounds() ;
 
@@ -237,6 +238,7 @@ namespace MFM {
       ewc.def("setActive",&EWControl::setActive);
       ewc.def("doNuke",&EWControl::doNuke);
       ewc.def("doSeed",&EWControl::doSeed);
+      ewc.def("doSeedAt",&EWControl::doSeedAt);
     }
   };
 }

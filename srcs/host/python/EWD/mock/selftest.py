@@ -682,7 +682,22 @@ def scenario_abbrev_args():
     check("args: seed COUNT [TYPE] (default decay type), bounded, junk refused",
           "seeded 3/3 type 7" in out and "seeded 25/25 type 2" in out
           and out.count("seed count must be 1..1000") == 2
-          and out.count("usage: seed [COUNT [TYPE]]") == 2, out[-900:])
+          and "unknown seed option 'al'" in out
+          and out.count("usage: seed [COUNT [TYPE]]") == 1, out[-900:])
+    rc, out = run("boot\ndecay 7\nstart\nseed hub at023 1 9\nseed hub at023 4\n"
+                  "seed hub at033\nseed hub at0zz\nseed hub at933\n"
+                  "seed at 210 89 9\nseed at 5000 89\nseed at 1\nseed 1 600\nquit\n")
+    check("args: seed hub TAG (HUB only, uncached interior), seed at X Y, type range",
+          "seeded 4/4 type 7" in out and "at033 runs EWP, not HUB" in out
+          and "at0zz is not a Tensix tile" in out and "chip 9 is not in this layout" in out
+          and "Seed@210,89" in out and "BadSeed@5000,89" in out
+          and "seed type must be 1..510" in out
+          and out.count("usage: seed [COUNT") == 1, out[-900:])
+    sys.path.insert(0, EWD)
+    import HubGeometry as HG
+    check("geometry: hub_self_rect/hub_uncached_rect follow DG (chip 3 tlbi 139)",
+          HG.hub_self_rect(3, 139) == (1781, 972, 137, 108)
+          and HG.hub_uncached_rect(0, 15) == (28, 28, 81, 52), "")
     rc, out = run("boot\nstart\nnuke b\nnuke zz\nquit\n")
     check("args: nuke options abbreviated, junk refused",
           "unknown nuke option 'zz'" in out, out[-700:])
