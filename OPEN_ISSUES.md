@@ -452,7 +452,16 @@ cycles/event, 4.30x native (was 3013, 6.37x); FB4 14388, 4.40x (was
 section 10.  DISPATCH TABLE IN FAST RAM (2026-11-27, run 151122): the
 Machine holds a copy of kOps (BYTEPHYS.md section 12): ~6 cycles off
 every instruction (cheapest ops 20-22 in L1, 13.5-15.6 with code in
-fast RAM), FB1 3.98x native, FB4 3.74x (12199 cycles/event).  Next
+fast RAM), FB1 3.98x native, FB4 3.74x (12199 cycles/event).
+CODE CACHE STEPS 1+2 BUILT (2026-11-27, cross-built, NOT yet run;
+BYTEPHYS.md section 12): whole programs cached in 4 x 256 B of hart B
+fast RAM (ByteCache.h), refreshed every 4096 uses, opcode mask with
+BF_OPCODE fillers, `.bc` and `.sw` (stack high-water) marks.
+experiment.cmd times it (expect FB4 toward 9-10k cycles/event).  Then
+step 3, function granularity: bpasm function table and function-relative
+jumps, verify() keeps jumps inside a function, CALL names (program,
+function), 8 B call records, cache keyed by (program, function) checked
+at entry, CALL and RET; step 4, calls across elements in ulam-lite.  Next
 idea (Liv, 2026-11-27): a few KB of HB fast RAM as an ON-DEMAND CACHE
 of bytecode, since all real physics will not fit.  Cache whole
 functions, checked only at program entry, call and ret (jumps stay

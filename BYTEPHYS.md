@@ -85,12 +85,14 @@ instruction doing the work of a native loop.
 - **Fuel:** every instruction executed costs 1; the EWP gives each event
   `BP_FUEL` = 10,000.  Running out is a fault, so an infinite loop ends
   the event instead of the tile.
-- **Size:** the Machine object is 344 bytes (228 before the dispatch
-  table copy, 84 in version 1) and lives in hart B's fast RAM beside
-  the event window (`Physics::mVM`).  116 of those bytes are the copy
-  of run()'s dispatch table (`mOps`, 28 handler addresses) and the
+- **Size:** the Machine object is 360 bytes on the EWP (228 before the
+  dispatch table copy, 84 in version 1) and lives in hart B's fast RAM
+  beside the event window (`Physics::mVM`).  132 of those bytes are the
+  copy of run()'s dispatch table (`mOps`, 32 entries: the 28 handlers
+  and 4 BF_OPCODE fillers, so a masked opcode never jumps wild) and the
   pointer it came from (`mOpsFrom`), filled by the first run() after
-  the EWP's initB clears it (section 12).
+  the EWP's initB clears it (section 12).  Beside it, the code cache
+  (`Physics::mCodeCache`, ByteCache.h, ~1.1 KB).
 
 An event runs one program from offset 0 until HALT0 or HALT1:
 
@@ -535,6 +537,25 @@ attack the second.
   is now the one L1 load left in every dispatch: code in fast RAM is
   worth another ~6-13 per instruction (the L/F columns).  FB4 share
   0.13-0.16 (native ahead).
+- **Code cache in fast RAM (2026-11-27, cross-built, not yet run):**
+  ByteCache.h's CodeCache keeps the programs in use in fixed fast-RAM
+  slots (EWP: Physics::mCodeCache, 4 x 256 bytes): use(p) returns p
+  with mCode pointing at a copy, copied into the least recently used
+  slot on a miss, or p itself if it is bigger than a slot (tooBig, runs
+  from L1).  Keyed by the code pointer (the generated programs are
+  static); a copy of a verified program needs no re-verification.  For
+  flaky memory: each slot is re-copied from L1 every 4096 uses, and
+  run() now masks each opcode byte to its 32-entry table (entries past
+  OP_COUNT fault BF_OPCODE), one AND per instruction, so even a corrupt
+  opcode cannot jump wild (a flip that stays below OP_COUNT runs
+  another opcode: safety, not detection).  Bench programs run uncached
+  (their L and F columns stay comparable).  Marks every 100,000 events
+  per EWP: `.bc:HITS:MISSES:TOOBIG:REFRESHES:BYTES.` and the hart B
+  stack `.sw:USED:HEADROOM.` (hex); runsum 'code cache and hart B
+  stack'.  HB fast-RAM data now ends at 0x840 (~6 KB of stack).
+  bytephys_test: cached runs identical to uncached, LRU, tooBig, the
+  refresh repairing a corrupted copy, and the mask.  Next (OPEN_ISSUES):
+  function-granular caching and calls across elements.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus

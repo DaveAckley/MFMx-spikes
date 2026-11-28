@@ -39,6 +39,7 @@
 #include "BytePhysTests.h"   // test-only physics, scripts/ulamlite/tests
 #include "ByteBench.h"       // microbenchmark, scripts/bytephys/benchgen.py
 #include "NativeFB.h"
+#include "ByteCache.h"         // fast-RAM program cache (EWP)
 
 using namespace MFM;
 
@@ -497,12 +498,107 @@ void testBench() {
   printf("\n");
 }
 
+/* ByteCache.h: programs run from the cache behave exactly as from their
+   own arrays; hits, misses, LRU eviction, too-big programs and the
+   periodic refresh (which also repairs a corrupted copy) count right.
+   And the dispatch mask: an opcode byte past OP_COUNT faults BF_OPCODE
+   (unverified code, as only corruption could make it). */
+void testCodeCache() {
+  using BytePhys::Program;
+  using BytePhys::CodeCache;
+  using BytePhys::BP_PROG_BFB1;
+  using BytePhys::BP_PROG_BFB4;
+  using BytePhys::BP_TYPE_BFB1;
+  using BytePhys::BP_TYPE_BFB4;
+  using BytePhys::OP_COUNT;
+  using BytePhys::OP_HALT1;
+  using BytePhys::BF_OPCODE;
+  namespace Bench = BytePhys::Bench;
+  BytePhys::Machine vm{};
+  CodeCache<2, 160> cache{};
+  cache.reset();
+  const Program * progs[2] = {&BP_PROG_BFB1, &BP_PROG_BFB4};
+  for (u32 seed = 1; seed <= 600; ++seed) {
+    const int fb = (int) (seed % 2u);
+    const u16 ct = fb == 0 ? BP_TYPE_BFB1 : BP_TYPE_BFB4;
+    Env a(seed, 0);
+    Env b(seed, 0);
+    fillWindow(a, seed, ct);
+    fillWindow(b, seed, ct);
+    bool ra = false;
+    bool rb = false;
+    try {
+      ra = vm.run(*progs[fb], a, 10'000u);
+      const Program q = cache.use(*progs[fb]);
+      check(q.mCode != progs[fb]->mCode &&
+            memcmp(q.mCode, progs[fb]->mCode, q.mLength) == 0,
+            "cache: runs a copy of the program");
+      rb = vm.run(q, b, 10'000u);
+    } catch (const Fault &) {
+      check(false, "cache: a program faulted");
+      continue;
+    }
+    check(ra == rb && sameWindow(a, b) && a.mDraws == b.mDraws,
+          "cache: cached run differs from the original");
+  }
+  check(cache.mMisses == 2u && cache.mHits == 598u && cache.mTooBig == 0u,
+        "cache: two programs, two misses, then hits");
+  // a third program evicts the least recently used: seed 600 (even) ran
+  // FB1 last, so FB4 goes
+  const Program & third = *Bench::BP_PROG_LIST[0];
+  cache.use(third);
+  check(cache.mMisses == 3u, "cache: a third program misses");
+  cache.use(BP_PROG_BFB1);
+  check(cache.mMisses == 3u, "cache: the most recent one stayed");
+  cache.use(BP_PROG_BFB4);
+  check(cache.mMisses == 4u, "cache: the least recent one was evicted");
+  // too big for a slot: runs from its own array
+  CodeCache<2, 32> small{};
+  small.reset();
+  const Program r = small.use(BP_PROG_BFB1);
+  check(r.mCode == BP_PROG_BFB1.mCode && small.mTooBig == 1u &&
+        small.mMisses == 0u, "cache: a program bigger than a slot runs "
+        "from L1");
+  // refresh: a corrupted copy is repaired within REFRESH_USES uses
+  CodeCache<1, 160> one{};
+  one.reset();
+  Program q = one.use(BP_PROG_BFB4);
+  const_cast<u8 *>(q.mCode)[0] ^= 0x40u;          // a flipped bit
+  for (u32 i = 0; i < CodeCache<1, 160>::REFRESH_USES; ++i)
+    q = one.use(BP_PROG_BFB4);
+  check(one.mRefreshes == 1u &&
+        memcmp(q.mCode, BP_PROG_BFB4.mCode, BP_PROG_BFB4.mLength) == 0,
+        "cache: the refresh restores a corrupted copy");
+  // the dispatch mask: bytes at or past OP_COUNT cannot jump wild
+  auto runRaw = [&](std::vector<u8> code) -> u32 {
+    Env e(1u, 0);
+    fillWindow(e, 1u, 4u);
+    const Program p{code.data(), (u16) code.size(), nullptr};
+    try {
+      vm.run(p, e, 100u);
+    } catch (const Fault & f) {
+      return f.code;
+    }
+    return 0u;
+  };
+  check(runRaw({(u8) OP_COUNT}) == BF_OPCODE, "mask: OP_COUNT faults");
+  check(runRaw({0x1fu}) == BF_OPCODE, "mask: 31 faults");
+  check(runRaw({0xffu}) == BF_OPCODE, "mask: 255 faults");
+  check(runRaw({(u8) (0x20u | OP_HALT1)}) == 0u,
+        "mask: a flip above the mask runs the masked opcode");
+  printf("code cache: %u hits, %u misses, %u bytes copied; machine %zu "
+         "bytes, cache<2,160> %zu bytes\n", (unsigned) cache.mHits,
+         (unsigned) cache.mMisses, (unsigned) cache.mBytesCopied,
+         sizeof(BytePhys::Machine), sizeof(cache));
+}
+
 int main() {
   testEquivalence();
   testFaults();
   testBits();
   testCompiler();
   testBench();
+  testCodeCache();
   if (g_bad) {
     printf("bytephys_test: %d FAILED\n", g_bad);
     return 1;

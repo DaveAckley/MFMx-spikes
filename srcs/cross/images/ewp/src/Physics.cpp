@@ -121,6 +121,28 @@ namespace MFM {
     }
   }
 
+  /* Every 100,000 events (hex, LOG and HB):
+       `.bc:HITS:MISSES:TOOBIG:REFRESHES:BYTES.`  the code cache since the
+         last mark (ByteCache.h); only events at compiled types use it
+       `.sw:USED:HEADROOM.`  hart B's stack high-water mark and the
+         untouched canary left above the fast-RAM data, in bytes (the
+         whole free stack is canary-filled at boot, _BUD.S; a scan of
+         up to ~7 KB, so not every event).  For sizing the cache. */
+  void Physics::noteCacheAndStack() {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%x:%x:%x:%x:%x.",
+             (unsigned) mCodeCache.mHits, (unsigned) mCodeCache.mMisses,
+             (unsigned) mCodeCache.mTooBig, (unsigned) mCodeCache.mRefreshes,
+             (unsigned) mCodeCache.mBytesCopied);
+    LOGPTAG(.bc,buf);
+    HBPTAG(.bc,buf);
+    mCodeCache.clearCounts();
+    snprintf(buf, sizeof(buf), "%x:%x.", (unsigned) estimateStackUsage(),
+             (unsigned) estimateStackHeadroom());
+    LOGPTAG(.sw,buf);
+    HBPTAG(.sw,buf);
+  }
+
   /* `.pb:NAME:V:TICKS:INSNS.` (TICKS, INSNS hex): one timed run of a
      bench program, V = L (code in L1, as the real physics runs) or F
      (code copied into fast RAM), or a native probe (V = N, INSNS = the
@@ -243,6 +265,7 @@ namespace MFM {
         HBPTAG(pewAt,mEWsAttempted);
         HBPTAG(pewSu,mEWsSucceeded);
         HBPTAG(pewPF,mEWsPhysFailed);
+        noteCacheAndStack();
       }
     } else if (ewt.mPayloadState.mPayloadCode != EwpPayloadCode::EWPC_EMPTY) {
       HBPTAG(wotwot?,ewt.mPayloadState.mPayloadCode);
@@ -281,7 +304,8 @@ namespace MFM {
       // numbers; BytePrograms.h maps them to programs
       if (const BytePhys::Program * p = BytePhys::programFor(cat)) {
         EwpPhysEnv env{ew};
-        return mVM.run(*p, env, BP_FUEL);
+        const BytePhys::Program q = mCodeCache.use(*p);   // fast RAM copy
+        return mVM.run(q, env, BP_FUEL);
       }
       // wth are you? 
       ca = P4Atom::makeEmptyAtom(); // buhbye now

@@ -177,7 +177,12 @@ unless the user asks for a rename.
   and anything built at run time must pass BytePhys::verify first.
   With computed goto (O2) and fuel at back-jumps, run 141156 timed the
   cheapest ops at 25 cycles (was 42-48) and FB4 at 4.40x native (was
-  7.59x), FB1 4.30x (was 6.37x).
+  7.59x), FB1 4.30x (was 6.37x).  Dispatch table in fast RAM (run
+  151122): FB4 3.74x.  CODE CACHE (2026-11-27, not yet run): compiled
+  programs run from fast-RAM copies (srcs/shared/include/ByteCache.h,
+  Physics::mCodeCache), opcodes masked to a 32-entry table; marks `.bc`
+  (cache) and `.sw` (hart B stack high-water), runsum 'code cache and
+  hart B stack'.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH
   T6s, hub NW or SE): hubs/EWPs per chip, SELF to cover HD, stored grid
   per policy ring, hub L1 fit (model calibrated on the hub image) and

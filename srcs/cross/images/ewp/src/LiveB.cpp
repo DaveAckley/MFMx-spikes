@@ -57,9 +57,11 @@ namespace MFM {
 
   int initB() {
     preloadT2Mailbox();
-    // fast RAM is not zeroed at boot: the first run() fills the
+    // fast RAM is zeroed as a hart leaves reset (BH ISA docs), but set
+    // these one-time states explicitly anyway: the first run() fills the
     // Machine's dispatch table (BytePhys.h mOps)
     fB.mThePhysics.mVM.resetDispatch();
+    fB.mThePhysics.mCodeCache.reset();   // and nothing cached yet
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     return 0;
   }

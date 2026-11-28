@@ -3,6 +3,7 @@
 #include "EwpBlock.h" // for EwpPayload
 #include "RecoverPoint.h" // for RecoverPoint
 #include "BytePhys.h"     // the bytecode spike's machine
+#include "ByteCache.h"    // its programs, cached in fast RAM
 
 namespace MFM {
   struct Physics {
@@ -21,6 +22,16 @@ namespace MFM {
     // Bytecode spike (BytePhys.h, types PHY_BFB1/PHY_BFB4): the machine's
     // operand and call stacks live here in fast RAM, beside mFastEW.
     BytePhys::Machine mVM;
+
+    // The programs in use, copied into fast RAM (ByteCache.h): opcode
+    // fetches cost 2 cycles there against 8+ in L1.  4 slots of 256
+    // bytes (FB1 146, FB4 34; bench programs run uncached).  Counts go
+    // out as `.bc` every 100,000 events, with the stack high-water `.sw`.
+    enum : u32 {
+      CODE_CACHE_SLOTS = 4,
+      CODE_CACHE_SLOT_BYTES = 256,
+    };
+    BytePhys::CodeCache<CODE_CACHE_SLOTS, CODE_CACHE_SLOT_BYTES> mCodeCache;
 
     // Physics timing (`.pt` mark): per timed type, events, wall-clock
     // ticks (AI clock cycles) spent in guardedPhysics, and bytecode
@@ -46,6 +57,7 @@ namespace MFM {
     }
 
     bool doFastPhysics() ;
+    void noteCacheAndStack() ;  // `.bc` and `.sw` marks
     bool runBench() ;           // PHY_BENCH: one microbenchmark program
   };
 };

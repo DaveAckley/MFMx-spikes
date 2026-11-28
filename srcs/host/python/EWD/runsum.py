@@ -360,6 +360,52 @@ def physics_timing(rundir, window=PT_WINDOW_SECS):
 # INSNS hex, from ewp/src/Physics.cpp runBench; programs from
 # scripts/bytephys/benchgen.py).  V: L = program in L1 (as real physics
 # runs), F = copied into fast RAM, N = a native load probe (INSNS = loads).
+def cache_and_stack(rundir):
+    """EWP `.bc:HITS:MISSES:TOOBIG:REFRESHES:BYTES.` (code cache,
+    ByteCache.h) and `.sw:USED:HEADROOM.` (hart B stack) marks, hex, every
+    100,000 events per EWP: cache totals and the worst stack seen."""
+    import glob
+    files = sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk")))
+    bc = [0, 0, 0, 0, 0]
+    bctiles = set()
+    used = []
+    head = []
+    for path in files:
+        try:
+            with open(path, "r", errors="replace") as f:
+                for l in f:
+                    for tag in (" .bc:", " .sw:"):
+                        i = l.find(tag)
+                        if i < 0:
+                            continue
+                        v = l[i + 5:].strip().rstrip("}").rstrip(".")
+                        try:
+                            xs = [int(x, 16) for x in v.split(":")]
+                        except ValueError:
+                            continue        # torn mark
+                        if tag == " .bc:" and len(xs) == 5:
+                            bc = [a + b for a, b in zip(bc, xs)]
+                            bctiles.add(path)
+                        elif tag == " .sw:" and len(xs) == 2:
+                            used.append(xs[0])
+                            head.append(xs[1])
+        except OSError:
+            pass
+    if not bctiles and not used:
+        return []
+    r = section("code cache and hart B stack (EWP .bc and .sw marks)")
+    if bctiles:
+        uses = bc[0] + bc[1] + bc[2]
+        r.append(f"code cache: {uses} uses on {len(bctiles)} tiles; hits "
+                 f"{bc[0] / max(uses, 1):.4%}, misses {bc[1]}, too big "
+                 f"{bc[2]}, refreshes {bc[3]}, bytes copied {bc[4]}")
+    if used:
+        r.append(f"stack: high-water max {max(used)} bytes (median "
+                 f"{sorted(used)[len(used) // 2]}), headroom min "
+                 f"{min(head)} bytes, {len(used)} marks")
+    return r
+
+
 def bench_timing(rundir):
     import glob
     runs = {}                   # (name, v) -> [runs, ticks, insns]
@@ -574,7 +620,8 @@ def summarize(out, rundir, cmdline=None, elapsed=None, pat=None, mx=60,
                  lamer_failures(rundir, misc), feed(misc),
                  aer(misc), misc_counts(misc), notches(misc),
                  hub_marks(rundir),
-                 physics_timing(rundir), bench_timing(rundir),
+                 physics_timing(rundir), cache_and_stack(rundir),
+                 bench_timing(rundir),
                  console(out), tail(out)):
         lines.extend(part)
     if pat:

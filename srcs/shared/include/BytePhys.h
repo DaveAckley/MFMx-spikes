@@ -231,9 +231,21 @@ namespace MFM {
          came from (each run<Env> has its own); null = no copy yet.  The
          EWP zeroes it in initB (fast RAM is not zeroed at boot); a host
          Machine must be value-initialized (`Machine vm{};`) or call
-         resetDispatch(). */
+         resetDispatch().  The table has OPS_SLOTS entries, the power of
+         two at or above OP_COUNT; dispatch masks the opcode byte to it
+         and the entries past OP_COUNT fault BF_OPCODE, so even a
+         corrupted opcode (a bit flipped in a cached copy, ByteCache.h)
+         reaches a handler or a fault, never a wild jump.  It costs one
+         AND per instruction.  (A flip that stays below OP_COUNT runs
+         another opcode: the mask is safety, not detection.) */
+      enum : u32 {
+        OPS_SLOTS = 32,                 //< power of two >= OP_COUNT
+      };
+      static_assert((u32) OP_COUNT <= (u32) OPS_SLOTS &&
+                    (OPS_SLOTS & (OPS_SLOTS - 1u)) == 0u,
+                    "the dispatch mask needs a power of two >= OP_COUNT");
       const void * mOpsFrom;
-      void * mOps[OP_COUNT];
+      void * mOps[OPS_SLOTS];
 
       void resetDispatch() { mOpsFrom = nullptr; }
 
@@ -260,7 +272,8 @@ namespace MFM {
         static_assert(sizeof(kOps) / sizeof(kOps[0]) == OP_COUNT,
                       "kOps must list every Op, in order");
         if (__builtin_expect(mOpsFrom != (const void *) kOps, 0)) {
-          for (u32 i = 0; i < OP_COUNT; ++i) mOps[i] = kOps[i];
+          for (u32 i = 0; i < OPS_SLOTS; ++i)
+            mOps[i] = i < OP_COUNT ? kOps[i] : &&L_BADOP;
           mOpsFrom = (const void *) kOps;
         }
         void * const * const ops = mOps;
@@ -278,12 +291,16 @@ namespace MFM {
 #define BP_ROOM(n) do { if (__builtin_expect(sp + (n) > STACK_SIZE, 0)) \
                           env.fault(BF_STACK_OVER); } while (0)
 #define BP_IMM16 ((u32) code[pc] | ((u32) code[pc + 1] << 8))
-#define BP_NEXT do { ++used; goto *ops[code[pc++]]; } while (0)
+#define BP_NEXT do { ++used; goto *ops[code[pc++] & (OPS_SLOTS - 1u)]; } \
+  while (0)
 #define BP_FUEL_CHECK do { if (__builtin_expect(used > fuel, 0)) \
                               env.fault(BF_FUEL); } while (0)
 
         BP_NEXT;
 
+      L_BADOP:                          // only reachable by corruption
+        env.fault(BF_OPCODE);
+        return false;
       L_HALT0:
         mExecuted = used;
         return false;
