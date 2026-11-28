@@ -16,6 +16,7 @@ Where things live:
 | What | Where |
 |------|-------|
 | The machine (opcodes, fields, layouts, faults, interpreter) | srcs/shared/include/BytePhys.h |
+| How to add an opcode | section 4.1 |
 | ulam-lite sources (FB1, FB4, quark Aging) | scripts/ulamlite/*.ulam |
 | ulam-lite compiler (.ulam -> .bp) | scripts/ulamlite/ulamlite.py |
 | bpasm programs and declarations (the .ulam ones GENERATED) | scripts/bytephys/*.bp |
@@ -206,6 +207,63 @@ Notes:
 - The random draws (between, onein) use the EWP's PRNG; the host test
   replays the same stream through native and bytecode code and checks
   the draws come in the same order.
+
+### 4.1 Adding an opcode
+
+The steps, in order (worked out adding `new`, 2026-11-28; ffa15bf is
+a complete example to diff against).  BytePhys.h's `enum Op` points
+here.
+
+**First, the slot limit.**  The dispatch table has `OPS_SLOTS` = 32
+entries, indexed by the opcode byte masked to 5 bits, and since `new`
+all 32 are opcodes.  So the next opcode needs one of:
+- 64 slots: `OPS_SLOTS = 64`.  The Machine's copy of the table (mOps,
+  hart B fast RAM) grows by 128 bytes, and the mask widens to 6 bits.
+  Entries 32..63 get L_BADOP, so a masked corrupt byte can fault
+  BF_OPCODE again.
+- an escape opcode whose next byte selects one of a second table:
+  fast RAM stays the same, but each instruction it covers costs an
+  extra byte and dispatch.
+
+Then:
+
+1. **srcs/shared/include/BytePhys.h**
+   - Append the name to `enum Op`, just before `OP_COUNT`.  The numbers
+     are the ISA: never insert or reorder.
+   - Add `&&L_NAME` at the same position in `kOps` (in run()); a
+     static_assert checks the count.
+   - Write the `L_NAME:` handler in run(): `BP_NEED(n)` before popping,
+     `env.fault(BF_...)` for run-time checks, end with `BP_NEXT`.
+     Immediates: read with `BP_IMM16` / `code[pc++]`, then advance pc.
+   - Immediates: add it to `immBytes()`.
+   - Anything about an immediate that can be checked once goes into
+     verifyBCP's instruction loop (as `new`'s type), not the handler.
+   - A new `Fault` only if no existing one fits (append; section 6).
+2. **scripts/bytephys/bpasm.py**: the opcode numbers are read from the
+   enum, so a plain opcode needs nothing.  One with immediates needs a
+   case in `insn_size()` and in `encode()`.
+3. **scripts/ulamlite/ulamlite.py**: its operand stack effect in
+   `EFFECT`, and whatever syntax emits it (for `new`: `ew[n] =
+   ELEMENT;` in s_assign).
+4. **scripts/bytephys/benchgen.py** (optional): a timing pattern in
+   the list, if one can run in a loop without wrecking the window
+   (`empty` and `new` have none).
+5. **Regenerate**, in order: `scripts/ulamlite/ulamlite.py`,
+   `scripts/bytephys/benchgen.py`, `scripts/bytephys/bpasm.py`.  This
+   rewrites every generated header and every physics/*.bcp.  The blob
+   header records OP_COUNT, so every old blob is refused from now on.
+6. **srcs/host/tools/bytephys_test.cpp**: a run test, a fault test for
+   each run-time check (`faultOf`), a verify test for each immediate
+   check (`RawImage(...).bad`); and recheck the dispatch-mask tests in
+   testCodeCache, whose static_assert fails when the slot count
+   changes.
+7. **BYTEPHYS.md**: a row in the section 4 table, an entry in section
+   12; section 13 if ulam-lite got syntax for it.
+8. **Check**: `srcs/host/tools/run_native_tests.sh` (includes `bpasm
+   --check` and `ulamlite --check`); a cross build (`__fastram_b_end`
+   must leave 2 KB of hart B stack; _BUD.ld.in fails the link if not).
+   On the QB it needs `build_all.sh` (shared headers changed), and
+   expected checksums in experiment.cmd change with the blobs.
 
 
 ## 5. Atom data: declared members (getm / setm)

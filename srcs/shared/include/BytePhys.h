@@ -102,6 +102,8 @@
 namespace MFM {
   namespace BytePhys {
 
+    /* Adding an opcode touches more than this enum: BYTEPHYS.md section
+       4.1 has every step (and the 32-slot dispatch limit, now full). */
     enum Op : u8 {
       OP_HALT0 = 0,                     //< event over, physics said no
       OP_HALT1,                         //< event over, commit the window
