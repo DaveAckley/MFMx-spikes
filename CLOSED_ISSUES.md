@@ -5,6 +5,64 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-28  Moved from OPEN_ISSUES (finished earlier; own dates)
+
+OPEN_ISSUES.md was trimmed to current work on 2026-11-28; these entries
+there were already done.  Short form; the full text is in git
+(`git show 954157f:OPEN_ISSUES.md`).
+
+- BytePhys spike, 2026-11-26..28.  Bytecode FB1/FB4 (types 7/8) from
+  4.5x / 6.6x native (runs 141643, 163422) to 3.39x / 2.88x (run
+  20261127-224448: FB1 1695, FB4 9423 cycles/event), through declared
+  layouts, frames, ulam-lite, verify once, computed goto, the dispatch
+  table and code in fast RAM, then one image per physics in 256-byte
+  chunks with a 12-slot chunk cache.  Numbers per step: BYTEPHYS.md
+  sections 10 and 12; Liv's original design notes became BYTEPHYS.md
+  sections 1 and 11.
+- Turd ghost pixels (2026-11-24, resolved in practice): quiet-pause
+  turds fell from 8 of 249 specks to 1 of 281, 0 of 275, 0 of 245
+  (turdhunt10-10..13, a big nuke in -13 left a clean hole) after SELF
+  unloads report, an elision-aware TURD verdict, the epoch-of-change
+  stamp, ACB idle close and pad, and host-directed refresh (which of
+  the last three did it is not known).  Never explained: a ring site
+  that went empty with no report (lone R4 rows, turdhunt10-10).  Host
+  refresh still answers a batch late inside a quiet pause (would need a
+  hub heartbeat car).  CLAUDE.md has each mechanism.
+- Zoom slowed host-observed consensus to 0.4-0.7 s (2026-11-23): the
+  box scan (`img.max(axis=2)`) was the cost; a shared per-channel
+  occupied mask, polling the bolt between stages and skipping scans
+  while a bolt is pending fixed it.  Runs with `zoom auto` now read
+  ~0.13 s (224448: NEW_LEADER mean 0.134, max 0.208).
+- seamtest consensus stalls (2026-11-22): a host artifact.  mfmxctl's
+  one thread ran the periodic slowscan, so finished bolts were seen
+  late (1.7-2.0 s).  `tick slowscan off` in the seamcycle scripts:
+  seamcycle1to3-11, 26 of 28 bolts at 0.1 s.  Bolt and cycle ticks are
+  now 5 ms with 3-decimal times.
+- NRI3::blockingL1ReadNoC0 alignment (2026-11-22): the mod-64 return
+  rule is ARC-only; T6 L1 reads need mod 16 (t6l1rd: 240 of 240 right,
+  ERISC_NOTES 9.21).
+- T6 -> ETH writes over NoC1 (2026-11-21): proven (expts16: 0 bad
+  payloads, 60 s soak 69.5 M round trips); in MFMx since 40864a7,
+  seam21-13 one hour 432,184 cars out = in, txfail/nocfail 0.
+- Physics failure recovery and nuke (2026-11-22): a FAIL in physics
+  longjmps to the hart's RecoverPoint, commits the pre-event window
+  with the center erased and logs `.pf`/`.pw` (boom10 runs 144848 and
+  162107; all 140 hubs alive); `nuke` rides NEW_LEADER and works since
+  the PHASER arg-count table fix (132ce06).  Xray is in DEFERRED_ISSUES.
+- Cache elision (2026-11-21, in daily use): `elide on` in every
+  experiment since 2026-11-27; the keep-mask bug (configureCacheLoaders
+  zeroed mKeepMask, so kept bands were LOADed anyway) was fixed; since
+  2026-11-27 bands are kept only on a repeated corner.  Contents of kept
+  bands across seams: DEFERRED_ISSUES 'Atom contents across seams'.
+- Permanent array edges (2026-11-19): HubEdges.h, `.pe` masks right on
+  all 140 hubs (run 080358); permanent rings 100% empty in an L1 dump
+  (run 113217, hub at023).
+- Four-corners exchange (2026-11-19, default since): run 022401 clean,
+  committed events per hub +26-32%, spread cv 37% vs 58-67%; 3-hour
+  soak 024650 clean, live AER flat 1.50-1.61.
+- mfmxctl keyword abbreviation, the AERse/AERre label, and the link
+  preflight / --abort-on-error / typed `wait` (in every run since).
+
 ## 2026-11-27  Corner notches (four-corners corner squares went stale)
 
 Liv saw square holes at hub corners, sharp to their edges and soon

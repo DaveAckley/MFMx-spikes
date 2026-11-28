@@ -290,7 +290,7 @@ All run as `python mfmxctl.py --layout NAME --boot --rtmp -s config/FILE --scrip
   commands (no boot/stop/quit/wait/source) unless --listen-allow.  With
   stdin at EOF it keeps serving until a signal.  Selftests: listen*.
 - `notch on|off|status|list|hold on|off` (notchwatch.py, 2026-11-27):
-  watches every frame for CORNER NOTCHES (OPEN_ISSUES): a hub-corner
+  watches every frame for CORNER NOTCHES (CLOSED_ISSUES): a hub-corner
   square, up to the cache ring size, that empties while the other three
   squares at that corner stay full.  Each is logged once as `[notch]
   NOTCH scy N corner (X,Y) QUAD SxS fill A -> B, outside band C; who PX

@@ -15,8 +15,9 @@ srcs/host/python/EWD/HubGeometry.py, checked by
 scripts/hubgeom/hubgeom_check.sh).  Never write 137/108/177/148 as
 literals in code.
 
-See also: CLAUDE.md (doc map), OPEN_ISSUES.md (design history of four
-corners, permanent edges, sawtooth), srcs/host/tools/ERISC_SEAM_DESIGN.md
+See also: CLAUDE.md (doc map), CLOSED_ISSUES.md (four corners,
+permanent edges, corner notches), DEFERRED_ISSUES.md (sawtooth,
+diamonds), srcs/host/tools/ERISC_SEAM_DESIGN.md
 (seams, sec 13 "Geometry (cell size) dependence").
 
 ## 1. Words
@@ -171,7 +172,7 @@ bands lose their west square, the east and west bands their north one).
 The borrower's events never reach that square, and it belongs to another
 borrower this cycle: before the trim, one owner's corner square had
 three borrowers (the diagonal plus two edge bands) and at SAVE the last
-packet won (OPEN_ISSUES 'CORNER NOTCHES').  Now every site has at most
+packet won (CLOSED_ISSUES 'Corner notches').  Now every site has at most
 one borrower per cycle (cachepolicy_test checks it).  Except at a
 PERMANENT edge: if the side toward the square has no hub, nobody else
 can borrow it and the events run to the last real site, so the square
@@ -204,7 +205,7 @@ hub, and moves between two positions per axis (2*OW apart) as the
 corner's component on that axis flips.  Per hub the dead cross is about
 8/137 + 8/108 = 13% of the area at any moment (matches 87% above).  It
 is uneven density, not lost AER: the same events land on fewer sites.
-Analysis (scripts/deadzone/deadzone_model.py, OPEN_ISSUES "sawtooth"):
+Analysis (scripts/deadzone/deadzone_model.py, DEFERRED_ISSUES "sawtooth"):
 2R is a lower bound for ANY fixed partition; a zig-zag only reshapes
 it.  Only dynamic claims or moving boundaries could beat or blur it.
 

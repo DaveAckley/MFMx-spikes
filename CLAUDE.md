@@ -74,7 +74,9 @@ unless the user asks for a rename.
     CLOSED_ISSUES.md (dated, measured numbers kept, story cut), or just
     update it if still open; any note in HANDOFF.md too, in the SAME commit.
   * Found a bug or idea and did not fix it: add it to OPEN_ISSUES.md before
-    the turn ends; chat is not a record.
+    the turn ends; chat is not a record.  Parked on purpose (Liv says
+    leave it) or an idea nobody is working on: DEFERRED_ISSUES.md.
+    OPEN_ISSUES.md stays short and current (trimmed 2026-11-28).
   * Changed behaviour, an option or a command: update the CLAUDE.md map or
     run record and any .cmd header that mentions it.
   * Before committing, grep the docs for the touched symbols/options, and
@@ -135,7 +137,7 @@ unless the user asks for a rename.
   `seed N 7` / `decay 7` etc.  The host draws bytecode types as a
   DARKER (5/8) copy of their native twin's color
   (BytePhys::isBytecodeType / tintBytecode, in ZHostDecompressor.cpp and
-  CodeManager.cpp).  OPEN_ISSUES 'physics as bytecode'.
+  CodeManager.cpp).  History: CLOSED_ISSUES 'BytePhys spike'.
   VERSION 1 (2026-11-27, host-tested, NOT yet run on the QB): .bp files
   declare `quark`/`element` layouts (members packed into the atom's 80
   state bits: mStg[0], mStg[1], mData0); getm/setm by member path,
@@ -183,8 +185,8 @@ unless the user asks for a rename.
   programs run from fast-RAM copies (srcs/shared/include/ByteCache.h,
   Physics::mCodeCache), opcodes masked to a 32-entry table; marks `.bc`
   (cache) and `.sw` (hart B stack high-water), runsum 'code cache and
-  hart B stack'.  IMAGES + CHUNKS (2026-11-27, host-tested, not yet
-  run): a set's .bp files assemble into ONE image of functions cut into
+  hart B stack'.  IMAGES + CHUNKS (2026-11-27, run 20261127-224448:
+  FB4 9423 cycles/event 2.88x native, FB1 1695 3.39x): a set's .bp files assemble into ONE image of functions cut into
   <= 256-byte chunks (in-chunk u8 jumps, xjmp/xjz/xjnz across chunks,
   call by function index); the cache holds chunks, 12 x 256 B; a
   Program is (image, entry function).  Since 2026-11-28 (not yet run) a
@@ -284,7 +286,7 @@ unless the user asks for a rename.
   border), scy, owner hub (pixelOwner) and a pixel for `who`;
   `notch hold on` arms `cycle holdat RUN_EVENTS` at the first one.
   misc/mfmxctl-NOTCH.txt, runsum 'corner notches'.  For Liv's CORNER
-  NOTCHES (OPEN_ISSUES).  Mock: $MFMX_MOCK_NOTCH.  CONTROLS (since
+  NOTCHES (CLOSED_ISSUES).  Mock: $MFMX_MOCK_NOTCH.  CONTROLS (since
   run 154951 fired ~1000 times, mostly FB1's own holes): the same test
   at 256 hub edge midpoints and 140 hub centers, logged as kind `edge`
   / `center` (never on the console, never held on); runsum prints
@@ -324,7 +326,7 @@ unless the user asks for a rename.
 - DL BACKLOG MARKS (2026-11-24, built, not yet run): hex, hub-side, LOG and HB.  `.dl:LEN:POPPED.` at every RUN_EVENTS exit (LEN = DLGridList::getLength(), sites still queued for reporting; POPPED = DLGridList::getPopped(), total sites popped and reported since init).  `.nl:BEFORE:AFTER:POPPED.` at each nuke (LEN before applyNuke, LEN after, POPPED then).  Use: after a big nuke AFTER should be about the erased count; later `.dl` LEN should fall to ~0 and POPPED rise by about AFTER.  If it does and turds remain, reports are lost downstream of the hub (AER path or host accept); if LEN stays high or POPPED stalls, the loss is in the hub.  The DL pops from the back and sites push to the front (FIFO), and applyNuke walks x outer, y inner, so a nuke's erasures reach the screen column by column, left to right, top to bottom, over several frames: expected, not a bug.  Hub change: ./build_all.sh.
 - WHO (2026-11-23, built, not yet run): `who X Y` names the hub that last painted picture pixel (x,y), for ghost-pixel ("turd") hunting.  Host: `QuietBox::painters` keeps one u64 per pixel (valid, epoch known, RING = the report came from the painting hub's S/E cache ring rather than its SELF sites, chip, tlbi, atom type, epoch), written by the decoder threads where a report is drawn; `QuietBox::newestEpoch` is the newest epoch any stream has announced; `whoPainted(x,y)` in the module returns (chip, tlbi, ring, epochKnown, epoch, atomType, newestEpoch|-1) or None.  `who` prints the hub tag (atCXY), self vs ring, atom type, the epoch and its lag behind the newest, and the hub-relative pixel (x%137, y%108).  Use: freeze (`cycle hold`, `cycle step` to RUN_EVENTS), find a turd pixel (`zoom specks` lists lone occupied sites, image coordinates), `who X Y`.  Reading it: RING painter = a borrower's report is the ghost; SELF painter with an old epoch = the owner's last report was non-empty and it never reported the later empty; SELF painter in the current epoch = suspect the hub's grid-to-report path.  The pixel coordinates are those of the unzoomed 1920x1080 picture.  Memory 16 MB host side, no wire change.
   GRID SITE + HUB TRUTH (2026-11-23): `who` also prints `hub grid site (x,y)`, the painter's own grid coords of the report (the hub-relative pixel is NOT the grid coord); `zoom specks` does the whole check itself, no manual dumpl1: per speck it prints one who line (Machine.who_row: `(x,y) RING|SELF type T eN lag L atTAG site (gx,gy)`), then dumps the L1 of the painting hubs (Machine.specks_who -> dumpl1, decoded with scripts/l1dump/l1grid.py; hub.map from $MFMX_HUB_MAP or build_cross/srcs/cross/hub.map) and appends `HUB: EMPTY` (the hub emptied the site and the host never heard: a turd), `HUB: type N` (the hub still holds an atom; for a RING painter it is the borrower's cache copy) or `HUB: ?` (that dump failed); no hub.map gives one 'hub truth unavailable' line.  One L1 read per distinct hub, so use it paused.  After the hub reads it rescans the picture and marks each speck `GONE` or `STILL` (with refresh off, a GONE speck was a report still arriving, i.e. a backlog, not a turd).  By hand: `dumpl1 TAG` then `l1grid.py DUMP.l1 --site X,Y`.  Painter word stores atom type in 9 bits.  First turd run (refresh off, 9f42e63): 8/8 specks type 4, last painted epochs 38-48 vs newest 51, 6 SELF + 2 RING, so not a ring race: no accepted report since.
-- ZOOM COST AND CONSENSUS (2026-11-23, built, not yet run): with `zoom auto` on, NEW_LEADER/RUN_EVENTS consensus read 0.44-0.66 s; `zoom off` in the same run gave 0.052/0.075 s and `zoom auto` again 0.44-0.66 (the user's A/B inside one run).  Consensus is HOST-observed and mfmxctl is one thread, so a slow frame() delays noticing a finished bolt (same mechanism as the slowscan artifact in OPEN_ISSUES).  Now: `ZoomView.apply(img, between, scan)`: Machine.frame() passes `between=poll_bolt` (a bolt is noticed after the scan and after the step, not only at the next 5 ms tick) and `scan=False` while a bolt is pending (box and view just stay as they were; counted in `scans_skipped`); each stage is timed (scan, step, render, and the whole frame()) as [calls, total, max]; `zoom status` (and bare `zoom`) now shows `cost: cv2|numpy; avg/max scan .., step .., render .., frame ..` and the skipped-scan count.  The render itself is one uninterruptible call, so a long render still delays the poll once per frame: the cost line says which stage that is.  If consensus is still high with zoom on, read that line.  FIRST QB RESULT (d182d3d): scan avg 463 ms (max 576), render 34 ms, step 0.3: the SCAN was the cost, not the render.  Cause: `img.max(axis=2)` (numpy's slow case: reduction over a 3-byte axis).  Fixed: one shared `ZoomView.occupied_mask` built from per-channel compares (identical mask, about 6x faster here, zoom_test 82 -> 28 ms/frame); frame_box and occupancy_map now use it.  Re-read the cost line on the QB.
+- ZOOM COST AND CONSENSUS (2026-11-23; FIXED, runs with zoom auto read ~0.13 s, CLOSED_ISSUES 2026-11-28): with `zoom auto` on, NEW_LEADER/RUN_EVENTS consensus read 0.44-0.66 s; `zoom off` in the same run gave 0.052/0.075 s and `zoom auto` again 0.44-0.66 (the user's A/B inside one run).  Consensus is HOST-observed and mfmxctl is one thread, so a slow frame() delays noticing a finished bolt (same mechanism as the slowscan artifact in OPEN_ISSUES).  Now: `ZoomView.apply(img, between, scan)`: Machine.frame() passes `between=poll_bolt` (a bolt is noticed after the scan and after the step, not only at the next 5 ms tick) and `scan=False` while a bolt is pending (box and view just stay as they were; counted in `scans_skipped`); each stage is timed (scan, step, render, and the whole frame()) as [calls, total, max]; `zoom status` (and bare `zoom`) now shows `cost: cv2|numpy; avg/max scan .., step .., render .., frame ..` and the skipped-scan count.  The render itself is one uninterruptible call, so a long render still delays the poll once per frame: the cost line says which stage that is.  If consensus is still high with zoom on, read that line.  FIRST QB RESULT (d182d3d): scan avg 463 ms (max 576), render 34 ms, step 0.3: the SCAN was the cost, not the render.  Cause: `img.max(axis=2)` (numpy's slow case: reduction over a 3-byte axis).  Fixed: one shared `ZoomView.occupied_mask` built from per-channel compares (identical mask, about 6x faster here, zoom_test 82 -> 28 ms/frame); frame_box and occupancy_map now use it.  Re-read the cost line on the QB.
 - REPORT EPOCHS (2026-11-23, built, not yet run): fixes the suspected ghost race (hub A, borrower, reports a cache-ring site X non-empty; later hub B, the owner, runs an event that empties X and reports it; B's report reaches the host first and A's old one lands after it, so the host keeps a stale non-empty pixel nobody will repaint).  The report stream is ONE continuous LZ-compressed byte stream (records straddle cars), so a car cannot carry an epoch.  Instead the hub puts an EPOCH MARKER record in the stream (AtomReport.h: mCoord.x == EPOCH_MARK_X 0xffff, mCoord.y = epoch = scy low 16 bits; same record size; consumes a spin like any record): `workOnEnteringNewLeaderB` sets `L1GridManagerControl::mReportEpoch` (scy, from the incoming bolt word 1) as a changeover begins; T0's PACK loop (EP_ACacheBlock.cpp, step 1b) emits a marker at the next record boundary when it differs from the last one sent (and first thing in every stream, incl. after a restart).  A report reads its atom at pop time, so it belongs to the epoch current at that moment and every record after a marker was read in its epoch (no drain, no barrier).  Host: `ZHostDecompressor` tracks the stream epoch (`mStreamEpoch`, -1 until a marker, reset on restart) and `QuietBox::acceptPixelEpoch` keeps a u16 newest-epoch-per-pixel map (reset by `clearT6GridImage`); a record older than its pixel (wraparound difference) is dropped (not drawn, not setSimAtom'd) and counted: `zhd` shows 'N stale reports ignored', `zhd all` per hub.  Ties go to arrival order.  Test of the race story: stale count rises and turds stop.  Also: the seal-time Fletcher recompute in `sealTrailer` is now compile-time optional, `ACBP_SEAL_VERIFY` (PT_ACacheBlock.h; default 0 = off; -DACBP_SEAL_VERIFY=1 for the .zn/.zw/.zx corruption hunt).
 - ZOOM (2026-11-22, host-side, built, NOT yet run on the QB): `zoom [off|auto|reset|SCALE]` crops and scales the 1920x1080 site image on its way to the feed (srcs/host/python/EWD/zoomview.py, hooked in machine.frame).  auto fits the box of every non-empty site ever seen (grows only, zoom only moves outward); the goal is recomputed only when the box comes within 5% of the view edge, then with 14% headroom, and the view eases to it (smoothstep, 15 frames = 3 s) so there is no per-frame creep; the view is centered on the box and may extend past the image (drawn very dark purple, OUTSIDE_BGR 20,4,12, vs the empty-site 5,10,15), so a corner card is centered not pinned to the edge; fractional scale, sites kept square, min box 120x68 sites (cap ~14.7x); `zoom shrink on` makes the box the union of the last 25 frames (5 s) instead of everything ever seen, and the view zooms back in when the tight fit (with headroom) is 1.3x tighter than the shown goal; `zoom shrink off` returns to ever-seen.  `zoom region X0 Y0 X1 Y1` prints an occupancy map of a pixel rectangle in the same 3x4-cell layout as `scripts/l1dump/l1grid.py --profile` (a hub's whole grid in pixels: hx*137-20..hx*137+157 by hy*108-20..hy*108+128), to compare the picture with a hub's real grid from `dumpl1`.  `zoom specks [R]` lists occupied sites with no other occupied site within R (default 5): lone ghost pixels, with their x mod 137 / y mod 108 histograms and first coordinates.  `zoom map` prints a 48x18 map of occupied sites per cell, occupied counts by x mod 137 and y mod 108 in 20-wide steps (a spike in the first bucket = cache-ring copies at hub edges), and whether grid drawing is on to find what holds the box open; the grid's white crosses/labels count as occupied.  SCALE (1..64) is fixed.  Upscale = nearest to the next whole factor then cv2.warpAffine bilinear down (numpy nearest fallback without cv2).  Off by default; use with the grid off (crosses count as occupied).  A zoom exception turns zoom off, never the stream.  Test: tools/zoom_test.py (the cv2 branch only runs where cv2 is installed, e.g. the QB venv).
 - PHYSICS FAILURE MARKS `.pf:V.` and `.pw:W.` (2026-11-22; boom10 run 144848 PROVED the first design: 7 of 10 seeded PHY_BOOM atoms logged `.pf:19974.`, 140 hubs alive, AER 0.999; the redesign to recoverable plain FAIL PROVED too: run 20261122-162107, 8 of 10 booms logged `.pf:19974.` and `.pw:852141.` (file 13 = Physics.cpp, line 173 = the BOOM FAIL), HB stack high-water 784 bytes at failure, all 140 hubs alive to the end, AER 0.98-0.99): a FAIL during Physics::doTransition on HB no longer hangs the hart: PrepareToDie longjmps to the hart's RecoverPoint (fAll.mRecover, RecoverPoint.h), doTransition commits the pre-event window with the center erased and logs `.pf:V.` (DECIMAL in the .mfmk; V = ((FAILCode+100)<<9)|center type) and `.pw:W.` (W = (file id << 16)|line) in LOG and HB, first 8 then every 1024th.  ENGINE_FAIL always hangs (engine broken).  Self-test: config/boom10.cmd seeds PHY_BOOM (type 6), expect `.pf:19974.` (= 0x4e06).  Count: `grep -h '\.pf:' MFMX-*/tiles/*.mfmk | sed 's/.*\.pf://' | sort | uniq -c`.  Locks (AtomicScopeLock), the mark chokepoints and the wrong-hart asserts never recover (RecoverSuspend / ENGINE_FAIL); [canary fill PROVED: run 20261122-170519, 9 of 10 booms, all 140 hubs alive, AER ~1.0; every recovery showed `.sk:784` and `.sh:6816` = 7600 - 784, i.e. HB's true stack high-water is 784 bytes of 7600] a recovery also logs `.sk:N.` (stack high-water bytes, whole stack is canary-filled at boot since 2026-11-22) and `.sh:N.` (stack headroom above the data, bytes; recovery is refused under 64; not `.ps`, that is the packet-send tag).  Details: OPEN_ISSUES "physics failure recovery".
@@ -458,7 +460,10 @@ unless the user asks for a rename.
   carries the packets moved per Dir8 (8 bytes); `--dirs` tabulates them by
   direction and by whether the `.xk` keep mask held that direction.
   Self-test xchg_test.py.
-- OPEN_ISSUES.md  the one list of open bugs, unproven things and ideas.
+- OPEN_ISSUES.md  what needs work NOW: open bugs, things waiting on a QB
+  run, next work awaiting a go-ahead.  Short on purpose.
+- DEFERRED_ISSUES.md  parked bugs and puzzles, design explorations and
+  ideas (moved out of OPEN_ISSUES.md 2026-11-28; move one back to pick it up).
 - CLOSED_ISSUES.md  what got done, newest first (entries move here from OPEN_ISSUES.md).
 - srcs/host/python/EWD/HANDOFF.md  mfmxctl usage, command files (seamtest,
   seamcycle, seamlong, seamns), selftest, ptrace and eth-seam sections.
@@ -518,9 +523,18 @@ unless the user asks for a rename.
   (~/.claude/projects/.../memory/); this file and the docs above are the
   durable record.
 
-## 4. WHERE THINGS STAND (2026-11-25 summary first; the 11-17 history follows)
+## 4. WHERE THINGS STAND (2026-11-28 summary first; the 11-17 history follows)
 
-LATEST (2026-11-25): HEAD builds and runs the FB1 honest-AER experiment end to
+LATEST (2026-11-28): the work is the BytePhys bytecode physics on the
+EWPs (BYTEPHYS.md; run 224448: FB4 2.88x native, FB1 3.39x, chunk
+cache 99.9997% hits), next the start-time loadable physics (OPEN_ISSUES
+'Next work').  Every experiment is config/experiment.cmd, `events
+shortcut`, `policy fourcorners`, `elide on`; recent runs boot clean
+(the HOLD_AT_BIRTH init race fix is counting clean boots, OPEN_ISSUES)
+with 0 timeouts and consensus ~0.13 s.  OPEN_ISSUES.md was trimmed to
+current work; parked items are in DEFERRED_ISSUES.md.
+
+EARLIER (2026-11-25): HEAD builds and runs the FB1 honest-AER experiment end to
 end in 15 minutes: `python mfmxctl.py --layout seam4 --boot -s
 config/experiment.cmd --script-exit --abort-on-error` (the one script every
 experiment runs; Claude rewrites it per experiment and ships it in the bundle),
@@ -531,8 +545,6 @@ Python was split into mixins and cmd_*.py modules (see PYTHON CLEANUP).  Open
 threads: the AER GAP vs the 11-19 soak (parked, see the bullet), the one
 unexplained single hang at scy 3621 in fastframe10-12 (OPEN_ISSUES), RTMPFeed13
 cleanup, shorter HLS latency, hub heartbeat car for in-pause refresh answers.
-No experiment is queued: experiment.cmd currently holds the last one run (no
-seed, dwell 4 8) and need not be rerun.
 
 ---- 2026-11-17 history ----
 
@@ -680,7 +692,7 @@ of 10 min); the first hour compares with seam9/seam10 (aer.py --series 600).
 config/seam17.cmd: THREE HOUR twin of seam16 (`seed 25 4` stress soak, 18 blocks of
 10 min, `zhd` after each) for counting stream breaks per hour.
 config/seam18.cmd: ONE hour cache ELISION soak (`events honest`, `elide on`,
-`cycle repeat on`; see OPEN_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
+`cycle repeat on`; see CLOSED_ISSUES "Cache elision").  mfmxctl `elide [on|off]`
 and `cycle repeat [on|off]` are new (2026-11-21), as is `events [shortcut|honest]`.
 config/seam21.cmd: ONE hour elision soak at OW=OH=20, seam20's setup (compare with it).
 config/seam20.cmd: ONE hour elision soak at OW=OH=15 (044edf1), seam18's setup.
@@ -689,11 +701,11 @@ counts (`xchg.py RUNDIR --dirs`); seam18 showed SAVE packets -47% but LOAD only 
 config/seam13.cmd: seam11 (12 min) with the video feed started LATE: no `--rtmp` on
 the command line, `feed on` right after `start` (the RTMP stream does not exist
 during bring-up; experiment against the hls.js freezes at the NO DATA gap, see
-OPEN_ISSUES.md).  Open the viewer after the `feed on` line; refresh once.
+DEFERRED_ISSUES.md).  Open the viewer after the `feed on` line; refresh once.
 config/seam11.cmd: the seam6 twin with `policy fourcorners` (the four-corners
 prototype; compare with seam6 runs 005507/012507).  Run 022401 (1159c97): CLEAN,
 faster fill (69% vs 49-63% at 690 s), committed events/hub/s +26-32%, spread
-cv 37% vs 58-67%, duty 98%; details in OPEN_ISSUES.md.
+cv 37% vs 58-67%, duty 98%; details in CLOSED_ISSUES.md (four-corners).
 config/seam10.cmd: seam9.cmd for the PACKET_SLEEP_CYCLES=0 experiment (hub
 build must have the 0 constant).  Run 211051: clean hour, same AER/duty as
 100k (exchange is no longer the bottleneck).  Compare the same counters, STALLS and AER.

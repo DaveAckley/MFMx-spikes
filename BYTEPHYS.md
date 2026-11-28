@@ -25,7 +25,8 @@ Where things live:
 | Native twins of the programs | srcs/shared/include/NativeFB.h |
 | EWP glue (types 7, 8; timing marks) | srcs/cross/images/ewp/src/Physics.cpp |
 | Host test (bytecode == native, faults) | srcs/host/tools/bytephys_test.cpp |
-| Design history and results | OPEN_ISSUES.md 'physics as bytecode' |
+| Results per step | sections 10 and 12 here; CLOSED_ISSUES.md 'BytePhys spike' |
+| Open items, next work | OPEN_ISSUES.md |
 
 BytePhys.h is the single source of truth: the assembler reads the opcode
 and field numbers out of it, so this manual describes it and must follow
