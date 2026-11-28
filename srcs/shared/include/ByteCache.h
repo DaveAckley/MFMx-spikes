@@ -11,21 +11,31 @@
    a real physics will not fit, so the unit cached is the CHUNK
    (BytePhys.h 'IMAGES, FUNCTIONS, CHUNKS'): a function, or a piece of
    one, of at most CHUNK_MAX bytes, whose jumps are all relative to
-   itself.  Machine::run asks for a chunk only at its entry and at
-   cross-chunk jumps, calls and returns:
+   itself.  Machine::run binds the cache to its image once, then asks
+   for a chunk only at its entry and at cross-chunk jumps, calls and
+   returns:
 
-     chunk(img, c)  the address of chunk c's bytes: a fast-RAM slot,
-                    copied on a miss into the least recently used one
+     bind(img)  the image the chunks come from; a different image than
+                last time empties the cache (one physics at a time:
+                which one may be chosen at start, BYTEPHYS.md)
+     chunk(c)   the address of chunk c's bytes in a fast-RAM slot
 
-   Fixed slots of CHUNK_MAX bytes, fully associative (a chunk may sit in
-   any slot), keyed by (image, chunk).  The most recently used slot is
-   tried first, which is most transfers (a loop's own chunk, a return
-   into the caller just left); otherwise a scan of the tags.  A copy of
-   a verified chunk is the same verified chunk (BytePhys.h 'VERIFY
-   ONCE').  Belt and suspenders for flaky memory: a slot is copied afresh
-   from L1 every REFRESH_USES lookups that hit it, and run()'s dispatch
-   masks each opcode to its table, so even a corrupt byte reaches a
-   handler or BF_OPCODE, never a wild jump.
+   SLOTS slots of CHUNK_MAX bytes, fully associative, each tagged with
+   the chunk it holds.  A HIT is two loads and a compare: mSlotOf, a
+   hint table indexed by the chunk number's low bits, names the slot
+   that chunk was last put in, and that slot's tag confirms it.  A hit
+   writes nothing (no counters, no use stamps).  Otherwise (the hint was
+   overwritten by another chunk with the same low bits, or the slot was
+   reused) the tags are scanned, out of line; a chunk in no slot is a
+   MISS, copied from L1 into the next slot in turn (FIFO: hits leave no
+   record to choose by).  A copy of a verified chunk is the same verified
+   chunk (BytePhys.h 'VERIFY ONCE').
+
+   Belt and suspenders for flaky memory: refreshOne() re-copies one slot
+   from L1, the slots in turn.  The EWP calls it every REFRESH_EVENTS
+   events, between events (no run() active), so it costs the hit path
+   nothing.  And run()'s dispatch masks each opcode to its table, so even
+   a corrupt byte reaches a handler or BF_OPCODE, never a wild jump.
 
    On the EWP the cache is Physics::mCodeCache (hart B fast RAM; budget
    ~3 KB, BYTEPHYS.md: 12 slots); initB resets it.  If small functions
@@ -38,100 +48,103 @@
 namespace MFM {
   namespace BytePhys {
 
-    template <u32 SLOTS, u32 SLOT_BYTES = CHUNK_MAX>
+    template <u32 SLOTS, u32 SLOT_BYTES = CHUNK_MAX, u32 HINTS = 64>
     struct CodeCache {
       enum : u32 {
         SLOT_COUNT = SLOTS,
         SLOT_SIZE = SLOT_BYTES,
-        REFRESH_USES = 4096,            //< re-copy a slot this often
+        HINT_COUNT = HINTS,
+        NO_CHUNK = 0xffffu,             //< the tag of an empty slot
       };
-      static_assert(SLOTS > 0u, "a cache needs a slot");
+      static_assert(SLOTS > 0u && SLOTS <= 256u, "slot numbers are u8");
       static_assert(SLOT_BYTES >= CHUNK_MAX, "a slot holds any chunk");
       static_assert(SLOT_BYTES % 4u == 0u, "slots are word sized");
+      static_assert(HINTS > 0u && (HINTS & (HINTS - 1u)) == 0u,
+                    "the hint index is a mask");
+      // (a chunk number is < mChunkCount <= 0xffff, never NO_CHUNK)
 
-      struct Slot {
-        const Image * mImage;           //< whose chunk, or null
-        u32 mLastUse;                   //< mClock at the last use (LRU)
-        u16 mChunk;
-        u16 mUses;                      //< hits since the last copy
-        u8 mCode[SLOT_BYTES];
-      };
-
-      Slot mSlots[SLOTS];
-      u32 mClock;                       //< counts lookups
-      u32 mMru;                         //< the slot used last
-      u32 mHits;
+      u8 mCode[SLOTS][SLOT_BYTES] __attribute__((aligned(4)));
+      u16 mTag[SLOTS];                  //< chunk held, or NO_CHUNK
+      u8 mSlotOf[HINTS];                //< chunk & (HINTS-1) -> a slot
+      const Image * mImage;             //< bound image, or null
+      u32 mNext;                        //< the slot the next miss fills
+      u32 mNextRefresh;                 //< the slot refreshOne copies
       u32 mMisses;
-      u32 mScans;                       //< hits not in the MRU slot
-      u32 mRefreshes;                   //< slots re-copied (REFRESH_USES)
+      u32 mScans;                       //< hits found by a scan
+      u32 mRefreshes;                   //< slots re-copied (refreshOne)
       u32 mBytesCopied;
 
-      /* Empty every slot and zero the counters.  The EWP calls this in
-         initB; a host cache must be value-initialized or reset. */
+      /* Empty every slot, unbind, zero the counters.  The EWP calls this
+         in initB; a host cache must be value-initialized or reset. */
       void reset() {
-        for (u32 i = 0u; i < SLOTS; ++i) {
-          mSlots[i].mImage = nullptr;
-          mSlots[i].mLastUse = 0u;
-          mSlots[i].mChunk = 0u;
-          mSlots[i].mUses = 0u;
-        }
-        mClock = 0u;
-        mMru = 0u;
+        mImage = nullptr;
+        empty();
+        for (u32 i = 0u; i < HINTS; ++i) mSlotOf[i] = 0u;
+        mNextRefresh = 0u;
         clearCounts();
       }
 
       void clearCounts() {
-        mHits = 0u;
         mMisses = 0u;
         mScans = 0u;
         mRefreshes = 0u;
         mBytesCopied = 0u;
       }
 
-      /* Where chunk c of img is now (Machine::run's resolver). */
-      const u8 * chunk(const Image & img, u32 c) {
-        ++mClock;
-        Slot * s = &mSlots[mMru];
-        if (s->mImage != &img || s->mChunk != c) {
-          s = nullptr;
-          for (u32 i = 0u; i < SLOTS; ++i) {
-            if (mSlots[i].mImage == &img && mSlots[i].mChunk == c) {
-              s = &mSlots[i];
-              mMru = i;
-              ++mScans;
-              break;
-            }
-          }
+      /* Machine::run's resolver, part 1: once per run. */
+      void bind(const Image & img) {
+        if (__builtin_expect(&img != mImage, 0)) {
+          empty();
+          mImage = &img;
         }
-        if (s != nullptr) {
-          ++mHits;
-          if (++s->mUses >= REFRESH_USES) {     // bounded life in fast RAM
-            copyInto(*s, img, c);
-            ++mRefreshes;
-          }
-        } else {
-          ++mMisses;
-          u32 v = 0u;                           // LRU (empty slots first)
-          for (u32 i = 1u; i < SLOTS; ++i) {
-            if (mSlots[v].mImage == nullptr) break;
-            if (mSlots[i].mImage == nullptr ||
-                mSlots[i].mLastUse < mSlots[v].mLastUse) v = i;
-          }
-          s = &mSlots[v];
-          mMru = v;
-          copyInto(*s, img, c);
+      }
+
+      /* Part 2: where chunk c of the bound image is now. */
+      const u8 * chunk(u32 c) {
+        const u32 s = mSlotOf[c & (HINTS - 1u)];
+        if (__builtin_expect(mTag[s] == c, 1)) return mCode[s];
+        return findOrLoad(c);
+      }
+
+      /* Re-copy the next slot in turn from the bound image (a slot of
+         nothing is skipped).  Never during a run(). */
+      void refreshOne() {
+        const u32 s = mNextRefresh;
+        mNextRefresh = s + 1u == SLOTS ? 0u : s + 1u;
+        if (mImage != nullptr && mTag[s] != NO_CHUNK) {
+          copyInto(s, mTag[s]);
+          ++mRefreshes;
         }
-        s->mLastUse = mClock;
-        return s->mCode;
       }
 
     private:
-      void copyInto(Slot & s, const Image & img, u32 c) {
+      void empty() {
+        for (u32 i = 0u; i < SLOTS; ++i) mTag[i] = (u16) NO_CHUNK;
+        mNext = 0u;
+      }
+
+      __attribute__((noinline, cold))
+      const u8 * findOrLoad(u32 c) {
+        for (u32 i = 0u; i < SLOTS; ++i) {
+          if (mTag[i] == c) {
+            mSlotOf[c & (HINTS - 1u)] = (u8) i;
+            ++mScans;
+            return mCode[i];
+          }
+        }
+        const u32 s = mNext;
+        mNext = s + 1u == SLOTS ? 0u : s + 1u;
+        copyInto(s, c);
+        mSlotOf[c & (HINTS - 1u)] = (u8) s;
+        ++mMisses;
+        return mCode[s];
+      }
+
+      void copyInto(u32 s, u32 c) {
+        const Image & img = *mImage;
         const u32 n = chunkLength(img, c);
-        __builtin_memcpy(s.mCode, img.mCode + img.mChunkStart[c], n);
-        s.mImage = &img;
-        s.mChunk = (u16) c;
-        s.mUses = 0u;
+        __builtin_memcpy(mCode[s], img.mCode + img.mChunkStart[c], n);
+        mTag[s] = (u16) c;
         mBytesCopied += n;
       }
     };

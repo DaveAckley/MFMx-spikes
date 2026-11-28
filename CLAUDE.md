@@ -187,7 +187,9 @@ unless the user asks for a rename.
   run): a set's .bp files assemble into ONE image of functions cut into
   <= 256-byte chunks (in-chunk u8 jumps, xjmp/xjz/xjnz across chunks,
   call by function index); the cache holds chunks, 12 x 256 B; a
-  Program is (image, entry function).  _BUD.ld.in asserts hart B keeps
+  Program is (image, entry function).  Since 2026-11-28 (not yet run) a
+  cache hit is a slot hint + tag compare that writes nothing; `.bc` is
+  MISSES:SCANS:REFRESHES:BYTES.  _BUD.ld.in asserts hart B keeps
   >= 2 KB of fast RAM for the stack (Liv's budget: ~2 KB stack + ~3 KB
   cache).  BYTEPHYS.md sections 3, 4, 7, 12.
 - scripts/celllab/celllab.py  host-only lab for CELL shapes (CW x CH

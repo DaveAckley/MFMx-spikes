@@ -247,11 +247,19 @@ namespace MFM {
     };
 
     /* Code where the image lies (L1 on the EWP): the resolver run() uses
-       when no cache is given. */
+       when no cache is given.  A resolver has two calls: bind(img), once
+       at run()'s entry, and chunk(c), the address of chunk c's bytes in
+       the image bound, at entry and at every transfer.  bind() keeps the
+       image's table pointers here so a transfer need not reread them
+       from the Image (an L1 struct on the EWP). */
     struct InPlace {
-      const u8 * chunk(const Image & img, u32 c) {
-        return img.mCode + img.mChunkStart[c];
+      const u8 * mCode = nullptr;
+      const u16 * mStart = nullptr;
+      void bind(const Image & img) {
+        mCode = img.mCode;
+        mStart = img.mChunkStart;
       }
+      const u8 * chunk(u32 c) { return mCode + mStart[c]; }
     };
 
     struct Machine {
@@ -309,9 +317,10 @@ namespace MFM {
          member types, and fuel, which is counted per instruction but
          compared only at backward jumps, cross-chunk jumps and calls
          (straight-line code in a chunk always reaches one, or a halt or
-         a return).  res.chunk(image, c) says where chunk c's bytes are;
-         it is asked at entry and at every XJMP/XJZ/XJNZ taken, CALL and
-         RET, never in between. */
+         a return).  res.bind(image) once, then res.chunk(c) says where
+         chunk c's bytes are; it is asked at entry and at every XJMP/XJZ/
+         XJNZ taken, CALL and RET, never in between.  The image's tables
+         are read through locals, not the Image, after entry. */
       template <class Env, class Res>
       __attribute__((optimize("O2")))  // the EWP builds -Os, which would
       // merge every handler's dispatch into one shared indirect jump
@@ -334,8 +343,11 @@ namespace MFM {
         }
         void * const * const ops = mOps;
         const Image & img = *p.mImage;
-        u32 chunk = img.mFuncChunk[p.mFunc];
-        const u8 * code = res.chunk(img, chunk);
+        const u16 * const funcChunk = img.mFuncChunk;
+        const Layout * const layout = img.mLayout;
+        res.bind(img);
+        u32 chunk = funcChunk[p.mFunc];
+        const u8 * code = res.chunk(chunk);
         u32 * const stk = mStack;
         u32 pc = 0;
         u32 sp = 0;                     // next free operand slot
@@ -351,7 +363,7 @@ namespace MFM {
 #define BP_IMM16 ((u32) code[pc] | ((u32) code[pc + 1] << 8))
 // (c and t are evaluated before code changes)
 #define BP_GOCHUNK(c, t) do { const u32 c_ = (c); const u32 t_ = (t); \
-                              chunk = c_; code = res.chunk(img, c_); \
+                              chunk = c_; code = res.chunk(c_); \
                               pc = t_; } while (0)
 #define BP_NEXT do { ++used; goto *ops[code[pc++] & (OPS_SLOTS - 1u)]; } \
   while (0)
@@ -478,7 +490,7 @@ namespace MFM {
         c.mReturn = (u8) (pc + 2u);
         c.mBase = (u8) fb;
         c.mTop = (u8) ft;
-        BP_GOCHUNK(img.mFuncChunk[BP_IMM16], 0u);
+        BP_GOCHUNK(funcChunk[BP_IMM16], 0u);
         BP_NEXT;
       }
       L_RET: {
@@ -573,7 +585,7 @@ namespace MFM {
         const u32 sn = stk[sp - 1];
         if (sn >= SITES) env.fault(BF_SITE);
         P4Atom & a = env.atom(sn);
-        const MemberAt & at = memberAt(*img.mLayout, id, a.getType(), env);
+        const MemberAt & at = memberAt(*layout, id, a.getType(), env);
         stk[sp - 1] = getBits(a, at.mPos, at.mLen);
         BP_NEXT;
       }
@@ -585,7 +597,7 @@ namespace MFM {
         const u32 sn = stk[--sp];
         if (sn >= SITES) env.fault(BF_SITE);
         P4Atom & a = env.atom(sn);
-        const MemberAt & at = memberAt(*img.mLayout, id, a.getType(), env);
+        const MemberAt & at = memberAt(*layout, id, a.getType(), env);
         const u32 max = lenMask(at.mLen);
         setBits(a, at.mPos, at.mLen, v > max ? max : v);
         BP_NEXT;

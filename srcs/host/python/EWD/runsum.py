@@ -361,14 +361,19 @@ def physics_timing(rundir, window=PT_WINDOW_SECS):
 # scripts/bytephys/benchgen.py).  V: L = program in L1 (as real physics
 # runs), F = copied into fast RAM, N = a native load probe (INSNS = loads).
 def cache_and_stack(rundir):
-    """EWP `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.` (chunk cache; before
-    2026-11-27 the third field was TOOBIG,
-    ByteCache.h) and `.sw:USED:HEADROOM.` (hart B stack) marks, hex, every
-    100,000 events per EWP: cache totals and the worst stack seen."""
+    """EWP chunk cache marks (ByteCache.h), hex, every 100,000 events
+    per EWP: since 2026-11-28 `.bc:MISSES:SCANS:REFRESHES:BYTES.` (no
+    hit count: a hint hit counts nothing), before that
+    `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.` (before 2026-11-27 the third
+    field was TOOBIG); and `.sw:USED:HEADROOM.` (hart B stack): cache
+    totals and the worst stack seen."""
     import glob
     files = sorted(glob.glob(os.path.join(rundir, "tiles", "*.mfmk")))
     bc = [0, 0, 0, 0, 0]
     bctiles = set()
+    bc4 = [0, 0, 0, 0]          # the 2026-11-28 form
+    bc4marks = 0
+    bc4tiles = set()
     used = []
     head = []
     for path in files:
@@ -387,12 +392,16 @@ def cache_and_stack(rundir):
                         if tag == " .bc:" and len(xs) == 5:
                             bc = [a + b for a, b in zip(bc, xs)]
                             bctiles.add(path)
+                        elif tag == " .bc:" and len(xs) == 4:
+                            bc4 = [a + b for a, b in zip(bc4, xs)]
+                            bc4marks += 1
+                            bc4tiles.add(path)
                         elif tag == " .sw:" and len(xs) == 2:
                             used.append(xs[0])
                             head.append(xs[1])
         except OSError:
             pass
-    if not bctiles and not used:
+    if not bctiles and not bc4tiles and not used:
         return []
     r = section("code cache and hart B stack (EWP .bc and .sw marks)")
     if bctiles:
@@ -401,6 +410,14 @@ def cache_and_stack(rundir):
                  f"{bc[0] / max(uses, 1):.4%}, misses {bc[1]}, hits "
                  f"outside the MRU slot {bc[2]}, refreshes {bc[3]}, bytes "
                  f"copied {bc[4]}")
+    if bc4tiles:
+        ev = bc4marks * 100000
+        r.append(f"code cache: {bc4marks} marks on {len(bc4tiles)} tiles "
+                 f"(~{ev} events); misses {bc4[0]} "
+                 f"({bc4[0] * 1e6 / max(ev, 1):.2f} per million events), "
+                 f"hint misses found by scan {bc4[1]} "
+                 f"({bc4[1] * 1e6 / max(ev, 1):.2f} per million), "
+                 f"refreshes {bc4[2]}, bytes copied {bc4[3]}")
     if used:
         r.append(f"stack: high-water max {max(used)} bytes (median "
                  f"{sorted(used)[len(used) // 2]}), headroom min "

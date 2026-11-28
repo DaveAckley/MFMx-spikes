@@ -476,9 +476,15 @@ fast RAM (was ~44) and ~105 from L1 (was ~62), i.e. ~117 cycles per
 transfer through the cache (call and ret alternate chunks, so the MRU
 slot misses and the tags are scanned) and ~21 per transfer in place
 (the Image's tables are L1 loads).  Real FB1/FB4 rarely transfer, but
-cross-element physics will.  Candidate fixes (not started): keep the
-Image's table pointers in locals for the whole run(); try the previous
-MRU slot too (or have CALL save the caller's slot for RET).  Was planned as: step 3, function
+cross-element physics will.  FIX BUILT (2026-11-28, host-tested,
+cross-built, NOT yet run; Liv: no tuning for leaf calls, do as little
+as possible on hits): a hit is a slot hint (u8 mSlotOf[64] by the
+chunk number's low bits) plus the slot's tag compare and writes nothing;
+a stale hint scans the tags out of line; misses fill slots FIFO; the
+refresh moved off the hit path (one slot re-copied every 1024 events,
+between events); run() keeps the image's table pointers in locals and
+the resolver is bind(img) once + chunk(c).  If deep call chains later
+show scans, CALL could save the caller's slot for RET.  Was planned as: step 3, function
 granularity: bpasm function table and function-relative
 jumps, verify() keeps jumps inside a function, CALL names (program,
 function), 8 B call records, cache keyed by (program, function) checked

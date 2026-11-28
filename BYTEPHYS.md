@@ -624,6 +624,24 @@ attack the second.
   L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
   table pointers in locals, a second MRU try or a caller slot saved for
   RET.
+- **Cheaper cache hits (2026-11-28, host-tested, cross-built, not yet
+  run):** Liv: no tuning for leaf calls, do as little as possible on a
+  hit.  The resolver is now bind(img), once per run() (a different image
+  empties the cache: one physics at a time, which one may be chosen at
+  start), then chunk(c).  A HIT: mSlotOf[c & 63] names a slot and its
+  u16 tag (the chunk number) confirms it: two byte loads, a compare,
+  nothing written.  A stale hint (another chunk with the same low bits,
+  or the slot reused) scans the 12 tags out of line and rewrites the
+  hint; a chunk in no slot is a miss, copied into the next slot in turn
+  (FIFO, since hits leave no use record).  The refresh is off the hit
+  path: Physics re-copies one slot from L1 every 1024 events, between
+  events (refreshOne, round robin), so each slot every ~12,000.  run()
+  reads the image's tables through locals after entry (InPlace keeps
+  mCode / mChunkStart from bind).  `.bc:MISSES:SCANS:REFRESHES:BYTES.`
+  (no hit count); runsum prints misses and scans per million events.
+  HB fast-RAM data ends at 0x1070.  bytephys_test: hint hits count
+  nothing, a shared hint entry falls back to a scan, FIFO order,
+  rebinding, refreshOne round robin and repair.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus

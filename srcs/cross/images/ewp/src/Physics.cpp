@@ -121,18 +121,21 @@ namespace MFM {
   }
 
   /* Every 100,000 events (hex, LOG and HB):
-       `.bc:HITS:MISSES:SCANS:REFRESHES:BYTES.`  the chunk cache since the
-         last mark (ByteCache.h; SCANS = hits outside the most recently
-         used slot); compiled types and the bench's F runs use it
+       `.bc:MISSES:SCANS:REFRESHES:BYTES.`  the chunk cache since the
+         last mark (ByteCache.h; SCANS = hits the slot hint missed, found
+         by scanning the tags; a hint hit counts nothing, so there is no
+         hit count: read misses and scans per 100,000 events); compiled
+         types and the bench's F runs use it
        `.sw:USED:HEADROOM.`  hart B's stack high-water mark and the
          untouched canary left above the fast-RAM data, in bytes (the
          whole free stack is canary-filled at boot, _BUD.S; a scan of
          up to ~7 KB, so not every event).  For sizing the cache. */
   void Physics::noteCacheAndStack() {
     char buf[64];
-    snprintf(buf, sizeof(buf), "%x:%x:%x:%x:%x.",
-             (unsigned) mCodeCache.mHits, (unsigned) mCodeCache.mMisses,
-             (unsigned) mCodeCache.mScans, (unsigned) mCodeCache.mRefreshes,
+    snprintf(buf, sizeof(buf), "%x:%x:%x:%x.",
+             (unsigned) mCodeCache.mMisses,
+             (unsigned) mCodeCache.mScans,
+             (unsigned) mCodeCache.mRefreshes,
              (unsigned) mCodeCache.mBytesCopied);
     LOGPTAG(.bc,buf);
     HBPTAG(.bc,buf);
@@ -205,7 +208,8 @@ namespace MFM {
       const u32 c = img.mFuncChunk[p.mFunc];
       if (BytePhys::chunkLength(img, c) >= 16u) {
         benchProbeRun("ldL1", img.mCode + img.mChunkStart[c]);
-        benchProbeRun("ldfast", mCodeCache.chunk(img, c));
+        mCodeCache.bind(img);
+        benchProbeRun("ldfast", mCodeCache.chunk(c));
       }
     }
     ca.mData0 = (u16) (idx + 1u);       // the programs never touch it
@@ -262,6 +266,11 @@ namespace MFM {
         }
       }
       ewt.mPayloadState.mPayloadCode = EwpPayloadCode::EWPC_SOURCE_AND_DEST;
+
+      // between events (no run() active): re-copy one code cache slot
+      // from L1 now and then (ByteCache.h refreshOne; flaky memory)
+      if ((mEWsSincePew & (CODE_REFRESH_EVENTS - 1u)) == 0u)
+        mCodeCache.refreshOne();
 
       if (++mEWsSincePew == 100'000u) { // every 100,000th attempt, as
         mEWsSincePew = 0u;                // mEWsAttempted % 100'000 was

@@ -563,9 +563,10 @@ void testBench() {
 
 /* ByteCache.h: code run through the chunk cache behaves exactly as in
    place, for the physics (FB1 calls kabam: a second chunk) and for a
-   function split across chunks (the test physics); hits, misses, LRU
-   eviction, MRU scans and the periodic refresh (which also repairs a
-   corrupted copy) count right.  And the dispatch mask: an opcode byte
+   function split across chunks (the test physics); the slot hint, scans
+   (two chunks sharing a hint), FIFO eviction, rebinding to another
+   image, and refreshOne (which also repairs a corrupted copy) behave
+   and count right.  And the dispatch mask: an opcode byte
    past OP_COUNT faults BF_OPCODE (unverified code, as only corruption
    could make it). */
 void testCodeCache() {
@@ -641,29 +642,66 @@ void testCodeCache() {
     }
     check(two.mMisses > 2u, "cache: the 2-slot cache evicted");
   }
-  // LRU and MRU: three chunks through two slots
-  CodeCache<2> lru{};
-  lru.reset();
-  const u8 * p0 = lru.chunk(img, 0);
-  lru.chunk(img, 1);
-  check(lru.mMisses == 2u && lru.mScans == 0u, "lru: two misses");
-  check(lru.chunk(img, 0) == p0 && lru.mScans == 1u, "lru: a scan hit");
-  lru.chunk(img, 2);                    // evicts chunk 1 (least recent)
-  check(lru.mMisses == 3u, "lru: a third chunk misses");
-  lru.chunk(img, 0);
-  check(lru.mMisses == 3u, "lru: the most recent one stayed");
-  lru.chunk(img, 1);
-  check(lru.mMisses == 4u, "lru: the least recent one was evicted");
-  // refresh: a corrupted copy is repaired within REFRESH_USES hits
-  CodeCache<1> one{};
-  one.reset();
-  u8 * q = const_cast<u8 *>(one.chunk(img, 2));
+  // hint, scan and FIFO: chunks through two slots (BP_IMAGE has 3)
+  check(img.mChunkCount >= 3u, "cache: the physics has 3 chunks");
+  CodeCache<2> ff{};
+  ff.reset();
+  ff.bind(img);
+  const u8 * p0 = ff.chunk(0);
+  const u8 * p1 = ff.chunk(1);
+  check(ff.mMisses == 2u && ff.mScans == 0u && p0 != p1,
+        "fifo: two misses fill two slots");
+  check(memcmp(p1, img.mCode + img.mChunkStart[1],
+               BytePhys::chunkLength(img, 1)) == 0,
+        "fifo: the slot holds the chunk's bytes");
+  check(ff.chunk(0) == p0 && ff.chunk(1) == p1 && ff.mMisses == 2u &&
+        ff.mScans == 0u, "hint: hits by hint, nothing counted");
+  ff.chunk(2);                          // evicts chunk 0 (first in)
+  check(ff.mMisses == 3u && ff.chunk(1) == p1 && ff.mMisses == 3u,
+        "fifo: the second one stayed");
+  ff.chunk(0);
+  check(ff.mMisses == 4u, "fifo: the first one in was evicted");
+  ff.bind(img);
+  check(ff.mMisses == 4u && ff.chunk(0) != nullptr && ff.mMisses == 4u,
+        "bind: the same image keeps the slots");
+  // two chunks sharing a hint entry: a 1-entry hint table
+  CodeCache<2, BytePhys::CHUNK_MAX, 1> sh{};
+  sh.reset();
+  sh.bind(img);
+  const u8 * s0 = sh.chunk(0);
+  const u8 * s1 = sh.chunk(1);          // overwrites the hint
+  check(sh.chunk(0) == s0 && sh.mScans == 1u && sh.mMisses == 2u,
+        "hint: a shared entry falls back to a scan hit");
+  check(sh.chunk(0) == s0 && sh.mScans == 1u,
+        "hint: the scan rewrote the hint");
+  check(sh.chunk(1) == s1 && sh.mScans == 2u, "hint: and back");
+  // rebinding to another image empties the cache
+  {
+    namespace T = BytePhys::Tests;
+    ff.bind(T::BP_IMAGE);
+    const u32 m = ff.mMisses;
+    const u8 * t0 = ff.chunk(0);
+    check(ff.mMisses == m + 1u &&
+          memcmp(t0, T::BP_IMAGE.mCode, T::BP_IMAGE.mChunkStart[1]) == 0,
+          "bind: another image empties the cache");
+  }
+  // refreshOne: round robin, repairs a corrupted copy, skips empties
+  CodeCache<2> rf{};
+  rf.reset();
+  rf.refreshOne();                      // slot 0 (the turn advances)
+  check(rf.mRefreshes == 0u, "refresh: nothing bound, nothing done");
+  rf.bind(img);
+  u8 * q = const_cast<u8 *>(rf.chunk(2));
   q[0] ^= 0x40u;                        // a flipped bit
-  for (u32 i = 0; i < CodeCache<1>::REFRESH_USES; ++i) one.chunk(img, 2);
-  check(one.mRefreshes == 1u &&
+  rf.refreshOne();                      // slot 1: empty, skipped
+  rf.refreshOne();                      // slot 0: chunk 2
+  check(rf.mRefreshes == 1u &&
         memcmp(q, img.mCode + img.mChunkStart[2],
                BytePhys::chunkLength(img, 2)) == 0,
-        "cache: the refresh restores a corrupted copy");
+        "refresh: restores a corrupted copy, skips an empty slot");
+  rf.refreshOne();                      // slot 1 again: still empty
+  rf.refreshOne();                      // slot 0 again
+  check(rf.mRefreshes == 2u, "refresh: round robin back to slot 0");
   // the dispatch mask: bytes at or past OP_COUNT cannot jump wild
   auto runRaw = [&](std::vector<u8> code) -> u32 {
     Env e(1u, 0);
@@ -681,8 +719,8 @@ void testCodeCache() {
   check(runRaw({0xffu}) == BF_OPCODE, "mask: 255 faults");
   check(runRaw({(u8) (0x20u | OP_HALT1)}) == 0u,
         "mask: a flip above the mask runs the masked opcode");
-  printf("code cache: %u hits (%u scans), %u misses, %u bytes copied; "
-         "cache<12> %zu bytes\n", (unsigned) cache.mHits,
+  printf("code cache: %u scans, %u misses, %u bytes copied; "
+         "cache<12> %zu bytes\n",
          (unsigned) cache.mScans, (unsigned) cache.mMisses,
          (unsigned) cache.mBytesCopied, sizeof(cache));
 }

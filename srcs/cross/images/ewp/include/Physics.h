@@ -27,9 +27,11 @@ namespace MFM {
     // fetches cost 2 cycles there against 8+ in L1.  12 slots of 256
     // bytes, ~3 KB: Liv's hart B budget is ~2 KB stack reserve + ~3 KB
     // cache (BYTEPHYS.md).  Counts go out as `.bc` every 100,000 events,
-    // with the stack high-water `.sw`.
+    // with the stack high-water `.sw`.  One slot is re-copied from L1
+    // every CODE_REFRESH_EVENTS events (each slot every 12 x that).
     enum : u32 {
       CODE_CACHE_SLOTS = 12,
+      CODE_REFRESH_EVENTS = 1024,       //< a power of two
     };
     BytePhys::CodeCache<CODE_CACHE_SLOTS> mCodeCache;
 
