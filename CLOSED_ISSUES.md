@@ -5,6 +5,22 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-28  BytePhys physics loaded at start (loadable physics)
+
+Liv's plan, like MFMs loading a .so: steps 1-2 made an image one
+pointer-free BCP blob; step 3 (6ddda9d) loads it at start.  The layout
+config marks the images (`physics = true`); mfmxctl `--physics NAME` or
+the `physics` command picks a .bcp; the host verifies it (verifyBCP),
+checks the fit, and writes it at the end of the bin file rounded to 16
+(no HostBlock change); the EWP opens it from __hostblock_end, else its
+compiled-in one (BYTEPHYS.md section 9, srcs/host/python/EWD/physics/
+README.md).  Run 20261128-083650: host `EWP: physics .../bfb.bcp, 280
+bytes, checksum 0x7ed764ec, at 0x23450 (room 1035184)`; every opened
+EWP `.bv:1:0:0:2:1:7ed764ec` (none fell back), no BCPBAD; bench `call`
+43.3 F / 50.6 L, `enter` 49.5 / 58.7; FB4 9403 cycles/event (2.88x),
+FB1 1681 (3.77x); `.bc` 1.31 misses per million events, 0 scans;
+stack high-water 896 B.  Clean boot (13th since the HOLD_AT_BIRTH fix).
+
 ## 2026-11-28  BytePhys BCP blobs: no bytecode ran (initB never called)
 
 Run 20261128-014339 (91907bb, the first BCP-blob build) ran no

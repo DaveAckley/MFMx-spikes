@@ -20,9 +20,9 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   already gone out, before checking 'already done' (HartTasks.cpp:114,
   run 20261127-122216, hub at023, h0/h1 died, 139/140 acks, no events).
   Fix: test 'already done' first, assert only for an out hart that never
-  did the task, EACH there on hb only.  Clean boots since: 12 (141156,
+  did the task, EACH there on hb only.  Clean boots since: 13 (141156,
   151122, 154951, 163420, 182009, 200923, 204054, 224448,
-  20261128-003440, -014339, -022755, -030540).  Move to
+  20261128-003440, -014339, -022755, -030540, -083650).  Move to
   CLOSED_ISSUES after a few dozen.  May also have been the 2026-11-21
   seam21 laggards.
 
@@ -48,16 +48,8 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 
 ## Next work (needs Liv's go-ahead)
 
-- Loadable bytecode physics (Liv, 2026-11-28; "BCP" for now): pick a
-  physics at start, like MFMs loading a .so.  Steps 1-2 done (BCP blobs,
-  BYTEPHYS.md section 3).  Step 3, the start-time load, BUILT
-  (2026-11-28, host-tested, cross-built, run pending; BYTEPHYS.md
-  section 9 'Loadable physics', srcs/host/python/EWD/physics/README.md):
-  layout-config `physics = true`, `--physics` / `physics` command,
-  host verify + fit check, blob written at the end of the bin file
-  rounded to 16, EWP opens it from __hostblock_end.  The experiment
-  should show `.bv:1:0:0:2:1:7ed764ec`.  Later: choosing among several
-  physics at start (Liv wants the option kept).
+- Loadable physics: choosing among several physics at start (Liv
+  wants the option kept; one loads today, CLOSED_ISSUES 2026-11-28).
 - Cross-element calls in ulam-lite (the whole-physics image is built,
   1b19246; the compiler side is not).
 - getm/setm with member pos/len resolved at compile time (~120 / ~160

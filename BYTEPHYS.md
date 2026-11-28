@@ -675,8 +675,10 @@ attack the second.
   L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
   table pointers in locals, a second MRU try or a caller slot saved for
   RET.
-- **Loadable physics, step 3 (2026-11-28, host-tested, cross-built, not
-  yet run):** the start-time load (section 9 'Loadable physics').  Host:
+- **Loadable physics, step 3 (2026-11-28, measured, run
+  20261128-083650: every EWP ran the loaded blob, `.bv:1:0:0:2:1:
+  7ed764ec`; timing as before, FB4 9403 cycles/event, FB1 1681, bench
+  call 43.3 F):** the start-time load (section 9 'Loadable physics').  Host:
   the layout-config flag `physics = true`, mfmxctl `--physics` and the
   `physics` command (applied at `start`, Machine._apply_physics),
   T6Image::attachPhysics (reads, verifyBCP, fit check against
