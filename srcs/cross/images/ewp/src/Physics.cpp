@@ -18,9 +18,9 @@ namespace MFM {
 
   static constexpr u32 PHY_BOOM = 6u;   // self-test: scribble, then FAIL
 
-  // Bytecode spike (OPEN_ISSUES 'physics as bytecode'): FB1 and FB4 run
-  // by the BytePhys machine, so 'decay 7' vs 'decay 4' compares them.
-  // Every compiled type runs from the default case (programFor); these
+  // Bytecode physics (BYTEPHYS.md): FB1 and FB4 run by the BytePhys
+  // machine, so 'decay 7' vs 'decay 4' compares them.  Every compiled
+  // type runs from the default case (entryFor in mBCP); these
   // names are for timing slots and the checks below.
   static constexpr u32 PHY_BFB1 = 7u;
   static constexpr u32 PHY_BFB4 = 8u;
@@ -158,6 +158,26 @@ namespace MFM {
     HBPTAG(.pb,buf);
   }
 
+  /* Open the compiled-in BCP blobs (initB).  They pass verifyBCP at
+     compile time, so a failure here means corrupted L1: mark it and run
+     no bytecode (an unopened view has no types, so entryFor finds none
+     and those atoms are erased like any unknown type). */
+  void Physics::openImages() {
+    mBCP = BytePhys::BCPView{};
+    mBenchBCP = BytePhys::BCPView{};
+    if (const u32 bad = BytePhys::openBCP(BytePhys::BP_BCP,
+                                          sizeof(BytePhys::BP_BCP), mBCP)) {
+      LOGPTAG(BCPBAD,bad);
+      HBPTAG(BCPBAD,bad);
+    }
+    namespace BB = BytePhys::Bench;
+    if (const u32 bad = BytePhys::openBCP(BB::BP_BCP, sizeof(BB::BP_BCP),
+                                          mBenchBCP)) {
+      LOGPTAG(BCPBAD,bad);
+      HBPTAG(BCPBAD,bad);
+    }
+  }
+
   template <class Env, class Res>
   __attribute__((noinline))
   static void benchRun(BytePhys::Machine & vm, const char * name, char v,
@@ -194,7 +214,11 @@ namespace MFM {
       return true;
     }
     const u32 i = idx % BB::BP_PROG_COUNT;
-    const BytePhys::Program & p = *BB::BP_PROG_LIST[i];
+    if (mBenchBCP.mFuncCount == 0u) {   // not opened: nothing to time
+      ca = P4Atom::makeEmptyAtom();
+      return true;
+    }
+    const BytePhys::Program p = {&mBenchBCP, BB::BP_PROG_FUNCS[i]};
     const char * name = BB::BP_PROG_NAMES[i] + 4; // drop the "bNN_"
     EwpPhysEnv env{mFastEW};
     BytePhys::InPlace inPlace;
@@ -204,7 +228,7 @@ namespace MFM {
     mVM.run(p, env, BP_FUEL, mCodeCache);
     benchRun(mVM, name, 'F', p, env, mCodeCache);
     if (i == 0u) {
-      const BytePhys::Image & img = *p.mImage;
+      const BytePhys::BCPView & img = *p.mImage;
       const u32 c = img.mFuncChunk[p.mFunc];
       if (BytePhys::chunkLength(img, c) >= 16u) {
         benchProbeRun("ldL1", img.mCode + img.mChunkStart[c]);
@@ -313,10 +337,12 @@ namespace MFM {
     switch (cat) {
     default: {
       // a compiled (bytecode) type?  scripts/ulamlite assigns these
-      // numbers; BytePrograms.h maps them to programs
-      if (const BytePhys::Program * p = BytePhys::programFor(cat)) {
+      // numbers; the BCP's type table maps them to entry functions
+      const u32 f = BytePhys::entryFor(mBCP, cat);
+      if (f != BytePhys::NO_FUNC) {
         EwpPhysEnv env{ew};
-        return mVM.run(*p, env, BP_FUEL, mCodeCache); // chunks in fast RAM
+        const BytePhys::Program p = {&mBCP, (u16) f};
+        return mVM.run(p, env, BP_FUEL, mCodeCache); // chunks in fast RAM
       }
       // wth are you? 
       ca = P4Atom::makeEmptyAtom(); // buhbye now

@@ -66,7 +66,7 @@ namespace MFM {
       u8 mCode[SLOTS][SLOT_BYTES] __attribute__((aligned(4)));
       u16 mTag[SLOTS];                  //< chunk held, or NO_CHUNK
       u8 mSlotOf[HINTS];                //< chunk & (HINTS-1) -> a slot
-      const Image * mImage;             //< bound image, or null
+      const BCPView * mImage;           //< bound image, or null
       u32 mNext;                        //< the slot the next miss fills
       u32 mNextRefresh;                 //< the slot refreshOne copies
       u32 mMisses;
@@ -92,7 +92,7 @@ namespace MFM {
       }
 
       /* Machine::run's resolver, part 1: once per run. */
-      void bind(const Image & img) {
+      void bind(const BCPView & img) {
         if (__builtin_expect(&img != mImage, 0)) {
           empty();
           mImage = &img;
@@ -141,7 +141,7 @@ namespace MFM {
       }
 
       void copyInto(u32 s, u32 c) {
-        const Image & img = *mImage;
+        const BCPView & img = *mImage;
         const u32 n = chunkLength(img, c);
         __builtin_memcpy(mCode[s], img.mCode + img.mChunkStart[c], n);
         mTag[s] = (u16) c;

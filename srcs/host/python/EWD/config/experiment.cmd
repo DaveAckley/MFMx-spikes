@@ -1,15 +1,11 @@
-# EXPERIMENT: BytePhys cheaper cache hits: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# Same script as run 20261127-224448; only the chunk cache changed
-# (ByteCache.h): a hit is now the slot hint (chunk number's low 6 bits
-# -> slot) plus the slot's tag compare, writing nothing; scans only when
-# the hint is stale; misses fill slots in turn (FIFO); one slot is
-# re-copied from L1 every 1024 events (not per hit); run() reads the
-# image's tables through locals.  Run 224448: bench call (call + ret)
-# 138.8 cycles per insn in fast RAM (whole-program cache before: 22.0),
-# 52.3 from L1 (31.1); enter 114.3 F / 58.5 L.  Expect call and enter F
-# near or under their L numbers, L a bit lower too; FB4 ~9423 and FB1
-# ~1695 about the same.  `.bc` is now MISSES:SCANS:REFRESHES:BYTES (no
-# hit count); runsum prints misses and scans per million events.
+# EXPERIMENT: BytePhys BCP blobs: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# Same script as runs 20261127-224448 and 20261128-003440.  The code is
+# now stored as ONE pointer-free BCP blob per physics (BytePhys.h
+# 'BCP'), still compiled in; the EWP opens and re-verifies its blobs in
+# initB (a failure would log BCPBAD and run no bytecode).  Nothing about
+# the run should change: expect bench call 43.3 F / 50.7 L, enter 49.5 /
+# 59.3, FB4 ~9436 cycles/event, FB1 ~1700-1760, `.bc` 0 scans, no
+# BCPBAD mark, no `.pf`.  HB fast-RAM data ends at 0x10c0 (+80 B).
 # Bench phase: 20 Bench atoms (type 31), decay 31; they erase
 # themselves after 104 events.  Then FB1 seeds, a whole-grid nuke, then
 # FB4 seeds.  Expect no `.pf`.

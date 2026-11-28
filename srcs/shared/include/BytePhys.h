@@ -3,8 +3,8 @@
 
    Manual: BYTEPHYS.md (repo root; keep it in step with this file).
 
-   OPEN_ISSUES 'physics as bytecode with explicit, bounded stacks': does
-   interpreting physics cost too much on a T6 baby core?  This is the
+   Does interpreting physics cost too much on a T6 baby core
+   (CLOSED_ISSUES 'BytePhys spike')?  This is the
    smallest machine that can run FB1 and FB4 (scripts/bytephys/bpasm.py
    assembles them into BytePrograms.h), so the EWP can run native and
    bytecode versions side by side (types 4/5 native, 7/8 bytecode) and
@@ -16,9 +16,9 @@
    the native stack: the interpreter is one loop and never calls itself.
    The Machine also holds a copy of the dispatch table (mOps), so the
    table load of every dispatch comes from fast RAM, not L1.
-   A program is checked ONCE by verify() (opcodes, immediates, jump
-   targets, fields, member ids, its end; bpasm's headers do it at compile
-   time), then run() checks only what depends on the run: every push,
+   A physics is checked ONCE by verifyBCP() (opcodes, immediates, jump
+   targets, fields, member ids, chunk ends, the blob's tables; bpasm's
+   headers do it at compile time, openBCP again when a blob is opened), then run() checks only what depends on the run: every push,
    pop, call, return, frame, site number and member type.  Every
    instruction burns one unit of fuel, compared at backward jumps and
    calls.  Any violation calls Env::fault(Fault), which must not return
@@ -51,6 +51,29 @@
    the image where it lies (L1 on the EWP), the code cache copies chunks
    into fast RAM.  A Program is a handle: an image and an entry
    function.
+
+   BCP: BYTECODE PHYSICS BLOBS (2026-11-28; the name is provisional).
+   An image is stored as ONE pointer-free blob, so a physics can later be
+   chosen at start time (appended after an EWP image's HostBlock, like
+   MFMs loading a .so; BYTEPHYS.md section 3).  Everything in it is
+   little-endian and found by byte offsets from the blob's start, every
+   table 4-aligned:
+
+     header (BCP_HEADER_BYTES = 64): magic 'BCP1', u16 BCP_VERSION,
+       u16 OP_COUNT, u32 total size (a multiple of 4), u32 checksum
+       (FNV-1a over the whole blob with these 4 bytes read as 0), u16
+       chunk count, u16 function count, u16 member refs, u16 member ats,
+       u16 first type, u16 type count, then u32 offsets of: code, chunk
+       starts (u16 x chunks+1), function chunks (u16 x functions),
+       MemberRefs, MemberAts (4 bytes each), type -> entry function
+       (u16 x types, NO_FUNC = none); 3 reserved words, 0.
+     then the code and the tables, each padded to 4 bytes.
+
+   verifyBCP(bytes, size) is constexpr (byte reads only), so the
+   generated headers static_assert it.  openBCP(bytes, room, view) runs
+   the same verify and fills a BCPView: plain pointers into the blob,
+   for run() and the cache.  Nothing outside a blob carries code or
+   tables.
 
    ARITHMETIC SATURATES.  ADD and SUB clamp to [0, 2^32-1] instead of
    wrapping, and SETM clamps a value to its member's declared width.
@@ -191,18 +214,24 @@ namespace MFM {
       if (w < 2u) putStateWord(a, w + 1u, (u32) (v >> 32));
     }
 
-    /* Where one element type keeps a member. */
-    struct MemberAt {
+    /* Where one element type keeps a member.  (may_alias: read in
+       place from a BCP blob's bytes.) */
+    struct __attribute__((may_alias)) MemberAt {
       u16 mType;
       u8 mPos;                          //< first state bit
       u8 mLen;                          //< width, 1..32
     };
 
     /* Member id -> its MemberAts (one per element type that has it). */
-    struct MemberRef {
+    struct __attribute__((may_alias)) MemberRef {
       u16 mFirst;                       //< index into Layout::mAts
       u16 mCount;
     };
+    static_assert(sizeof(MemberAt) == 4u && sizeof(MemberRef) == 4u,
+                  "BCP tables hold 4-byte MemberAts and MemberRefs");
+
+    /* A u16 read in place from a BCP blob's bytes. */
+    typedef u16 __attribute__((may_alias)) U16A;
 
     struct Layout {
       const MemberRef * mRefs;
@@ -227,22 +256,86 @@ namespace MFM {
       CHUNK_MAX = 256,                  //< bytes; offsets are u8
     };
 
-    /* One physics' code (see IMAGES above): chunk c is mCode[
-       mChunkStart[c] .. mChunkStart[c + 1]); function f starts at offset
-       0 of chunk mFuncChunk[f]. */
-    struct Image {
-      const u8 * mCode;
-      const u16 * mChunkStart;          //< mChunkCount + 1 entries
-      u16 mChunkCount;
-      const u16 * mFuncChunk;           //< mFuncCount entries
-      u16 mFuncCount;
-      const Layout * mLayout;           //< for GETM/SETM (may be null)
+    /* The BCP blob format (see 'BCP' above). */
+    enum : u32 {
+      BCP_MAGIC = 0x31504342u,          //< 'B' 'C' 'P' '1', little-endian
+      BCP_VERSION = 1u,                 //< bump on any format change
+      BCP_HEADER_BYTES = 64u,
+      BCP_MAX_BYTES = 0x100000u,        //< 1 MB: more than any EWP L1 left
+      NO_FUNC = 0xffffu,                //< a type with no entry function
+    };
+    // header byte offsets
+    enum : u32 {
+      BCPH_MAGIC = 0u,
+      BCPH_VERSION = 4u,                //< u16
+      BCPH_OPCOUNT = 6u,                //< u16
+      BCPH_SIZE = 8u,
+      BCPH_CHECKSUM = 12u,
+      BCPH_CHUNKS = 16u,                //< u16
+      BCPH_FUNCS = 18u,                 //< u16
+      BCPH_REFS = 20u,                  //< u16
+      BCPH_ATS = 22u,                   //< u16
+      BCPH_FIRST_TYPE = 24u,            //< u16
+      BCPH_TYPES = 26u,                 //< u16
+      BCPH_OFF_CODE = 28u,
+      BCPH_OFF_CHUNK_START = 32u,
+      BCPH_OFF_FUNC_CHUNK = 36u,
+      BCPH_OFF_REFS = 40u,
+      BCPH_OFF_ATS = 44u,
+      BCPH_OFF_TYPE_FUNC = 48u,
+      BCPH_RESERVED = 52u,              //< 3 words, must be 0
+    };
+    // what verifyBCP reports about the blob itself (its code's problems
+    // are reported as the Fault they would cause)
+    enum : u32 {
+      BCP_BAD_SIZE = 0x101u,            //< too small, too big, not /4
+      BCP_BAD_MAGIC,
+      BCP_BAD_VERSION,                  //< format or opcode set differs
+      BCP_BAD_CHECKSUM,
+      BCP_BAD_TABLE,                    //< an offset or count out of bounds
+      BCP_BAD_LAYOUT,                   //< a member ref or at is invalid
+      BCP_BAD_TYPES,                    //< a type names no function
     };
 
-    /* What to run: an image and its entry function (an element's
+    constexpr u32 bcpRd16(const u8 * b, u32 i) {
+      return (u32) b[i] | ((u32) b[i + 1u] << 8);
+    }
+    constexpr u32 bcpRd32(const u8 * b, u32 i) {
+      return bcpRd16(b, i) | (bcpRd16(b, i + 2u) << 16);
+    }
+
+    /* FNV-1a over size bytes, the checksum word read as 0. */
+    constexpr u32 bcpChecksum(const u8 * b, u32 size) {
+      u32 h = 2166136261u;
+      for (u32 i = 0; i < size; ++i) {
+        const u32 x = i - BCPH_CHECKSUM < 4u ? 0u : b[i];
+        h = (h ^ x) * 16777619u;
+      }
+      return h;
+    }
+
+    /* A verified BCP blob, opened (openBCP): pointers into it.  Chunk c
+       is mCode[mChunkStart[c] .. mChunkStart[c + 1]); function f starts
+       at offset 0 of chunk mFuncChunk[f]; element type t (mFirstType <=
+       t < mFirstType + mTypeCount) runs function mTypeFunc[t -
+       mFirstType] unless that is NO_FUNC. */
+    struct BCPView {
+      const u8 * mBase;                 //< the blob
+      const u8 * mCode;
+      const U16A * mChunkStart;         //< mChunkCount + 1 entries
+      const U16A * mFuncChunk;          //< mFuncCount entries
+      const U16A * mTypeFunc;           //< mTypeCount entries
+      Layout mLayout;                   //< for GETM/SETM
+      u16 mChunkCount;
+      u16 mFuncCount;
+      u16 mFirstType;
+      u16 mTypeCount;
+    };
+
+    /* What to run: an opened image and its entry function (an element's
        behave, or a microbenchmark). */
     struct Program {
-      const Image * mImage;
+      const BCPView * mImage;
       u16 mFunc;
     };
 
@@ -254,8 +347,8 @@ namespace MFM {
        from the Image (an L1 struct on the EWP). */
     struct InPlace {
       const u8 * mCode = nullptr;
-      const u16 * mStart = nullptr;
-      void bind(const Image & img) {
+      const U16A * mStart = nullptr;
+      void bind(const BCPView & img) {
         mCode = img.mCode;
         mStart = img.mChunkStart;
       }
@@ -309,8 +402,9 @@ namespace MFM {
         return run(p, env, fuel, res);
       }
 
-      /* Run program p of a VERIFIED image (verify(img) == 0, below; the
-         generated images are checked at compile time), so opcodes,
+      /* Run program p of a VERIFIED image (opened by openBCP, which
+         runs verifyBCP; the generated blobs are also checked at compile
+         time), so opcodes,
          immediates, jump targets, chunk and function numbers, fields,
          member ids and chunk ends need no checks here.  What only the
          run can know is still checked: stack depths, frames, sites,
@@ -342,9 +436,9 @@ namespace MFM {
           mOpsFrom = (const void *) kOps;
         }
         void * const * const ops = mOps;
-        const Image & img = *p.mImage;
-        const u16 * const funcChunk = img.mFuncChunk;
-        const Layout * const layout = img.mLayout;
+        const BCPView & img = *p.mImage;
+        const U16A * const funcChunk = img.mFuncChunk;
+        const Layout * const layout = &img.mLayout;
         res.bind(img);
         u32 chunk = funcChunk[p.mFunc];
         const u8 * code = res.chunk(chunk);
@@ -637,14 +731,30 @@ namespace MFM {
            : -1;
     }
 
-    /* Bytes in chunk c. */
-    constexpr u32 chunkLength(const Image & img, u32 c) {
+    /* Bytes in chunk c of an opened image. */
+    inline u32 chunkLength(const BCPView & img, u32 c) {
       return (u32) img.mChunkStart[c + 1u] - (u32) img.mChunkStart[c];
     }
 
+    /* The entry function of element type `type`, or NO_FUNC. */
+    inline u32 entryFor(const BCPView & img, u32 type) {
+      const u32 i = type - img.mFirstType;      // wraps below the first
+      return i < img.mTypeCount ? (u32) img.mTypeFunc[i] : (u32) NO_FUNC;
+    }
+
+    /* The verifier works on the raw blob, byte by byte (constexpr). */
+    struct BCPBytes {
+      const u8 * b;
+      u32 code;                         //< offset of the code
+      u32 starts;                       //< offset of the chunk starts
+      constexpr u32 start(u32 c) const { return bcpRd16(b, starts + 2u * c); }
+      constexpr u32 length(u32 c) const { return start(c + 1u) - start(c); }
+      constexpr const u8 * chunk(u32 c) const { return b + code + start(c); }
+    };
+
     /* Does an instruction start at offset t of chunk c? */
-    constexpr bool isInsnStart(const Image & img, u32 c, u32 t) {
-      const u8 * code = img.mCode + img.mChunkStart[c];
+    constexpr bool bcpInsnStart(const BCPBytes & x, u32 c, u32 t) {
+      const u8 * code = x.chunk(c);
       u32 pc = 0;
       while (pc < t) {
         const int n = immBytes(code[pc]);
@@ -654,30 +764,87 @@ namespace MFM {
       return pc == t;
     }
 
-    /* 0 if Machine::run may run any function of img, else the Fault it
-       would hit: no chunk or function, chunk starts out of order or a
-       chunk empty or over CHUNK_MAX, a function or call naming no
-       function, an unknown opcode (BF_OPCODE), an immediate past its
-       chunk's end, a jump target off its chunk's end or inside an
-       instruction, a cross-chunk jump to no chunk, or a chunk whose last
-       instruction is not halt0/halt1/jmp/xjmp/ret, so control could run
-       off it (BF_PC; a call needs a next instruction to return to), a
-       bad or read-only field (BF_FIELD), a member id with no Layout or
-       past it (BF_MEMBER), enter with nargs > nlocals or more than all
-       the local slots (BF_FRAME).  constexpr: bpasm's headers
-       static_assert it for every image. */
-    constexpr u32 verify(const Image & img) {
-      if (img.mChunkCount == 0u || img.mFuncCount == 0u) return BF_PC;
-      if (img.mChunkStart[0] != 0u) return BF_PC;
-      for (u32 c = 0; c < img.mChunkCount; ++c) {
-        if (img.mChunkStart[c + 1u] <= img.mChunkStart[c]) return BF_PC;
-        if (chunkLength(img, c) > CHUNK_MAX) return BF_PC;
+    /* Is the table of n entries of w bytes at offset off inside the blob,
+       after the header and 4-aligned? */
+    constexpr bool bcpTableOk(u32 off, u32 n, u32 w, u32 size) {
+      return off >= BCP_HEADER_BYTES && off % 4u == 0u && off <= size &&
+        n * w <= size - off;
+    }
+
+    /* 0 if b[0..size) is a BCP blob Machine::run may run any function
+       of, else what is wrong.  The blob: BCP_BAD_SIZE, _MAGIC, _VERSION
+       (format or opcode count), _CHECKSUM, _TABLE (an offset, count or
+       chunk start out of bounds), _LAYOUT (a member ref past the ats, an
+       at past the state bits or 0 or over 32 bits wide), _TYPES (a type
+       naming no function).  The code, as the Fault it would cause: no
+       chunk or function, chunk starts out of order or a chunk empty or
+       over CHUNK_MAX, a function or call naming no function, an unknown
+       opcode (BF_OPCODE), an immediate past its chunk's end, a jump
+       target off its chunk's end or inside an instruction, a cross-chunk
+       jump to no chunk, or a chunk whose last instruction is not
+       halt0/halt1/jmp/xjmp/ret, so control could run off it (BF_PC; a
+       call needs a next instruction to return to), a bad or read-only
+       field (BF_FIELD), a member id past the layout (BF_MEMBER), enter
+       with nargs > nlocals or more than all the local slots (BF_FRAME).
+       constexpr: bpasm's headers static_assert it for every blob. */
+    constexpr u32 verifyBCP(const u8 * b, u32 size) {
+      if (size < BCP_HEADER_BYTES || size > BCP_MAX_BYTES || size % 4u)
+        return BCP_BAD_SIZE;
+      if (bcpRd32(b, BCPH_MAGIC) != BCP_MAGIC) return BCP_BAD_MAGIC;
+      if (bcpRd16(b, BCPH_VERSION) != BCP_VERSION ||
+          bcpRd16(b, BCPH_OPCOUNT) != (u32) OP_COUNT)
+        return BCP_BAD_VERSION;
+      if (bcpRd32(b, BCPH_SIZE) != size) return BCP_BAD_SIZE;
+      if (bcpRd32(b, BCPH_CHECKSUM) != bcpChecksum(b, size))
+        return BCP_BAD_CHECKSUM;
+      for (u32 r = 0; r < 3u; ++r)
+        if (bcpRd32(b, BCPH_RESERVED + 4u * r) != 0u) return BCP_BAD_TABLE;
+      const u32 chunks = bcpRd16(b, BCPH_CHUNKS);
+      const u32 funcs = bcpRd16(b, BCPH_FUNCS);
+      const u32 nrefs = bcpRd16(b, BCPH_REFS);
+      const u32 nats = bcpRd16(b, BCPH_ATS);
+      const u32 ntypes = bcpRd16(b, BCPH_TYPES);
+      const u32 ocode = bcpRd32(b, BCPH_OFF_CODE);
+      const u32 ostarts = bcpRd32(b, BCPH_OFF_CHUNK_START);
+      const u32 ofuncs = bcpRd32(b, BCPH_OFF_FUNC_CHUNK);
+      const u32 orefs = bcpRd32(b, BCPH_OFF_REFS);
+      const u32 oats = bcpRd32(b, BCPH_OFF_ATS);
+      const u32 otypes = bcpRd32(b, BCPH_OFF_TYPE_FUNC);
+      if (chunks == 0u || funcs == 0u) return BF_PC;
+      if (!bcpTableOk(ostarts, chunks + 1u, 2u, size) ||
+          !bcpTableOk(ofuncs, funcs, 2u, size) ||
+          !bcpTableOk(orefs, nrefs, 4u, size) ||
+          !bcpTableOk(oats, nats, 4u, size) ||
+          !bcpTableOk(otypes, ntypes, 2u, size))
+        return BCP_BAD_TABLE;
+      const BCPBytes x{b, ocode, ostarts};
+      if (!bcpTableOk(ocode, x.start(chunks), 1u, size))
+        return BCP_BAD_TABLE;
+      if (x.start(0) != 0u) return BF_PC;
+      for (u32 c = 0; c < chunks; ++c) {
+        if (x.start(c + 1u) <= x.start(c)) return BF_PC;
+        if (x.length(c) > CHUNK_MAX) return BF_PC;
       }
-      for (u32 f = 0; f < img.mFuncCount; ++f)
-        if (img.mFuncChunk[f] >= img.mChunkCount) return BF_PC;
-      for (u32 c = 0; c < img.mChunkCount; ++c) {
-        const u8 * code = img.mCode + img.mChunkStart[c];
-        const u32 len = chunkLength(img, c);
+      for (u32 f = 0; f < funcs; ++f)
+        if (bcpRd16(b, ofuncs + 2u * f) >= chunks) return BF_PC;
+      for (u32 r = 0; r < nrefs; ++r) {
+        const u32 first = bcpRd16(b, orefs + 4u * r);
+        const u32 count = bcpRd16(b, orefs + 4u * r + 2u);
+        if (first + count > nats) return BCP_BAD_LAYOUT;
+      }
+      for (u32 a = 0; a < nats; ++a) {
+        const u32 pos = b[oats + 4u * a + 2u];
+        const u32 len = b[oats + 4u * a + 3u];
+        if (len == 0u || len > 32u || pos + len > STATE_BITS)
+          return BCP_BAD_LAYOUT;
+      }
+      for (u32 t = 0; t < ntypes; ++t) {
+        const u32 f = bcpRd16(b, otypes + 2u * t);
+        if (f != NO_FUNC && f >= funcs) return BCP_BAD_TYPES;
+      }
+      for (u32 c = 0; c < chunks; ++c) {
+        const u8 * code = x.chunk(c);
+        const u32 len = x.length(c);
         u32 pc = 0;
         while (pc < len) {
           const u32 op = code[pc];
@@ -689,21 +856,19 @@ namespace MFM {
           const u32 i1 = n > 1 ? code[pc + 2] : 0u;
           const u32 i2 = n > 2 ? code[pc + 3] : 0u;
           if (op == OP_JMP || op == OP_JZ || op == OP_JNZ) {
-            if (i0 >= len || !isInsnStart(img, c, i0)) return BF_PC;
+            if (i0 >= len || !bcpInsnStart(x, c, i0)) return BF_PC;
           } else if (op == OP_XJMP || op == OP_XJZ || op == OP_XJNZ) {
             const u32 c2 = i0 | (i1 << 8);
-            if (c2 >= img.mChunkCount || i2 >= chunkLength(img, c2) ||
-                !isInsnStart(img, c2, i2)) return BF_PC;
+            if (c2 >= chunks || i2 >= x.length(c2) ||
+                !bcpInsnStart(x, c2, i2)) return BF_PC;
           } else if (op == OP_CALL) {
-            if ((i0 | (i1 << 8)) >= img.mFuncCount) return BF_PC;
+            if ((i0 | (i1 << 8)) >= funcs) return BF_PC;
           } else if (op == OP_GETF) {
             if (i0 >= F_COUNT) return BF_FIELD;
           } else if (op == OP_SETF) {
             if (i0 == F_TYPE || i0 >= F_COUNT) return BF_FIELD;
           } else if (op == OP_GETM || op == OP_SETM) {
-            if (img.mLayout == nullptr ||
-                (i0 | (i1 << 8)) >= img.mLayout->mRefCount)
-              return BF_MEMBER;
+            if ((i0 | (i1 << 8)) >= nrefs) return BF_MEMBER;
           } else if (op == OP_ENTER) {
             if (i0 > i1 || i1 > Machine::LOCALS_SIZE) return BF_FRAME;
           }
@@ -713,6 +878,36 @@ namespace MFM {
           pc = next;
         }
       }
+      return 0u;
+    }
+
+    /* Fill v from blob b WITHOUT checking it: for openBCP (below), and
+       for tests that must run unverified bytes. */
+    inline void viewBCP(const u8 * b, BCPView & v) {
+      v.mBase = b;
+      v.mCode = b + bcpRd32(b, BCPH_OFF_CODE);
+      v.mChunkStart = (const U16A *) (b + bcpRd32(b, BCPH_OFF_CHUNK_START));
+      v.mFuncChunk = (const U16A *) (b + bcpRd32(b, BCPH_OFF_FUNC_CHUNK));
+      v.mTypeFunc = (const U16A *) (b + bcpRd32(b, BCPH_OFF_TYPE_FUNC));
+      v.mLayout.mRefs = (const MemberRef *) (b + bcpRd32(b, BCPH_OFF_REFS));
+      v.mLayout.mRefCount = (u16) bcpRd16(b, BCPH_REFS);
+      v.mLayout.mAts = (const MemberAt *) (b + bcpRd32(b, BCPH_OFF_ATS));
+      v.mChunkCount = (u16) bcpRd16(b, BCPH_CHUNKS);
+      v.mFuncCount = (u16) bcpRd16(b, BCPH_FUNCS);
+      v.mFirstType = (u16) bcpRd16(b, BCPH_FIRST_TYPE);
+      v.mTypeCount = (u16) bcpRd16(b, BCPH_TYPES);
+    }
+
+    /* Open a BCP blob of at most room bytes (room: what is left where
+       it lies; the size comes from its header): verifyBCP, then fill v.
+       0 or verifyBCP's answer (v untouched then).  b must be 4-aligned. */
+    inline u32 openBCP(const u8 * b, u32 room, BCPView & v) {
+      if (room < BCP_HEADER_BYTES || ((__UINTPTR_TYPE__) b & 3u) != 0u)
+        return BCP_BAD_SIZE;
+      const u32 size = bcpRd32(b, BCPH_SIZE);
+      if (size > room) return BCP_BAD_SIZE;
+      if (const u32 bad = verifyBCP(b, size)) return bad;
+      viewBCP(b, v);
       return 0u;
     }
   }

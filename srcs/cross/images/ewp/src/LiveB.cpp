@@ -62,6 +62,7 @@ namespace MFM {
     // Machine's dispatch table (BytePhys.h mOps)
     fB.mThePhysics.mVM.resetDispatch();
     fB.mThePhysics.mCodeCache.reset();   // and nothing cached yet
+    fB.mThePhysics.openImages();         // verify and open the BCPs
     theHostBlock.mPerHartStatus[fAll.mHartNum] = FAILCode::LIVING; // entering event loop
     return 0;
   }

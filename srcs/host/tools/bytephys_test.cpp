@@ -33,6 +33,8 @@
 // and prints the bytecode instructions per event (mean, max).
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <cstdlib>
 #include <vector>
 
 #include "BytePrograms.h"
@@ -46,6 +48,28 @@ using namespace MFM;
 namespace {
 
 int g_bad = 0;
+
+/* The generated BCP blobs, opened once (as the EWP does in initB). */
+BytePhys::BCPView openOrDie(const u8 * b, u32 n, const char * what) {
+  BytePhys::BCPView v{};
+  if (const u32 bad = BytePhys::openBCP(b, n, v)) {
+    printf("FAIL: %s does not open (%u)\n", what, bad);
+    exit(1);
+  }
+  return v;
+}
+const BytePhys::BCPView g_phys =
+  openOrDie(BytePhys::BP_BCP, sizeof(BytePhys::BP_BCP), "BP_BCP");
+const BytePhys::BCPView g_tests =
+  openOrDie(BytePhys::Tests::BP_BCP, sizeof(BytePhys::Tests::BP_BCP),
+            "Tests::BP_BCP");
+const BytePhys::BCPView g_bench =
+  openOrDie(BytePhys::Bench::BP_BCP, sizeof(BytePhys::Bench::BP_BCP),
+            "Bench::BP_BCP");
+const BytePhys::Program PROG_BFB1 = {&g_phys, BytePhys::BP_FUNC_BFB1};
+const BytePhys::Program PROG_BFB4 = {&g_phys, BytePhys::BP_FUNC_BFB4};
+BytePhys::Program testProg(u16 f) { return {&g_tests, f}; }
+BytePhys::Program benchProg(u16 f) { return {&g_bench, f}; }
 
 void check(bool ok, const char * what) {
   if (!ok) {
@@ -132,8 +156,8 @@ void testEquivalence() {
         const bool rn = fb == 0 ? nativeFB1(n) : nativeFB4(n);
         bool rb = false;
         try {
-          rb = vm.run(fb == 0 ? BytePhys::BP_PROG_BFB1
-                              : BytePhys::BP_PROG_BFB4, b, 10'000u);
+          rb = vm.run(fb == 0 ? PROG_BFB1
+                              : PROG_BFB4, b, 10'000u);
         } catch (const Fault & f) {
           check(false, "bytecode FB faulted");
           continue;
@@ -154,32 +178,103 @@ void testEquivalence() {
          "%.1f max %u\n", runs[0], runs[1],
          (double) insns[0] / (double) runs[0], maxInsns[0],
          (double) insns[1] / (double) runs[1], maxInsns[1]);
-  const BytePhys::Image & img = BytePhys::BP_IMAGE;
+  const BytePhys::BCPView & img = g_phys;
   printf("image: %u bytes, %u chunks, %u functions; machine %zu bytes\n",
          (unsigned) img.mChunkStart[img.mChunkCount],
          (unsigned) img.mChunkCount, (unsigned) img.mFuncCount,
          sizeof(BytePhys::Machine));
 }
 
-/* A hand-made image: chunks back to back, fchunks[f] = function f's
-   first chunk.  Not copyable (img points into it). */
-struct RawImage {
-  std::vector<u8> code;
+/* Pack a BCP blob as bpasm.py's pack_bcp does (BytePhys.h 'BCP'), from
+   chunks back to back, fchunks[f] = function f's first chunk, a layout
+   (or none) and a type table (first type, entry functions). */
+std::vector<u32> packBCP(const std::vector<std::vector<u8>> & chunks,
+                         const std::vector<u16> & fchunks,
+                         const BytePhys::Layout * lay,
+                         u16 firstType = 0u,
+                         const std::vector<u16> & tfunc = {}) {
+  using namespace BytePhys;
+  std::vector<u8> body;
+  std::vector<u32> offs;
+  auto pad = [&]() { while (body.size() % 4u) body.push_back(0u); };
+  auto put16 = [&](u32 v) {
+    body.push_back((u8) v);
+    body.push_back((u8) (v >> 8));
+  };
   std::vector<u16> starts;
-  std::vector<u16> funcs;
-  BytePhys::Image img;
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  u32 at = 0u;
+  for (const auto & c : chunks) {
+    starts.push_back((u16) at);
+    body.insert(body.end(), c.begin(), c.end());
+    at += (u32) c.size();
+  }
+  starts.push_back((u16) at);
+  pad();
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  for (u16 v : starts) put16(v);
+  pad();
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  for (u16 v : fchunks) put16(v);
+  pad();
+  const u32 nrefs = lay ? lay->mRefCount : 0u;
+  u32 nats = 0u;
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  for (u32 r = 0; r < nrefs; ++r) {
+    put16(lay->mRefs[r].mFirst);
+    put16(lay->mRefs[r].mCount);
+    nats = std::max(nats, (u32) lay->mRefs[r].mFirst + lay->mRefs[r].mCount);
+  }
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  for (u32 a = 0; a < nats; ++a) {
+    put16(lay->mAts[a].mType);
+    body.push_back(lay->mAts[a].mPos);
+    body.push_back(lay->mAts[a].mLen);
+  }
+  offs.push_back(BCP_HEADER_BYTES + (u32) body.size());
+  for (u16 f : tfunc) put16(f);
+  pad();
+  const u32 size = BCP_HEADER_BYTES + (u32) body.size();
+  std::vector<u8> b(BCP_HEADER_BYTES, 0u);
+  auto w16 = [&](u32 i, u32 v) {
+    b[i] = (u8) v;
+    b[i + 1u] = (u8) (v >> 8);
+  };
+  auto w32 = [&](u32 i, u32 v) {
+    w16(i, v & 0xffffu);
+    w16(i + 2u, v >> 16);
+  };
+  w32(BCPH_MAGIC, BCP_MAGIC);
+  w16(BCPH_VERSION, BCP_VERSION);
+  w16(BCPH_OPCOUNT, OP_COUNT);
+  w32(BCPH_SIZE, size);
+  w16(BCPH_CHUNKS, (u32) chunks.size());
+  w16(BCPH_FUNCS, (u32) fchunks.size());
+  w16(BCPH_REFS, nrefs);
+  w16(BCPH_ATS, nats);
+  w16(BCPH_FIRST_TYPE, firstType);
+  w16(BCPH_TYPES, (u32) tfunc.size());
+  for (u32 k = 0; k < 6u; ++k) w32(BCPH_OFF_CODE + 4u * k, offs[k]);
+  b.insert(b.end(), body.begin(), body.end());
+  w32(BCPH_CHECKSUM, bcpChecksum(b.data(), size));
+  std::vector<u32> words(size / 4u);    // 4-aligned storage
+  memcpy(words.data(), b.data(), size);
+  return words;
+}
+
+/* A hand-made image, packed and opened; bad = what openBCP said (then
+   the image must not run).  Not copyable (img points into blob). */
+struct RawImage {
+  std::vector<u32> blob;
+  BytePhys::BCPView img{};
   BytePhys::Program prog;
+  u32 bad;
 
   RawImage(const std::vector<std::vector<u8>> & chunks,
            const std::vector<u16> & fchunks, const BytePhys::Layout * lay)
-    : funcs(fchunks) {
-    for (const auto & c : chunks) {
-      starts.push_back((u16) code.size());
-      code.insert(code.end(), c.begin(), c.end());
-    }
-    starts.push_back((u16) code.size());
-    img = {code.data(), starts.data(), (u16) chunks.size(), funcs.data(),
-           (u16) funcs.size(), lay};
+    : blob(packBCP(chunks, fchunks, lay)) {
+    bad = BytePhys::openBCP((const u8 *) blob.data(),
+                            (u32) (blob.size() * 4u), img);
     prog = {&img, 0u};
   }
 
@@ -204,7 +299,7 @@ u32 faultOfImage(const RawImage & ri, u32 fuel = 10'000u,
   const BytePhys::Program & p = ri.prog;
   // what verify() rejects never runs (the EWP's images are verified at
   // compile time): report it as the fault it stands for
-  if (const u32 v = BytePhys::verify(ri.img)) return v;
+  if (ri.bad) return ri.bad;
   Env e(1u, 0);
   fillWindow(e, 1u, centerType);
   try {
@@ -385,7 +480,7 @@ void testBits() {
     Env e(1u, 0);
     fillWindow(e, 1u, BP_TYPE_BFB4);
     e.mW[0].mStg[1] = 0xffffffffu;
-    vm.run(BP_PROG_BFB4, e, 10'000u);
+    vm.run(PROG_BFB4, e, 10'000u);
     bool all = true;
     for (u32 i = 0; i < SITES; ++i) all = all && e.mW[i].mStg[1] == ~0u;
     check(all, "FB4 age saturates");
@@ -395,7 +490,7 @@ void testBits() {
     fillWindow(e, 1u, BP_TYPE_BFB1);
     e.mW[0].mStg[0] = 0u;
     e.mW[0].mStg[1] = 0xfffffffeu;
-    vm.run(BP_PROG_BFB1, e, 10'000u);
+    vm.run(PROG_BFB1, e, 10'000u);
     check(e.mW[0].mStg[1] == 0xffffffffu, "FB1 age saturates");
     check(e.mW[0].mStg[0] == 5u, "FB1 fuse set on the splat path");
   }
@@ -409,7 +504,7 @@ void testBits() {
                   OP_LOADL, 0, OP_PUSH8, 1, OP_SUB, OP_CALL, SUM, 0,  // rec
                   OP_LOADL, 0, OP_ADD, OP_RET}},
                 {0u, 1u}, nullptr);
-    check(BytePhys::verify(ri.img) == 0u, "the sum image verifies");
+    check(ri.bad == 0u, "the sum image verifies");
     Env e(1u, 0);
     fillWindow(e, 1u);
     check(vm.run(ri.prog, e, 1000u), "sum halts with halt1");
@@ -432,12 +527,14 @@ void testBits() {
   printf("frames: recursion with locals, args, storel/loadl\n");
 
   // the generated type -> program table the EWP dispatches through
-  check(programFor(BP_TYPE_BFB1) == &BP_PROG_BFB1, "programFor BFB1");
-  check(programFor(BP_TYPE_BFB4) == &BP_PROG_BFB4, "programFor BFB4");
-  check(programFor(BP_FIRST_TYPE - 1u) == nullptr, "programFor native");
-  check(programFor(BP_FIRST_TYPE + BP_TYPE_COUNT) == nullptr,
-        "programFor past the table");
-  check(programFor(0xffffu) == nullptr, "programFor huge");
+  check(entryFor(g_phys, BP_TYPE_BFB1) == BP_FUNC_BFB1, "entryFor BFB1");
+  check(entryFor(g_phys, BP_TYPE_BFB4) == BP_FUNC_BFB4, "entryFor BFB4");
+  check(entryFor(g_phys, BP_FIRST_TYPE - 1u) == NO_FUNC,
+        "entryFor native");
+  check(entryFor(g_phys, BP_FIRST_TYPE + BP_TYPE_COUNT) == NO_FUNC,
+        "entryFor past the table");
+  check(entryFor(g_phys, 0xffffu) == NO_FUNC, "entryFor huge");
+  check(entryFor(g_phys, 0u) == NO_FUNC, "entryFor 0");
   printf("members: getBits/setBits match a bit model at every pos/len; "
          "setm, add, sub, FB1/FB4 ages saturate\n");
 }
@@ -464,7 +561,7 @@ void testCompiler() {
   {
     Env e(1u, 0);
     fillWindow(e, 1u);
-    const P4Atom a = runTest(BP_PROG_TMETHODS, BP_TYPE_TMETHODS, e);
+    const P4Atom a = runTest(testProg(BP_FUNC_TMETHODS), BP_TYPE_TMETHODS, e);
     check(getBits(a, 0u, 16u) == 15u, "methods: recursive sum(5)");
     check(getBits(a, 16u, 16u) == 18u, "methods: max with params");
     check(getBits(a, 32u, 16u) == 15u, "methods: Unsigned(4) param clamps");
@@ -474,7 +571,7 @@ void testCompiler() {
   {
     Env e(1u, 0);
     fillWindow(e, 1u);
-    const P4Atom a = runTest(BP_PROG_TLOOPS, BP_TYPE_TLOOPS, e);
+    const P4Atom a = runTest(testProg(BP_FUNC_TLOOPS), BP_TYPE_TLOOPS, e);
     check(getBits(a, 0u, 16u) == 5u, "loops: for with || && !");
     check(getBits(a, 16u, 16u) == 7u, "loops: while(true) + break");
     check(getBits(a, 32u, 16u) == 25u, "loops: continue");
@@ -484,7 +581,7 @@ void testCompiler() {
   {
     Env e(1u, 0);
     fillWindow(e, 1u);
-    const P4Atom a = runTest(BP_PROG_TLOCALS, BP_TYPE_TLOCALS, e);
+    const P4Atom a = runTest(testProg(BP_FUNC_TLOCALS), BP_TYPE_TLOCALS, e);
     check(getBits(a, 0u, 16u) == 18u, "locals: Unsigned(4) saturates");
     check(getBits(a, 16u, 16u) == 3u, "locals: shadowing");
     check(getBits(a, 32u, 16u) == 16u,
@@ -501,7 +598,7 @@ void testCompiler() {
     e.mW[4] = P4Atom::makeAtom(4u);
     e.mW[6] = P4Atom::makeAtom(4u);
     const P4Atom three = e.mW[3];
-    const P4Atom a = runTest(BP_PROG_TWINDOW, BP_TYPE_TWINDOW, e);
+    const P4Atom a = runTest(testProg(BP_FUNC_TWINDOW), BP_TYPE_TWINDOW, e);
     check(getBits(a, 0u, 4u) == 15u, "window: Unsigned(4) member saturates");
     check(getBits(a, 4u, 1u) == 1u, "window: Bool member stores 1");
     check(getBits(a, 5u, 8u) == 31u, "window: is tests, short circuits");
@@ -513,7 +610,7 @@ void testCompiler() {
   {
     Env e(1u, 0);
     fillWindow(e, 1u);
-    const P4Atom a = runTest(BP_PROG_TFALLBACK, BP_TYPE_TFALLBACK, e);
+    const P4Atom a = runTest(testProg(BP_FUNC_TFALLBACK), BP_TYPE_TFALLBACK, e);
     check(getBits(a, 0u, 16u) == 6u, "fallback: body assigns the counter");
     check(getBits(a, 16u, 16u) == 25u, "fallback: counter read too deep");
     check(getBits(a, 32u, 16u) == 12u, "fallback: outer counter, inner loop");
@@ -541,7 +638,7 @@ void testBench() {
     const Env before = e;
     Machine vm{};
     try {
-      check(vm.run(*BB::BP_PROG_LIST[i], e, 10'000u), "bench commits");
+      check(vm.run(benchProg(BB::BP_PROG_FUNCS[i]), e, 10'000u), "bench commits");
     } catch (const Fault & f) {
       printf("\nFAIL: bench %s faulted %u\n", BB::BP_PROG_NAMES[i], f.code);
       ++g_bad;
@@ -571,10 +668,8 @@ void testBench() {
    could make it). */
 void testCodeCache() {
   using BytePhys::Program;
-  using BytePhys::Image;
+  using BytePhys::BCPView;
   using BytePhys::CodeCache;
-  using BytePhys::BP_PROG_BFB1;
-  using BytePhys::BP_PROG_BFB4;
   using BytePhys::BP_TYPE_BFB1;
   using BytePhys::BP_TYPE_BFB4;
   using BytePhys::OP_COUNT;
@@ -583,7 +678,7 @@ void testCodeCache() {
   BytePhys::Machine vm{};
   CodeCache<12> cache{};
   cache.reset();
-  const Program * progs[2] = {&BP_PROG_BFB1, &BP_PROG_BFB4};
+  const Program * progs[2] = {&PROG_BFB1, &PROG_BFB4};
   for (u32 seed = 1; seed <= 600; ++seed) {
     for (int mode = 0; mode < 3; ++mode) {
       const int fb = (int) (seed % 2u);
@@ -605,7 +700,7 @@ void testCodeCache() {
             "cache: cached run differs from in place");
     }
   }
-  const Image & img = BytePhys::BP_IMAGE;
+  const BCPView & img = g_phys;
   check(cache.mMisses <= img.mChunkCount && cache.mMisses >= 2u,
         "cache: each chunk misses once, then hits");
   // the test physics has a function longer than a chunk: run every
@@ -615,11 +710,11 @@ void testCodeCache() {
     CodeCache<2> two{};
     two.reset();
     u32 split = 0u;
-    for (u32 f = 0; f < T::BP_IMAGE.mFuncCount; ++f) {
-      const u32 c = T::BP_IMAGE.mFuncChunk[f];
-      if (c + 1u < T::BP_IMAGE.mChunkCount &&
-          (f + 1u == T::BP_IMAGE.mFuncCount ||
-           T::BP_IMAGE.mFuncChunk[f + 1u] > c + 1u)) ++split;
+    for (u32 f = 0; f < g_tests.mFuncCount; ++f) {
+      const u32 c = g_tests.mFuncChunk[f];
+      if (c + 1u < g_tests.mChunkCount &&
+          (f + 1u == g_tests.mFuncCount ||
+           g_tests.mFuncChunk[f + 1u] > c + 1u)) ++split;
     }
     check(split > 0u, "cache: the test image has a split function");
     for (u32 i = 0; i < T::BP_PROG_COUNT; ++i) {
@@ -632,9 +727,9 @@ void testCodeCache() {
         u32 fbb = 0u;
         bool ra = false;
         bool rb = false;
-        try { ra = vm.run(*T::BP_PROG_LIST[i], a, 10'000u); }
+        try { ra = vm.run(testProg(T::BP_PROG_FUNCS[i]), a, 10'000u); }
         catch (const Fault & f) { fa = f.code; }
-        try { rb = vm.run(*T::BP_PROG_LIST[i], b, 10'000u, two); }
+        try { rb = vm.run(testProg(T::BP_PROG_FUNCS[i]), b, 10'000u, two); }
         catch (const Fault & f) { fbb = f.code; }
         check(fa == fbb && ra == rb && sameWindow(a, b),
               "cache: a 2-slot cache changes a test program's run");
@@ -678,11 +773,11 @@ void testCodeCache() {
   // rebinding to another image empties the cache
   {
     namespace T = BytePhys::Tests;
-    ff.bind(T::BP_IMAGE);
+    ff.bind(g_tests);
     const u32 m = ff.mMisses;
     const u8 * t0 = ff.chunk(0);
     check(ff.mMisses == m + 1u &&
-          memcmp(t0, T::BP_IMAGE.mCode, T::BP_IMAGE.mChunkStart[1]) == 0,
+          memcmp(t0, g_tests.mCode, g_tests.mChunkStart[1]) == 0,
           "bind: another image empties the cache");
   }
   // refreshOne: round robin, repairs a corrupted copy, skips empties
@@ -706,8 +801,9 @@ void testCodeCache() {
   auto runRaw = [&](std::vector<u8> code) -> u32 {
     Env e(1u, 0);
     fillWindow(e, 1u, 4u);
-    RawImage ri(code, nullptr);
-    try {
+    RawImage ri(code, nullptr);       // fails verifyBCP: run it anyway,
+    BytePhys::viewBCP((const u8 *) ri.blob.data(), ri.img);  // as only
+    try {                               // corruption could
       vm.run(ri.prog, e, 100u);
     } catch (const Fault & f) {
       return f.code;
@@ -725,7 +821,90 @@ void testCodeCache() {
          (unsigned) cache.mBytesCopied, sizeof(cache));
 }
 
+/* BCP blobs (BytePhys.h 'BCP'): bpasm.py and packBCP pack the same
+   bytes; verifyBCP / openBCP refuse every kind of damage to the blob
+   itself, and a flipped code byte under a fixed checksum still fails. */
+void testBCP() {
+  using namespace BytePhys;
+  // repack the physics from its opened view: identical to bpasm's blob
+  {
+    std::vector<std::vector<u8>> chunks;
+    for (u32 c = 0; c < g_phys.mChunkCount; ++c)
+      chunks.emplace_back(g_phys.mCode + g_phys.mChunkStart[c],
+                          g_phys.mCode + g_phys.mChunkStart[c + 1u]);
+    std::vector<u16> fch(g_phys.mFuncChunk,
+                         g_phys.mFuncChunk + g_phys.mFuncCount);
+    std::vector<u16> tf(g_phys.mTypeFunc,
+                        g_phys.mTypeFunc + g_phys.mTypeCount);
+    const std::vector<u32> w = packBCP(chunks, fch, &g_phys.mLayout,
+                                       g_phys.mFirstType, tf);
+    check(w.size() * 4u == sizeof(BP_BCP) &&
+          memcmp(w.data(), BP_BCP, sizeof(BP_BCP)) == 0,
+          "bcp: packBCP == bpasm.py's blob");
+  }
+  check(g_phys.mTypeCount == BP_TYPE_COUNT &&
+        g_phys.mFirstType == BP_FIRST_TYPE, "bcp: the type table");
+  // damage, one kind at a time, on a copy of the physics blob
+  const u32 n = sizeof(BP_BCP);
+  auto damaged = [&](u32 at, u8 x, bool fixSum) -> u32 {
+    std::vector<u32> w(n / 4u);
+    memcpy(w.data(), BP_BCP, n);
+    u8 * b = (u8 *) w.data();
+    b[at] ^= x;
+    if (fixSum) {
+      const u32 h = bcpChecksum(b, n);
+      memcpy(b + BCPH_CHECKSUM, &h, 4u);  // (little-endian host)
+    }
+    BCPView v{};
+    return openBCP(b, n, v);
+  };
+  check(damaged(BCPH_MAGIC, 1u, true) == BCP_BAD_MAGIC, "bcp: magic");
+  check(damaged(BCPH_VERSION, 1u, true) == BCP_BAD_VERSION, "bcp: version");
+  check(damaged(BCPH_OPCOUNT, 1u, true) == BCP_BAD_VERSION,
+        "bcp: opcode count");
+  check(damaged(BCPH_SIZE, 4u, true) == BCP_BAD_SIZE, "bcp: size field");
+  check(damaged(BCP_HEADER_BYTES + 5u, 1u, false) == BCP_BAD_CHECKSUM,
+        "bcp: a flipped code byte breaks the checksum");
+  check(damaged(BCPH_OFF_FUNC_CHUNK, 0x02u, true) == BCP_BAD_TABLE,
+        "bcp: a misaligned table");
+  check(damaged(BCPH_OFF_ATS + 1u, 0x10u, true) == BCP_BAD_TABLE,
+        "bcp: a table past the end");
+  check(damaged(BCPH_RESERVED, 1u, true) == BCP_BAD_TABLE,
+        "bcp: reserved words");
+  {
+    const u32 oats = bcpRd32(BP_BCP, BCPH_OFF_ATS);
+    check(damaged(oats + 3u, 0x40u, true) == BCP_BAD_LAYOUT,
+          "bcp: a member over 32 bits");
+    const u32 orefs = bcpRd32(BP_BCP, BCPH_OFF_REFS);
+    check(damaged(orefs + 2u, 0x08u, true) == BCP_BAD_LAYOUT,
+          "bcp: a member ref past the ats");
+    const u32 ot = bcpRd32(BP_BCP, BCPH_OFF_TYPE_FUNC);
+    check(damaged(ot, 0x40u, true) == BCP_BAD_TYPES,
+          "bcp: a type naming no function");
+  }
+  {
+    // the first opcode byte made unknown, checksum fixed: the code check
+    const u32 oc = bcpRd32(BP_BCP, BCPH_OFF_CODE);
+    check(damaged(oc, 0xe0u, true) == BF_OPCODE,
+          "bcp: verify still checks the code");
+  }
+  {
+    BCPView v{};
+    check(openBCP(BP_BCP, n - 4u, v) == BCP_BAD_SIZE &&
+          v.mBase == nullptr, "bcp: room smaller than the blob");
+    std::vector<u32> w(n / 4u + 1u);
+    memcpy((u8 *) w.data() + 1, BP_BCP, n);
+    check(openBCP((const u8 *) w.data() + 1, n, v) == BCP_BAD_SIZE,
+          "bcp: a misaligned blob");
+    check(verifyBCP(BP_BCP, n + 4u) == BCP_BAD_SIZE &&
+          verifyBCP(BP_BCP, 60u) == BCP_BAD_SIZE, "bcp: sizes");
+  }
+  printf("bcp: physics blob %u bytes, packers agree, damage refused\n",
+         (unsigned) n);
+}
+
 int main() {
+  testBCP();
   testEquivalence();
   testFaults();
   testBits();

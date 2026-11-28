@@ -57,9 +57,12 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   and found at __hostblock_end rounded to 16.  The blob holds no
   pointers (offsets from its start), the host runs verify() before
   writing it to every EWP, the EWP checks magic / ISA version / size /
-  checksum once at init, and the code cache binds to it.  Steps: rename
-  Image and make it a pointer-free blob, still compiled in; then the
-  start-time load.
+  checksum once at init, and the code cache binds to it.  Step 2
+  BUILT (2026-11-28, host-tested, cross-built, run pending): images are
+  BCP blobs (BytePhys.h 'BCP', BYTEPHYS.md section 3), still compiled
+  in, opened in initB.  Next, step 3: the start-time load (layout-config
+  flag, mfmxctl option, host-side verify, write after the HostBlock,
+  EWP finds it at __hostblock_end).
 - Cross-element calls in ulam-lite (the whole-physics image is built,
   1b19246; the compiler side is not).
 - getm/setm with member pos/len resolved at compile time (~120 / ~160

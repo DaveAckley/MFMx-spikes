@@ -124,6 +124,35 @@ back through the cache, since the callee may have evicted the caller.
 A Program is a handle: (image, entry function).  Until 2026-11-27 each
 element was its own program with absolute u16 targets.
 
+**BCP blobs** (since 2026-11-28; "BCP" = bytecode physics, the name is
+provisional).  An image is stored as ONE pointer-free blob, so a physics
+can later be chosen at start time instead of compiled in (planned:
+appended after an EWP image's HostBlock and found at __hostblock_end,
+the analog of MFMs loading a .so; OPEN_ISSUES 'Next work').  Layout
+(BytePhys.h 'BCP'; little-endian; every table 4-aligned and found by its
+byte offset from the blob's start):
+
+| bytes | field |
+|---|---|
+| 0 | magic 'BCP1' |
+| 4, 6 | u16 BCP_VERSION (1), u16 OP_COUNT |
+| 8 | u32 total size, a multiple of 4 |
+| 12 | u32 checksum: FNV-1a over the blob, these 4 bytes read as 0 |
+| 16..27 | u16 counts: chunks, functions, member refs, member ats, first type, types |
+| 28..51 | u32 offsets: code, chunk starts (u16 x chunks+1), function chunks (u16 x functions), MemberRefs, MemberAts (4 bytes each), type -> entry function (u16 x types, 0xffff = none) |
+| 52..63 | reserved, 0 |
+| 64.. | the code, then the tables |
+
+`verifyBCP(bytes, size)` checks the header (BCP_BAD_SIZE, _MAGIC,
+_VERSION, _CHECKSUM, _TABLE, _LAYOUT, _TYPES) and then the code exactly
+as before (reporting the Fault a bad instruction would cause); it reads
+bytes only, so it is constexpr and every generated header
+static_asserts it.  `openBCP(bytes, room, view)` runs it again and fills
+a `BCPView` (plain pointers into the blob) for run() and the code cache;
+the EWP opens its blobs once in initB (Physics::openImages; a failure
+marks `BCPBAD` and runs no bytecode).  `entryFor(view, type)` replaces
+the old generated programFor table.
+
 Stack effects below are written `( before -- after )`, top of stack on
 the right.
 
@@ -267,20 +296,23 @@ own FAIL line, so `.pw` names the fault.
 | 12 | BF_FRAME | enter: nargs > nlocals, or not enough free local slots |
 | 13 | BF_LOCAL | loadl/storel slot outside the current frame (or no frame) |
 
-Since 2026-11-27 (VERIFY ONCE, section 12) verify() checks an image
-before it runs (at compile time for the generated ones) and run()
-trusts it; the run-time checks that remain are the ones only the run
+Since 2026-11-27 (VERIFY ONCE, section 12) the verifier (verifyBCP
+since 2026-11-28) checks an image before it runs (at compile time for
+the generated ones, and again when a blob is opened) and run() trusts
+it; the run-time checks that remain are the ones only the run
 can decide.
 
 
 ## 7. Assembler (.bp files)
 
 `scripts/bytephys/bpasm.py` assembles every `*.bp` in its directory into
-ONE image in BytePrograms.h (`BP_IMAGE`: `BP_CODE`, `BP_CHUNK_START`,
-`BP_FUNC_CHUNK`; static_assert(verify(BP_IMAGE) == 0)), one
-`BP_PROG_<NAME>` (image, entry function) per file (bfb1.bp ->
-BP_PROG_BFB1), plus `BP_TYPE_<ELEMENT>` for each element and the shared
-`BP_LAYOUT`.  A file's functions are its first instruction, each call
+ONE image in BytePrograms.h, stored as the BCP blob `BP_BCP` (section
+3; static_assert(verifyBCP(BP_BCP, sizeof(BP_BCP)) == 0)), one
+`BP_FUNC_<NAME>` (its entry function) per file (bfb1.bp ->
+BP_FUNC_BFB1), `BP_PROG_FUNCS` / `BP_PROG_NAMES` in source order, and
+`BP_TYPE_<ELEMENT>`, `BP_FIRST_TYPE`, `BP_TYPE_COUNT`; the layout and
+the type table live inside the blob.  `bpasm.py --list [tests|bench]`
+prints a set's listing.  A file's functions are its first instruction, each call
 target and each `func`; each runs to the next.  bpasm cuts a function
 into chunks of at most 256 bytes, preferring a cut at a label, and picks
 the short jump form when the target is in the same chunk.
@@ -375,7 +407,7 @@ saturation on its own.
 
 - **Bytecode physics types:** type 7 runs BFB1, type 8 runs BFB4, both
   compiled from scripts/ulamlite/ (section 13) and found through the
-  generated `programFor(type)` table
+  BCP's type table (`entryFor(mBCP, type)`)
   (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp; static_asserts tie them to the
   types the .bp files declare).  They behave like native types 4 and 5
   (except that counters saturate).  Seed them with e.g. `seed 25 7`.
@@ -625,6 +657,22 @@ attack the second.
   L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
   table pointers in locals, a second MRU try or a caller slot saved for
   RET.
+- **BCP blobs (2026-11-28, host-tested, cross-built, not yet run):**
+  Liv's start-time loadable physics, step 2: an image is one
+  pointer-free blob (section 3), still compiled in (BP_BCP).
+  verifyBCP(bytes, size) replaces verify(Image) (constexpr, byte reads);
+  openBCP fills a BCPView (Image is gone; Program is (view, function));
+  entryFor(view, type) replaces programFor.  bpasm.py packs the blob
+  (pack_bcp) and emits BP_FUNC_<NAME>, BP_PROG_FUNCS, BP_PROG_NAMES.
+  The EWP opens the physics and bench blobs in initB (mBCP, mBenchBCP in
+  hart B fast RAM, +80 bytes: data ends at 0x10c0); `BCPBAD` mark if one
+  fails.  bytephys_test: hand-made images are packed by a C++ packBCP,
+  which must give bpasm's exact bytes for the physics; damage of every
+  kind is refused (magic, version, opcode count, size, checksum, a
+  misaligned or out-of-bounds table, reserved words, a member over 32
+  bits or a ref past the ats, a type naming no function, a bad opcode
+  under a fixed checksum, room too small, a misaligned blob).  FB1/FB4
+  blob: 280 bytes (170 of code).
 - **Cheaper cache hits (2026-11-28, host-tested, cross-built, not yet
   run):** Liv: no tuning for leaf calls, do as little as possible on a
   hit.  The resolver is now bind(img), once per run() (a different image
@@ -742,8 +790,9 @@ a whole physics compiles at once (every `is TYPE` and every table then
 agrees).  Elements are numbered from 7 (`FIRST_TYPE`, above the native
 types 0..6) in order of name: BFB1 is 7, BFB4 is 8.  Adding an element
 can renumber the ones after it.  bpasm turns the numbers into a table,
-`BP_FIRST_TYPE` / `BP_PROGRAMS[]` / `programFor(type)` in
-BytePrograms.h, and the EWP runs any type it finds there (Physics.cpp's
+inside the BCP blob (type -> entry function; `BP_FIRST_TYPE` /
+`BP_TYPE_COUNT` in BytePrograms.h), and the EWP runs any type it finds
+there (entryFor) (Physics.cpp's
 default case).  Seeding and timing are still by number (`seed 3 8`,
 the `.pt` slots), so Physics.cpp static_asserts that BFB1 and BFB4 kept
 7 and 8; a renumbering fails the build with a message saying so.

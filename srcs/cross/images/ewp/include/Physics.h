@@ -35,6 +35,13 @@ namespace MFM {
     };
     BytePhys::CodeCache<CODE_CACHE_SLOTS> mCodeCache;
 
+    // The opened BCP blobs (BytePhys.h 'BCP'): the physics (types 7 and
+    // up) and the microbenchmark.  Compiled in for now (BP_BCP); later a
+    // physics chosen at start, appended after the image (OPEN_ISSUES).
+    BytePhys::BCPView mBCP;
+    BytePhys::BCPView mBenchBCP;
+    void openImages() ;         // initB
+
     // Physics timing (`.pt` mark): per timed type, events, wall-clock
     // ticks (AI clock cycles) spent in guardedPhysics, and bytecode
     // instructions, since the last mark.

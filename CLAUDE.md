@@ -150,8 +150,9 @@ Builds and tests:
 Physics on the EWP (BYTEPHYS.md):
 - Bytecode types 7, 8 = FB1, FB4 (native twins 4, 5, NativeFB.h);
   source scripts/ulamlite/*.ulam -> ulamlite.py -> scripts/bytephys/*.bp
-  -> bpasm.py -> GENERATED srcs/shared/include/BytePrograms.h (also the
-  tests set BytePhysTests.h and the bench set ByteBench.h).  Edit the
+  -> bpasm.py -> GENERATED srcs/shared/include/BytePrograms.h, which
+  holds the physics as ONE BCP blob, BP_BCP (also the tests set
+  BytePhysTests.h and the bench set ByteBench.h).  Edit the
   source, rerun the tools, never edit generated files;
   `bpasm.py --list [tests|bench]` prints an image listing.
 - Machine: srcs/shared/include/BytePhys.h (verify once at compile time,

@@ -4,7 +4,7 @@
 Reads *.bp sources and writes srcs/shared/include/BytePrograms.h: ONE
 image (BytePhys.h 'IMAGES, FUNCTIONS, CHUNKS') holding every file's
 functions cut into chunks of at most 256 bytes, and per file a Program
-(image, entry function: fb1.bp -> BP_PROG_FB1, ...).  The opcode and field numbers are parsed from
+(entry functions: fb1.bp -> BP_FUNC_FB1, ...; the image is one BCP blob, BP_BCP).  The opcode and field numbers are parsed from
 BytePhys.h itself, so the header stays the one source of truth.
 
 Source syntax: one instruction per line, `;` starts a comment, `NAME:`
@@ -528,6 +528,56 @@ def encode(path, n, w, ops, fields, decls, labels, chunk_of, off, c, fidx):
     return [ops[op]]
 
 
+NO_FUNC = 0xffff
+BCP_MAGIC = b"BCP1"
+BCP_VERSION = 1            # BytePhys.h BCP_VERSION (verifyBCP checks it)
+BCP_HEADER_BYTES = 64
+
+
+def ops_count():
+    """OP_COUNT from BytePhys.h (the blob header records it)."""
+    ops = parse_enum(open(HDR).read(), "Op", "OP_")
+    return ops["count"]
+
+
+def bcp_checksum(blob):
+    """FNV-1a over the blob, bytes 12..15 (the checksum) read as 0
+    (BytePhys.h bcpChecksum)."""
+    h = 2166136261
+    for i, b in enumerate(blob):
+        h = ((h ^ (0 if 12 <= i < 16 else b)) * 16777619) & 0xffffffff
+    return h
+
+
+def pack_bcp(code, cstarts, fchunks, refs, ats, first, tfunc, opcount):
+    """One BCP blob (BytePhys.h 'BCP'): header, then the code and the
+    tables, each padded to 4 bytes."""
+    import struct
+    body = bytearray()
+    offs = []
+
+    def table(data):
+        offs.append(BCP_HEADER_BYTES + len(body))
+        body.extend(data)
+        while len(body) % 4:
+            body.append(0)
+    table(bytes(code))
+    table(struct.pack(f"<{len(cstarts)}H", *cstarts))
+    table(struct.pack(f"<{len(fchunks)}H", *fchunks))
+    table(b"".join(struct.pack("<HH", a, n) for a, n in refs))
+    table(b"".join(struct.pack("<HBB", t, p, n) for t, p, n in ats))
+    table(struct.pack(f"<{len(tfunc)}H", *tfunc))
+    size = BCP_HEADER_BYTES + len(body)
+    hdr = BCP_MAGIC + struct.pack(
+        "<HHII6H6I3I", BCP_VERSION, opcount, size, 0,
+        len(cstarts) - 1, len(fchunks), len(refs), len(ats), first,
+        len(tfunc), *offs, 0, 0, 0)
+    assert len(hdr) == BCP_HEADER_BYTES
+    blob = bytearray(hdr + body)
+    blob[12:16] = struct.pack("<I", bcp_checksum(blob))
+    return bytes(blob)
+
+
 def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
            image=None):
     """progs: [(name, entry function)]; image: assemble_image's (code,
@@ -553,91 +603,56 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
         out.append(f"    // {line}")
     refs, ats = [], []
     for per in decls.ats:
-        refs.append(f"{{{len(ats)}u, {len(per)}u}}")
-        ats += [f"{{{t}u, {p}u, {n}u}}" for t, p, n in per]
-    n = max(len(refs), 1)
-    out.append(f"    static constexpr MemberRef BP_MEMBER_REFS[{n}] = {{")
-    out += [f"      {r}," for r in refs] or ["      {0u, 0u},"]
-    out.append("    };")
-    out.append(f"    static constexpr MemberAt BP_MEMBER_ATS"
-               f"[{max(len(ats), 1)}] = {{")
-    out += [f"      {a}," for a in ats] or ["      {0u, 0u, 0u},"]
-    out.append("    };")
-    out.append(f"    static constexpr Layout BP_LAYOUT = "
-               f"{{BP_MEMBER_REFS, {len(refs)}u, BP_MEMBER_ATS}};")
-    if image is not None:
-        code, cstarts, funcs, _ = image
-        out.append("")
-        out.append(f"    // one image: {len(code)} bytes, {len(cstarts) - 1} "
-                   f"chunks, {len(funcs)} functions")
-        for i, (fname, ch) in enumerate(funcs):
-            out.append(f"    //   function {i} {fname}: chunk {ch}")
-        out.append(f"    static constexpr u8 BP_CODE[{len(code)}] = {{")
-        for i in range(0, len(code), 12):
-            part = ", ".join(f"0x{b:02x}" for b in code[i:i + 12])
-            out.append(f"      {part},")
-        out.append("    };")
-        out.append(f"    static constexpr u16 BP_CHUNK_START[{len(cstarts)}]"
-                   " = {")
-        for i in range(0, len(cstarts), 10):
-            out.append("      " + ", ".join(f"{v}u" for v in
-                                             cstarts[i:i + 10]) + ",")
-        out.append("    };")
-        out.append(f"    static constexpr u16 BP_FUNC_CHUNK[{len(funcs)}] "
-                   "= {")
-        for i in range(0, len(funcs), 10):
-            out.append("      " + ", ".join(f"{ch}u" for _, ch in
-                                             funcs[i:i + 10]) + ",")
-        out.append("    };")
-        out.append(f"    static constexpr Image BP_IMAGE = {{BP_CODE, "
-                   f"BP_CHUNK_START, {len(cstarts) - 1}u, BP_FUNC_CHUNK, "
-                   f"{len(funcs)}u, &BP_LAYOUT}};")
-        # Machine::run trusts its image: check it here, once, for free
-        out.append("    static_assert(verify(BP_IMAGE) == 0u, "
-                   "\"the image fails BytePhys::verify\");")
-    for name, f in progs:
-        out.append(f"    static constexpr Program BP_PROG_{name.upper()} = "
-                   f"{{&BP_IMAGE, {f}u}};")
-    # every program in source order, with its name (the microbenchmark
-    # set, ByteBench.h, runs them all; harmless elsewhere)
+        refs.append((len(ats), len(per)))
+        ats += list(per)
+    # type number -> entry function: an element's program is the .bp
+    # file named after it in lower case (ulamlite.py writes them that way)
+    entry = {n.lower(): f for n, f in progs}
+    types = {t: n for n, (t, _) in decls.elements.items()}
+    first = min(types) if types else 0
+    count = max(types) - first + 1 if types else 0
+    tfunc = [entry.get(types.get(t, "").lower(), NO_FUNC)
+             for t in range(first, first + count)]
     out.append("")
+    out.append(f"    static constexpr u16 BP_FIRST_TYPE = {first}u;")
+    out.append(f"    static constexpr u16 BP_TYPE_COUNT = {count}u;")
+    # entry functions in source order, with names (the microbenchmark
+    # set, ByteBench.h, runs them all)
+    out.append("")
+    for name, f in progs:
+        out.append(f"    static constexpr u16 BP_FUNC_{name.upper()} = {f}u;")
     out.append(f"    static constexpr u16 BP_PROG_COUNT = {len(progs)}u;")
-    out.append(f"    static const Program * const "
-               f"BP_PROG_LIST[{max(len(progs), 1)}] = {{")
-    out += [f"      &BP_PROG_{n.upper()}," for n, _ in progs] or \
-        ["      nullptr,"]
+    out.append(f"    static constexpr u16 BP_PROG_FUNCS"
+               f"[{max(len(progs), 1)}] = {{")
+    out += [f"      BP_FUNC_{n.upper()}," for n, _ in progs] or ["      0u,"]
     out.append("    };")
     out.append(f"    static const char * const "
                f"BP_PROG_NAMES[{max(len(progs), 1)}] = {{")
     out += [f'      "{n}",' for n, _ in progs] or ['      "",']
     out.append("    };")
-    # type number -> program: an element's program is the .bp file named
-    # after it in lower case (ulamlite.py writes them that way)
-    names = {n for n, _ in progs}
-    types = {t: n for n, (t, _) in decls.elements.items()}
-    first = min(types) if types else 0
-    count = max(types) - first + 1 if types else 0
-    out.append("")
-    out.append("    // type number -> program (ewp Physics.cpp dispatches "
-               "through programFor)")
-    out.append(f"    static constexpr u16 BP_FIRST_TYPE = {first}u;")
-    out.append(f"    static constexpr u16 BP_TYPE_COUNT = {count}u;")
-    out.append(f"    static const Program * const "
-               f"BP_PROGRAMS[{max(count, 1)}] = {{")
-    for t in range(first, first + count):
-        n = types.get(t)
-        prog = (f"&BP_PROG_{n.upper()}" if n and n.lower() in names
-                else "nullptr")
-        out.append(f"      {prog},{'' if n is None else '  // ' + n}")
-    if count == 0:
-        out.append("      nullptr,")
-    out.append("    };")
-    out += ["",
-            "    inline const Program * programFor(u32 type) {",
-            "      if (type < BP_FIRST_TYPE) return nullptr;",
-            "      const u32 i = type - BP_FIRST_TYPE;",
-            "      return i < BP_TYPE_COUNT ? BP_PROGRAMS[i] : nullptr;",
-            "    }"]
+    if image is not None:
+        code, cstarts, funcs, _ = image
+        blob = pack_bcp(code, cstarts, [ch for _, ch in funcs], refs, ats,
+                        first, tfunc, ops_count())
+        out.append("")
+        out.append(f"    // one image: {len(code)} bytes of code, "
+                   f"{len(cstarts) - 1} chunks, {len(funcs)} functions; "
+                   f"BCP blob {len(blob)} bytes")
+        for i, (fname, ch) in enumerate(funcs):
+            out.append(f"    //   function {i} {fname}: chunk {ch}")
+        for k, t in enumerate(range(first, first + count)):
+            if tfunc[k] != NO_FUNC:
+                out.append(f"    //   type {t} {types[t]}: function "
+                           f"{tfunc[k]}")
+        out.append(f"    alignas(4) static constexpr u8 BP_BCP[{len(blob)}]"
+                   " = {")
+        for i in range(0, len(blob), 12):
+            part = ", ".join(f"0x{b:02x}" for b in blob[i:i + 12])
+            out.append(f"      {part},")
+        out.append("    };")
+        # Machine::run trusts its image: check it here, once, for free
+        out.append("    static_assert(verifyBCP(BP_BCP, sizeof(BP_BCP)) == "
+                   "0u, \"the blob fails BytePhys::verifyBCP\");")
     if inner:
         out.append("  }")
     out += ["  }", "}", ""]
