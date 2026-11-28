@@ -60,43 +60,4 @@ echo block 6 of 6 (5 min each)
 wait 300
 zhd
 status
-quit close` and send the run directory.
-# Always run as:
-#   python mfmxctl.py --layout seam4 --boot -s config/experiment.cmd --script-exit --abort-on-error
-# The first comment line above is the experiment's name in runsum.txt.
-tick slowscan off
-policy ewsnap10
-events shortcut
-elide on
-grid off
-autoseed off
-decay 9
-dwell 4 8
-physics dreg
-start
-feed on
-zoom auto
-zoom shrink on
-zhd
-cycle repeat on
-cycle start
-wait 30
-echo ONE DReg (bytecode type 9) on chip 0 hub at023
-seed hub at023 1 9
-echo block 1 of 4 (~4.5 min each)
-wait 270
-status
-zhd
-echo block 2 of 4
-wait 270
-status
-zhd
-echo block 3 of 4
-wait 270
-status
-zhd
-echo block 4 of 4
-wait 270
-zhd
-status
 quit close
