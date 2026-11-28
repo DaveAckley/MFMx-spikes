@@ -550,6 +550,52 @@ CachingPolicy.h / CacheLoader).  Next: decide grid vs display (`notch
 hold on`, then dumpl1 the owner and the diagonal borrower, or a `notch
 dump` that does it), and a hub mark counting occupied -> empty
 overwrites per Dir8 in the corner-cache SAVE/LOAD.
+CAUSE FOUND IN THE CODE (2026-11-27, reading CachingPolicy.h,
+NgbCacheMgr.h, CacheLoader.cpp; not yet fixed).  Under fourcorners the
+EDGE bands are full width: NgbCacheMgr::SITE_RANGES[NT] is our whole
+top OH rows ([OW,TW-OW) x [OH,2OH)), so it CONTAINS our NW and NE
+corner squares, and the same for WT/ST/ET.  So with corner SE, owner
+D's NW corner square is held by THREE borrowers at once: the NW
+diagonal A (SE corner cache, the only one whose events reach it), the
+north neighbor B (inside its ST band; its events stop at x >= 2*OW)
+and the west neighbor C (inside its ET band; events stop at y >=
+2*OH).  The cachepolicy_test invariant (non-overlapping event REACH)
+holds, but the copies are not disjoint, and:
+  1. SAVE RACE: at the next corner change every holder whose band is
+     not kept ships its WHOLE band back (CacheLoaders::saveCaches,
+     CacheLoader::loadPacket over CACHE_RANGES), and D's unloads write
+     every site (unloadPacket), so D's square ends up as whichever
+     packet unloads LAST: often B's or C's unused LOAD-time copy, which
+     throws away A's whole cycle of events there and reports the old
+     state (owner SELF unload, setAtomOrDrop) over A's painted one.
+  2. ELISION KEEPS STALE CORNERS: keepAcross looks only at a
+     direction's role, so e.g. SE -> SW keeps B's ST band; B, now the
+     only one whose events reach D's NW square, evolves its copy from
+     before A's SE cycle, and A, on a later SE, LOADs D's SELF copy,
+     which nobody saved back.  Histories fork and the picture flips
+     between them.
+scripts/cachepolicy/cornersim.py models one corner square (holders,
+modifier per corner, keepAcross, last-SAVE-wins): with elision the
+cycle's modifier starts from a STALE copy 50% of the time when it is
+the diagonal (SE) and 16-25% otherwise, up to ~14 cycles old; without
+elision 16-17% (the SAVE race alone).  Edge-band MIDDLES have a
+single holder, which is why edge midpoints and centers show no
+corner-sequence correlation; supercell has one leader per 2x2, so
+no square has two borrowers there; ewsnap uses minimal disjoint bands
+and keeps only on a repeat.  The notches would then be FB1's ordinary
+holes (sizes 4-8, as at the controls) from an older or losing history,
+pasted in with the corner square's sharp edges, shown in the cycle
+after the corner that held it.
+FIX PROPOSED (not done): for CP_FOURCORNERS, trim each borrowed EDGE
+band to what the borrower's events can reach: drop the corner square
+at the end AWAY from the corner (horizontal bands NT/ST: the west
+square [OW,2OW) when toEast(corner), else the east one; vertical bands
+WT/ET: the north square [OH,2OH) when toSouth, else the south one), on
+both ends of the link (SITE_RANGES and CACHE_RANGES share x for N/S
+and y for E/W); then each corner square has exactly one borrower per
+cycle.  keepAcross must then keep a band only when its range is the
+same, i.e. on a repeated corner (as ewsnap).  Add the 'one holder per
+site per cycle' invariant to cachepolicy_test.  Hub change.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
