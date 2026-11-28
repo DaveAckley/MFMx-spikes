@@ -596,6 +596,19 @@ and y for E/W); then each corner square has exactly one borrower per
 cycle.  keepAcross must then keep a band only when its range is the
 same, i.e. on a repeated corner (as ewsnap).  Add the 'one holder per
 site per cycle' invariant to cachepolicy_test.  Hub change.
+FIX BUILT (2026-11-27, cross-built, NOT yet run; Liv: 'i wasn't
+intending any site to be borrowed more than once'): FourCornersPolicy::
+trimBand / CachingPolicies::bandRange as proposed, applied in
+CacheLoaders::configureCacheLoaders to both ends (the same ranges serve
+the LOAD and the following SAVE); keepAcross keeps four-corners bands
+only on a repeated corner.  cachepolicy_test (now in run_native_tests;
+its stale 'unknown id' check fixed) checks that a hub's lent bands
+share no site, that its borrowed bands cover every cache site its
+events reach, that both ends walk the same shape, and repeat-only
+elision; with the old full bands it fails 192 times.  cornersim.py
+`fixed` mode: no stale starts.  To prove: the notch hunt again
+(experiment.cmd): corner notches per point should fall to the edge /
+center level and lose the previous-corner correlation.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
@@ -1051,6 +1064,9 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
   would add variety.
 
 ## Cache elision: BUILT 2026-11-21, UNPROVEN on hardware
+(2026-11-27: four corners now keeps bands only on a REPEATED corner, and
+edge bands are trimmed; see CORNER NOTCHES.  The adjacent-corner keeps
+described below are gone.)
 - Four corners, host flag HBF_ELIDE_CACHES (mfmxctl `elide on`, `--elide`;
   default off) and `cycle repeat on` (corner picked 0..3 uniformly, repeats
   allowed, four corners only; default off = random different corner).  A

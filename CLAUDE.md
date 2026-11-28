@@ -387,9 +387,16 @@ unless the user asks for a rename.
   OurTLBs::writeToWordsOrdered (payload, store fence, footer, header); 7 clean stress
   hours.  Marks .zl/.zr/.zs/.zn/.zw and host DUPRET stay in.
 - CACHE ELISION (four corners, 2026-11-21, UNPROVEN): with `elide on` a hub does not
-  save and reload the bands whose role is unchanged between the previous and the
-  next corner (CachingPolicies::keepAcross, CacheLoaders::mKeepMask, `.xk` mark);
+  save and reload the bands of a REPEATED corner (since 2026-11-27; before, any band
+  whose role was unchanged, which kept stale corner squares)
+  (CachingPolicies::keepAcross, CacheLoaders::mKeepMask, `.xk` mark);
   `cycle repeat on` picks the corner uniformly 0..3.  Off by default.
+- FOUR-CORNERS TRIMMED BANDS (2026-11-27, cross-built, NOT yet run): edge bands are
+  exchanged without the corner square at the end away from the corner
+  (CachingPolicies::bandRange, used by CacheLoaders::configureCacheLoaders for LOAD
+  and SAVE), so no site has two borrowers in a cycle; the cause of Liv's CORNER
+  NOTCHES (OPEN_ISSUES).  cachepolicy_test checks it (now in run_native_tests).
+  Hub change: ./build_all.sh.
 - srcs/shared/include/HubEdges.h  PERMANENT array edges: HubEdges::neighborExists
   (on chip, or across a live seam, Dir4 or two-hop diagonal; CacheLoader uses
   it too) and permanentEdges() -> PE_N/W/S/E bits for the sides with no

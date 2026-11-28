@@ -164,11 +164,23 @@ Toward the corner the hub runs into the borrowed cache up to R from the
 grid edge (so its windows reach OW - R = 16 sites into the neighbor's
 SELF); away from it, it stays R clear of the band it lends.
 
-CACHE ELISION (`elide on`): a direction whose role is the same under the
-previous and next corner is neither saved nor reloaded
-(CachingPolicies::keepAcross).  Same corner keeps 6 directions, adjacent
-2, opposite 0.  While a band is kept, the LENDER's copy of it is stale
-by design and the borrower holds the truth.
+TRIMMED EDGE BANDS (2026-11-27): an edge band is exchanged without the
+corner square at its end AWAY from the corner (FourCornersPolicy::
+trimBand, CachingPolicies::bandRange; e.g. corner SE: the north and south
+bands lose their west square, the east and west bands their north one).
+The borrower's events never reach that square, and it belongs to another
+borrower this cycle: before the trim, one owner's corner square had
+three borrowers (the diagonal plus two edge bands) and at SAVE the last
+packet won (OPEN_ISSUES 'CORNER NOTCHES').  Now every site has at most
+one borrower per cycle (cachepolicy_test checks it).
+
+CACHE ELISION (`elide on`): a band is neither saved nor reloaded only
+when the next corner REPEATS the previous one (CachingPolicies::
+keepAcross): all 6 exchanged directions are kept then, none otherwise.
+(Before 2026-11-27 any direction whose role was unchanged was kept,
+adjacent corners keeping 2 full-width bands; that kept stale corner
+squares.)  While a band is kept, the LENDER's copy of it is stale by
+design and the borrower holds the truth.
 
 SUPERCELL (CP_SUPERCELL, opt-out).  The argument is a leader position
 in each 2x2 supercell of hubs.  The leader borrows all 8 caches and runs

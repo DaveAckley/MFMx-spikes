@@ -166,6 +166,32 @@ namespace MFM {
       return d8 == (toSouth(corner) ? D8_ST : D8_NT);
     }
 
+    /* The part of an EDGE band this corner exchanges.  The full bands
+       (NgbCacheMgr SITE_RANGES / CACHE_RANGES) run the whole side, so
+       each contains the two corner squares at its ends; but the
+       borrower's events never reach the square at the end AWAY from
+       the corner (boundsImpl keeps them OW + OW + WINDOW_RADIUS clear),
+       and that square belongs to another borrower this cycle (the
+       diagonal, or the other edge band).  Exchanging it anyway gave one
+       owner's corner square three borrowers, and at SAVE the last
+       packet won, usually a stale unused copy (OPEN_ISSUES 'CORNER
+       NOTCHES', run 20261127-163420).  Row bands (NT, ST) lose the
+       west square when we expand east, else the east one; column bands
+       (WT, ET) the north square when we expand south, else the south
+       one.  Sites and caches of a band share those coordinates, so both
+       ends of a link trim alike.  Diagonals are whole squares already.
+       Every site is now borrowed by at most one hub per cycle. */
+    static U8CRange trimBand(u8 corner, Dir8 d8, U8CRange r) {
+      if (d8 == D8_NT || d8 == D8_ST) {
+        if (toEast(corner)) r.start.x = (u8) (OW + OW);
+        else r.stop.x = (u8) (TW - OW - OW);
+      } else if (d8 == D8_WT || d8 == D8_ET) {
+        if (toSouth(corner)) r.start.y = (u8) (OH + OH);
+        else r.stop.y = (u8) (TH - OH - OH);
+      }
+      return r;
+    }
+
     static DirPlan planImpl(u8 corner, Dir8 d8, const PolicyCtx &) {
       if (borrowsFrom(corner, d8)) return DirPlan::RECV_CACHES;
       if (borrowsFrom(corner, oppositeDir8(d8))) return DirPlan::SEND_SITES;
@@ -197,28 +223,38 @@ namespace MFM {
                                 : SuperCellPolicy::plan(arg, d8, c);
     }
 
+    /* The range a loader walks for direction d8 (the sites we lend or
+       the cache we borrow into, `full`), under policy id and argument
+       arg.  CP_FOURCORNERS trims edge bands (FourCornersPolicy::trimBand);
+       the ewsnap policies walk their own bands (CacheLoader initEWBand). */
+    static U8CRange bandRange(CachePolicyId id, u8 arg, Dir8 d8,
+                              U8CRange full) {
+      return id == CP_FOURCORNERS ? FourCornersPolicy::trimBand(arg, d8, full)
+                                  : full;
+    }
+
     /* CACHE ELISION: may direction d8 stay put across a change of argument
-       from prev to next?  Only when the role (send sites / receive caches)
-       is the same under both and is not NONE: the borrower keeps its cache,
-       the lender its (untouched) sites, and neither the SAVE nor the next
-       LOAD is needed.  Four corners only: every hub computes the same answer
-       for its end of a link, and the opposite end gets the opposite role. */
+       from prev to next?  The borrower keeps its cache, the lender its
+       (untouched) sites, and neither the SAVE nor the next LOAD is
+       needed, so the band must be the SAME band under both arguments.
+       Corner policies only, and only on a repeated corner: ewsnap's
+       minimal bands and four corners' trimmed bands (bandRange) change
+       with the corner.  (Until 2026-11-27 four corners kept any
+       direction whose role was unchanged, so e.g. SE -> SW kept the
+       north neighbor's full-width S band, corner square included, while
+       the diagonal had changed that square: stale copies, OPEN_ISSUES
+       'CORNER NOTCHES'.)  Every hub computes the same answer for its end
+       of a link, and the opposite end gets the opposite role. */
     static bool keepAcross(CachePolicyId id, u8 prev, u8 next, Dir8 d8) {
-      if (ewTileRadius(id) != 0u) {
-        // minimal bands change with the corner: only a repeat keeps them
+      if (ewTileRadius(id) != 0u || id == CP_FOURCORNERS) {
+        // the bands change with the corner: only a repeat keeps them
         PolicyCtx c0;
         c0.weLead = false;
         c0.peerLeads = false;
         c0.noLeader = false;
         return prev == next && plan(id, next, d8, c0) != DirPlan::NONE;
       }
-      if (id != CP_FOURCORNERS) return false;
-      PolicyCtx c;
-      c.weLead = false;
-      c.peerLeads = false;
-      c.noLeader = false;
-      const DirPlan was = plan(id, prev, d8, c);
-      return was != DirPlan::NONE && was == plan(id, next, d8, c);
+      return false;
     }
 
     static EventBounds bounds(CachePolicyId id, u8 arg, const PolicyCtx & c) {

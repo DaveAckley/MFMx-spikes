@@ -149,8 +149,14 @@ namespace MFM {
         Dir8 d8FromUs = d8; // XXX RIGHT?
         CacheLoader & cl = theL1CacheLoaders.get(d8FromUs);
 
-        U8CRange mySitesForYou = NgbCacheMgr::SITE_RANGES[d8];  // my edge sites (for your cache)
-        U8CRange myCacheForYou = NgbCacheMgr::CACHE_RANGES[d8]; // my cache (for your sites)
+        // my edge sites (for your cache) and my cache (for your sites);
+        // four corners trims edge bands so no site has two borrowers
+        U8CRange mySitesForYou =
+          CachingPolicies::bandRange(policy, mConfiguredSCL, d8,
+                                     NgbCacheMgr::SITE_RANGES[d8]);
+        U8CRange myCacheForYou =
+          CachingPolicies::bandRange(policy, mConfiguredSCL, d8,
+                                     NgbCacheMgr::CACHE_RANGES[d8]);
 
 #pragma GCC diagnostic pop
 

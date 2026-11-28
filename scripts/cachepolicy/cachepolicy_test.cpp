@@ -1,5 +1,6 @@
-// Host test for CachingPolicy.h.  Build and run:
-//   g++ -std=c++17 -DBUILD_HOST -Isrcs/shared/include -Isrcs/host/include \
+// Host test for CachingPolicy.h, run by srcs/host/tools/run_native_tests.sh
+// (cachepolicy_test).  By hand, from the repo root (one line):
+//   g++ -std=c++17 -DBUILD_HOST -Isrcs/shared/include -Isrcs/host/include
 //     scripts/cachepolicy/cachepolicy_test.cpp -o /tmp/cpt && /tmp/cpt
 // Checks, for every policy and every argument, on a 4x4 array of hubs:
 //   * the two ends of every pair agree: SEND_SITES <-> RECV_CACHES, or
@@ -7,7 +8,11 @@
 //   * the event windows of different hubs never overlap, in global sites
 //   * a hub's events never touch a band it sends, nor a cache it does not
 //     receive, and stay inside the grid
-//   * FOURCORNERS: every hub receives exactly 3 directions and sends 3
+//   * FOURCORNERS: every hub receives exactly 3 directions and sends 3;
+//     the bands it lends (trimmed, bandRange) share no site, the bands it
+//     borrows cover every cache site its events reach, and both ends of a
+//     link walk the same shape
+//   * elision keeps bands only on a repeated corner
 #include "CachingPolicy.h"
 #include <cstdio>
 #include <cstdlib>
@@ -98,18 +103,60 @@ int main() {
                   "%s arg %u hub %d,%d events reach an unexchanged cache (dir %d)",
                   cachePolicyName(id), arg, hx, hy, d);
         }
-        if (id == CP_FOURCORNERS)
+        if (id == CP_FOURCORNERS) {
           CHECK(recv == 3 && send == 3,
                 "fourcorners arg %u hub %d,%d recv %d send %d (want 3, 3)",
                 arg, hx, hy, recv, send);
+          // ONE BORROWER PER SITE: the bands we lend (as trimmed by
+          // bandRange) never overlap each other, and each band we borrow
+          // holds every cache site our events can reach that way
+          PolicyCtx c0 = { false, false, false };
+          for (int d = 0; d < 8; ++d) {
+            const DirPlan p = CachingPolicies::plan(id, arg, (Dir8) d, c0);
+            if (p == DirPlan::RECV_CACHES) {
+              Rect full = ofRange(NgbCacheMgr::CACHE_RANGES[d]);
+              Rect got = ofRange(CachingPolicies::bandRange(
+                  id, arg, (Dir8) d, NgbCacheMgr::CACHE_RANGES[d]));
+              Rect need = { full.x0 > mine.x0 ? full.x0 : mine.x0,
+                            full.y0 > mine.y0 ? full.y0 : mine.y0,
+                            full.x1 < mine.x1 ? full.x1 : mine.x1,
+                            full.y1 < mine.y1 ? full.y1 : mine.y1 };
+              CHECK(need.x0 >= need.x1 || need.y0 >= need.y1 ||
+                    (got.x0 <= need.x0 && got.y0 <= need.y0 &&
+                     got.x1 >= need.x1 && got.y1 >= need.y1),
+                    "fourcorners arg %u dir %d: the borrowed band misses "
+                    "cache sites our events reach", arg, d);
+            }
+            if (p != DirPlan::SEND_SITES) continue;
+            Rect a = ofRange(CachingPolicies::bandRange(
+                id, arg, (Dir8) d, NgbCacheMgr::SITE_RANGES[d]));
+            for (int e = d + 1; e < 8; ++e) {
+              if (CachingPolicies::plan(id, arg, (Dir8) e, c0) !=
+                  DirPlan::SEND_SITES) continue;
+              Rect b = ofRange(CachingPolicies::bandRange(
+                  id, arg, (Dir8) e, NgbCacheMgr::SITE_RANGES[e]));
+              CHECK(!overlap(a, b),
+                    "fourcorners arg %u: lent bands %d and %d share sites "
+                    "(two borrowers)", arg, d, e);
+            }
+            // both ends of the link walk the same shape
+            Rect cb = ofRange(CachingPolicies::bandRange(
+                id, arg, oppositeDir8((Dir8) d),
+                NgbCacheMgr::CACHE_RANGES[oppositeDir8((Dir8) d)]));
+            CHECK(a.x1 - a.x0 == cb.x1 - cb.x0 && a.y1 - a.y0 == cb.y1 - cb.y0,
+                  "fourcorners arg %u dir %d: lent and borrowed bands differ "
+                  "in shape", arg, d);
+          }
+        }
       }
     }
   }
   // CACHE ELISION: what may stay put when the corner changes prev -> next.
-  // Same corner keeps all 6 exchanged directions, adjacent corners keep 2
-  // (one borrowed band and the matching lent band), opposite corners none;
-  // the two ends of a link agree (a kept direction's opposite is kept); the
-  // supercell policy keeps nothing.
+  // Only a repeated corner keeps anything (all 6 exchanged directions):
+  // four corners' trimmed bands change with the corner (until 2026-11-27
+  // adjacent corners kept 2 full-width bands, corner squares and all, and
+  // that kept stale copies: OPEN_ISSUES 'CORNER NOTCHES'); the two ends of
+  // a link agree; the supercell policy keeps nothing.
   for (u8 prev = 0; prev < 4; ++prev) for (u8 next = 0; next < 4; ++next) {
     int kept = 0;
     for (int d = 0; d < 8; ++d) {
@@ -130,7 +177,7 @@ int main() {
       CHECK(!CachingPolicies::keepAcross(CP_SUPERCELL, prev, next, (Dir8) d),
             "supercell must keep nothing");
     }
-    int want = prev == next ? 6 : ((prev + 2) & 3) == next ? 0 : 2;
+    int want = prev == next ? 6 : 0;
     CHECK(kept == want, "keep %u->%u kept %d dirs (want %d)", prev, next, kept, want);
   }
   // before the first argument both policies stay clear of every cache
@@ -146,7 +193,8 @@ int main() {
     CHECK(cachePolicyFromHostFlags(cachePolicyToHostFlags((CachePolicyId) pol) | 0x0f) == pol,
           "host flag round trip %d", pol);
   CHECK(cachePolicyFromHostFlags(0x0f) == CP_SUPERCELL, "default is supercell");
-  CHECK(cachePolicyFromHostFlags(0x30) == CP_SUPERCELL, "unknown id is supercell");
+  // two flag bits, four policies since ewsnap10: every id is known
+  CHECK(cachePolicyFromHostFlags(0x30) == CP_EWSNAP10, "id 3 is ewsnap10");
   printf(fails ? "FAILURES: %d\n" : "PASS (all invariants)\n", fails);
   return fails != 0;
 }

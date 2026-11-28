@@ -1,9 +1,13 @@
-# EXPERIMENT: corner notch hunt with controls: FB1 fills the grid, notch detector on, elide on, shortcut (AERse), ~25 min
-# Rerun of 20261127-154951 (1004 corner 'notches', mostly 4x4 and 8x8,
-# probably FB1's own holes) now that the detector also tests hub edge
-# midpoints and centers: runsum 'corner notches' gives notches per
-# point by side for each kind.  A corner excess, mostly at sides
-# 20-28, is the artifact; equal rates mean FB1 background.
+# EXPERIMENT: corner notch fix check: FB1 fills the grid, notch detector with controls, trimmed four-corners bands, elide on, shortcut (AERse), ~25 min
+# Same script as run 20261127-163420, on the hub build with the FIX:
+# four-corners edge bands no longer carry the corner square at their far
+# end, so no site has two borrowers, and elision keeps bands only on a
+# repeated corner (CachingPolicy.h trimBand / bandRange / keepAcross).
+# 163420 (before): notches per point corner 7.85, edge 3.16, center
+# 1.63, and 50-55% of corner notches in the previous cycle's corner
+# quadrant (chance 25%).  Expect corner close to edge/center and that
+# correlation gone (runsum 'corner notches'; the correlation needs
+# misc/mfmxctl-CYCLE.txt, Claude computes it).  Hub change: build_all.sh.
 # Liv's CORNER NOTCHES (OPEN_ISSUES): square holes at hub corners, sharp
 # to their borders, soon refilled, seen in FB1 tiles that had been full
 # a long time.  `notch on` checks every frame for a hub-corner square
