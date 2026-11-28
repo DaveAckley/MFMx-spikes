@@ -27,7 +27,7 @@ there were already done.  Short form; the full text is in git
   the last three did it is not known).  Never explained: a ring site
   that went empty with no report (lone R4 rows, turdhunt10-10).  Host
   refresh still answers a batch late inside a quiet pause (would need a
-  hub heartbeat car).  CLAUDE.md has each mechanism.
+  hub heartbeat car).  CLAUDE_ARCHIVE.md has each mechanism.
 - Zoom slowed host-observed consensus to 0.4-0.7 s (2026-11-23): the
   box scan (`img.max(axis=2)`) was the cost; a shared per-channel
   occupied mask, polling the bolt between stages and skipping scans

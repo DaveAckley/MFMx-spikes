@@ -16,7 +16,7 @@ done, to CLOSED_ISSUES.md), in the same commit as the work.
   against 0.987 at 180 s and 0.977 at 900 s in soak 124337 (same metric).
   Ruled out: BOGOMS, dwell (+0.03), seeding/fill, host cycle timing.  The hubs
   do ~5% fewer events per dwell second: something hub-side in the last week.
-  Not bisected.  How, if it matters: CLAUDE.md "AER GAP, PARKED".
+  Not bisected.  How, if it matters: CLAUDE_ARCHIVE.md "AER GAP, PARKED".
 
 ### EWP/hub car handshake lost at boot: fix proven, mechanism not established
 
@@ -183,7 +183,7 @@ doorbell ARC_MSI_FIFO), idle card only (ERISC_NOTES 9.18).  Result: TRANSPORT OK
 Next: a separate, newly named tool for GO_BUSY / FORCE_AICLK, stepping 1000/1200/1300 MHz with honest-mode seam21.
 Step 3 DONE on NIU0 and NIU1: t6arc4/t6arcrun4 read the ARC telemetry from a Tensix tile (AICLK 800, same as arcpeek); the first runs found the mod-64 return rule.  `t6pp/t6arc.c` + `t6arcrun` read the ARC telemetry from a Tensix tile over NIU0/NIU1 (ERISC_NOTES 9.19), the base for logging AICLK from inside
 MFMx later (a hub `.ck:` mark built on NRI3::blockingL1ReadNoC0).
-Step 4 DONE (run 121809: all 140 hubs `.ck:0:320:3c0:320:546.`): hub `.ck` mark (every hub logs the ARC clocks once at init; ERISC_NOTES 9.20, CLAUDE.md).
+Step 4 DONE (run 121809: all 140 hubs `.ck:0:320:3c0:320:546.`): hub `.ck` mark (every hub logs the ARC clocks once at init; ERISC_NOTES 9.20, CLAUDE_ARCHIVE.md).
 Open: does the chip idle below 800 until GO_BUSY (unverified); what the other 800-valued tags (17..20) are; reading the ARC from a T6.  Memory note
 project-aiclk-ideas has the web findings.  Never write soft-reset on an ARC/DRAM/PCIe tile.
 
