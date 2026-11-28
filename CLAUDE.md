@@ -51,6 +51,17 @@ unless the user asks for a rename.
 - Stage EXPLICIT paths only; never `git add -A` (build outputs are
   untracked and once got committed).
 - Do not start new work (new slices, reformatting) without a go-ahead.
+- Command files (.cmd, experiment.cmd above all) say `feed on` by
+  default, so Liv can watch the stream.
+- DOC HYGIENE: at least once per session (a quiet moment, e.g. while a
+  QB run is going) revisit OPEN_ISSUES.md and CLAUDE.md:
+  * OPEN_ISSUES.md keeps only current work: done items move to
+    CLOSED_ISSUES.md (short, numbers kept), parked items and ideas to
+    DEFERRED_ISSUES.md, stale status words get fixed.
+  * CLAUDE.md stays short: rules, the map, one paragraph of current
+    state.  Feature notes and run records belong in the doc that owns
+    them; refresh section 4.
+  * Commit it on its own ("Docs: ...").  No go-ahead needed for this.
 - The host pybind glue (EthSeamHostPy.h, QuietBox.cpp, CodeManager.cpp) cannot
   be compiled on the Claude machine (no pybind11); the QB build is its first
   compile.  T6/E1 images CAN be cross-built here: rsync the tree to a scratch
