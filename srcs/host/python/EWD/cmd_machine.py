@@ -2,6 +2,7 @@
 
 Each command is a module-level function taking (ctx, args); register(ctx)
 adds them to the shell.  ctx is the cmdutil.Ctx built by mfmxctl.main."""
+import os
 from functools import partial
 
 from cmdutil import kw
@@ -45,6 +46,20 @@ def c_autoseed(ctx, a):
         m.autoseed = kw(a[0], ("on", "off", "layout"), "autoseed option")
     return (f"autoseed: {m.autoseed_report()} (applied at next 'start'; "
             "the autoseed type is 'decay')")
+
+
+def c_physics(ctx, a):
+    m = ctx.m
+    if a:
+        if m.inited and m.steps() and any(p >= m.M.Step.HAS_T6_CODE_DEPLOYED
+                                          for _c, p in m.steps()):
+            return ("the physics is written with the code (at 'start'): "
+                    "set it before 'start'")
+        m.physics = None if a[0] == "none" else a[0]
+        if m.physics and not os.path.isfile(m.find_physics(m.physics)):
+            bad, m.physics = m.find_physics(m.physics), None
+            return f"physics: no file {bad}"
+    return f"physics: {m.physics_report()} (applied at next 'start')"
 
 
 def c_events(ctx, a):
@@ -220,6 +235,10 @@ def register(ctx):
     sh.command("autoseed", partial(c_autoseed, ctx),
         "autoseed [off|on|layout]: whether hubs drop a 'decay' atom of their "
         "own a while after start (layout: its seedchips; before 'start')")
+    sh.command("physics", partial(c_physics, ctx),
+        "physics [NAME|none]: the BCP physics file (physics/NAME[.bcp], or a "
+        "path) for images whose config says physics = true; none = their "
+        "compiled-in one (before 'start')")
     sh.command("events", partial(c_events, ctx),
         "events [shortcut|honest]: show/set the AER mode (before 'start')")
     sh.command("elide", partial(c_elide, ctx),

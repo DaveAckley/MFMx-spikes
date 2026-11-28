@@ -1,10 +1,13 @@
-# EXPERIMENT: BytePhys BCP blobs opened lazily: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# Same script as runs 003440 and 014339.  Run 014339 ran no bytecode:
-# the BCP open sat in initB, which nothing calls (since bb5c983).  Now
-# the EWP opens its blobs at the first event that needs one.  Expect
-# `.bv:1:0:0:2.` on every EWP (runsum 'BCP opens'), bench call ~43 F /
-# ~51 L, enter ~50 / ~59, FB4 ~9436 cycles/event, FB1 ~1700-1760,
-# `.bc` 0 scans, no BCPBAD, no `.pf`.
+# EXPERIMENT: BytePhys physics loaded at start (physics bfb): microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# Same script as run 030540, plus `physics bfb` before `start`: the
+# host verifies physics/bfb.bcp (bpasm.py's blob, the same bytes as the
+# compiled-in BP_BCP) and writes it after the EWP image in L1 (0x23450),
+# and the EWP opens THAT one.  Expect the host's `EWP: physics
+# .../bfb.bcp, 280 bytes, checksum 0x7ed764ec` line, `.bv:1:0:0:2:1:
+# 7ed764ec.` on every EWP after its first bytecode event (runsum 'BCP
+# opens'; LOADED=1 is the new part), and everything else as 030540:
+# bench call ~43 F / ~51 L, enter ~50 / ~59, FB4 ~9380 cycles/event,
+# FB1 ~1650-1760, `.bc` 0 scans, no BCPBAD, no `.pf`.
 # Bench phase: 20 Bench atoms (type 31), decay 31; they erase
 # themselves after 104 events.  Then FB1 seeds, a whole-grid nuke, then
 # FB4 seeds.  Expect no `.pf`.
@@ -19,6 +22,7 @@ elide on
 grid off
 decay 31
 dwell 4 8
+physics bfb
 start
 feed on
 zoom auto

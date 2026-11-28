@@ -31,6 +31,7 @@ namespace MFM {
     void setEveryEvent(bool on) { mEveryEvent = on; }   //< HBF_EVERY_EVENT, applied at deploy
     void setElideCaches(bool on) { mElideCaches = on; } //< HBF_ELIDE_CACHES, applied at deploy
     s32 deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) ;
+    void deployPhysics(const T6Image & image, u32 tlbi) ; //< after the code
 
     u8 * extractRISCVCodeFromTLBI(u32 baseaddress, u32 rvsize, u8 toTLBI) ;
     void dumpT6Image(const T6Image & image, u8 fromTLBI) ;

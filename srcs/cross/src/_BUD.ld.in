@@ -305,5 +305,11 @@ SECTIONS
       PROVIDE(_end = .);
     } > L1
 
+    /* Loadable physics (BytePhys.h 'BCP'): the host may write a BCP blob
+       after the image, at __hostblock_end rounded up to 16 (the end of
+       the bin file), in what is left of L1 up to this limit; host side
+       T6Image::L1_IMAGE_LIMIT is the same number. */
+    PROVIDE(__l1_image_limit = ORIGIN(L1) + LENGTH(L1));
+
  }
  

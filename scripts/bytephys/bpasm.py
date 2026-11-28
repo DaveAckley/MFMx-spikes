@@ -46,8 +46,10 @@ element type keeps them go into one Layout shared by all programs.  A .bp
 file with only declarations makes no program.
 
 Usage:
-  bpasm.py                 regenerate BytePrograms.h from every *.bp here
-  bpasm.py --check         exit 1 if BytePrograms.h is out of date
+  bpasm.py                 regenerate BytePrograms.h from every *.bp here,
+                           and its blob as srcs/host/python/EWD/physics/
+                           bfb.bcp (for mfmxctl --physics)
+  bpasm.py --check         exit 1 if any of those is out of date
   bpasm.py --list [tests|bench]   print a set's image listing
 """
 
@@ -634,6 +636,7 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
         code, cstarts, funcs, _ = image
         blob = pack_bcp(code, cstarts, [ch for _, ch in funcs], refs, ats,
                         first, tfunc, ops_count())
+        BLOBS[outpath] = bytes(blob)
         out.append("")
         out.append(f"    // one image: {len(code)} bytes of code, "
                    f"{len(cstarts) - 1} chunks, {len(funcs)} functions; "
@@ -664,6 +667,12 @@ def render(progs, decls, srcdir=HERE, outpath=OUT, inner=None,
 # srcs/host/tools/bytephys_test.cpp includes its header), and the
 # per-opcode microbenchmark (bench/*.bp, written by benchgen.py; the EWP
 # runs it on a Bench atom)
+# The physics set's blob is also written as a file, for loading at start
+# (mfmxctl --physics; srcs/host/python/EWD/physics/README.md)
+BCP_OUT = os.path.join(ROOT, "srcs", "host", "python", "EWD", "physics",
+                       "bfb.bcp")
+BLOBS = {}                      # output header -> the BCP blob render made
+
 SETS = [(HERE, OUT, None),
         (os.path.join(HERE, "tests"),
          os.path.join(ROOT, "srcs", "host", "tools", "BytePhysTests.h"),
@@ -711,20 +720,28 @@ def main(argv):
         print("\n".join(lst))
         return 0
     texts = [(build(*st), st[1]) for st in SETS]
+    blob = BLOBS.get(OUT, b"")
     if argv[:1] == ["--check"]:
         bad = [os.path.basename(o) for t, o in texts
                if (open(o).read() if os.path.exists(o) else "") != t]
+        old = open(BCP_OUT, "rb").read() if os.path.exists(BCP_OUT) else b""
+        if old != blob:
+            bad.append(os.path.basename(BCP_OUT))
         if bad:
             print(f"bpasm --check: {', '.join(bad)} OUT OF DATE "
                   "(run scripts/bytephys/bpasm.py)")
             return 1
         print("bpasm --check: "
               + ", ".join(os.path.basename(o) for _, o in texts)
-              + " current")
+              + ", " + os.path.basename(BCP_OUT) + " current")
         return 0
     for text, o in texts:
         open(o, "w").write(text)
         print(f"bpasm: wrote {os.path.relpath(o, ROOT)}")
+    os.makedirs(os.path.dirname(BCP_OUT), exist_ok=True)
+    open(BCP_OUT, "wb").write(blob)
+    print(f"bpasm: wrote {os.path.relpath(BCP_OUT, ROOT)} "
+          f"({len(blob)} bytes)")
     return 0
 
 

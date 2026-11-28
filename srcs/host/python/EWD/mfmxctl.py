@@ -49,6 +49,11 @@ def parse_args(argv):
                     help="dtoml config, searched in . then next to this script")
     ap.add_argument("--layout", default=None, metavar="NAME",
                     help="use this [layout.NAME] instead of the config's activeLayout")
+    ap.add_argument("--physics", default=None, metavar="BCP",
+                    help="load this BCP physics (physics/NAME[.bcp] next to "
+                         "this script, or a path) into every image whose "
+                         "config says physics = true; default: their "
+                         "compiled-in one (also the 'physics' command)")
     ap.add_argument("--mock", action="store_true",
                     help="use mock/mfmx instead of the real MFMx module (no hardware)")
     ap.add_argument("--boot", action="store_true",
@@ -219,7 +224,7 @@ def main(argv=None):
                 extra_bindirs=extra_bindirs, slowscan_gap=args.slowscan_gap,
                 layout=args.layout, link_wait=args.link_wait,
                 link_resets=args.link_resets,
-                link_linger=args.link_linger)
+                link_linger=args.link_linger, physics=args.physics)
     dw = args.dwell if len(args.dwell) > 1 else args.dwell * 2
     cyc = SuperCycle(m, sh.say, dwell=tuple(dw[:2]), first_leader=args.first_leader)
     m.scy_fn = lambda: cyc.scy          # the stream's LIVE line shows it

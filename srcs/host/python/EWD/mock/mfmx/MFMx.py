@@ -238,6 +238,40 @@ class CommsModule:
 class T6Image:
     def __init__(self, name, code, path):
         self.name, self.code, self.path = name, code, path
+        self.physics = None             # None, b"" (the marker) or a blob
+        self.physics_path = ""
+
+    # loadable physics: the real one runs BytePhys::verifyBCP; the mock
+    # checks the header's magic, size and checksum only
+    def attachPhysics(self, path):
+        try:
+            blob = open(path, "rb").read()
+        except OSError:
+            return f"cannot open {path}"
+        if len(blob) < 64 or len(blob) % 4:
+            return f"{path}: {len(blob)} bytes, not a BCP blob"
+        rd = lambda i: int.from_bytes(blob[i:i + 4], "little")
+        h = 2166136261
+        for i, b in enumerate(blob):
+            h = ((h ^ (0 if 12 <= i < 16 else b)) * 16777619) & 0xffffffff
+        if rd(0) != 0x31504342 or rd(8) != len(blob) or rd(12) != h:
+            return f"{path}: verifyBCP refuses it (mock: header)"
+        self.physics, self.physics_path = blob, path
+        return ""
+
+    def attachNoPhysics(self):
+        self.physics, self.physics_path = b"", ""
+
+    def takesPhysics(self):
+        return self.physics is not None
+
+    def describePhysics(self):
+        if self.physics is None:
+            return f"{self.name}: takes no physics"
+        if not self.physics:
+            return f"{self.name}: no physics loaded (mock)"
+        return (f"{self.name}: physics {self.physics_path}, "
+                f"{len(self.physics)} bytes (mock)")
 
     def getBinWord(self, i):
         try:

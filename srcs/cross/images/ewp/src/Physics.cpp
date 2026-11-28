@@ -144,14 +144,17 @@ namespace MFM {
              (unsigned) estimateStackHeadroom());
     LOGPTAG(.sw,buf);
     HBPTAG(.sw,buf);
-    // `.bv:TRIED:OPEN:BENCH:TYPES.` the BCP opens: 1 once
-    // openImages ran, its openBCP answers (0 = ok), and the physics
-    // view's type count (BytePhys.h 'BCP')
-    snprintf(buf, sizeof(buf), "%x:%x:%x:%x.",
+    // `.bv:TRIED:OPEN:BENCH:TYPES:LOADED:SUM.` the BCP opens: 1 once
+    // openImages ran, its openBCP answers (0 = ok), the physics view's
+    // type count (BytePhys.h 'BCP'), 1 if the physics came from the
+    // host (0 = compiled in), and that blob's checksum word
+    snprintf(buf, sizeof(buf), "%x:%x:%x:%x:%x:%x.",
              (unsigned) mBCPTried,
              (unsigned) mBCPOpen,
              (unsigned) mBenchOpen,
-             (unsigned) mBCP.mTypeCount);
+             (unsigned) mBCP.mTypeCount,
+             (unsigned) mBCPLoaded,
+             (unsigned) mBCPSum);
     LOGPTAG(.bv,buf);
     HBPTAG(.bv,buf);
   }
@@ -168,20 +171,45 @@ namespace MFM {
     HBPTAG(.pb,buf);
   }
 
-  /* Open the compiled-in BCP blobs, once, at the first event that
-     needs one (nothing calls initB, so no init hook: run
-     20261128-014339 ran no bytecode because the open sat there).
-     They pass verifyBCP at compile time, so a failure here means
-     corrupted L1: mark it and run no bytecode (an unopened view has
-     no types, so entryFor finds none and those atoms are erased like
-     any unknown type).  Cold: runs once per EWP. */
+  /* Open the BCP blobs, once, at the first event that needs one
+     (nothing calls initB, so no init hook: run 20261128-014339 ran no
+     bytecode because the open sat there).
+
+     The physics: the host writes, after this image in L1 at
+     __hostblock_end rounded up to 16, either a BCP blob it verified
+     (mfmxctl --physics) or an empty marker (zero words).  A blob is
+     verified again here, against the room left up to __l1_image_limit;
+     the marker means the compiled-in BP_BCP runs (it passed verifyBCP
+     at compile time).  The bench is always compiled in.  A failure
+     means a bad file got past the host or L1 is corrupt: mark it and
+     run no bytecode (an unopened view has no types, so entryFor finds
+     none and those atoms are erased like any unknown type).  Cold:
+     runs once per EWP. */
+  extern "C" {
+    extern char __hostblock_end[];
+    extern char __l1_image_limit[];
+  }
+
   __attribute__((noinline, cold))
   void Physics::openImages() {
     mBCPTried = 1u;
     mBCP = BytePhys::BCPView{};
     mBenchBCP = BytePhys::BCPView{};
-    mBCPOpen = BytePhys::openBCP(BytePhys::BP_BCP, sizeof(BytePhys::BP_BCP),
-                                 mBCP);
+    const u32 at = ((u32) (uptr) __hostblock_end + 15u) & ~15u;
+    const u32 lim = (u32) (uptr) __l1_image_limit;
+    const u8 * loaded = (const u8 *) (uptr) at;
+    if (at + BytePhys::BCP_HEADER_BYTES <= lim &&
+        BytePhys::bcpRd32(loaded, BytePhys::BCPH_MAGIC) != 0u) {
+      mBCPLoaded = 1u;
+      mBCPSum = BytePhys::bcpRd32(loaded, BytePhys::BCPH_CHECKSUM);
+      mBCPOpen = BytePhys::openBCP(loaded, lim - at, mBCP);
+    } else {
+      mBCPLoaded = 0u;
+      mBCPSum = BytePhys::bcpRd32(BytePhys::BP_BCP,
+                                  BytePhys::BCPH_CHECKSUM);
+      mBCPOpen = BytePhys::openBCP(BytePhys::BP_BCP,
+                                   sizeof(BytePhys::BP_BCP), mBCP);
+    }
     if (mBCPOpen != 0u) {
       LOGPTAG(BCPBAD,mBCPOpen);
       HBPTAG(BCPBAD,mBCPOpen);

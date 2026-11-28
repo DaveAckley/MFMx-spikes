@@ -7,6 +7,7 @@
 #include "PHASER.h"
 #include "DefinedConstants.h"
 #include "PT_InterHub.h"   // for InterHubStorage car size/count (PKTS.txt)
+#include "dev_mem_map.h"    // MEM_L1_SIZE (L1_IMAGE_LIMIT)
 
 #include <tuple>
 #include <vector>
@@ -201,8 +202,34 @@ namespace MFM {
       pbp = pb;                // now matches pb
       return true;
     }
-    
+
+    /* Loadable physics (2026-11-28; BytePhys.h 'BCP', srcs/host/python/
+       EWD/physics/README.md).  An image whose layout config says
+       `physics = true` gets, written to L1 right after it, a BCP blob
+       (attachPhysics) or an empty marker (attachNoPhysics: four zero
+       words, so a blob left in L1 by an earlier run is never taken).
+       The place is the end of the bin file rounded up to 16, which is
+       where the image finds it (__hostblock_end, rounded the same way).
+       The bin file and every HostBlock address are unchanged. */
+    std::string attachPhysics(std::string path) ;  //< "" or why not
+    void attachNoPhysics() ;
+    bool takesPhysics() const { return mPhysicsWords.size() > 0u; }
+    u32 getPhysicsAddr() const { return physicsAddr(); }
+    const std::vector<u32> & getPhysicsWords() const {
+      return mPhysicsWords;
+    }
+    std::string describePhysics() const ;
+
+    /* The end of the L1 an image may use: _BUD.ld.in's MEMORY L1
+       (three quarters of L1).  The image finds the same limit as the
+       linker symbol __l1_image_limit. */
+    static constexpr u32 L1_IMAGE_LIMIT = (MEM_L1_SIZE / 4u) * 3u;
+
   private:
+    u32 physicsAddr() const { return ((u32) mBinFileSize + 15u) & ~15u; }
+    std::vector<u32> mPhysicsWords; //< what goes at physicsAddr(), or none
+    std::string mPhysicsPath;       //< where it came from ("" = marker)
+
     std::string mIKey;          // likes it
     std::string mBinFilePath;
     std::streamsize mBinFileSize;
@@ -236,6 +263,11 @@ namespace MFM {
       t6.def("getImageBlockHeader", &T6Image::getImageBlockHeader,py::call_guard<py::gil_scoped_release>());
       t6.def("getImageCode", &T6Image::getImageCode,py::call_guard<py::gil_scoped_release>());
       t6.def("getPacketBlocks", &T6Image::getPacketBlocks,py::call_guard<py::gil_scoped_release>());
+      t6.def("attachPhysics", &T6Image::attachPhysics,py::call_guard<py::gil_scoped_release>());
+      t6.def("attachNoPhysics", &T6Image::attachNoPhysics,py::call_guard<py::gil_scoped_release>());
+      t6.def("takesPhysics", &T6Image::takesPhysics,py::call_guard<py::gil_scoped_release>());
+      t6.def("getPhysicsAddr", &T6Image::getPhysicsAddr,py::call_guard<py::gil_scoped_release>());
+      t6.def("describePhysics", &T6Image::describePhysics,py::call_guard<py::gil_scoped_release>());
 
 
       iba.def("__repr__",[](ImageBlockAddr& iba) { return T6Image::iba_to_string(iba); },

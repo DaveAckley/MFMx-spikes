@@ -126,9 +126,9 @@ element was its own program with absolute u16 targets.
 
 **BCP blobs** (since 2026-11-28; "BCP" = bytecode physics, the name is
 provisional).  An image is stored as ONE pointer-free blob, so a physics
-can later be chosen at start time instead of compiled in (planned:
-appended after an EWP image's HostBlock and found at __hostblock_end,
-the analog of MFMs loading a .so; OPEN_ISSUES 'Next work').  Layout
+can be chosen at start time instead of compiled in, the analog of MFMs
+loading a .so: `--physics NAME` or the `physics` command writes a .bcp
+file after the EWP image in L1 (section 9 'Loadable physics').  Layout
 (BytePhys.h 'BCP'; little-endian; every table 4-aligned and found by its
 byte offset from the blob's start):
 
@@ -151,8 +151,8 @@ static_asserts it.  `openBCP(bytes, room, view)` runs it again and fills
 a `BCPView` (plain pointers into the blob) for run() and the code cache;
 the EWP opens its blobs at the first event that needs one
 (Physics::openImages; nothing calls initB; a failure marks `BCPBAD` and
-runs no bytecode; `.bv:TRIED:OPEN:BENCH:TYPES.` with the 100k-event
-marks).  `entryFor(view, type)` replaces
+runs no bytecode; `.bv:TRIED:OPEN:BENCH:TYPES:LOADED:SUM.` with the
+100k-event marks).  `entryFor(view, type)` replaces
 the old generated programFor table.
 
 Stack effects below are written `( before -- after )`, top of stack on
@@ -413,6 +413,21 @@ saturation on its own.
   (`PHY_BFB1`, `PHY_BFB4` in Physics.cpp; static_asserts tie them to the
   types the .bp files declare).  They behave like native types 4 and 5
   (except that counters saturate).  Seed them with e.g. `seed 25 7`.
+- **Loadable physics (2026-11-28):** the physics blob may come from the
+  host instead of the image.  Images whose layout config says `physics
+  = true` ([image.EWP] in config/nu1012.dtoml) get, at 'start', the
+  chosen .bcp file (mfmxctl `--physics NAME`, or `physics NAME` in a
+  .cmd before `start`; NAME = srcs/host/python/EWD/physics/NAME.bcp or
+  a path) or, with none chosen, four zero words.  The host verifies the
+  file with verifyBCP and checks it fits (T6Image::attachPhysics; a bad
+  file stops the run before any code is sent), then writes it at the
+  end of the bin file rounded up to 16; the bin file and HostBlock are
+  unchanged.  The EWP looks at `__hostblock_end` rounded up to 16 (room
+  up to `__l1_image_limit`, 0x120000): a nonzero magic is a loaded blob,
+  opened (verified again) once; zero means the compiled-in BP_BCP.
+  `.bv` LOADED = 1 and SUM = the blob's checksum say which ran.  The
+  bench stays compiled in.  bpasm.py writes physics/bfb.bcp (the same
+  bytes as BP_BCP).  Details: physics/README.md there.
 - **On screen:** the host draws a bytecode type as a darker copy (5/8
   brightness) of its native twin's color.  `BytePhys::isBytecodeType`
   lists the bytecode types.
@@ -546,8 +561,9 @@ attack the second.
 - **Speed:** copy the running program into fast RAM; threaded dispatch;
   superinstructions (e.g. `getf` on site 0); measure where the 50
   cycles go.
-- **Where programs come from:** compiled in today; later per type, loaded
-  from the host into EWP L1.
+- **Where programs come from:** one whole physics, compiled in or loaded
+  at start (section 9); several to choose among at start, or one per
+  type, later.
 - **A verifier** at load time, for early error reports only (the run-time
   checks stay).
 - **Host-side bytecode** to pick display colors per type.
@@ -659,7 +675,19 @@ attack the second.
   L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
   table pointers in locals, a second MRU try or a caller slot saved for
   RET.
-- **BCP blobs (2026-11-28, host-tested, cross-built, not yet run):**
+- **Loadable physics, step 3 (2026-11-28, host-tested, cross-built, not
+  yet run):** the start-time load (section 9 'Loadable physics').  Host:
+  the layout-config flag `physics = true`, mfmxctl `--physics` and the
+  `physics` command (applied at `start`, Machine._apply_physics),
+  T6Image::attachPhysics (reads, verifyBCP, fit check against
+  L1_IMAGE_LIMIT) / attachNoPhysics (the empty marker), and
+  CodeManager::deployPhysics writing the words after the code (multicast
+  and unicast alike).  EWP: openImages takes the blob at
+  `__hostblock_end` rounded to 16 if its magic is nonzero, else BP_BCP;
+  `.bv` grew LOADED and SUM (runsum reads both forms); hart B data ends
+  at 0x10e0.  bpasm.py also writes physics/bfb.bcp (and --check checks
+  it).  Mock MFMx: attachPhysics checks the header only.
+- **BCP blobs (2026-11-28, measured, runs 022755 and 030540):**
   Liv's start-time loadable physics, step 2: an image is one
   pointer-free blob (section 3), still compiled in (BP_BCP).
   verifyBCP(bytes, size) replaces verify(Image) (constexpr, byte reads);

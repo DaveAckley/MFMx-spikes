@@ -62,6 +62,10 @@ class BootMixin:
                 y = 255 if y == "all" else int(y)
                 im.getT6Image(val)
                 cell.addImage(M.U8C(x, y), val)
+        # images whose config says physics = true take a loadable physics
+        # (or the empty marker) after their code: _apply_physics, at start
+        self.physics_images = [k for k, v in cfg.hash["image"].items()
+                               if v.get("physics") and k in keys]
         layouts = cfg.hash["layout"]
         for k, l in layouts.items():
             lay = im.makeLayout(k, l["defaultImage"])
@@ -112,6 +116,53 @@ class BootMixin:
             os.environ.pop("MFMX_AUTOSEED_CHIPS", None)
         else:
             os.environ["MFMX_AUTOSEED_CHIPS"] = env
+
+    # ---- loadable physics (physics/README.md) ------------------------------------
+    def find_physics(self, name):
+        """A BCP file: a path as given, else a bare name (".bcp" optional)
+        in physics/ next to this script."""
+        if os.sep in name or os.path.isfile(name):
+            return os.path.abspath(name)
+        if not name.endswith(".bcp"):
+            name += ".bcp"
+        return os.path.join(self.scriptDir, "physics", name)
+
+    def _apply_physics(self):
+        """Before deploy (start): give every physics = true image the
+        chosen BCP blob (verified host side, T6Image.attachPhysics) or,
+        with none chosen, the empty marker (the image's compiled-in
+        physics runs).  Raises on a blob that is missing, refused or too
+        big, so a bad --physics stops the run before any code is sent."""
+        out = []
+        imgs = getattr(self, "physics_images", [])
+        if not imgs:
+            if self.physics:
+                raise RuntimeError(f"physics {self.physics}: no image in the "
+                                   "config says physics = true")
+            return out
+        path = self.find_physics(self.physics) if self.physics else None
+        for k in imgs:
+            img = self.im.getT6Image(k)
+            if not hasattr(img, "attachPhysics"):
+                if path:
+                    raise RuntimeError("this MFMx module cannot load a "
+                                       "physics; rebuild the host")
+                continue
+            if path:
+                err = img.attachPhysics(path)
+                if err:
+                    raise RuntimeError(f"physics: {err}")
+            else:
+                img.attachNoPhysics()
+            out.append(img.describePhysics())
+            self.logkt("PHYS", out[-1])
+        return out
+
+    def physics_report(self):
+        imgs = getattr(self, "physics_images", None)
+        which = self.physics or "compiled-in"
+        return (f"{which} (images {', '.join(imgs) or 'none'})"
+                if imgs is not None else f"{which} (not configured yet)")
 
     def autoseed_report(self):
         if self.autoseed != "layout":
@@ -281,6 +332,7 @@ class BootMixin:
             out.append(self._declare_seams())
         self.events_running = self.events      # what the hubs now do (AER label)
         self._apply_autoseed()
+        out += self._apply_physics()
         for bh in self.bhs:
             if self.decay is not None:
                 bh.setStartDecayType(int(self.decay))

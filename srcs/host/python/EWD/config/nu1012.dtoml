@@ -121,6 +121,9 @@
   binfile="ewp.bin"
   hostFlags = 3  # assert_stop_log + no_utag
   code=1
+  # takes a loadable physics (mfmxctl --physics / 'physics' command; with
+  # none chosen, an empty marker and the compiled-in one): physics/README.md
+  physics = true
 
 [image.HUB]
   binfile="hub.bin"

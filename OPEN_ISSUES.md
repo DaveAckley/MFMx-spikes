@@ -48,21 +48,16 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 
 ## Next work (needs Liv's go-ahead)
 
-- Loadable bytecode physics (Liv, 2026-11-28; name pending, "BCP" /
-  `.bcp` proposed): pick a physics at start, like MFMs loading a .so.
-  Decided: the host keeps loading a plain .bin (no ELF); no fixed-size
-  section (find out at start whether it fits the L1 left); no HostBlock
-  change; which images take a physics is a layout-config flag; the blob
-  is appended AFTER the HostBlock (whose address is fixed at link time)
-  and found at __hostblock_end rounded to 16.  The blob holds no
-  pointers (offsets from its start), the host runs verify() before
-  writing it to every EWP, the EWP checks magic / ISA version / size /
-  checksum once at init, and the code cache binds to it.  Step 2
-  DONE (2026-11-28, run 20261128-030540): images are BCP blobs
-  (BytePhys.h 'BCP', BYTEPHYS.md section 3), still compiled in, opened
-  at the first event that needs one (Physics::openImages).  Next, step 3: the start-time load (layout-config
-  flag, mfmxctl option, host-side verify, write after the HostBlock,
-  EWP finds it at __hostblock_end).
+- Loadable bytecode physics (Liv, 2026-11-28; "BCP" for now): pick a
+  physics at start, like MFMs loading a .so.  Steps 1-2 done (BCP blobs,
+  BYTEPHYS.md section 3).  Step 3, the start-time load, BUILT
+  (2026-11-28, host-tested, cross-built, run pending; BYTEPHYS.md
+  section 9 'Loadable physics', srcs/host/python/EWD/physics/README.md):
+  layout-config `physics = true`, `--physics` / `physics` command,
+  host verify + fit check, blob written at the end of the bin file
+  rounded to 16, EWP opens it from __hostblock_end.  The experiment
+  should show `.bv:1:0:0:2:1:7ed764ec`.  Later: choosing among several
+  physics at start (Liv wants the option kept).
 - Cross-element calls in ulam-lite (the whole-physics image is built,
   1b19246; the compiler side is not).
 - getm/setm with member pos/len resolved at compile time (~120 / ~160

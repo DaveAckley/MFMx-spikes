@@ -124,6 +124,19 @@ namespace MFM {
             mSuperCellCoord.x, mSuperCellCoord.y);
   }
 
+  /* An image that takes a physics (T6Image::attachPhysics, layout
+     config `physics = true`) gets its blob, or the empty marker, right
+     after the code, at the end of the bin file rounded up to 16.  The
+     blob was verified when attached; the EWP checks it again, once. */
+  void CodeManager::deployPhysics(const T6Image & image, u32 tlbi) {
+    const std::vector<u32> & w = image.getPhysicsWords();
+    if (w.size() == 0u) return;
+    mOurTLBs.writeToWords(tlbi, image.getPhysicsAddr(), (u32 *) w.data(),
+                          (u32) w.size());
+    LOGprintf(mChipNum," PHYSICS tlbi%u %s\n", tlbi,
+              image.describePhysics().c_str());
+  }
+
   s32 CodeManager::deployRISCVCodeFromImage(const T6Image & image, u8 toTLBI) {
     BHLog & bhl = BHLog::getTheBHLog();
     BHTag tag(TagType::T6TADR, mChipNum, toTLBI);
@@ -186,6 +199,7 @@ namespace MFM {
       LOGprintf(mChipNum," Multicasting image '%s' to the fleet\n",
                 image.getName().c_str());
       mOurTLBs.writeToWords(OurTLBs::AHAX_TLBI_L1_MULTI, 0u, codewords, wordcount);
+      deployPhysics(image, OurTLBs::AHAX_TLBI_L1_MULTI);
       for (u32 i = OurTLBs::AHAX_TLBI_L1_FIRST_UNI;
            i <= OurTLBs::AHAX_TLBI_L1_LAST_UNI; ++i) 
         mOurTLBs.getTLBInfo(i).setDeployedImage(image);
@@ -195,6 +209,7 @@ namespace MFM {
       LOGprintf(mChipNum," Deploying '%s' to TLBI%u cell(%u,%u) noc(%u,%u)\n",
                 image.getName().c_str(),toTLBI,c.x,c.y,nocc.x,nocc.y);
       mOurTLBs.writeToWords(toTLBI, 0u, codewords, wordcount);
+      deployPhysics(image, toTLBI);
       mOurTLBs.getTLBInfo(toTLBI).setDeployedImage(image);
 
       //// >>FOR UNICAST ONLY<< REMEMBER TLBI IF IMAGE PROVIDES BC_T6GRID
