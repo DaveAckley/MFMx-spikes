@@ -528,6 +528,28 @@ at 256 hub edge midpoints and 140 hub centers, counted apart; runsum
 prints notches per point by side for corner / edge / center.  Only an
 excess at corners (in the large sizes) is the artifact.  experiment.cmd
 reruns the 154951 script with them (still the elide on arm).
+CORNER EXCESS FOUND, TIED TO THE CORNER CHANGE (run 20261127-163420,
+06e8b2c, FB1, elide on, cycle repeat on, 25 min, no nukes).  Notches
+per point, all sides: corner 7.85, edge 3.16, center 1.63 (side 4:
+4.13 / 1.84 / 0.86; side 8: 2.32 / 0.66 / 0.34; sides 20-24: ~0.16 /
+0.09 / 0.07; side 28: 0.02 / 0.03 / 0.04), so corners have 2-7x the
+background, mostly in small sizes.  Decisive: a corner notch's square
+matches the PREVIOUS cycle's Corner4 (the quadrant whose square was
+that cycle's borrowed corner cache) 50-55% of the time at every size
+(chance 25%; the current cycle's corner only 11-18%), and only 6-10%
+of corner notches come in cycles that REPEAT the corner (25% of
+cycles do, with elision keeping the bands); edge and center notches
+show neither (23-33%, 17-38%).  So: when the corner changes, the
+corner cache borrowed in the cycle before comes back (or is shown)
+EMPTY over part of its square, and FB1 refills it.  Edge bands,
+exchanged the same way, do not do this, so it is the CORNER (diagonal)
+cache path: SAVE of the corner cache, its packets, or the owner's
+unload.  Sizes peak at 4-8, so either only part of the square goes,
+or the corner cache is smaller than the 28-site ring (to check in
+CachingPolicy.h / CacheLoader).  Next: decide grid vs display (`notch
+hold on`, then dumpl1 the owner and the diagonal borrower, or a `notch
+dump` that does it), and a hub mark counting occupied -> empty
+overwrites per Dir8 in the corner-cache SAVE/LOAD.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
