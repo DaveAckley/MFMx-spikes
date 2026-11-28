@@ -26,13 +26,28 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   CLOSED_ISSUES after a few dozen.  May also have been the 2026-11-21
   seam21 laggards.
 
-- DReg + Res as a loaded physics (built 2026-11-28; BYTEPHYS.md
-  section 12): experiment.cmd seeds ONE bytecode DReg (type 9) under
-  `physics dreg`, policy ewsnap10, ~20 min.  Check `.bv:1:0:0:2:1:
-  a52d19fe`, DRegs and Res spreading, no BCPBAD / `.pf`.  If nothing
-  grows, suspect LOST SEED BATCHES (below) before the physics.
 
 ## Bugs
+
+- CHIP-0 EWP ACKS LOST (run 20261128-111403, ffa15bf: bytecode DReg +
+  Res, `physics dreg`, policy ewsnap10, ONE seed, autoseed off).  DReg
+  and Res ran and spread on chip 0 (the only chip with atoms).  At scy
+  50 bolt RUN_EVENTS(50) timed out: chip 0's 35 HUBS acked, ALL 105 of
+  its EWPs did not (the lamer list is exactly the EWP positions of the
+  2x2 cells); chips 1-3 all acked.  The EWPs were not dead or stuck:
+  each logged NEWACK:102 and BOLTR_2ACK:102.RUN_EVENTS 50 (so
+  _returnBoltToHostNC ran), then kept running events (pewAt 700000,
+  pewPF 0, `.bv:1:0:0:2:1:a52d19fe` on all 810 marks, no BCPBAD /
+  `.pf`).  The host never saw those returns (onPhases 35/140/140/140
+  for 400 s).  So the EWP -> host-RAM bolt write was lost, landed
+  elsewhere, or was overwritten, for every chip-0 EWP at once.  Not
+  known: whether bytecode DReg, ewsnap10, or chip 0 being the only busy
+  chip matters.  Note initiateWriteToHost always returns 1 (no drop
+  path in software), and the post-freeze EWP log lines came via
+  slowscan (host reads), so they do not show the EWPs' writes to the
+  host still worked.  To split: native DReg (`seed 1 2`, no
+  `physics`) under the same script; then `policy fourcorners`.  On a
+  repeat, try `cycle retry` before quitting.
 
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The
