@@ -49,10 +49,15 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   under `policy fourcorners`): CLEAN, 173 cycles, 0 timeouts, `.bv` on
   all 5535 marks, no BCPBAD / `.pf`; the seed landed on chip 1
   (Seed@1424,84) and the DReg family reached 306 EWP tiles (so it
-  crossed onto most chips).  So bytecode DReg alone does not do it,
-  and ewsnap10 is the lead.  Next: ewsnap10 with the seed placed
-  (`seed hub at023 1 9` puts it on chip 0; any other chip's hub tag
-  for the other case), and on a freeze `cycle retry` before quitting.
+  crossed onto most chips).  Run 20261128-123157 (f229455, ewsnap10
+  again, the DReg PLACED on chip 0 by `seed hub at023 1 9`, at
+  Seed@108,39): ALSO CLEAN, 287 cycles, 0 timeouts, `.bv` on all 8355
+  marks (243 tiles), no BCPBAD / `.pf`.  So NOT REPRODUCED: neither
+  ewsnap10 nor bytecode activity on chip 0 is enough.  One difference
+  noticed: 111403's link preflight needed 5 extra chip resets (eth
+  links on bh0/bh1/bh3 slow to come Up); 120208 and 123157 needed
+  none.  Leave open as a rare event; on a repeat, `cycle retry` before
+  quitting, and note the preflight.
 
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The
