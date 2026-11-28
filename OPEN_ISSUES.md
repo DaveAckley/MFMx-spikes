@@ -97,7 +97,8 @@ ERISC_NOTES.md.
   exceptions are kept, now redundant), and the EACH there runs on hb
   only (old behavior).  Hub change: build_all.sh.  Proven when boots
   stop showing 139/140 HOLD_AT_BIRTH acks; leave this open until a
-  few dozen clean boots.  Clean boots on 6b7842d+: 2 (141156, 151122).  This may also explain the 2026-11-21 seam21
+  few dozen clean boots.  Clean boots on 6b7842d+: 3 (141156, 151122,
+  200923; plus the notch runs 154951, 163420, 182009: 6).  This may also explain the 2026-11-21 seam21
   laggard above.  The script kept
   waiting for 30 min: --abort-on-error does not treat a FROZEN cycle
   as an error (idea: end the run when the cycle freezes).  A hub should also tolerate
@@ -453,8 +454,11 @@ section 10.  DISPATCH TABLE IN FAST RAM (2026-11-27, run 151122): the
 Machine holds a copy of kOps (BYTEPHYS.md section 12): ~6 cycles off
 every instruction (cheapest ops 20-22 in L1, 13.5-15.6 with code in
 fast RAM), FB1 3.98x native, FB4 3.74x (12199 cycles/event).
-CODE CACHE STEPS 1+2 BUILT (2026-11-27, cross-built, NOT yet run;
-BYTEPHYS.md section 12): whole programs cached in 4 x 256 B of hart B
+CODE CACHE STEPS 1+2 MEASURED (run 20261127-200923): FB4 bytecode
+9468 cycles/event, 2.89x native (was 12199, 3.74x), FB1 3.49x (was
+3.98x); 99.9999% hits; the opcode mask costs ~1 cycle per instruction;
+hart B stack high-water 1008 bytes max, headroom min 5072 bytes (so a
+cache of ~4 KB fits).  Built (BYTEPHYS.md section 12): whole programs cached in 4 x 256 B of hart B
 fast RAM (ByteCache.h), refreshed every 4096 uses, opcode mask with
 BF_OPCODE fillers, `.bc` and `.sw` (stack high-water) marks.
 experiment.cmd times it (expect FB4 toward 9-10k cycles/event).  Then

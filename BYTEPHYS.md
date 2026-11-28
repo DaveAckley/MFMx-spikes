@@ -537,7 +537,7 @@ attack the second.
   is now the one L1 load left in every dispatch: code in fast RAM is
   worth another ~6-13 per instruction (the L/F columns).  FB4 share
   0.13-0.16 (native ahead).
-- **Code cache in fast RAM (2026-11-27, cross-built, not yet run):**
+- **Code cache in fast RAM (2026-11-27, run 20261127-200923):**
   ByteCache.h's CodeCache keeps the programs in use in fixed fast-RAM
   slots (EWP: Physics::mCodeCache, 4 x 256 bytes): use(p) returns p
   with mCode pointing at a copy, copied into the least recently used
@@ -556,6 +556,15 @@ attack the second.
   bytephys_test: cached runs identical to uncached, LRU, tooBig, the
   refresh repairing a corrupted copy, and the mask.  Next (OPEN_ISSUES):
   function-granular caching and calls across elements.
+  MEASURED (run 200923, bebd68e): FB4 bytecode 9468 cycles/event, 2.89x
+  native (was 12199, 3.74x; 25.3 cycles per instruction), FB1 1633,
+  3.49x (was 1815, 3.98x).  Cache: 560.7M uses on 420 EWPs, 99.9999%
+  hits (607 misses, ~1.4 per EWP: the first loads), 0 too big, 136,585
+  refreshes (one per 4096 uses, as designed).  The mask costs ~1 cycle
+  per instruction (bench L column: dup 19.9 -> 20.8, over 20.9 -> 21.8,
+  push8 22.0 -> 23.0; F the same).  Hart B stack high-water max 1008
+  bytes (median 816) of ~6 KB, headroom min 5072 bytes: room for a
+  cache several times this size.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus

@@ -178,7 +178,8 @@ unless the user asks for a rename.
   With computed goto (O2) and fuel at back-jumps, run 141156 timed the
   cheapest ops at 25 cycles (was 42-48) and FB4 at 4.40x native (was
   7.59x), FB1 4.30x (was 6.37x).  Dispatch table in fast RAM (run
-  151122): FB4 3.74x.  CODE CACHE (2026-11-27, not yet run): compiled
+  151122): FB4 3.74x.  CODE CACHE (2026-11-27, run 200923: FB4 2.89x,
+  FB1 3.49x, 99.9999% hits, stack high-water 1008 B): compiled
   programs run from fast-RAM copies (srcs/shared/include/ByteCache.h,
   Physics::mCodeCache), opcodes masked to a 32-entry table; marks `.bc`
   (cache) and `.sw` (hart B stack high-water), runsum 'code cache and
