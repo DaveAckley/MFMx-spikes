@@ -5,6 +5,21 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-28  BytePhys BCP blobs: no bytecode ran (initB never called)
+
+Run 20261128-014339 (91907bb, the first BCP-blob build) ran no
+bytecode: the blobs were opened in initB, and nothing calls initB (no
+caller since DefaultLives became StandardLife, bb5c983).  f1e7905's
+`.bv` showed it.  Fix 8e78c85: the EWP opens its blobs at the first
+event that needs one (Physics::openImages, `.bv:TRIED:OPEN:BENCH:
+TYPES.`).  Run 20261128-030540 (e00d35e): `.bv:1:0:0:2` on every
+mark after the first bytecode event (the rest 0:0:0:0, before it), no
+BCPBAD; bench `call` 43.3 F / 50.7 L, `enter` 49.5 / 58.8; FB4 9379
+cycles/event (2.87x native), FB1 1644 (3.70x); `.bc` 1.58 misses per
+million events, 0 scans.  Clean boot (12th since the HOLD_AT_BIRTH
+fix).  initB's dead preloadT2Mailbox() is harmless: the HartTasks PRNG
+task does it at HE_BORN1.
+
 ## 2026-11-28  BytePhys calls through the chunk cache made cheap
 
 Run 20261127-224448 timed ~117 cycles per transfer through the new
