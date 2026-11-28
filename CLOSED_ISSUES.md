@@ -5,6 +5,12 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+REMOVED FILES (2026-11-28 cleanup, phase 1): older numbered tools and
+configs named below (ethfwd1-21, ethprobe/11, ethlinktest-13, e1fwd1/11/13-15
+and their hosttests, e1order/13, t6arc1-3, t6arcrun1-3, expts10-15, seam5-20
+and seamcycle1to3/23/ns .cmd, nu1010/nu1011/mpmd18) are gone from the tree;
+read any with `git show pre-cleanup:PATH`.
+
 ## 2026-11-28  BytePhys physics loaded at start (loadable physics)
 
 Liv's plan, like MFMs loading a .so: steps 1-2 made an image one

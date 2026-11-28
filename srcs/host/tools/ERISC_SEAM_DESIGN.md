@@ -2,6 +2,12 @@
 
 See also: /CLAUDE.md (start here, formatting rules), ERISC_NOTES.md (hardware record), ../python/EWD/HANDOFF.md (mfmxctl), ../../../scripts/ptrace/README.txt, ../../../scripts/cachecensus/cachecensus.py.
 
+REMOVED FILES (2026-11-28 cleanup, phase 1): older numbered tools and
+configs named below (ethfwd1-21, ethprobe/11, ethlinktest-13, e1fwd1/11/13-15
+and their hosttests, e1order/13, t6arc1-3, t6arcrun1-3, expts10-15, seam5-20
+and seamcycle1to3/23/ns .cmd, nu1010/nu1011/mpmd18) are gone from the tree;
+read any with `git show pre-cleanup:PATH`.
+
 STATUS: rough design only.  Nothing here is built on hardware.  Written from a read of
 cross/include/T6EPs.{h,tcc}, cross/src/NRIUtils.cpp, cross/images/hub/src/{InterHub,
 EP_InterHub}.cpp, shared/include/{UxC,MDist}.h, tools/e1fwd/e1fwd11.c and the layout

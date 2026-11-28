@@ -79,9 +79,8 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 
 ## Next work (needs Liv's go-ahead)
 
-- Repo cleanup, four phases (planned 2026-11-28, not started, parked
-  for CHIP-0 EWP ACKS LOST): the whole plan is DEFERRED_ISSUES 'REPO
-  CLEANUP PLAN'.
+- Repo cleanup, four phases (planned 2026-11-28; phase 1 DONE, tag
+  pre-cleanup): phases 2-4 in DEFERRED_ISSUES 'REPO CLEANUP PLAN'.
 - Loadable physics: choosing among several physics at start (Liv
   wants the option kept; one loads today, CLOSED_ISSUES 2026-11-28).
 - Cross-element calls in ulam-lite (the whole-physics image is built,

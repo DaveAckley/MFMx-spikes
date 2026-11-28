@@ -4,7 +4,7 @@
 # in the host tool.  Override the toolchain location with SFPI=/path/to/sfpi/compiler.
 set -e
 cd "$(dirname "$0")"
-B=${1:-e1order}
+B=${1:-e1order14}   # the one ethlinktest14 embeds (older ones: git show pre-cleanup:...)
 T=${SFPI:-/opt/tenstorrent/sfpi/compiler}/bin/riscv32-tt-elf
 $T-gcc -march=rv32im_zicsr -mabi=ilp32 -O2 -Wall -ffreestanding -nostdlib -fno-pic -mno-relax \
       -fno-asynchronous-unwind-tables -fno-stack-protector -c $B.c -o $B.o

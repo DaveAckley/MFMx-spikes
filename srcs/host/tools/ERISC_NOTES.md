@@ -2,6 +2,12 @@
 
 See also: /CLAUDE.md (start here, formatting rules), ERISC_SEAM_DESIGN.md (design, slices 1-3), ../python/EWD/HANDOFF.md (mfmxctl), ../../../scripts/ptrace/README.txt.
 
+REMOVED FILES (2026-11-28 cleanup, phase 1): older numbered tools and
+configs named below (ethfwd1-21, ethprobe/11, ethlinktest-13, e1fwd1/11/13-15
+and their hosttests, e1order/13, t6arc1-3, t6arcrun1-3, expts10-15, seam5-20
+and seamcycle1to3/23/ns .cmd, nu1010/nu1011/mpmd18) are gone from the tree;
+read any with `git show pre-cleanup:PATH`.
+
 Written at the end of the eth-seam spike session, 2026-11-15.  Everything here
 was measured on the user's QuietBox (4 Blackhole cards, Ubuntu 22.04.5, TT-KMD
 2.3.0, FW bundle 18.8.0.0 on all cards, core clock ~800 MHz) unless marked

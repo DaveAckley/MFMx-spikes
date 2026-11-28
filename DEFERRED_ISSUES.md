@@ -7,6 +7,12 @@ the text below is as it stood then (dates and run names inside each
 entry).  To pick one up, move it back to OPEN_ISSUES.md (and when it is
 done, to CLOSED_ISSUES.md), in the same commit as the work.
 
+REMOVED FILES (2026-11-28 cleanup, phase 1): older numbered tools and
+configs named below (ethfwd1-21, ethprobe/11, ethlinktest-13, e1fwd1/11/13-15
+and their hosttests, e1order/13, t6arc1-3, t6arcrun1-3, expts10-15, seam5-20
+and seamcycle1to3/23/ns .cmd, nu1010/nu1011/mpmd18) are gone from the tree;
+read any with `git show pre-cleanup:PATH`.
+
 ## Parked bugs and puzzles
 
 ### AER 0.04-0.05 below the 11-19 soak (PARKED by Liv)
@@ -380,7 +386,7 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 - FB4's renderer colours by hidden counter mStg[1]; a seed mix (DReg/FB1)
   would add variety.
 
-### REPO CLEANUP PLAN (2026-11-28, planned with Liv, NOT STARTED)
+### REPO CLEANUP PLAN (2026-11-28, planned with Liv; PHASE 1 DONE)
 
 Liv asked for the three ugliest things about the repo, then for a plan;
 parked while chasing CHIP-0 EWP ACKS LOST.  Each phase is one commit;
@@ -402,7 +408,12 @@ Honorable mentions: EWD/fonts is 13 MB for two used faces; README ends
 in sample-code boilerplate; 8 top-level .md files; /data/ackley paths
 in 18 tracked files.
 
-Phase 1, delete superseded copies (no build path changes).  Keep the
+Phase 1, delete superseded copies (no build path changes).  DONE
+2026-11-28 (tag pre-cleanup before it): 180 files; also kept
+seamtest/seamcycle/seamlong/seamns.cmd (HANDOFF procedures, selftest),
+dropped every .dis / _image.inc (build outputs; ethlinktest14 embeds its
+image), and the two DECIDEs went 'drop' (t6arcrun_mock now runs
+t6arcrun4).  Keep the
 newest of each series plus whatever CMake, run_native_tests.sh or
 mfmxctl uses:
 - ethfwd: keep ethfwd22 (ERISC_NOTES 9.16, PASSED); drop 1, 11-21.

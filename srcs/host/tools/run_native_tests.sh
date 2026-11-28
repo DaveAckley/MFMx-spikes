@@ -63,9 +63,8 @@ run hubparity_test g++ $CXXFLAGS $INC hubparity_test.cpp ../src/FATAL.cpp \
 run ethlinks_test g++ $CXXFLAGS $INC ethlinks_test.cpp \
   ../src/EthLinks.cpp ../src/EthSeamHost.cpp ../src/FATAL.cpp \
   -o "$OUT/ethlinks_test"
-for n in 13 14 15 16; do
-  run e1fwd_hosttest$n gcc $CFLAGS e1fwd/hosttest$n.c -o "$OUT/e1fwd_hosttest$n"
-done
+# (e1fwd 13-15 and their tests removed 2026-11-28: git show pre-cleanup:PATH)
+run e1fwd_hosttest16 gcc $CFLAGS e1fwd/hosttest16.c -o "$OUT/e1fwd_hosttest16"
 run t6pp_hosttest gcc $CFLAGS t6pp/hosttest.c -o "$OUT/t6pp_hosttest"
 run t6pp_hosttest2 gcc $CFLAGS t6pp/hosttest2.c -o "$OUT/t6pp_hosttest2"
 run t6pp_hosttest3 gcc $CFLAGS t6pp/hosttest3.c -o "$OUT/t6pp_hosttest3"
@@ -74,11 +73,9 @@ run arcpeek_mock sh -c 'g++ '"$CXXFLAGS"' arcpeek.cpp -o "$1/arcpeek_bin" && pri
 # arcmsg (TEST + GET_AICLK on the ARC message queue): mock queue round trip, and no-hardware without --dev
 run arcmsg_mock sh -c 'g++ '"$CXXFLAGS"' arcmsg.cpp -o "$1/arcmsg_bin" && printf "#!/bin/sh\n\"%s/arcmsg_bin\" --mock | grep -q \"TRANSPORT OK\" && \"%s/arcmsg_bin\" --mock | grep -q \"AICLK 800 MHz\" && ! \"%s/arcmsg_bin\" 2>/dev/null && echo mock-queue-ok\n" "$1" "$1" "$1" > "$1/arcmsg_mock" && chmod +x "$1/arcmsg_mock"' x "$OUT"
 # t6arc (T6 reads the ARC telemetry over the NoC): image logic against a fake NoC, then the host runner's mock run
-run t6arc_hosttest gcc $CFLAGS t6pp/hosttest_arc.c -o "$OUT/t6arc_hosttest"
 # (the mock never executes the image, so any small file stands in for the .bin: no riscv toolchain needed)
-run t6arcrun_mock sh -c 'g++ '"$CXXFLAGS"' t6arcrun.cpp -o "$1/t6arcrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6arcrun_bin\" --mock --go --image \"%s\" | grep -q \"T6 READ OK\" && echo mock-run-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6arc.c" > "$1/t6arcrun_mock" && chmod +x "$1/t6arcrun_mock"' x "$OUT"
-run t6arc2_hosttest gcc $CFLAGS t6pp/hosttest_arc2.c -o "$OUT/t6arc2_hosttest"
-run t6arc3_hosttest gcc $CFLAGS t6pp/hosttest_arc3.c -o "$OUT/t6arc3_hosttest"
+# (t6arc 1-3 and t6arcrun 1-3 removed 2026-11-28: git show pre-cleanup:PATH)
+run t6arcrun_mock sh -c 'g++ '"$CXXFLAGS"' t6arcrun4.cpp -o "$1/t6arcrun_bin" && printf "#!/bin/sh\ncd \"%s\" || exit 1\n\"%s/t6arcrun_bin\" --mock --go --image \"%s\" | grep -q \"T6 READ OK\" && echo mock-run-ok\n" "$(pwd)" "$1" "$(pwd)/t6pp/t6arc4.c" > "$1/t6arcrun_mock" && chmod +x "$1/t6arcrun_mock"' x "$OUT"
 run t6arc4_hosttest gcc $CFLAGS t6pp/hosttest_arc4.c -o "$OUT/t6arc4_hosttest"
 # t6l1rd (does a T6 L1 read land at the return address or by the mod-64 rule?): image vs fake NoC under both rules, host runner mock (both rules)
 run t6l1rd_hosttest gcc $CFLAGS t6pp/hosttest_l1rd.c -o "$OUT/t6l1rd_hosttest"
