@@ -379,3 +379,74 @@ is the host bolt path, about 0.13 s per bolt, plus the dwell.)
 - Possible `sleep SECS` mfmxctl command (offered, not requested).
 - FB4's renderer colours by hidden counter mStg[1]; a seed mix (DReg/FB1)
   would add variety.
+
+### REPO CLEANUP PLAN (2026-11-28, planned with Liv, NOT STARTED)
+
+Liv asked for the three ugliest things about the repo, then for a plan;
+parked while chasing CHIP-0 EWP ACKS LOST.  Each phase is one commit;
+OPEN_ISSUES / CLAUDE.md paths are fixed in the same commit as a move.
+First: `git tag pre-cleanup` on HEAD (Liv pushes it), so docs can say
+"removed, see `git show pre-cleanup:PATH`".  Checks per phase: native
+tests, a cross build, a mock run of experiment.cmd here; on the QB,
+build_all.sh after phases 2 and 3, and a short run after 3.
+
+The three ugliest (as of 2026-11-28, 653 tracked files, 23 MB):
+1. Versions kept as numbered copies (~80 files: ethfwd1..22,
+   seam4..21.cmd, e1fwd1..16 + hosttests, t6arc*, expts10..16, ...).
+2. srcs/host/tools/ is a junk drawer (97 files: the native test suite,
+   one-off hardware probes, generated headers, design docs, committed
+   .dis / _image.inc build products).
+3. Generated files mixed in with hand-written ones (bpasm's headers in
+   srcs/shared/include and host/tools, generated .bp beside hand .bp).
+Honorable mentions: EWD/fonts is 13 MB for two used faces; README ends
+in sample-code boilerplate; 8 top-level .md files; /data/ackley paths
+in 18 tracked files.
+
+Phase 1, delete superseded copies (no build path changes).  Keep the
+newest of each series plus whatever CMake, run_native_tests.sh or
+mfmxctl uses:
+- ethfwd: keep ethfwd22 (ERISC_NOTES 9.16, PASSED); drop 1, 11-21.
+- expts: keep expts16.sh; drop 10-15.
+- ethprobe: keep ethprobe12; drop ethprobe, ethprobe11.
+- ethlinktest / e1order: keep ethlinktest14, e1order14 (+ .ld,
+  build.sh); drop the older tests and images with their .dis and
+  _image.inc.
+- e1fwd: keep e1fwd16 (the one e1fwd.cmake builds) and hosttest16;
+  drop e1fwd1, 11, 13-15 and their hosttests (run_native_tests.sh runs
+  hosttest13-16: drop 13-15 from its loop).  DECIDE: OK to drop those
+  tests?
+- t6arc: keep t6arc4, t6arcrun4, hosttest_arc4; drop the 1-3 chain
+  (also in run_native_tests.sh).  DECIDE: same question.
+- seam*.cmd: keep seam4 (docs, dtoml, xchg), seam9 (mock selftest),
+  seam21 (latest); drop ~19 others and unreferenced seamcycle* etc.
+- dtoml: keep nu1012; drop mpmd18, nu1010, nu1011.
+- fonts: keep fonts/JetBrainsMono/ttf/JetBrainsMono-Light.ttf and
+  fonts/NK57Monospace/NK57 Monospace Cd Rg.otf (RTMPFeed13 loads only
+  those); add JetBrains Mono's OFL.txt (the OFL wants it shipped).
+- README: drop the "RANDOM CRAP FROM SAMPLE CODE BELOW" tail.
+- ERISC_NOTES / DEFERRED entries naming a dropped version: one line
+  "removed, see pre-cleanup".
+
+Phase 2, split srcs/host/tools/ (paths change):
+- tools/tests/: *_test.*, bytephys_test, run_native_tests.sh.
+- tools/probes/: eth*, arc*, t6*run, expts.
+- Device C (e1fwd/, t6pp/, e1order/) under srcs/cross/ (RISC-V code
+  built by the cross toolchain); update srcs/cross/codes/e1fwd.cmake.
+- ERISC_NOTES.md, ERISC_SEAM_DESIGN.md to docs/ (phase 4).
+
+Phase 3, a place for generated files (includes change):
+- bpasm headers (BytePrograms.h, ByteBench.h, BytePhysTests.h,
+  ByteDReg.h) to srcs/shared/include/gen/, included as
+  "gen/BytePrograms.h".  NOT a separate include dir: the cross CMake
+  passes -I${SHARED_INCLUDE_DIRS} as a single dir for the ld script.
+- generated .bp to scripts/bytephys/gen/ (ulamlite OUTDIR, bpasm SETS).
+- physics/*.bcp stay (runtime data mfmxctl loads).
+- (Later, bigger: generate at build time instead of committing.)
+
+Phase 4, docs and paths:
+- docs/: BYTEPHYS, GEOMETRY, HANDOFF, ERISC_*; root keeps README,
+  CLAUDE*, the three *_ISSUES; CLAUDE.md map updated.
+- build_all.sh venv / wheels dirs overridable by environment (current
+  values as defaults); FontCache.py demo path relative; AutoWash.sh and
+  A1AAutoWash.sh (only removed configs) deleted.
+- notes/: content untouched; README says what it is.
