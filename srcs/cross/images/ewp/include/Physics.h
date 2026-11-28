@@ -41,6 +41,12 @@ namespace MFM {
     BytePhys::BCPView mBCP;
     BytePhys::BCPView mBenchBCP;
     void openImages() ;         // initB
+    void reopenImages() ;       // a view found empty at an event
+    u32 mBCPOpen;               //< initB's openBCP answer, physics
+    u32 mBenchOpen;             //< and bench (0 = opened)
+    u32 mBCPLate;               //< 0x10 initB opened; +1 empty later
+    u32 mBCPRetry;              //< then: openBCP's answer, physics
+    u32 mBenchRetry;            //< and bench
 
     // Physics timing (`.pt` mark): per timed type, events, wall-clock
     // ticks (AI clock cycles) spent in guardedPhysics, and bytecode
