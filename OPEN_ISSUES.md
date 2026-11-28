@@ -461,7 +461,23 @@ experiment.cmd times it (expect FB4 toward 9-10k cycles/event).  Then
 step 3, function granularity: bpasm function table and function-relative
 jumps, verify() keeps jumps inside a function, CALL names (program,
 function), 8 B call records, cache keyed by (program, function) checked
-at entry, CALL and RET; step 4, calls across elements in ulam-lite.  Next
+at entry, CALL and RET; step 4, calls across elements in ulam-lite.
+WHOLE-PHYSICS IMAGE (Liv, 2026-11-27): today a Program is ONE ELEMENT's
+code (BFB1, BFB4: each self-contained, quark code such as Aging compiled
+into each that uses it, targets as u16 offsets from that program's
+start).  Ultimately a program will have to be ALL the code of one
+physics: one image holding every element's and quark's functions once,
+a function table, and per element type an entry function (programFor
+becomes type -> entry index).  So step 3 should be designed for that,
+not per element: calls by index into the image's function table (a
+cross-element call is then just a call), jumps PC-relative inside their
+function (8-bit and 16-bit forms; verify() keeps them inside), call
+records (function, pc in function), the image in L1 (EWP L1 has ~1 MB
+free) and the fast-RAM cache holding hot FUNCTIONS, checked at entry,
+CALL and RET.  Whole-program caching (step 2) is then only a
+measurement; u16 offsets would cap an image at 64 KB unless targets are
+per function.  Layout checks stay per element type (getm faults
+BF_TYPE).  Next
 idea (Liv, 2026-11-27): a few KB of HB fast RAM as an ON-DEMAND CACHE
 of bytecode, since all real physics will not fit.  Cache whole
 functions, checked only at program entry, call and ret (jumps stay
