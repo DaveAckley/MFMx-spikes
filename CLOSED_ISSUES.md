@@ -5,6 +5,38 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-27  Corner notches (four-corners corner squares went stale)
+
+Liv saw square holes at hub corners, sharp to their edges and soon
+refilled, in FB1 tiles that had been full a long time.  The notch
+detector (mfmxctl `notch on`, notchwatch.py, with control squares at hub
+edge midpoints and centers) measured them: run 20261127-163420 (06e8b2c,
+fourcorners, elide on) had notches per point corner 7.85 / edge 3.16 /
+center 1.63, and 54% of corner notches in the PREVIOUS cycle's corner
+quadrant (chance 25%; controls 25-27%), rarely when the corner repeated.
+Cause (CachingPolicy.h, NgbCacheMgr.h, CacheLoader.cpp): four-corners
+edge bands ran the whole side, so they contained the corner squares, and
+one owner's corner square had THREE borrowers per cycle (the diagonal,
+the only one whose events reach it, plus two neighbors' edge bands).  At
+SAVE every holder shipped its whole band back and the last packet won,
+often a stale unused copy; elision kept any band whose role was
+unchanged, so stale corner copies survived corner changes and histories
+forked (scripts/cachepolicy/cornersim.py: the cycle's modifier started
+from a stale copy 50% of the time on the diagonal).  Fix ae68d4a:
+FourCornersPolicy::trimBand / CachingPolicies::bandRange drop the corner
+square at the end of an edge band away from the corner, on both ends of
+the link, so no site has two borrowers; keepAcross keeps four-corners
+bands only on a repeated corner; cachepolicy_test checks one borrower
+per site (192 failures on the old bands) and now runs in
+run_native_tests.  PROVEN run 20261127-182009 (same script): corner
+2.49 / edge 2.75 / center 1.49 notches per point, previous-corner match
+24% (edge 23%, center 23%), quadrants even (NE 72, NW 65, SE 69, SW 85;
+the old SE deficit is gone too); consensus unchanged (0.146 s), no
+timeouts.  The host's 'stale reports ignored' count rose to 13.1M per
+25 min (4.5M before): more SAVEs now that adjacent corners keep nothing,
+so more borrower event reports arrive after the owner's newer SAVE
+report and are dropped, as the epoch-of-change stamp intends.
+
 ## 2026-11-26  Log car died after 65.5 s of silence
 
 LogBlockL1Control::writeMark refused a mark whose u16 ms offset from its

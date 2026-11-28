@@ -478,137 +478,17 @@ batch, so it looks like a timing race rather than a bad site per seed:
 doSeed (EWControl.cpp) writes the atom straight into a T6 grid in L1
 (QuietBox::storeP4Atom) at any moment of the cycle; something (a cache
 SAVE/LOAD, an elided band kept by a borrower, ...) may overwrite it.
+(2026-11-27: the four-corners multi-borrower SAVE race, CLOSED_ISSUES
+'Corner notches', overwrote corner squares with stale copies; a seed
+landing in a corner square could have been lost that way.  Not
+rechecked since the fix.)
 To test: read the seeded sites back a cycle or two after seeding, and
 note the cycle phase at the write.  Liv's 'corner gaps' (square notches
 at tile corners on the FB4 front, gaps.png 2026-11-26) may be the same
 stale-copy business.
 
-CORNER NOTCHES (Liv, 2026-11-26 and again 2026-11-27, OPEN, not
-explained): square notches appear at tile corners, sharp-edged all the
-way to their borders, and neighboring physics then fills them in
-quickly.  Seen on the FB4 front (gaps.png, 11-26) and on 11-27 in the
-FB1 phase of run de5a0a3 (fourcorners, elide on, events shortcut, no
-nukes during FB1) in tiles that had NOT been empty for a long time, so
-'post-nuke empties shown in a strange order' does not explain it
-(Liv's gut agrees).  Each notch is roughly bounded by a 'black cross'
-at one corner.  It looks like a whole CORNER CACHE being emptied and
-that emptiness landing in live sites.  Suspects, untested: a SAVE
-that writes back a corner cache that was never loaded or was cleared
-(elision keepAcross / mKeepMask, or the center-diagonal channels), or
-a LOAD that delivers an empty corner over the owner's live one.  The
-ring is OW = OH = 20, so a 20 x 20 notch would point at the corner
-cache.  To pin down: measure a notch's size and position against the
-hub grid (pixel x mod 137, y mod 108); `cycle hold` when one appears,
-then `who` / `zoom region` on it and `dumpl1` the owner and the
-diagonal borrower; and an A/B with `elide off` (if notches vanish, it
-is the kept-band path).  Same family as LOST SEED BATCHES above
-(something overwriting live sites with a stale copy).
-Catching one live by eye is hopeless (fills too fast), so: DETECTOR
-BUILT (2026-11-27, Python only, not yet run): mfmxctl `notch on`
-(notchwatch.py; CLAUDE.md 'NOTCH DETECTOR') logs every corner square
-that empties while its three neighbors stay full, with side, sharpness,
-scy and owner hub, and `notch hold on` freezes the cycle at the first.
-experiment.cmd is the `elide on` arm of the A/B (25 min FB1, counts in
-runsum 'corner notches'); then an `elide off` twin.
-FIRST RUN (20261127-154951, 3daa60d, FB1, elide on, 25 min, no nukes):
-1004 'notches', far too many to all be the artifact: by largest empty
-side 4: 518, 8: 263, 12: 103, 16: 50, 20: 32, 24: 28, 28: 10, steady
-at ~65 per 150 s after the fill (so not post-nuke or fill-front
-leftovers), spread over 116 of 117 corners, no excess at the chip seams
-(x 959: 8.4% of notches vs 7.7% of corners; y 540: 11.6% vs 11%), at
-most a few per scy.  The steep fall-off with size looks like FB1's own
-holes; the detector cannot yet tell them from the artifact.  One
-asymmetry: after 600 s, 4x4 notches by square NE 115, NW 108, SW 92,
-SE 25 (the SE square is the NW corner of a hub's SELF), at 8 and up
-even again; maybe fewer events there under fourcorners, not seen in
-the pictures.  Live, the first three (scy 70) were two squares at one
-corner (1644,432) NW + SW in the same cycle and one at (959,216).
-CONTROLS BUILT (2026-11-27, Python only, not yet run): the same test
-at 256 hub edge midpoints and 140 hub centers, counted apart; runsum
-prints notches per point by side for corner / edge / center.  Only an
-excess at corners (in the large sizes) is the artifact.  experiment.cmd
-reruns the 154951 script with them (still the elide on arm).
-CORNER EXCESS FOUND, TIED TO THE CORNER CHANGE (run 20261127-163420,
-06e8b2c, FB1, elide on, cycle repeat on, 25 min, no nukes).  Notches
-per point, all sides: corner 7.85, edge 3.16, center 1.63 (side 4:
-4.13 / 1.84 / 0.86; side 8: 2.32 / 0.66 / 0.34; sides 20-24: ~0.16 /
-0.09 / 0.07; side 28: 0.02 / 0.03 / 0.04), so corners have 2-7x the
-background, mostly in small sizes.  Decisive: a corner notch's square
-matches the PREVIOUS cycle's Corner4 (the quadrant whose square was
-that cycle's borrowed corner cache) 50-55% of the time at every size
-(chance 25%; the current cycle's corner only 11-18%), and only 6-10%
-of corner notches come in cycles that REPEAT the corner (25% of
-cycles do, with elision keeping the bands); edge and center notches
-show neither (23-33%, 17-38%).  So: when the corner changes, the
-corner cache borrowed in the cycle before comes back (or is shown)
-EMPTY over part of its square, and FB1 refills it.  Edge bands,
-exchanged the same way, do not do this, so it is the CORNER (diagonal)
-cache path: SAVE of the corner cache, its packets, or the owner's
-unload.  Sizes peak at 4-8, so either only part of the square goes,
-or the corner cache is smaller than the 28-site ring (to check in
-CachingPolicy.h / CacheLoader).  Next: decide grid vs display (`notch
-hold on`, then dumpl1 the owner and the diagonal borrower, or a `notch
-dump` that does it), and a hub mark counting occupied -> empty
-overwrites per Dir8 in the corner-cache SAVE/LOAD.
-CAUSE FOUND IN THE CODE (2026-11-27, reading CachingPolicy.h,
-NgbCacheMgr.h, CacheLoader.cpp; not yet fixed).  Under fourcorners the
-EDGE bands are full width: NgbCacheMgr::SITE_RANGES[NT] is our whole
-top OH rows ([OW,TW-OW) x [OH,2OH)), so it CONTAINS our NW and NE
-corner squares, and the same for WT/ST/ET.  So with corner SE, owner
-D's NW corner square is held by THREE borrowers at once: the NW
-diagonal A (SE corner cache, the only one whose events reach it), the
-north neighbor B (inside its ST band; its events stop at x >= 2*OW)
-and the west neighbor C (inside its ET band; events stop at y >=
-2*OH).  The cachepolicy_test invariant (non-overlapping event REACH)
-holds, but the copies are not disjoint, and:
-  1. SAVE RACE: at the next corner change every holder whose band is
-     not kept ships its WHOLE band back (CacheLoaders::saveCaches,
-     CacheLoader::loadPacket over CACHE_RANGES), and D's unloads write
-     every site (unloadPacket), so D's square ends up as whichever
-     packet unloads LAST: often B's or C's unused LOAD-time copy, which
-     throws away A's whole cycle of events there and reports the old
-     state (owner SELF unload, setAtomOrDrop) over A's painted one.
-  2. ELISION KEEPS STALE CORNERS: keepAcross looks only at a
-     direction's role, so e.g. SE -> SW keeps B's ST band; B, now the
-     only one whose events reach D's NW square, evolves its copy from
-     before A's SE cycle, and A, on a later SE, LOADs D's SELF copy,
-     which nobody saved back.  Histories fork and the picture flips
-     between them.
-scripts/cachepolicy/cornersim.py models one corner square (holders,
-modifier per corner, keepAcross, last-SAVE-wins): with elision the
-cycle's modifier starts from a STALE copy 50% of the time when it is
-the diagonal (SE) and 16-25% otherwise, up to ~14 cycles old; without
-elision 16-17% (the SAVE race alone).  Edge-band MIDDLES have a
-single holder, which is why edge midpoints and centers show no
-corner-sequence correlation; supercell has one leader per 2x2, so
-no square has two borrowers there; ewsnap uses minimal disjoint bands
-and keeps only on a repeat.  The notches would then be FB1's ordinary
-holes (sizes 4-8, as at the controls) from an older or losing history,
-pasted in with the corner square's sharp edges, shown in the cycle
-after the corner that held it.
-FIX PROPOSED (not done): for CP_FOURCORNERS, trim each borrowed EDGE
-band to what the borrower's events can reach: drop the corner square
-at the end AWAY from the corner (horizontal bands NT/ST: the west
-square [OW,2OW) when toEast(corner), else the east one; vertical bands
-WT/ET: the north square [OH,2OH) when toSouth, else the south one), on
-both ends of the link (SITE_RANGES and CACHE_RANGES share x for N/S
-and y for E/W); then each corner square has exactly one borrower per
-cycle.  keepAcross must then keep a band only when its range is the
-same, i.e. on a repeated corner (as ewsnap).  Add the 'one holder per
-site per cycle' invariant to cachepolicy_test.  Hub change.
-FIX BUILT (2026-11-27, cross-built, NOT yet run; Liv: 'i wasn't
-intending any site to be borrowed more than once'): FourCornersPolicy::
-trimBand / CachingPolicies::bandRange as proposed, applied in
-CacheLoaders::configureCacheLoaders to both ends (the same ranges serve
-the LOAD and the following SAVE); keepAcross keeps four-corners bands
-only on a repeated corner.  cachepolicy_test (now in run_native_tests;
-its stale 'unknown id' check fixed) checks that a hub's lent bands
-share no site, that its borrowed bands cover every cache site its
-events reach, that both ends walk the same shape, and repeat-only
-elision; with the old full bands it fails 192 times.  cornersim.py
-`fixed` mode: no stale starts.  To prove: the notch hunt again
-(experiment.cmd): corner notches per point should fall to the edge /
-center level and lose the previous-corner correlation.
+CORNER NOTCHES: FIXED 2026-11-27 (ae68d4a, trimmed four-corners bands),
+see CLOSED_ISSUES.  The notch detector (`notch on`) stays.
 
 
 Liv's idea for complex, sparse, heavy physics on the EWPs.  The limit is
