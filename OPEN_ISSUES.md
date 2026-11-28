@@ -35,8 +35,8 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   reopen at an event worked) showed it.  Now the EWP opens its blobs at
   the first event that needs one (Physics::openImages, `.bv:TRIED:OPEN:
   BENCH:TYPES.`).  Move to CLOSED_ISSUES when a run shows bytecode and
-  `.bv:1:0:0:2`.  ALSO: initB's preloadT2Mailbox() has never run since
-  bb5c983 either; harmless so far?  (Liv to judge; initB now says so.)
+  `.bv:1:0:0:2`.  (initB's preloadT2Mailbox() call is dead too, but
+  the HartTasks PRNG task does it at HE_BORN1 on every hart but T2/NC.)
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The
   `.sc` mark (scy at NEW_LEADER entry) is now in every run for next time.

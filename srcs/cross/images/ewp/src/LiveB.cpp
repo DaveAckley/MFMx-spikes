@@ -56,8 +56,10 @@ namespace MFM {
   }
 
   // NOTE (2026-11-28): NOTHING CALLS initB (no caller since DefaultLives
-  // became StandardLife, bb5c983), so none of this runs, including
-  // preloadT2Mailbox.  The bytecode state below relies on fast RAM being
+  // became StandardLife, bb5c983), so none of this runs.  One-time inits
+  // live in the HartTasks epochs now (preloadT2Mailbox: FastT2.cpp
+  // TaskEpochFunction_PRNG, HE_BORN1).  The bytecode state below relies
+  // on fast RAM being
   // zero at reset instead (the Machine fills its dispatch table on the
   // first run(), the code cache empties itself at its first bind(), the
   // BCPs are opened at the first event, Physics::openImages).
