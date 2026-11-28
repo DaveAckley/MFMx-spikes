@@ -1,11 +1,13 @@
-# EXPERIMENT: BytePhys BCP blobs: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
-# Same script as runs 20261127-224448 and 20261128-003440.  The code is
-# now stored as ONE pointer-free BCP blob per physics (BytePhys.h
-# 'BCP'), still compiled in; the EWP opens and re-verifies its blobs in
-# initB (a failure would log BCPBAD and run no bytecode).  Nothing about
-# the run should change: expect bench call 43.3 F / 50.7 L, enter 49.5 /
-# 59.3, FB4 ~9436 cycles/event, FB1 ~1700-1760, `.bc` 0 scans, no
-# BCPBAD mark, no `.pf`.  HB fast-RAM data ends at 0x10c0 (+80 B).
+# EXPERIMENT: BytePhys BCP blobs, diagnosis: microbenchmark 11 min, then FB1 (4 vs 7) 7 min, then FB4 (5 vs 8) 8 min, shortcut (AERse), ~28 min
+# Same script as runs 003440 and 014339.  Run 014339 (91907bb) ran NO
+# bytecode: the EWPs' BCP views were empty at events (OPEN_ISSUES).  This
+# build logs `.bv:OPEN:BENCH:LATE:RETRY:BRETRY:TYPES.` with every
+# 100k-event mark (initB's openBCP answers, 0 = ok; LATE 0x10 = initB
+# opened, +1 = a view was empty at an event and was reopened; the
+# reopen answers; the physics view's type count) and reopens an empty
+# view, so the bytecode may run anyway.  Wanted: the `.bv` values
+# (grep -h '\.bv:' tiles/*.mfmk | sort | uniq -c, or the all.mfmk tail),
+# then the usual bench / FB1 / FB4 numbers if the bytecode ran.
 # Bench phase: 20 Bench atoms (type 31), decay 31; they erase
 # themselves after 104 events.  Then FB1 seeds, a whole-grid nuke, then
 # FB4 seeds.  Expect no `.pf`.

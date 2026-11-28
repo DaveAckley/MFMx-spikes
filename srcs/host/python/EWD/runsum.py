@@ -376,15 +376,19 @@ def cache_and_stack(rundir):
     bc4tiles = set()
     used = []
     head = []
+    bv = {}                     # `.bv:` value -> marks (BCP opens)
     for path in files:
         try:
             with open(path, "r", errors="replace") as f:
                 for l in f:
-                    for tag in (" .bc:", " .sw:"):
+                    for tag in (" .bc:", " .sw:", " .bv:"):
                         i = l.find(tag)
                         if i < 0:
                             continue
                         v = l[i + 5:].strip().rstrip("}").rstrip(".")
+                        if tag == " .bv:":
+                            bv[v] = bv.get(v, 0) + 1
+                            continue
                         try:
                             xs = [int(x, 16) for x in v.split(":")]
                         except ValueError:
@@ -401,7 +405,7 @@ def cache_and_stack(rundir):
                             head.append(xs[1])
         except OSError:
             pass
-    if not bctiles and not bc4tiles and not used:
+    if not bctiles and not bc4tiles and not used and not bv:
         return []
     r = section("code cache and hart B stack (EWP .bc and .sw marks)")
     if bctiles:
@@ -418,6 +422,11 @@ def cache_and_stack(rundir):
                  f"hint misses found by scan {bc4[1]} "
                  f"({bc4[1] * 1e6 / max(ev, 1):.2f} per million), "
                  f"refreshes {bc4[2]}, bytes copied {bc4[3]}")
+    if bv:
+        r.append("BCP opens (.bv OPEN:BENCH:LATE:RETRY:BRETRY:TYPES, hex; "
+                 "LATE 10 = initB opened, +1 = reopened at an event): " +
+                 ", ".join(f"{v} x{n}" for v, n in
+                           sorted(bv.items(), key=lambda kv: -kv[1])[:6]))
     if used:
         r.append(f"stack: high-water max {max(used)} bytes (median "
                  f"{sorted(used)[len(used) // 2]}), headroom min "
