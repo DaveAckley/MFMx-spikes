@@ -564,7 +564,10 @@ attack the second.
   per instruction (bench L column: dup 19.9 -> 20.8, over 20.9 -> 21.8,
   push8 22.0 -> 23.0; F the same).  Hart B stack high-water max 1008
   bytes (median 816) of ~6 KB, headroom min 5072 bytes: room for a
-  cache several times this size.
+  cache several times this size.  BUDGET (Liv, 2026-11-27): the stack
+  will grow as more powerful bytecodes arrive, so plan hart B's 8 KB as
+  ~2 KB stack reserve + ~3 KB code cache + ~1 KB other data, not
+  around today's 1 KB high-water.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
