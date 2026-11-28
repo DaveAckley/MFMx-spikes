@@ -466,7 +466,19 @@ and stack figures.  STEP 3 BUILT (2026-11-27, host-tested, cross-built,
 NOT yet run; Liv's hybrid; BYTEPHYS.md sections 3 and 12): one image per
 set, functions cut into <= 256-byte chunks, in-chunk u8 jumps, xjmp/
 xjz/xjnz across chunks, call by function index, chunk cache 12 x 256 B,
-link-time 2 KB stack reserve.  Was planned as: step 3, function
+link-time 2 KB stack reserve.  MEASURED (run 20261127-224448,
+1b19246, clean boot): FB4 9423 cycles/event (was 9454), 2.88x native;
+FB1 1695, 3.39x (native FB1 also read higher, 500 vs 464); cache
+99.9997% hits (2118 misses on 420 EWPs, 0.4% of hits outside the MRU
+slot); stack high-water 880 bytes, headroom min 3040.  COST OF A CALL
+(open): the bench call pattern (call + ret) now costs ~278 cycles in
+fast RAM (was ~44) and ~105 from L1 (was ~62), i.e. ~117 cycles per
+transfer through the cache (call and ret alternate chunks, so the MRU
+slot misses and the tags are scanned) and ~21 per transfer in place
+(the Image's tables are L1 loads).  Real FB1/FB4 rarely transfer, but
+cross-element physics will.  Candidate fixes (not started): keep the
+Image's table pointers in locals for the whole run(); try the previous
+MRU slot too (or have CALL save the caller's slot for RET).  Was planned as: step 3, function
 granularity: bpasm function table and function-relative
 jumps, verify() keeps jumps inside a function, CALL names (program,
 function), 8 B call records, cache keyed by (program, function) checked

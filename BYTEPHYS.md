@@ -593,8 +593,8 @@ attack the second.
   will grow as more powerful bytecodes arrive, so plan hart B's 8 KB as
   ~2 KB stack reserve + ~3 KB code cache + ~1 KB other data, not
   around today's 1 KB high-water.
-- **Images, function chunks, chunk cache (2026-11-27, host-tested,
-  cross-built, not yet run; Liv's 'hybrid'):** see section 3.  A whole
+- **Images, function chunks, chunk cache (2026-11-27, run
+  20261127-224448; Liv's 'hybrid'):** see section 3.  A whole
   physics is one image of functions cut into <= 256-byte chunks;
   jmp/jz/jnz take a u8 in-chunk offset, xjmp/xjz/xjnz (new, 1c-1e) a
   chunk and offset, call a function index; fuel is compared at backward
@@ -613,6 +613,17 @@ attack the second.
   0x10b0 with the cache, ~3.8 KB of stack).  Next: if small functions
   waste slots, packed 64-byte units (allocator only); cross-element
   calls in ulam-lite.
+  MEASURED (run 224448, 1b19246): FB4 9423 cycles/event, 2.88x native
+  (was 9454); FB1 1695, 3.39x.  Cache 99.9997% hits (2118 misses on 420
+  EWPs: first loads), 0.4% of hits outside the MRU slot, refreshes one
+  per 4096 hits.  Stack high-water 880 bytes, headroom min 3040.  But a
+  transfer costs: bench `call` (call + ret) ~278 cycles in fast RAM (was
+  ~44 when whole programs were cached) and ~105 from L1 (was ~62), so
+  ~117 cycles per transfer through the cache (call and ret alternate
+  chunks: MRU miss, tag scan) and ~21 in place (the Image's tables are
+  L1 loads); `enter` the same plus its own cost.  Open (OPEN_ISSUES):
+  table pointers in locals, a second MRU try or a caller slot saved for
+  RET.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
