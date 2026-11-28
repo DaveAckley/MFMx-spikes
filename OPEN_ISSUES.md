@@ -20,9 +20,9 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   already gone out, before checking 'already done' (HartTasks.cpp:114,
   run 20261127-122216, hub at023, h0/h1 died, 139/140 acks, no events).
   Fix: test 'already done' first, assert only for an out hart that never
-  did the task, EACH there on hb only.  Clean boots since: 9 (141156,
+  did the task, EACH there on hb only.  Clean boots since: 11 (141156,
   151122, 154951, 163420, 182009, 200923, 204054, 224448,
-  20261128-003440).  Move to
+  20261128-003440, -014339, -022755).  Move to
   CLOSED_ISSUES after a few dozen.  May also have been the 2026-11-21
   seam21 laggards.
 
@@ -34,8 +34,10 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
   bb5c983).  f1e7905's `.bv:0:0:1:0:0:2` (initB never ran; the late
   reopen at an event worked) showed it.  Now the EWP opens its blobs at
   the first event that needs one (Physics::openImages, `.bv:TRIED:OPEN:
-  BENCH:TYPES.`).  Move to CLOSED_ISSUES when a run shows bytecode and
-  `.bv:1:0:0:2`.  (initB's preloadT2Mailbox() call is dead too, but
+  BENCH:TYPES.`).  Run 20261128-022755 (f1e7905, late reopen) ran the
+  BCP blobs normally: bench call 43.3 F / 50.6 L, enter 49.5 / 58.6,
+  FB4 9376 cycles/event (2.87x), FB1 1663 (3.60x), 0 scans.  Move to
+  CLOSED_ISSUES when 8e78c85+ shows `.bv:1:0:0:2`.  (initB's preloadT2Mailbox() call is dead too, but
   the HartTasks PRNG task does it at HE_BORN1 on every hart but T2/NC.)
 - Single unexplained hang, fastframe10-12 (2026-11-25): at scy 3621,
   3.1 h in, the leader (bh2) went mostly silent; not investigated.  The

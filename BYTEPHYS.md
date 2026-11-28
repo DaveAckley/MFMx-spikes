@@ -673,7 +673,12 @@ attack the second.
   there never ran either, harmless because fast RAM is zero at reset
   and bind() empties the cache.  Now opened at the first event that
   needs it (f1e7905's late reopen proved the open itself works on the
-  hardware: `.bv:0:0:1:0:0:2`).  bytephys_test: hand-made images are packed by a C++ packBCP,
+  hardware: `.bv:0:0:1:0:0:2`).  MEASURED with that reopen (run
+  20261128-022755): same as before the blobs: bench call 43.3 F / 50.6
+  L, enter 49.5 / 58.6; getm1 46.3 / 56.5 (was 48.6 / 58.7: the
+  Layout now sits in the view in fast RAM); FB4 9376 cycles/event
+  (2.87x), FB1 1663 (3.60x); 1.13 cache misses per million events, 0
+  scans.  bytephys_test: hand-made images are packed by a C++ packBCP,
   which must give bpasm's exact bytes for the physics; damage of every
   kind is refused (magic, version, opcode count, size, checksum, a
   misaligned or out-of-bounds table, reserved words, a member over 32
