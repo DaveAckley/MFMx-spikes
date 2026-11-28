@@ -5,6 +5,22 @@ Move an entry here in the SAME commit that closes it (CLAUDE.md sec 2); keep
 the measured numbers, drop the blow-by-blow (git log has that).  Entries
 marked PROVISIONAL stay until they have gone a few runs without coming back.
 
+## 2026-11-28  BytePhys calls through the chunk cache made cheap
+
+Run 20261127-224448 timed ~117 cycles per transfer through the new
+chunk cache (bench `call`, call + ret: 138.8 cycles per insn in fast
+RAM vs 52.3 from L1; `enter` 114.3 / 58.5).  Fix 954157f: a hit is a
+slot hint (mSlotOf[chunk & 63]) plus a tag compare, writing nothing;
+FIFO misses; the refresh moved to one slot per 1024 events; run()
+reads the image tables through locals.  Run 20261128-003440: `call`
+43.3 F / 50.7 L, `enter` 49.5 F / 59.3 L (fast RAM now beats L1 for
+calls; ~20 cycles per transfer above the old whole-program cache);
+other patterns unchanged; `.bc` 1.75 misses per million events, 0
+scans; FB4 9436 cycles/event (2.88x native, unchanged); FB1 1764
+(3.61x; 1695 and 1635 in the two runs before, native 489 / 500 / 464,
+so FB1 moves ~5% between runs; not chased).  Stack high-water 880 B,
+headroom 3104 B.  Clean boot, 0 timeouts, Liv saw a clean nuke.
+
 ## 2026-11-28  Moved from OPEN_ISSUES (finished earlier; own dates)
 
 OPEN_ISSUES.md was trimmed to current work on 2026-11-28; these entries

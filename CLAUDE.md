@@ -209,8 +209,9 @@ Hub diagnostics and analysis scripts:
 
 The work is the BytePhys bytecode physics on the EWPs (BYTEPHYS.md; run
 20261127-224448: FB4 9423 cycles/event, 2.88x native, FB1 1695, 3.39x,
-chunk cache 99.9997% hits).  Waiting on run 954157f (cheaper cache
-hits); next the start-time loadable physics (OPEN_ISSUES 'Next work').
+chunk cache 99.9997% hits).  Cache hits made cheap (run
+20261128-003440: bench call 43 cycles per insn from fast RAM, was
+139); next the start-time loadable physics (OPEN_ISSUES 'Next work').
 Every experiment: config/experiment.cmd, `events shortcut`, `policy
 fourcorners`, `elide on`.  Health: recent runs boot clean (the
 HOLD_AT_BIRTH init race fix is counting clean boots), 0 bolt timeouts,

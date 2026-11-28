@@ -14,24 +14,15 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 
 ## Waiting on a QB run
 
-- BytePhys cheaper cache hits (954157f, running 2026-11-28).  Run
-  20261127-224448 timed ~117 cycles per transfer through the chunk
-  cache (bench `call`, call + ret, 138.8 cycles per insn in fast RAM vs
-  22.0 with the old whole-program cache; 52.3 from L1).  Now a hit is a
-  slot hint (mSlotOf[chunk & 63]) plus a tag compare that writes
-  nothing, misses fill FIFO, the refresh is one slot per 1024 events,
-  run() reads the image tables through locals (BYTEPHYS.md section 12).
-  Check: bench call/enter F near or under L; FB4 ~9423, FB1 ~1695
-  cycles/event unchanged; `.bc` misses ~5 per EWP, scans ~0.  If deep
-  call chains later show scans: CALL saves the caller's slot for RET.
 - HOLD_AT_BIRTH laggard, init race fix (built 2026-11-27).  Cause: in
   HartTaskerPrivate::run a hart still walking an epoch's rows with its
   local copy hit the out-hart assert on a row naming a hart that had
   already gone out, before checking 'already done' (HartTasks.cpp:114,
   run 20261127-122216, hub at023, h0/h1 died, 139/140 acks, no events).
   Fix: test 'already done' first, assert only for an out hart that never
-  did the task, EACH there on hb only.  Clean boots since: 8 (141156,
-  151122, 154951, 163420, 182009, 200923, 204054, 224448).  Move to
+  did the task, EACH there on hb only.  Clean boots since: 9 (141156,
+  151122, 154951, 163420, 182009, 200923, 204054, 224448,
+  20261128-003440).  Move to
   CLOSED_ISSUES after a few dozen.  May also have been the 2026-11-21
   seam21 laggards.
 
@@ -74,4 +65,5 @@ DEFERRED_ISSUES.md, CLOSED_ISSUES.md (2026-11-28 block) or
 - getm/setm with member pos/len resolved at compile time (~120 / ~160
   cycles net today).
 - Code cache: packed 64-byte units if small functions waste whole
-  256-byte slots (allocator only).
+  256-byte slots (allocator only).  If deep call chains ever show `.bc`
+  scans, have CALL save the caller's slot for RET.

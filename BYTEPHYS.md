@@ -643,6 +643,14 @@ attack the second.
   HB fast-RAM data ends at 0x1070.  bytephys_test: hint hits count
   nothing, a shared hint entry falls back to a scan, FIFO order,
   rebinding, refreshOne round robin and repair.
+  MEASURED (run 20261128-003440, 954157f): bench `call` 43.3 cycles per
+  insn F / 50.7 L (was 138.8 / 52.3), `enter` 49.5 / 59.3 (was 114.3 /
+  58.5): code in fast RAM now beats L1 for calls, ~20 cycles per
+  transfer above the old whole-program cache; the locals barely moved
+  L.  Other patterns unchanged.  `.bc`: 1.75 misses per million
+  events, 0 scans.  FB4 9436 cycles/event (2.88x), FB1 1764 (3.61x;
+  FB1 has moved ~5% between runs).  Stack high-water 880, headroom
+  3104 bytes.
 
 - **Microbenchmark (2026-11-27):** Bench atoms (type 31) run 26
   per-opcode programs from benchgen.py, from L1 and from fast RAM, plus
