@@ -36,7 +36,8 @@ timeouts.  The host's 'stale reports ignored' count rose to 13.1M per
 25 min (4.5M before): more SAVEs now that adjacent corners keep nothing,
 so more borrower event reports arrive after the owner's newer SAVE
 report and are dropped, as the epoch-of-change stamp intends.
-REGRESSION, FIXED (2026-11-27, NOT yet run): the trim also dropped the
+REGRESSION, FIXED (2026-11-27, 8f025ad; Liv: the post-FB1 whole-grid nuke
+"clean as a whistle" on the rebuilt QB): the trim also dropped the
 square at a PERMANENT edge, where no other borrower exists and
 withPermanentEdges runs events to the last real site, so borrowers on
 the array's outer edges evolved and painted cache squares that were
